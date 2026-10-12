@@ -17,12 +17,24 @@ type TypeCheckProjectResult =
         ProjectCheckResults: FSharpCheckProjectResults
     }
 
+type FableASTResult =
+    {
+        /// The current file transformed into the Fable AST
+        FableAST: AST.Fable.File
+        /// Everything the compiler reported: the diagnostics of the F# project as checked up to
+        /// the current file, tagged "FSHARP", followed by the logs Fable raised while
+        /// transforming that file, tagged "FABLE".
+        Logs: LogEntry array
+    }
+
 type CompileResult =
     {
         /// A map of absolute file path to transpiled JavaScript code
         CompiledFiles: Map<string, string>
-        /// Diagnostics of the entire checked F# project
-        Diagnostics: FSharpDiagnostic array
+        /// Everything the compiler reported: the diagnostics of the entire checked F# project,
+        /// tagged "FSHARP", followed by the logs Fable raised while translating the compiled
+        /// files, tagged "FABLE".
+        Logs: LogEntry array
     }
 
 type BabelWriter
@@ -94,6 +106,35 @@ type BabelWriter
 
 module CodeServices =
 
+    let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
+        diagnostics
+        |> Array.map (fun er ->
+            let severity =
+                match er.Severity with
+                | FSharpDiagnosticSeverity.Hidden
+                | FSharpDiagnosticSeverity.Info -> Severity.Info
+                | FSharpDiagnosticSeverity.Warning -> Severity.Warning
+                | FSharpDiagnosticSeverity.Error -> Severity.Error
+
+            let range =
+                AST.SourceLocation.Create(
+                    start =
+                        {
+                            line = er.StartLine
+                            column = er.StartColumn + 1
+                        },
+                    ``end`` =
+                        {
+                            line = er.EndLine
+                            column = er.EndColumn + 1
+                        }
+                )
+
+            let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
+
+            LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
+        )
+
     let compileFileToJs
         (com: Compiler)
         (pathResolver: PathResolver)
@@ -145,7 +186,7 @@ module CodeServices =
         (cliArgs: CliArgs)
         (crackerResponse: CrackerResponse)
         (currentFile: string)
-        : Async<AST.Fable.File>
+        : Async<FableASTResult>
         =
         async {
             let! assemblies = checker.GetImportedAssemblies()
@@ -173,7 +214,7 @@ module CodeServices =
 
             let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
-            let compiler: Compiler =
+            let compiler: CompilerImpl =
                 CompilerImpl(
                     currentFile,
                     fableProj,
@@ -185,10 +226,14 @@ module CodeServices =
 
             // TODO: make it configurable if FableTransforms.transformFile is applied?
             let fableAST =
-                FSharp2Fable.Compiler.transformFile compiler
-                |> FableTransforms.transformFile compiler
+                FSharp2Fable.Compiler.transformFile (compiler :> Compiler)
+                |> FableTransforms.transformFile (compiler :> Compiler)
 
-            return fableAST
+            return
+                {
+                    FableAST = fableAST
+                    Logs = Array.append (getFSharpDiagnostics checkProjectResult.Diagnostics) compiler.Logs
+                }
         }
 
     let compileMultipleFilesToJavaScript
@@ -214,13 +259,13 @@ module CodeServices =
 
             let opts = cliArgs.CompilerOptions
 
-            let! compiledFiles =
+            let! results =
                 inputFiles
                 |> Seq.map (fun currentFile ->
                     async {
                         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
-                        let compiler: Compiler =
+                        let compiler: CompilerImpl =
                             CompilerImpl(
                                 currentFile,
                                 fableProj,
@@ -234,17 +279,28 @@ module CodeServices =
                             Path.ChangeExtension(currentFile, cliArgs.CompilerOptions.FileExtension)
 
                         let! js =
-                            compileFileToJs compiler pathResolver outputPath cliArgs.CompilerOptions.FileExtension
+                            compileFileToJs
+                                (compiler :> Compiler)
+                                pathResolver
+                                outputPath
+                                cliArgs.CompilerOptions.FileExtension
 
-                        return currentFile, js
+                        // `AddLog` is not thread-safe, so every file keeps its own compiler and
+                        // the logs are gathered once all files are done.
+                        return (currentFile, js), compiler.Logs
                     }
                 )
                 |> Async.Parallel
 
+            let compiledFiles, fableLogs = Array.unzip results
+
             return
                 {
                     CompiledFiles = Map.ofArray compiledFiles
-                    Diagnostics = typeCheckProjectResult.ProjectCheckResults.Diagnostics
+                    Logs =
+                        Array.append
+                            (getFSharpDiagnostics typeCheckProjectResult.ProjectCheckResults.Diagnostics)
+                            (Array.concat fableLogs)
                 }
         }
 
@@ -305,14 +361,14 @@ module CodeServices =
 
             let opts = cliArgs.CompilerOptions
 
-            let! compiledFiles =
+            let! results =
                 dependentFiles
                 |> Array.filter (fun filePath -> not (filePath.EndsWith(".fsi", StringComparison.Ordinal)))
                 |> Array.map (fun currentFile ->
                     async {
                         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
-                        let compiler: Compiler =
+                        let compiler: CompilerImpl =
                             CompilerImpl(
                                 currentFile,
                                 fableProj,
@@ -325,16 +381,24 @@ module CodeServices =
                         let outputPath = Path.ChangeExtension(currentFile, ".js")
 
                         let! js =
-                            compileFileToJs compiler pathResolver outputPath cliArgs.CompilerOptions.FileExtension
+                            compileFileToJs
+                                (compiler :> Compiler)
+                                pathResolver
+                                outputPath
+                                cliArgs.CompilerOptions.FileExtension
 
-                        return currentFile, js
+                        // `AddLog` is not thread-safe, so every file keeps its own compiler and
+                        // the logs are gathered once all files are done.
+                        return (currentFile, js), compiler.Logs
                     }
                 )
                 |> Async.Parallel
 
+            let compiledFiles, fableLogs = Array.unzip results
+
             return
                 {
                     CompiledFiles = Map.ofArray compiledFiles
-                    Diagnostics = checkProjectResult.Diagnostics
+                    Logs = Array.append (getFSharpDiagnostics checkProjectResult.Diagnostics) (Array.concat fableLogs)
                 }
         }

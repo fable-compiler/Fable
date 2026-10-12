@@ -42,6 +42,22 @@ type Time =
 type CarInterior = { Seats: int }
 type Car = { Interior: CarInterior }
 
+type RecordWithIdField = { Id: Id }
+
+type Wrapped = { Value: int }
+
+let addOne (x: int) = x + 1
+
+type IWrap =
+    abstract Wrap: unit -> Wrapped
+    abstract Add: unit -> int
+
+type RecordShadowingFileScope =
+    { Wrapped: int; addOne: int }
+    interface IWrap with
+        member this.Wrap() = { Value = this.Wrapped }
+        member this.Add() = addOne this.addOne
+
 let tests() =
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
@@ -155,3 +171,13 @@ let tests() =
         let car2 =
             {| car with Interior.Seats = 5 |}
         equal 5 car2.Interior.Seats
+
+    testCase "Record field can have the same name as its type" <| fun () ->
+        let record = { Id = Id "foo" }
+        match record.Id with
+        | Id value -> value |> equal "foo"
+
+    testCase "Record fields can have the same name as file scope declarations" <| fun () ->
+        let record = { Wrapped = 3; addOne = 7 } :> IWrap
+        record.Wrap().Value |> equal 3
+        record.Add() |> equal 8

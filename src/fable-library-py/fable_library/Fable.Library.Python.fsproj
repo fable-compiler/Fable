@@ -24,7 +24,7 @@
     <Compile Include="Range.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
-    <Compile Include="../../fable-library-ts/System.fs" Link="System.fs" />
+    <Compile Include="System.fs" />
     <Compile Include="../../fable-library-ts/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
     <Compile Include="System.Text.fs" />
   </ItemGroup>

@@ -1,9 +1,10 @@
 ---
-last_commit_released: 2fc9c1415a9abcf729d920ca6c99732b3c894993
+last_commit_released: 148f989e1b37b3f6560c3dda615b6a3a8efffcb8
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
   - ../Fable.AST/
+  - ../fable-library-ts/
 updaters:
   - package.json:
       file: package.json
@@ -18,6 +19,215 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.7.1 - 2026-10-12
+
+### 🐞 Bug Fixes
+
+* *(beam)* Disambiguate property accessors from ordinary methods (#5049) ([b30dc89d](https://github.com/fable-compiler/Fable/commit/b30dc89d0091c2bd1d9fd7a20042b7fbb4e5a3fa))
+* *(beam)* Normalize exception messages and string split separators (#5053) ([f13a9e14](https://github.com/fable-compiler/Fable/commit/f13a9e1494d8bbde8e74bfbf9dfbc8bd051a157e))
+* *(js/ts/python)* Synchronize cancellation registrations (#5036) ([07db576c](https://github.com/fable-compiler/Fable/commit/07db576c4ae16dcef9d1773ac4d6c70b2a223f0a))
+* *(js/ts/python)* Preserve JS/TS generic unit arguments and Python unit continuations (#5037) ([e05bc752](https://github.com/fable-compiler/Fable/commit/e05bc752f1d8f16f08e2409a191d9c33463a1f04))
+* *(js/ts/python)* Settle cancelled delays and finalizers once (#5038) ([a9802484](https://github.com/fable-compiler/Fable/commit/a9802484c8cdeadd5203123d76f42e375c1c3159))
+* *(rust)* Fix tailcall elimination for members (#5051) ([4eb21772](https://github.com/fable-compiler/Fable/commit/4eb2177263f544ec354076da07d8a097d56c273e))
+* *(rust)* Fix temporary struct locals type (#5052) ([17b36588](https://github.com/fable-compiler/Fable/commit/17b3658876a3bd776c4a0129ec3a4cddc9d7e05d))
+* *(rust)* Add main function for no_std (#5054) ([10fdccc0](https://github.com/fable-compiler/Fable/commit/10fdccc04bb0e421643426d21dfcbd940e3e5a16))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/23bc5c54db51469431e6fdab713dfe1b6a3df019..148f989e1b37b3f6560c3dda615b6a3a8efffcb8)</small></strong>
+
+## 3.7.0 - 2026-10-07
+
+### 🚀 Features
+
+* *(python)* Give System exceptions native Python bases (#5040) ([4ee31586](https://github.com/fable-compiler/Fable/commit/4ee31586fd88ed0708e218e7f170432baa33551e))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Recognize boxed discriminated unions in type tests (#5033) ([dcfaa3d6](https://github.com/fable-compiler/Fable/commit/dcfaa3d6181f6789d0868e0bf9132ecdcdc76287))
+* *(beam)* Prevent identifier collisions and atom overflow (#5017) ([b9ce2fdb](https://github.com/fable-compiler/Fable/commit/b9ce2fdb53fc86a615970f4828005ee3a490385f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/aaf35f200be5bbc2698abe242f77b8de745e4337..23bc5c54db51469431e6fdab713dfe1b6a3df019)</small></strong>
+
+## 3.6.0 - 2026-10-03
+
+### 🚀 Features
+
+* *(dart)* Add support for `System.Text.Rune` (#3860) (#4969) ([389edefb](https://github.com/fable-compiler/Fable/commit/389edefb5ed131ed14fea26a9aa04dde4f5c40cf))
+
+### 🐞 Bug Fixes
+
+* *(all)* Minor type const strings cleanup (#5029) ([9b69e5be](https://github.com/fable-compiler/Fable/commit/9b69e5be8a2cffc3cbcb3920bf9924b72ed385d6))
+* *(beam)* Honor custom ToString in %O (#4994) ([58b79e0a](https://github.com/fable-compiler/Fable/commit/58b79e0a7c03c17aa4aa4981e59621d0559a9a0b))
+* *(beam)* Support AggregateException (#4999) ([e2120e10](https://github.com/fable-compiler/Fable/commit/e2120e1084a259d4080a5943d209b1ddfc400f01))
+* *(beam)* Preserve unmatched filtered exceptions (#5001) ([682b235b](https://github.com/fable-compiler/Fable/commit/682b235bbfdb81e1bccfac7a0ac4680d27448e65))
+* *(beam)* Support integer Log2 (#5002) ([dc964762](https://github.com/fable-compiler/Fable/commit/dc964762b81c0f50de23113bf671050f544037df))
+* *(beam)* Support DivRem ref arguments (#5003) ([902870b1](https://github.com/fable-compiler/Fable/commit/902870b15f46a90ecd034fb40d97e16de4a10713))
+* *(beam)* Range-check integer parsing (#5005) ([d5696304](https://github.com/fable-compiler/Fable/commit/d56963043d6f24296d58fae34b4288cc950315ff))
+* *(beam)* Check System.Convert integer conversions (#5006) ([3ebe4802](https://github.com/fable-compiler/Fable/commit/3ebe480256605e244795e9aa088bbee03347689d))
+* *(beam)* Support Decimal bit constructors (#5007) ([dfecebc5](https://github.com/fable-compiler/Fable/commit/dfecebc59f41195ea75dc1f61bffca3c2d2cbfbf))
+* *(beam)* Share cancellation state across processes (#5010) ([01eeded2](https://github.com/fable-compiler/Fable/commit/01eeded22f292e77c7c6c024de5d894d705fa09d))
+* *(beam)* Close BigInteger API gaps (#5011) ([358548d8](https://github.com/fable-compiler/Fable/commit/358548d8c6d55c719b8bb24cccd2c91b27e4b6d4))
+* *(beam)* Preserve array identity hashing (#5014) ([63a6f12a](https://github.com/fable-compiler/Fable/commit/63a6f12aa742e720d3040423c19707d77092e8bd))
+* *(beam)* Eliminate unsupported expression placeholders (#5013) ([7b3d762d](https://github.com/fable-compiler/Fable/commit/7b3d762debe2b5ab4a15e27a83b211474a7ce3af))
+* *(beam)* Preserve union collection ordering (#5016) ([67b63244](https://github.com/fable-compiler/Fable/commit/67b63244d3eb4f6aefb1a4d0684c4bca4dd9379d))
+* *(js/python/dart)* Handle Rune in non-Rust builtin matches (#5024) ([79bed98d](https://github.com/fable-compiler/Fable/commit/79bed98dc175494e8ac19973c7c384303ded5c6d))
+* *(python)* Import union cases for reflection (#5028) ([96325894](https://github.com/fable-compiler/Fable/commit/963258948a36119df1575493c45c9bc613d3a21f))
+* *(python)* Avoid name collisions in nested tuple matches (#5027) ([ff71a8c7](https://github.com/fable-compiler/Fable/commit/ff71a8c7c87a5333ca0320a083a46c2fb7302029))
+* *(rust)* Add support for System.Text.Rune (#4997) ([bc367c0b](https://github.com/fable-compiler/Fable/commit/bc367c0bde0fa0b52db04d5ee9c52b983fd7ffac))
+* *(rust)* Add missing Decimal members Abs, Sign, CopySign, GetTypeCode, FromOACurrency, ToOACurrency and tests (#4998) ([ec8d4c27](https://github.com/fable-compiler/Fable/commit/ec8d4c270683a6150389d77f7de6c22563c0079d))
+* *(rust)* Add proper UnicodeCategory support (#5009) ([426892ec](https://github.com/fable-compiler/Fable/commit/426892ec00cfd847140e598860cb88a19addb8d9))
+* *(rust)* Remove trailing comma from macro args (#5031) ([e6e9f54c](https://github.com/fable-compiler/Fable/commit/e6e9f54c905750a1bf78ec454bca7d83cdffb61e))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36..aaf35f200be5bbc2698abe242f77b8de745e4337)</small></strong>
+
+## 3.5.0 - 2026-09-25
+
+### 🚀 Features
+
+* *(dart)* Add `Async` runtime and `Future` interop for dart (#4978) ([b5a337d0](https://github.com/fable-compiler/Fable/commit/b5a337d0f71b2b1ae91516b8be8a65c7cadc9953))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Preserve local spawn calls (#4992) ([70278ec6](https://github.com/fable-compiler/Fable/commit/70278ec636b7f948a6ba3d215b36a3974de89edc))
+* *(dart)* Prefix file scope names shadowed by class members (#4982) ([ece7b071](https://github.com/fable-compiler/Fable/commit/ece7b0714eae18650124cad017b0bda4da74ebc8))
+* *(js/ts)* Fix Dictionary.Remove and HashSet.Remove to remove empty buckets (#4985) ([aea61b56](https://github.com/fable-compiler/Fable/commit/aea61b562c461a9b383e805f06f68a3b21ed45c2))
+* *(js/ts)* Clear custom System.Collections.IList implementations ([2369fbd2](https://github.com/fable-compiler/Fable/commit/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36))
+* *(python)* Keep the payload type when reading an erased union field (#4981) ([e0536ecd](https://github.com/fable-compiler/Fable/commit/e0536ecd9b9aeb12cc96c7a2ef2edde7089e2dd0))
+* *(rust)* Less allocations when enumerating strings (#4970) ([5d62380c](https://github.com/fable-compiler/Fable/commit/5d62380cb30dc1080c6943445a256e27db6246f8))
+* *(rust)* Remove reflection registration on boxing (#4983) ([50a37f78](https://github.com/fable-compiler/Fable/commit/50a37f78f31394d61349b09a025c1713529d8ec0))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Faster `resizeArray.Clear()` in JS/TS ([32d85add](https://github.com/fable-compiler/Fable/commit/32d85add01422547dba03b15e0a0787d8afb031b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/4a441b1926387a42db6a3a4294acd97b02760ca3..2369fbd24fafe851544c1ed6eb54f0bfc2b75f36)</small></strong>
+
+## 3.4.0 - 2026-09-11
+
+### 🐞 Bug Fixes
+
+* *(python)* Preserve record field names in structured formatting (#4952) ([fbc162d6](https://github.com/fable-compiler/Fable/commit/fbc162d6912d62b9a75e73f8264814f6519b6194))
+* *(python)* Reflect an erased union as the type it erases to ([0f564c74](https://github.com/fable-compiler/Fable/commit/0f564c744e86096c779d0acea6d677bce6d56ee1))
+* *(ts)* Declare the type parameter of a flexible-type overload ([6f1f1b8a](https://github.com/fable-compiler/Fable/commit/6f1f1b8afd9158743978720507ced5c4a8b2144f))
+
+### ⚡ Performance Improvements
+
+* *(standalone)* Accumulate compile errors in a ResizeArray ([f282ab48](https://github.com/fable-compiler/Fable/commit/f282ab48203fc5544c74b809f4396bb924724a2a))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321..4a441b1926387a42db6a3a4294acd97b02760ca3)</small></strong>
+
+## 3.3.0 - 2026-09-08
+
+### 🚀 Features
+
+* Add Temporal dates and times (opt-in) (#4759) ([3e8f56f7](https://github.com/fable-compiler/Fable/commit/3e8f56f78345fbee8a4394c5452eb212264701f9))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Allow the E format specifier on Int64 and UInt64 ([c49d1ec5](https://github.com/fable-compiler/Fable/commit/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321))
+* *(python)* Build typed arrays from lists and sequences (#4944) ([5af37779](https://github.com/fable-compiler/Fable/commit/5af37779ce33c1e9036df7a9548830c4f914bdd5))
+* *(rust)* Fix IEnumerable casting, interop and type testing (#4946) ([93c2df5b](https://github.com/fable-compiler/Fable/commit/93c2df5ba2b3316893dc85dc4fd746a09a07bf39))
+* *(rust)* Restore missing bindings (#4947) ([2fb46a26](https://github.com/fable-compiler/Fable/commit/2fb46a269bc4827494cab878f6e3f0e1b4052035))
+* *(ts)* Declare local function type params only reachable via constraints (#4943) ([8aa6d3b9](https://github.com/fable-compiler/Fable/commit/8aa6d3b9e9f3c1dc013d67406878ea93637ad74c))
+* *(ts/python)* Erase byref from struct copy-and-update locals (#4945) ([19a6522e](https://github.com/fable-compiler/Fable/commit/19a6522ea517db53dabd5e221206849d382e1025))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/bf694309ae5dbc6bb546d9acc4d091f5e35fe330..c49d1ec5d1a491bfff65fe4bd6c71014cac9b321)</small></strong>
+
+## 3.2.0 - 2026-09-03
+
+### 🚀 Features
+
+* *(all)* Quotations: DerivedPatterns, and captured locals as Value nodes (#4919) ([fae5093f](https://github.com/fable-compiler/Fable/commit/fae5093f2801195e865adf1acfaec63f38bbf973))
+* *(rust)* Observables, Events and IEnumerable (PR 6 of 7 Rust improvements) (#4789) ([20175eea](https://github.com/fable-compiler/Fable/commit/20175eea841adf14ed57c0068458fad591c8d5f4))
+* *(rust)* System.Uri (PR 7 of 7 Rust improvements) (#4790) ([8a551bc9](https://github.com/fable-compiler/Fable/commit/8a551bc9b2433035fc704dffc639e5f031ca7593))
+
+### 🐞 Bug Fixes
+
+* *(all)* Emit instance calls for virtual methods inherited from Object (#4926) ([2fb535a7](https://github.com/fable-compiler/Fable/commit/2fb535a7cd35cef501c56684f205e2dffa3c36e6))
+* *(all)* Allow private inline functions to use private values (#4915) ([b0740ba9](https://github.com/fable-compiler/Fable/commit/b0740ba95859a80e7add07f21e2fc81a31c00853))
+* *(python)* Emit Python names for float32 specials (#4938) ([b4c45a93](https://github.com/fable-compiler/Fable/commit/b4c45a93385f249a8586789037b0af18005786e9))
+* *(rust)* Observables and Events cleanup (#4908) ([ca165045](https://github.com/fable-compiler/Fable/commit/ca165045703797f0558da4bc6e06cbea7af231de))
+* *(rust)* Support `string` on a tuple (#4916) ([510c8a43](https://github.com/fable-compiler/Fable/commit/510c8a43c159ffb9d7d7bdc4e2ee16b84b80b28e))
+* *(rust)* Decimal culture overloads, and mutables assigned in try/finally (#4918) ([58402471](https://github.com/fable-compiler/Fable/commit/584024712450d333193baddc239db977af05bd54))
+* *(rust)* Let a string be enumerated (#4921) ([395c152b](https://github.com/fable-compiler/Fable/commit/395c152bd4ef0c26af7a4ff48ed44c728aa73d25))
+* *(rust)* F# exceptions, non-exhaustive matches and obj type tests (#4917) ([28da1d76](https://github.com/fable-compiler/Fable/commit/28da1d764e63c39b96ca20e94d9a08786b3c9052))
+* *(rust)* Cleanup AsyncBuilder and TaskBuilder (#4936) ([3e6bc9bd](https://github.com/fable-compiler/Fable/commit/3e6bc9bd4d4337e901cc748f35df2a5933f0ba55))
+* *(rust)* Fix interface casting, move reflection into declarations (#4939) ([04299157](https://github.com/fable-compiler/Fable/commit/042991572969e1864a160b0a0145b1d59bc77236))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b517d52df145ee30d1d3bd7e20fded1a9003ac54..bf694309ae5dbc6bb546d9acc4d091f5e35fe330)</small></strong>
+
+## 3.1.0 - 2026-08-25
+
+### 🚀 Features
+
+* *(standalone)* Publish the Fable version the bundle was built from (#4905) ([b517d52d](https://github.com/fable-compiler/Fable/commit/b517d52df145ee30d1d3bd7e20fded1a9003ac54))
+
+### 🐞 Bug Fixes
+
+* *(all)* Find a core entity recorded under a facade assembly (#4903) ([60210b86](https://github.com/fable-compiler/Fable/commit/60210b860afa361d89fbefdaf622d7943b305bb6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/67072a72e38377a51878d1ca81cd7e4f18ce7d6b..b517d52df145ee30d1d3bd7e20fded1a9003ac54)</small></strong>
+
+## 3.0.0 - 2026-08-25
+
+### 🏗️ Breaking changes
+
+* *(standalone)* Separate a project's files from the files to emit (#4897) ([1207cadd](https://github.com/fable-compiler/Fable/commit/1207cadd17caa6578dcc83e8e9802c1d12132dc3))
+* *(standalone)* Reference a precompiled library (#4899) ([faec805f](https://github.com/fable-compiler/Fable/commit/faec805fc7092047e37f27b901d0e0fa661bc274))
+* *(standalone)* Reference a precompiled library (#4900) ([90359c31](https://github.com/fable-compiler/Fable/commit/90359c31341775c16a9aed08d093f58c1169b35e))
+
+### 🚀 Features
+
+* *(python)* Represent Int32 and Float64 as plain Python int and float (#4856) ([ca361ea3](https://github.com/fable-compiler/Fable/commit/ca361ea3edf81b8eb8fae56782a1447237aae655))
+
+### 🐞 Bug Fixes
+
+* *(all)* Error on member reference from a source-less dll (#4894) ([065a88d8](https://github.com/fable-compiler/Fable/commit/065a88d87936307507b880c3b5cb667a56873a35))
+* *(all)* Match entity refs across the precompiled boundary (#4895) ([96783631](https://github.com/fable-compiler/Fable/commit/96783631bcc9e706b3b9f17e053ba70166feb15f))
+* *(all)* Say why an inline member's body could not be found (#4901) ([e5b0488e](https://github.com/fable-compiler/Fable/commit/e5b0488e0575b550f51971ef9d326a7c64c99084))
+* *(beam)* Escape quotes and backslashes in quoted atoms (#4866) ([5d5231b3](https://github.com/fable-compiler/Fable/commit/5d5231b3ca73d3e6cb6918b802479759972e7fa5))
+* *(beam)* Compile [<StringEnum>] cases to atoms instead of binaries (#4867) ([366919a7](https://github.com/fable-compiler/Fable/commit/366919a7118019d7f459944cfa7e621f9a7794fe))
+* *(beam)* Parse ISO-8601 numeric zone offsets and compare dates by instant (#4868) ([bb3c86d7](https://github.com/fable-compiler/Fable/commit/bb3c86d7aac22553ad9addf2839382777a3b7276))
+* *(python)* Keep original F# field names in record reflection (#4852) ([90c1798b](https://github.com/fable-compiler/Fable/commit/90c1798bfa516a2806c10e399fdbc8f13c362491))
+* *(standalone)* Compile each file on a fresh stack (#4896) ([2f282ccb](https://github.com/fable-compiler/Fable/commit/2f282ccb5dfdb93aa3e2d0433fa242efb00ece1f))
+* *(standalone)* Match fcs-fable's assembly identity to what callers look up (#4898) ([95e3aecf](https://github.com/fable-compiler/Fable/commit/95e3aecf9b8fc5024363ac33529e5998a062c7a3))
+
+### ⚡ Performance Improvements
+
+* *(python)* Back int64 arrays with typed storage (#4864) ([78a5d479](https://github.com/fable-compiler/Fable/commit/78a5d479b5bff9927afb62824e3e75935e06d7a3))
+* *(python)* Hash numbers without the safeHash detour (#4865) ([32b42b2a](https://github.com/fable-compiler/Fable/commit/32b42b2a2c3f1047ba730411c2ffcf5b2d3e3ecf))
+* *(python)* Elide int32 normalizations that cannot change their argument (#4859) ([7e9cd96a](https://github.com/fable-compiler/Fable/commit/7e9cd96a77405db06d9999c5dab62dfc01a2516b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/619d7afddbaf25108e819abaaa9d8a6503c457d6..67072a72e38377a51878d1ca81cd7e4f18ce7d6b)</small></strong>
+
+## 2.11.0 - 2026-07-24
+
+### 🐞 Bug Fixes
+
+* *(all)* Eliminate dead bindings left by CE/inline lowering (#4837) ([9f694e97](https://github.com/fable-compiler/Fable/commit/9f694e970eed60418264cf4e05054ceae2bbe18e))
+* *(beam)* Make reflection metadata agree with record/union codegen (#4849) ([ec6a3df0](https://github.com/fable-compiler/Fable/commit/ec6a3df0cd59d1211d0f35b29ae95dc9c656c4fb))
+* *(js/ts)* Resolve generic params when reflecting erased union fields (#4851) ([619d7afd](https://github.com/fable-compiler/Fable/commit/619d7afddbaf25108e819abaaa9d8a6503c457d6))
+* *(js/ts,python)* Inline Option/ValueOption combinators to avoid closures and allocations (#4836) ([61cac646](https://github.com/fable-compiler/Fable/commit/61cac646e6385d82247082dbb90a98b1646560de))
+
+### ⚡ Performance Improvements
+
+* *(all)* Lower constant ±1 step ranges to counted for-loops (#4838) ([ab28daec](https://github.com/fable-compiler/Fable/commit/ab28daecc7b35b4932829c9ffc838c1adb8a880f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b2ce30674d93152d9dac4331912fe06b62b8a0df..619d7afddbaf25108e819abaaa9d8a6503c457d6)</small></strong>
+
+## 2.10.0 - 2026-07-22
+
+### 🚀 Features
+
+* *(beam)* Render %A in F# syntax instead of dumping Erlang terms (#4814) ([218e0c40](https://github.com/fable-compiler/Fable/commit/218e0c40aee0283bb8c9c74ab36ee0f912b50c51))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Correct char-to-string conversion and console Unicode encoding (#4812) ([df8e01d6](https://github.com/fable-compiler/Fable/commit/df8e01d65a9aa1e4cdf853e3b209eb07c1d979c4))
+* *(beam)* Isolate each top-level effect's variables in main/0 (#4815) ([8d708633](https://github.com/fable-compiler/Fable/commit/8d708633e0c0e48d227bf653e2cbf91e203bd539))
+* *(beam)* Decode UTF-8 codepoints in ToCharArray and related String functions ([b2ce3067](https://github.com/fable-compiler/Fable/commit/b2ce30674d93152d9dac4331912fe06b62b8a0df))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2fc9c1415a9abcf729d920ca6c99732b3c894993..b2ce30674d93152d9dac4331912fe06b62b8a0df)</small></strong>
 
 ## 2.9.0 - 2026-07-17
 

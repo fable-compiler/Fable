@@ -1123,6 +1123,94 @@ let ``test Exception InnerException is null when not provided`` () =
     isNull (box ex.InnerException) |> equal true
 
 [<Fact>]
+let ``test TimeoutException preserves message and empty InnerException`` () =
+    let ex = TimeoutException("timeout message")
+    ex.Message |> equal "timeout message"
+    isNull (box ex.InnerException) |> equal true
+    let caught =
+        try
+            raise ex
+            false
+        with
+        | :? TimeoutException as caught -> obj.ReferenceEquals(ex, caught)
+    caught |> equal true
+
+[<Fact>]
+let ``test exceptions sharing a Python base retain distinct dotnet types`` () =
+    let caught =
+        try
+            raise (FormatException("bad format"))
+            "not caught"
+        with
+        | :? ArgumentException -> "argument"
+        | :? FormatException as ex -> ex.Message
+    caught |> equal "bad format"
+
+#if FABLE_COMPILER
+module private PythonExceptionBases =
+    open Fable.Core.PyInterop
+
+    let valueError: obj = import "ValueError" "builtins"
+    let indexError: obj = import "IndexError" "builtins"
+    let runtimeError: obj = import "RuntimeError" "builtins"
+    let zeroDivisionError: obj = import "ZeroDivisionError" "builtins"
+    let overflowError: obj = import "OverflowError" "builtins"
+    let notImplementedError: obj = import "NotImplementedError" "builtins"
+    let memoryError: obj = import "MemoryError" "builtins"
+    let timeoutError: obj = import "TimeoutError" "builtins"
+    let exceptionBase: obj = import "ExceptionBase" "fable_library.exception_bases"
+    let legacyExceptionBase: obj = import "ExceptionBase" "fable_library.types"
+    let timeoutReflection: Func<System.Type> = import "TimeoutException_reflection" "fable_library.system"
+    let argumentNullReflection: Func<System.Type> = import "ArgumentNullException_reflection" "fable_library.system"
+
+    [<Global("TimeoutError")>]
+    type TimeoutError() = inherit Exception()
+
+[<Fact>]
+let ``test Python ExceptionBase compatibility import preserves class identity`` () =
+    obj.ReferenceEquals(PythonExceptionBases.exceptionBase, PythonExceptionBases.legacyExceptionBase) |> equal true
+
+[<Fact>]
+let ``test dotnet exceptions also match their Python exception bases`` () =
+    let mappings: (exn * obj) list = [
+        ArgumentException("message"), PythonExceptionBases.valueError
+        ArgumentNullException("parameter", "message"), PythonExceptionBases.valueError
+        ArgumentOutOfRangeException("parameter", "message"), PythonExceptionBases.valueError
+        FormatException("message"), PythonExceptionBases.valueError
+        IndexOutOfRangeException("message"), PythonExceptionBases.indexError
+        InvalidOperationException("message"), PythonExceptionBases.runtimeError
+        DivideByZeroException("message"), PythonExceptionBases.zeroDivisionError
+        OverflowException("message"), PythonExceptionBases.overflowError
+        NotImplementedException("message"), PythonExceptionBases.notImplementedError
+        OutOfMemoryException("message"), PythonExceptionBases.memoryError
+        TimeoutException("message"), PythonExceptionBases.timeoutError
+    ]
+    for ex, pythonBase in mappings do
+        Fable.Core.PyInterop.pyInstanceof ex pythonBase |> equal true
+        Fable.Core.PyInterop.pyInstanceof ex PythonExceptionBases.exceptionBase |> equal true
+        ex.Message.Contains("message") |> equal true
+
+[<Fact>]
+let ``test Python TimeoutError handler catches dotnet TimeoutException`` () =
+    let ex = TimeoutException("timeout message")
+    let caught =
+        try
+            raise ex
+            false
+        with
+        | :? PythonExceptionBases.TimeoutError as caught -> obj.ReferenceEquals(ex, caught)
+    caught |> equal true
+
+[<Fact>]
+let ``test Python exception reflection preserves dotnet ancestry`` () =
+    let timeoutType = PythonExceptionBases.timeoutReflection.Invoke()
+    timeoutType.IsSubclassOf(typeof<Exception>) |> equal true
+    let argumentNullType = PythonExceptionBases.argumentNullReflection.Invoke()
+    argumentNullType.IsSubclassOf(typeof<ArgumentException>) |> equal true
+    argumentNullType.IsSubclassOf(typeof<Exception>) |> equal true
+#endif
+
+[<Fact>]
 let ``test use doesn't return on finally clause`` () = // See #211
     let foo() =
         use c = new DisposableFoo()
@@ -1589,3 +1677,111 @@ let ``test exception variable captured in deferred single-arg closure`` () =
         with ex ->
             (fun (_: int) -> ex.Message)  // lambda-with-arg captures ex
     sub 42 |> equal "boom"
+
+[<Fact>]
+let ``test lock is reentrant and returns the body value`` () =
+    let key = obj()
+    lock key (fun () -> lock key (fun () -> 42)) |> equal 42
+
+[<Fact>]
+let ``test lock releases after a body exception`` () =
+    let key = obj()
+    let mutable error = ""
+    try
+        lock key (fun () -> failwith "body")
+    with ex ->
+        error <- ex.Message
+    equal "body" error
+    lock key (fun () -> 42) |> equal 42
+
+#if FABLE_COMPILER
+module private LockRuntime =
+    open Fable.Core.PyInterop
+
+    type Threads =
+        abstract trace: string array
+        abstract errors: string array
+        abstract first_entered: bool
+        abstract second_attempted: bool
+        abstract second_blocked: bool
+        abstract threads_finished: bool
+        abstract record: string -> unit
+        abstract wait_release: unit -> bool
+        abstract run: Action * Action -> unit
+
+    type Storage =
+        abstract stable: bool
+        abstract count: int
+
+    let makeThreads: Func<Threads> = import "make_threads" "./py/lock_runtime.py"
+    let makeStorage: Func<Storage> = import "make_storage" "./py/lock_runtime.py"
+    let makeKey: Func<obj> = import "make_key" "./py/lock_runtime.py"
+    let makeCollidingKeys: Func<obj array> = import "make_colliding_keys" "./py/lock_runtime.py"
+
+[<Fact>]
+let ``test real threads share a lock and release after an exception`` () =
+    let key = LockRuntime.makeKey.Invoke()
+    let threads = LockRuntime.makeThreads.Invoke()
+    let mutable error = ""
+    let first = Action(fun () ->
+        try
+            lock key (fun () ->
+                threads.record "first-enter"
+                threads.wait_release() |> equal true
+                threads.record "first-exit"
+                failwith "body")
+        with ex ->
+            error <- ex.Message)
+    let second = Action(fun () ->
+        lock key (fun () -> threads.record "second-enter")
+        threads.record "second-exit")
+    threads.run(first, second)
+    equal true threads.first_entered
+    equal true threads.second_attempted
+    equal true threads.second_blocked
+    equal true threads.threads_finished
+    equal [||] threads.errors
+    equal [| "first-enter"; "first-exit"; "second-enter"; "second-exit" |] threads.trace
+    equal "body" error
+    lock key (fun () -> 42) |> equal 42
+
+[<Fact>]
+let ``test independent objects do not share a lock`` () =
+    let keys = LockRuntime.makeCollidingKeys.Invoke()
+    let threads = LockRuntime.makeThreads.Invoke()
+    let first = Action(fun () ->
+        lock keys.[0] (fun () ->
+            threads.record "first-enter"
+            threads.wait_release() |> equal true
+            threads.record "first-exit"))
+    let second = Action(fun () ->
+        lock keys.[1] (fun () -> threads.record "second-enter")
+        threads.record "second-exit")
+    threads.run(first, second)
+    equal true threads.first_entered
+    equal true threads.second_attempted
+    equal false threads.second_blocked
+    equal true threads.threads_finished
+    equal [||] threads.errors
+    equal 4 threads.trace.Length
+
+[<Fact>]
+let ``test lock storage releases idle entries across new objects`` () =
+    let iterations = 2048
+    let storage = LockRuntime.makeStorage.Invoke()
+    let before = storage.count
+    lock (LockRuntime.makeKey.Invoke()) (fun () -> equal (before + 1) storage.count)
+    for _ in 1 .. iterations do
+        lock (LockRuntime.makeKey.Invoke()) (fun () -> 1) |> equal 1
+    equal true storage.stable
+    equal before storage.count
+
+[<Fact>]
+let ``test lock storage releases idle entries after exceptions`` () =
+    let storage = LockRuntime.makeStorage.Invoke()
+    let before = storage.count
+    try
+        lock (LockRuntime.makeKey.Invoke()) (fun () -> failwith "body")
+    with _ -> ()
+    equal before storage.count
+#endif

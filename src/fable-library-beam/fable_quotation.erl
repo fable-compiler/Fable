@@ -12,6 +12,7 @@
     is_let/1, is_if_then_else/1, is_call/1, is_sequential/1,
     is_new_tuple/1, is_new_union_case/1, is_new_record/1,
     is_tuple_get/1, is_field_get/1,
+    is_and_also/1, is_or_else/1, is_specific_call/2,
     evaluate/1,
     expr_to_string/1, get_free_vars/1, substitute/2
 ]).
@@ -311,3 +312,41 @@ sub({expr, if_then_else, Guard, Then, Else}, Fn) ->
 sub({expr, sequential, First, Second}, Fn) ->
     {expr, sequential, sub(First, Fn), sub(Second, Fn)};
 sub(E, _Fn) -> E.
+
+%% ===================================================================
+%% DerivedPatterns
+%% F# defines these on top of Patterns. AndAlso and OrElse recover the shape
+%% `&&` and `||` desugar into; SpecificCall matches a call by the identity of a
+%% template quotation rather than by compiled name.
+%% ===================================================================
+
+%% a andalso b  ==>  if a then b else false
+is_and_also({expr, if_then_else, G, T, {expr, value, false, _}}) -> {G, T};
+is_and_also(_) -> undefined.
+
+%% a orelse b  ==>  if a then true else b
+is_or_else({expr, if_then_else, G, {expr, value, true, _}, E}) -> {G, E};
+is_or_else(_) -> undefined.
+
+%% A template such as <@ (=) @> quotes as nested lambdas around the call, so the
+%% identifying Call node has to be dug out before comparing.
+template_call({expr, lambda, _, Body}) -> template_call(Body);
+template_call({expr, call, _, M, _, DT}) -> {M, DT};
+template_call(_) -> undefined.
+
+%% SpecificCall: returns {Instance, GenericArgs, Args}. The middle slot is F#'s
+%% generic-argument list; this runtime models types as names rather than
+%% System.Type, so it is always empty and callers match it with a wildcard.
+%% Takes both arguments; the partial application FSharp.Core expresses by
+%% currying is built by the replacement instead.
+is_specific_call(Template, {expr, call, I, M, A, DT}) ->
+    case template_call(Template) of
+        {M, DT} ->
+            Instance = case I of
+                {expr, value, _, <<"novalue">>} -> undefined;
+                _ -> I
+            end,
+            {Instance, [], deref(A)};
+        _ -> undefined
+    end;
+is_specific_call(_, _) -> undefined.

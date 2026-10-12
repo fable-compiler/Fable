@@ -33,6 +33,7 @@
     <Compile Include="../Js/Main/RandomTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
     <Compile Include="../Js/Main/AsyncTests.fs" />
+    <!-- <Compile Include="../Js/Main/TaskTests.fs" /> -->
     <Compile Include="../Js/Main/CharTests.fs" />
     <Compile Include="../Js/Main/ComparisonTests.fs" />
     <Compile Include="../Js/Main/ConditionalWeakTableTests.fs" />

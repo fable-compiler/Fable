@@ -67,9 +67,12 @@ impl SomeWrapper {
         op: CompareOp,
         py: Python<'py>,
     ) -> PyResult<bool> {
+        if other.is_none() {
+            return Ok(matches!(op, CompareOp::Ne | CompareOp::Gt | CompareOp::Ge));
+        }
+
         let other_value = extract_value(py, other)?;
-        let result = self.value.bind(py).rich_compare(other_value, op)?;
-        result.is_truthy()
+        compare_values(self.value.bind(py), other_value.bind(py), op)
     }
 
     pub fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
@@ -112,10 +115,8 @@ impl SomeWrapper {
         let serializer_fn = cls.getattr("_pydantic_serializer")?;
 
         // Build the serialization schema
-        let ser_schema = core_schema.call_method1(
-            "plain_serializer_function_ser_schema",
-            (serializer_fn,),
-        )?;
+        let ser_schema =
+            core_schema.call_method1("plain_serializer_function_ser_schema", (serializer_fn,))?;
 
         // Use any_schema as base since SomeWrapper can hold any value
         let any_schema = core_schema.call_method0("any_schema")?;
@@ -166,6 +167,16 @@ impl SomeWrapper {
                 return Ok(current);
             }
         }
+    }
+}
+
+// A `None` argument here is the inner option's `None` case, not an absent value.
+fn compare_values(a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
+    match (a.is_none(), b.is_none()) {
+        (true, true) => Ok(matches!(op, CompareOp::Eq | CompareOp::Le | CompareOp::Ge)),
+        (true, false) => Ok(matches!(op, CompareOp::Ne | CompareOp::Lt | CompareOp::Le)),
+        (false, true) => Ok(matches!(op, CompareOp::Ne | CompareOp::Gt | CompareOp::Ge)),
+        (false, false) => a.rich_compare(b, op)?.is_truthy(),
     }
 }
 

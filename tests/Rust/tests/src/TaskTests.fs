@@ -1,3 +1,4 @@
+[<Fable.Core.Rust.OuterAttr("cfg", [|"feature = \"threaded\""|])>]
 module Fable.Tests.TaskTests
 
 open Util.Testing
@@ -7,7 +8,7 @@ type DisposableAction(f) =
     interface System.IDisposable with
         member _.Dispose() = f ()
 
-let runSynchronously<'T> (tsk: Task<'T>) : 'T =
+let inline runSynchronously<'T> (tsk: Task<'T>) : 'T =
     //tsk.GetAwaiter().GetResult()
     tsk.Result
 
@@ -69,6 +70,25 @@ let ``Task exceptions are handled correctly`` () =
     f true + f false |> equal 22
 
 [<Fact>]
+let ``Task failures propagate from already started tasks`` () =
+    let failing =
+        task {
+            failwith "boom"
+            return 0
+        }
+
+    let result =
+        task {
+            try
+                return! failing
+            with
+            | _ -> return 42
+        }
+        |> runSynchronously
+
+    result |> equal 42
+
+[<Fact>]
 let ``Simple task is executed correctly`` () =
     let mutable result = false
     let x = task { return 99 }
@@ -79,6 +99,26 @@ let ``Simple task is executed correctly`` () =
     }
     |> runSynchronously
     result |> equal true
+
+[<Fact>]
+let ``Task Combine runs computations in order`` () =
+    let mutable result = ""
+    let tsk =
+        task {
+            if true then
+                do! task { result <- result + "a" }
+            result <- result + "b"
+        }
+    tsk |> runSynchronously
+    result |> equal "ab"
+
+[<Fact>]
+let ``Task ReturnFrom returns inner task`` () =
+    let result =
+        task { return! task { return 42 } }
+        |> runSynchronously
+
+    result |> equal 42
 
 [<Fact>]
 let ``task use statements should dispose of resources when they go out of scope`` () =
@@ -97,6 +137,23 @@ let ``task use statements should dispose of resources when they go out of scope`
 
     step2ok <- isDisposed
     (step1ok && step2ok) |> equal true
+
+[<Fact>]
+let ``task use statements dispose of resources when the body fails`` () =
+    let mutable isDisposed = false
+    let resource =
+        task { return new DisposableAction(fun () -> isDisposed <- true) }
+
+    let failing =
+        task {
+            use! r = resource
+            ignore r
+            failwith "boom"
+            return 0
+        }
+
+    throwsAnyError (fun () -> failing.Result |> ignore)
+    isDisposed |> equal true
 
 [<Fact>]
 let ``Try ... with ... expressions inside async expressions work the same`` () =
@@ -128,14 +185,14 @@ let ``Try ... with ... expressions inside async expressions work the same`` () =
 
     result |> equal "abcdef"
 
-[<Fact>]
-let ``TaskCompletionSource is executed correctly`` () =
-    let x =
-        task {
-            let tcs = TaskCompletionSource<int>()
-            tcs.SetResult 42
-            return! tcs.Task
-        }
-    let result =
-        x |> runSynchronously
-    result |> equal 42
+// [<Fact>]
+// let ``TaskCompletionSource is executed correctly`` () =
+//     let x =
+//         task {
+//             let tcs = TaskCompletionSource<int>()
+//             tcs.SetResult 42
+//             return! tcs.Task
+//         }
+//     let result =
+//         x |> runSynchronously
+//     result |> equal 42

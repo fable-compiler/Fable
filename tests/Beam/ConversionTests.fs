@@ -20,6 +20,14 @@ let parse f (a: string) =
     f(a, System.Globalization.CultureInfo("en-US"))
 #endif
 
+let throwsOverflow (f: unit -> unit) =
+    try
+        f ()
+        false
+    with
+    | :? OverflowException -> true
+    | _ -> false
+
 // --- Basic type conversions ---
 
 [<Fact>]
@@ -33,6 +41,14 @@ let ``test negative int to string works`` () =
 [<Fact>]
 let ``test string to int works`` () =
     int "42" |> equal 42
+
+[<Fact>]
+let ``test string to integer conversion checks the target range`` () =
+    int "2147483647" |> equal Int32.MaxValue
+    byte "255" |> equal Byte.MaxValue
+    (fun () -> int "2147483648" |> ignore) |> throwsOverflow |> equal true
+    (fun () -> byte "256" |> ignore) |> throwsOverflow |> equal true
+    (fun () -> uint32 "-1" |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test float to int works`` () =
@@ -284,6 +300,58 @@ let ``test System.Convert.ToUInt64 works`` () =
     Convert.ToUInt64("1") |> equal x
 
 [<Fact>]
+let ``test System.Convert integer conversions round midpoint values to even`` () =
+    Convert.ToInt32(1.4) |> equal 1
+    Convert.ToInt32(1.5) |> equal 2
+    Convert.ToInt32(2.5) |> equal 2
+    Convert.ToInt32(3.5) |> equal 4
+    Convert.ToInt32(-1.5) |> equal -2
+    Convert.ToInt32(-2.5) |> equal -2
+    Convert.ToInt32(-3.5) |> equal -4
+    Convert.ToByte(255.4) |> equal Byte.MaxValue
+    (fun () -> Convert.ToByte(255.5) |> ignore) |> throwsOverflow |> equal true
+
+[<Fact>]
+let ``test System.Convert integer conversions check the target range`` () =
+    Convert.ToSByte(-128) |> equal SByte.MinValue
+    Convert.ToByte(255) |> equal Byte.MaxValue
+    Convert.ToInt16(-32768) |> equal Int16.MinValue
+    Convert.ToUInt16(65535) |> equal UInt16.MaxValue
+    Convert.ToInt32(2147483647L) |> equal Int32.MaxValue
+    Convert.ToUInt32(4294967295L) |> equal UInt32.MaxValue
+    Convert.ToInt64(Int64.MinValue) |> equal Int64.MinValue
+    Convert.ToUInt64(UInt64.MaxValue) |> equal UInt64.MaxValue
+    (fun () -> Convert.ToSByte(128) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToByte(-1) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToInt16(32768) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToUInt16(-1) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToInt32(2147483648L) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToUInt32(-1L) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToInt64(UInt64.MaxValue) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToUInt64(-1L) |> ignore) |> throwsOverflow |> equal true
+
+[<Fact>]
+let ``test System.Convert integer conversions handle decimal boolean and char sources`` () =
+    Convert.ToInt32(1.5M) |> equal 2
+    Convert.ToInt32(2.5M) |> equal 2
+    Convert.ToInt32(-1.5M) |> equal -2
+    Convert.ToInt32(-2.5M) |> equal -2
+    Convert.ToByte(255.4M) |> equal Byte.MaxValue
+    Convert.ToInt32(true) |> equal 1
+    Convert.ToInt32(false) |> equal 0
+    Convert.ToByte(char 255) |> equal Byte.MaxValue
+    Convert.ToChar(65535) |> equal Char.MaxValue
+    (fun () -> Convert.ToByte(255.5M) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToByte(char 256) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToChar(-1) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToChar(65536) |> ignore) |> throwsOverflow |> equal true
+
+[<Fact>]
+let ``test FSharp integer casts remain unchecked`` () =
+    byte 257 |> equal 1uy
+    sbyte 255 |> equal -1y
+
+[<Fact>]
 let ``test System.Convert.ToChar works`` () =
     let x = 'a'
     char(97) |> equal x
@@ -301,11 +369,19 @@ let ``test System.Convert.ToChar works`` () =
 let ``test System.Int32.Parse works`` () =
     Int32.Parse("5") |> equal 5
     Int32.Parse("-5") |> equal -5
+    Int32.Parse("-2147483648") |> equal Int32.MinValue
+    Int32.Parse("2147483647") |> equal Int32.MaxValue
+    (fun () -> Int32.Parse("2147483648") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Int32.Parse("-2147483649") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.Int64.Parse works`` () =
     Int64.Parse("5") |> equal 5L
     Int64.Parse("-5") |> equal -5L
+    Int64.Parse("-9223372036854775808") |> equal Int64.MinValue
+    Int64.Parse("9223372036854775807") |> equal Int64.MaxValue
+    (fun () -> Int64.Parse("9223372036854775808") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Int64.Parse("-9223372036854775809") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.Double.Parse works`` () =
@@ -411,31 +487,46 @@ let ``test System.SByte.Parse works`` () =
     SByte.Parse("5") |> equal 5y
     SByte.Parse("-5") |> equal -5y
     SByte.Parse("-128") |> equal -128y
+    SByte.Parse("127") |> equal SByte.MaxValue
+    (fun () -> SByte.Parse("128") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> SByte.Parse("-129") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.Int16.Parse works`` () =
     Int16.Parse("5") |> equal 5s
     Int16.Parse("-5") |> equal -5s
     Int16.Parse("-32768") |> equal -32768s
+    Int16.Parse("32767") |> equal Int16.MaxValue
+    (fun () -> Int16.Parse("32768") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Int16.Parse("-32769") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.Byte.Parse works`` () =
     Byte.Parse("5") |> equal 5uy
     Byte.Parse("255") |> equal 255uy
+    (fun () -> Byte.Parse("256") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Byte.Parse("-1") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.UInt16.Parse works`` () =
     UInt16.Parse("5") |> equal 5us
     UInt16.Parse("65535") |> equal 65535us
+    (fun () -> UInt16.Parse("65536") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> UInt16.Parse("-1") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.UInt32.Parse works`` () =
     UInt32.Parse("5") |> equal 5u
     UInt32.Parse("4294967295") |> equal 4294967295u
+    (fun () -> UInt32.Parse("4294967296") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> UInt32.Parse("-1") |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.UInt64.Parse works`` () =
     UInt64.Parse("5") |> equal 5uL
+    UInt64.Parse("18446744073709551615") |> equal UInt64.MaxValue
+    (fun () -> UInt64.Parse("18446744073709551616") |> ignore) |> throwsOverflow |> equal true
+    (fun () -> UInt64.Parse("-1") |> ignore) |> throwsOverflow |> equal true
 
 // --- Convert with base parameter ---
 
@@ -464,6 +555,7 @@ let ``test System.Convert.ToByte with base works`` () =
     Convert.ToByte(x, 2) |> equal 5uy
     Convert.ToByte(x, 8) |> equal 65uy
     Convert.ToByte(x, 10) |> equal 101uy
+    (fun () -> Convert.ToByte("100", 16) |> ignore) |> throwsOverflow |> equal true
 
 [<Fact>]
 let ``test System.Convert.ToInt16 with base works`` () =
@@ -473,6 +565,7 @@ let ``test System.Convert.ToInt16 with base works`` () =
     Convert.ToInt16(x, 8) |> equal 65s
     Convert.ToInt16(x, 10) |> equal 101s
     Convert.ToInt16(x, 16) |> equal 257s
+    Convert.ToInt16("FFFF", 16) |> equal -1s
 
 // --- Convert.ToString with base parameter ---
 
@@ -557,8 +650,24 @@ let ``test System.Int32.TryParse works`` () =
     value2 |> equal 0
 
 [<Fact>]
+let ``test integer TryParse checks the target range`` () =
+    SByte.TryParse("128") |> equal (false, 0y)
+    Byte.TryParse("-1") |> equal (false, 0uy)
+    Int16.TryParse("32768") |> equal (false, 0s)
+    UInt16.TryParse("65536") |> equal (false, 0us)
+    Int32.TryParse("2147483648") |> equal (false, 0)
+    UInt32.TryParse("4294967296") |> equal (false, 0u)
+    Int64.TryParse("9223372036854775808") |> equal (false, 0L)
+    UInt64.TryParse("18446744073709551616") |> equal (false, 0uL)
+
+[<Fact>]
 let ``test System.Int32.Parse with hex works`` () =
     Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
+    Int32.Parse("FFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1
+
+    (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> ignore)
+    |> throwsOverflow
+    |> equal true
 
 [<Fact>]
 let ``test BitConverter.GetBytes Int32 works`` () =
@@ -572,23 +681,20 @@ let ``test Convert.ToBase64String works`` () =
 
 // --- TryParse methods ---
 
-// TODO: TryParse via higher-order function — auto-generated lambda unwraps ref.contents
-// instead of passing the ref directly to try_parse_float (which needs it for put/2).
-// Fixing requires changes to how byref method references are compiled.
-// [<Fact>]
-// let ``test System.Double.TryParse works`` () =
-//     tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
-//     tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
-//     tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
-//     tryParse Double.TryParse 0.0 "" |> equal (false, 0.0)
-//     tryParse Double.TryParse 0.0 "-1.5" |> equal (true, -1.5)
-//
-// [<Fact>]
-// let ``test System.Single.TryParse works`` () =
-//     tryParse Single.TryParse 0.0f "1" |> equal (true, 1.0f)
-//     tryParse Single.TryParse 0.0f "1.5" |> equal (true, 1.5f)
-//     tryParse Single.TryParse 0.0f "foo" |> equal (false, 0.0f)
-//     tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
+[<Fact>]
+let ``test System.Double.TryParse works`` () =
+    tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
+    tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
+    tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "-1.5" |> equal (true, -1.5)
+
+[<Fact>]
+let ``test System.Single.TryParse works`` () =
+    tryParse Single.TryParse 0.0f "1" |> equal (true, 1.0f)
+    tryParse Single.TryParse 0.0f "1.5" |> equal (true, 1.5f)
+    tryParse Single.TryParse 0.0f "foo" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
 
 [<Fact>]
 let ``test System.Boolean.TryParse works`` () =
@@ -599,21 +705,20 @@ let ``test System.Boolean.TryParse works`` () =
     Boolean.TryParse "tru" |> equal (false, false)
     Boolean.TryParse "falsee" |> equal (false, false)
 
-// TODO: TryParse via higher-order function — same byref method reference issue as above
-// [<Fact>]
-// let ``test System.Int64.TryParse works`` () =
-//     tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
-//     tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
-//
-// [<Fact>]
-// let ``test System.UInt32.TryParse works`` () =
-//     tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
-//     tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
-//
-// [<Fact>]
-// let ``test System.UInt64.TryParse works`` () =
-//     tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
-//     tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
+[<Fact>]
+let ``test System.Int64.TryParse works`` () =
+    tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
+    tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
+
+[<Fact>]
+let ``test System.UInt32.TryParse works`` () =
+    tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
+    tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
+
+[<Fact>]
+let ``test System.UInt64.TryParse works`` () =
+    tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
+    tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
 
 // --- Single.Parse ---
 
@@ -938,12 +1043,11 @@ let ``test BitConverter.ToUInt32 works`` () =
     let bytes = BitConverter.GetBytes(value)
     BitConverter.ToUInt32(bytes, 0) |> equal value
 
-// TODO: UInt64 values > Int64.MaxValue — Fable compiles UInt64 as Int64, round-trip fails
-// [<Fact>]
-// let ``test BitConverter.ToUInt64 works`` () =
-//     let value = 0xFF02030405060708UL
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToUInt64(bytes, 0) |> equal value
+[<Fact>]
+let ``test BitConverter.ToUInt64 works above Int64.MaxValue`` () =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt64(bytes, 0) |> equal value
 
 [<Fact>]
 let ``test BitConverter.ToSingle works`` () =

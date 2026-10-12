@@ -42,6 +42,20 @@ type TwiceBuilder() =
 
 let twice = TwiceBuilder()
 
+// ── CE builder whose members discard their argument ──────────────────────────
+//
+// All members are `inline` and return `()` regardless of their argument, so the
+// inlined argument bindings are never read. `bindingBetaReduction` must turn
+// those into plain sequential evaluation instead of leaving a dead `let` behind.
+type DiscardBuilder() =
+    member inline _.Yield(_: unit) = ()
+    member inline _.Combine(_: unit, _: unit) = ()
+    member inline _.Delay([<InlineIfLambda>] f: unit -> unit) = f ()
+    member inline _.Zero() = ()
+    member inline _.Run(_: unit) = ()
+
+let discard = DiscardBuilder()
+
 // ── tests ────────────────────────────────────────────────────────────────────
 
 let tests =
@@ -114,5 +128,14 @@ let tests =
             // Body ran twice: callCount = 2, return value = 2 (second call)
             callCount |> equal 2
             result   |> equal 2
+
+        testCase "Inline CE builder whose members discard their argument still runs body once, in order" <| fun () ->
+            let mutable log = []
+            let addLog x = log <- x :: log
+            discard {
+                addLog "a"
+                addLog "b"
+            }
+            log |> List.rev |> equal [ "a"; "b" ]
 
     ]

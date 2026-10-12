@@ -151,7 +151,7 @@ def index_of_any(string: str, any_of: Array[str], *args: int) -> int:
     return -1
 
 
-def get_length(string: str) -> int32:
+def get_length(string: str) -> int:
     """Get string length as int32 for F# interop."""
     return int32(len(string))
 

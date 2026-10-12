@@ -3,6 +3,225 @@ module Fable.Tests.AsyncTests
 open System
 open Fable.Tests.Util
 open Util.Testing
+open System.Threading
+
+let private raiseCaughtCancellation (error: exn) : unit = raise error
+
+[<Fact>]
+let ``test RunSynchronously optional timeout and cancellation token`` () =
+    let work = async { return 42 }
+    Async.RunSynchronously work |> equal 42
+    Async.RunSynchronously(work, timeout = -1) |> equal 42
+    Async.RunSynchronously(work, timeout = 10000) |> equal 42
+    let invalidTimeout =
+        try
+            Async.RunSynchronously(work, timeout = -2) |> ignore
+            false
+        with :? ArgumentException -> true
+    equal true invalidTimeout
+    use cts = new CancellationTokenSource()
+    Async.RunSynchronously(work, cancellationToken = cts.Token) |> equal 42
+    Async.RunSynchronously(work, timeout = 10000, cancellationToken = cts.Token) |> equal 42
+    cts.Cancel()
+    let mutable entered = false
+    let cancelled =
+        try
+            Async.RunSynchronously(async { entered <- true }, cancellationToken = cts.Token)
+            false
+        with :? OperationCanceledException -> true
+    equal true cancelled
+    equal false entered
+
+[<Fact>]
+let ``test cancellation identity survives ordinary catch and raise`` () =
+    let token = CancellationToken(true)
+    let mutable caught = false
+    let cancelled =
+        try
+            try token.ThrowIfCancellationRequested()
+            with error ->
+                caught <- true
+                raiseCaughtCancellation error
+            false
+        with :? OperationCanceledException -> true
+    equal true caught
+    equal true cancelled
+    let ordinary =
+        try raise (Exception("operation_cancelled"))
+        with
+        | :? OperationCanceledException -> false
+        | error -> error.Message = "operation_cancelled"
+    equal true ordinary
+
+[<Fact>]
+let ``test Async TryWith catches explicitly thrown cancellation exceptions`` () =
+    async {
+        try
+            CancellationToken(true).ThrowIfCancellationRequested()
+            return false
+        with :? OperationCanceledException -> return true
+    }
+    |> Async.RunSynchronously
+    |> equal true
+
+[<Fact>]
+let ``test a real Async defect racing cancellation remains a failure`` () =
+    use cts = new CancellationTokenSource()
+    let work = async {
+        cts.Cancel()
+        return failwith "real defect"
+    }
+    let outcome =
+        try
+            Async.RunSynchronously(work, cancellationToken = cts.Token) |> ignore
+            "success"
+        with
+        | :? OperationCanceledException -> "cancelled"
+        | error -> error.Message
+    equal "real defect" outcome
+
+[<Fact>]
+let ``test Async finalizers run once and retain throwing compensation`` () =
+    for bodyFails in [ false; true ] do
+        let mutable count = 0
+        let work = async {
+            try
+                if bodyFails then failwith "body defect"
+                return 42
+            finally
+                count <- count + 1
+                failwith "cleanup defect"
+        }
+        let failure =
+            try Async.RunSynchronously work |> ignore; "success"
+            with error -> error.Message
+        equal "cleanup defect" failure
+        equal 1 count
+
+[<Fact>]
+let ``test StartImmediate propagates errors after a finalizer containing a bind`` () =
+    let mutable count = 0
+    let work = async {
+        try
+            let! value = async { return 42 }
+            equal 42 value
+        finally
+            count <- count + 1
+        failwith "downstream defect"
+    }
+    let failure =
+        try Async.StartImmediate work; "success"
+        with error -> error.Message
+    equal "downstream defect" failure
+    equal 1 count
+
+[<Fact>]
+let ``test nested Async finalizers retain outer failure and run once`` () =
+    let mutable inner = 0
+    let mutable outer = 0
+    let work = async {
+        try
+            try return 42
+            finally
+                inner <- inner + 1
+                failwith "inner cleanup"
+        finally
+            outer <- outer + 1
+            failwith "outer cleanup"
+    }
+    let failure =
+        try Async.RunSynchronously work |> ignore; "success"
+        with error -> error.Message
+    equal "outer cleanup" failure
+    equal 1 inner
+    equal 1 outer
+
+[<Fact>]
+let ``test Async Using disposes once and retains disposal defects`` () =
+    for bodyFails in [ false; true ] do
+        for disposalFails in [ false; true ] do
+            let mutable count = 0
+            let resource =
+                { new IDisposable with
+                    member _.Dispose() =
+                        count <- count + 1
+                        if disposalFails then failwith "disposal defect" }
+            let work = async {
+                use owned = resource
+                if bodyFails then failwith "body defect"
+                return 42
+            }
+            let outcome =
+                try Async.RunSynchronously work |> string
+                with error -> error.Message
+            equal (if disposalFails then "disposal defect" elif bodyFails then "body defect" else "42") outcome
+            equal 1 count
+    async {
+        use resource = Unchecked.defaultof<IDisposable>
+        return 42
+    }
+    |> Async.RunSynchronously
+    |> equal 42
+
+let private cancelledComputation : Async<unit> =
+    Async.FromContinuations(fun (_, _, cancel) ->
+        cancel (OperationCanceledException("original cancellation")))
+
+let private cancellationOutcome (work: Async<unit>) =
+    try
+        Async.RunSynchronously work
+        "success"
+    with
+    | :? OperationCanceledException as error -> error.Message
+    | error -> "failure: " + error.Message
+
+[<Fact>]
+let ``test Async cancellation remains terminal when compensation throws`` () =
+    for throws in [ false; true ] do
+        let mutable count = 0
+        let work = async {
+            try do! cancelledComputation
+            finally
+                count <- count + 1
+                if throws then failwith "cleanup defect"
+        }
+        equal "original cancellation" (cancellationOutcome work)
+        equal 1 count
+
+[<Fact>]
+let ``test nested throwing Async finalizers preserve cancellation`` () =
+    for outerThrows in [ false; true ] do
+        let mutable inner = 0
+        let mutable outer = 0
+        let work = async {
+            try
+                try do! cancelledComputation
+                finally
+                    inner <- inner + 1
+                    failwith "inner cleanup"
+            finally
+                outer <- outer + 1
+                if outerThrows then failwith "outer cleanup"
+        }
+        equal "original cancellation" (cancellationOutcome work)
+        equal 1 inner
+        equal 1 outer
+
+[<Fact>]
+let ``test Async Using preserves cancellation when Dispose throws`` () =
+    for throws in [ false; true ] do
+        let mutable count = 0
+        let resource =
+            { new IDisposable with
+                member _.Dispose() =
+                    count <- count + 1
+                    if throws then failwith "disposal defect" }
+        let work = async {
+            use owned = resource
+            do! cancelledComputation
+        }
+        equal "original cancellation" (cancellationOutcome work)
+        equal 1 count
 
 type MyException(value) =
     inherit Exception()
@@ -101,24 +320,51 @@ let ``test Async.StartChild works`` () =
 
 [<Fact>]
 let ``test Async.StartChild runs children concurrently`` () =
-    // Each child sleeps 300ms. Started before either is awaited, they run in
-    // parallel (separate BEAM processes), so total time is ~300ms, not ~600ms.
-    let sleeper n = async {
-        do! Async.Sleep 300
-        return n
-    }
+    // Assert that the children's execution *intervals overlap*, rather than that
+    // the whole computation finished quickly.
+    //
+    // Measuring duration -- against either an absolute threshold or a sequential
+    // control run -- is unfixably flaky here, because on a loaded runner the
+    // scheduling jitter is larger than the signal. Measured on a 2-core box under
+    // load, this pair of 500ms sleeps took anywhere from 504ms to 1580ms wall
+    // clock, so a genuinely-concurrent run routinely outlasts a sequential one and
+    // no choice of threshold separates them.
+    //
+    // Overlap is immune to that. Jitter delays both children together, so a
+    // common-mode delay cancels out of `min(end) - max(start)` while it is exactly
+    // what a duration measures. Under the same load that made the duration vary by
+    // ~1080ms, the overlap stayed within 500-984ms.
+    //
+    // Note: unlike JS/Python, the BEAM children run in *separate processes* (see
+    // fable_async:start_child), so the shared-mutable-state ordering test those
+    // targets use cannot observe them. A MailboxProcessor cannot bridge the gap
+    // either -- fable_mailbox holds its queue in the process dictionary, so a
+    // child's Post lands in the child's own copy. Timestamps returned by value
+    // from each child are the one channel that does cross the process boundary.
+    let stamped n =
+        async {
+            let t0 = System.DateTime.UtcNow.Ticks
+            do! Async.Sleep 500
+            let t1 = System.DateTime.UtcNow.Ticks
+            return n, t0, t1
+        }
+    // Both children are started before either is awaited, so their sleeps should
+    // run at the same time.
     let comp = async {
-        let sw = System.Diagnostics.Stopwatch.StartNew()
-        let! c1 = Async.StartChild(sleeper 1)
-        let! c2 = Async.StartChild(sleeper 2)
-        let! r1 = c1
-        let! r2 = c2
-        sw.Stop()
-        return r1 + r2, sw.ElapsedMilliseconds
+        let! c1 = Async.StartChild(stamped 1)
+        let! c2 = Async.StartChild(stamped 2)
+        let! (n1, a0, a1) = c1
+        let! (n2, b0, b1) = c2
+        let overlapMs = (min a1 b1 - max a0 b0) / TimeSpan.TicksPerMillisecond
+        return n1 + n2, overlapMs
     }
-    let sum, elapsed = Async.RunSynchronously comp
+    let sum, overlapMs = Async.RunSynchronously comp
     equal 3 sum
-    (elapsed < 500L) |> equal true
+    // Concurrent execution overlaps by the full ~500ms sleep. Were StartChild to
+    // regress to running each child only once awaited, the second child would
+    // start as the first one ended and the overlap would be 0 (verified: 0ms on
+    // both .NET and BEAM). The 250ms threshold sits midway between the two.
+    (overlapMs > 250L) |> equal true
 
 [<Fact>]
 let ``test Async.StartChild applies timeout`` () =
@@ -401,6 +647,248 @@ let ``test Unit arguments are erased`` () =
 
 #if FABLE_COMPILER
 
+open Fable.Core.BeamInterop
+
+type private CancellationProbeMessage =
+    | CancellationProbeReady of worker: obj
+    | CancellationProbeContinue
+    | CancellationCallbackInvoked
+    | CancellationCallbackStarted of worker: obj
+    | CancellationDisposeReturned
+
+// Run a thunk in a fresh BEAM process and return its result to the caller.
+[<Fable.Core.Emit("(fun() -> CancellationParent = self(), CancellationFun = $0, spawn(fun() -> CancellationParent ! {cancellation_result, case erlang:fun_info(CancellationFun, arity) of {arity, 0} -> CancellationFun(); _ -> CancellationFun(ok) end} end), receive {cancellation_result, CancellationResult} -> CancellationResult after 1000 -> timeout end end)()")>]
+let private runInCancellationProcess (f: unit -> 'a) : 'a = Fable.Core.Util.nativeOnly
+
+[<Fable.Core.Emit("(fun() -> CancellationFun = $0, spawn(fun() -> case erlang:fun_info(CancellationFun, arity) of {arity, 0} -> CancellationFun(); _ -> CancellationFun(ok) end end) end)()")>]
+let private startCancellationProcess (f: unit -> unit) : obj = Fable.Core.Util.nativeOnly
+
+let private runSynchronouslyWithCancellation (workflow: Async<'a>) (token: System.Threading.CancellationToken) : 'a =
+    Async.RunSynchronously(workflow, cancellationToken = token)
+
+[<Fable.Core.Emit("async_lifecycle_tests:pending($0)")>]
+let private pendingCancellation (_parent: obj) : Async<unit> = Fable.Core.Util.nativeOnly
+
+[<Fact>]
+let ``test legacy runtime cancellation remains typed through normalization and raise`` () =
+    let cancelled =
+        try
+            try emitErlExpr () "erlang:error(operation_cancelled)"
+            with error -> raiseCaughtCancellation error
+            false
+        with :? OperationCanceledException -> true
+    equal true cancelled
+
+[<Fact>]
+let ``test pending RunSynchronously cancellation bypasses Async TryWith and disposes once`` () =
+    use cts = new CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+    let work = async {
+        let! child = Async.StartChild(async {
+            let mutable handled = false
+            let mutable finalized = 0
+            let mutable disposed = 0
+            let resource =
+                { new IDisposable with
+                    member _.Dispose() = disposed <- disposed + 1 }
+            let cancelled =
+                try
+                    Async.RunSynchronously(
+                        async {
+                            use owned = resource
+                            try
+                                try do! pendingCancellation parent
+                                with _ -> handled <- true
+                            finally finalized <- finalized + 1
+                        }, cancellationToken = cts.Token)
+                    false
+                with :? OperationCanceledException -> true
+            return cancelled, handled, finalized, disposed
+        })
+        let ready: bool = emitErlExpr () "receive {pending, _} -> true after 5000 -> false end"
+        equal true ready
+        cts.Cancel()
+        return! child
+    }
+    Async.RunSynchronously work |> equal (true, false, 1, 1)
+
+let private sendCancellationReady (parent: obj) =
+    let worker: obj = emitErlExpr () "erlang:self()"
+    emitErlExpr (parent, worker) "$0 ! {cancellation_probe_ready, $1}"
+
+let private waitForCancellationReady () =
+    match Erlang.receive<CancellationProbeMessage> 1000 with
+    | Some(CancellationProbeReady worker) -> Some worker
+    | _ -> None
+
+[<Fact>]
+let ``test cancellation token state crosses process boundaries`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+
+    runInCancellationProcess (fun () -> cts.Token.IsCancellationRequested)
+    |> equal false
+
+[<Fact>]
+let ``test running process observes cancellation from source process`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+
+    let comp = async {
+        let! child =
+            Async.StartChild(async {
+                sendCancellationReady parent
+
+                match Erlang.receive<CancellationProbeMessage> 1000 with
+                | Some CancellationProbeContinue -> return cts.Token.IsCancellationRequested
+                | _ -> return false
+            })
+
+        match waitForCancellationReady () with
+        | Some worker ->
+            cts.Cancel()
+            emitErlExpr worker "$0 ! cancellation_probe_continue"
+            return! child
+        | None -> return false
+    }
+
+    Async.RunSynchronously comp |> equal true
+
+[<Fact>]
+let ``test Async Sleep in another process is interrupted by live cancellation`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+
+    let comp = async {
+        let! child =
+            Async.StartChild(async {
+                let wasCancelledBeforeStart = cts.Token.IsCancellationRequested
+                sendCancellationReady parent
+                let mutable cancelled = false
+
+                Async.StartWithContinuations(
+                    async { do! Async.Sleep 1000 },
+                    ignore,
+                    ignore,
+                    (fun _ -> cancelled <- true),
+                    cts.Token
+                )
+
+                return
+                    not wasCancelledBeforeStart
+                    && cancelled
+                    && cts.Token.IsCancellationRequested
+            })
+
+        match waitForCancellationReady () with
+        | Some _ ->
+            cts.Cancel()
+            return! child
+        | None -> return false
+    }
+
+    Async.RunSynchronously comp |> equal true
+
+[<Fact>]
+let ``test cross-process cancellation registration runs once`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+
+    let comp = async {
+        let! child =
+            Async.StartChild(async {
+                cts.Token.Register(fun () ->
+                    emitErlExpr parent "$0 ! cancellation_callback_invoked"
+                )
+                |> ignore
+
+                sendCancellationReady parent
+
+                match Erlang.receive<CancellationProbeMessage> 1000 with
+                | Some CancellationProbeContinue -> return true
+                | _ -> return false
+            })
+
+        match waitForCancellationReady () with
+        | Some worker ->
+            cts.Cancel()
+            cts.Cancel()
+
+            let invokedOnce =
+                match Erlang.receive<CancellationProbeMessage> 1000 with
+                | Some CancellationCallbackInvoked ->
+                    Erlang.receive<CancellationProbeMessage> 0 |> Option.isNone
+                | _ -> false
+
+            emitErlExpr worker "$0 ! cancellation_probe_continue"
+            let! childCompleted = child
+            return invokedOnce && childCompleted
+        | None -> return false
+    }
+
+    Async.RunSynchronously comp |> equal true
+
+[<Fact>]
+let ``test CancellationToken registration Dispose waits for a running callback`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+    let registration =
+        cts.Token.Register(fun () ->
+            let worker: obj = emitErlExpr () "erlang:self()"
+            emitErlExpr (parent, worker) "$0 ! {cancellation_callback_started, $1}"
+            Erlang.receive<CancellationProbeMessage> 1000 |> ignore
+        )
+
+    startCancellationProcess (fun () -> cts.Cancel()) |> ignore
+
+    match Erlang.receive<CancellationProbeMessage> 1000 with
+    | Some(CancellationCallbackStarted worker) ->
+        startCancellationProcess (fun () ->
+            registration.Dispose()
+            emitErlExpr parent "$0 ! cancellation_dispose_returned"
+        ) |> ignore
+
+        Erlang.receive<CancellationProbeMessage> 0 |> Option.isNone |> equal true
+        emitErlExpr worker "$0 ! cancellation_probe_continue"
+
+        match Erlang.receive<CancellationProbeMessage> 1000 with
+        | Some CancellationDisposeReturned -> ()
+        | _ -> failwith "Dispose did not return after the callback completed"
+    | _ -> failwith "Cancellation callback did not start"
+
+[<Fact>]
+let ``test Async AwaitEvent cancellation runs in the event owner process`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+
+    let comp = async {
+        let! child =
+            Async.StartChild(async {
+                let ev = Event<int>()
+                let mutable cancelCalled = false
+                sendCancellationReady parent
+
+                let wasCancelled =
+                    try
+                        runSynchronouslyWithCancellation
+                            (async {
+                                let! _ = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
+                                return false
+                            })
+                            cts.Token
+                    with _ -> true
+
+                return wasCancelled && cancelCalled
+            })
+
+        match waitForCancellationReady () with
+        | Some _ ->
+            cts.Cancel()
+            return! child
+        | None -> return false
+    }
+
+    Async.RunSynchronously comp |> equal true
+
 [<Fact>]
 let ``test CancellationTokenSource create and cancel works`` () =
     let tcs = new System.Threading.CancellationTokenSource()
@@ -431,6 +919,27 @@ let ``test CancellationTokenSource multiple registers work`` () =
     let _reg2 = tcs.Token.Register(fun () -> x <- x + 10)
     tcs.Cancel()
     equal 11 x
+
+[<Fact>]
+let ``test CancellationToken registration after cancellation runs immediately`` () =
+    let mutable calls = 0
+    let cts = new System.Threading.CancellationTokenSource()
+    cts.Cancel()
+
+    cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
+
+    equal 1 calls
+
+[<Fact>]
+let ``test CancellationToken registration can be disposed`` () =
+    let mutable calls = 0
+    let cts = new System.Threading.CancellationTokenSource()
+    let registration = cts.Token.Register(fun () -> calls <- calls + 1)
+    registration.Dispose()
+
+    cts.Cancel()
+
+    equal 0 calls
 
 [<Fact>]
 let ``test async cancellation with pre-cancelled token`` () =
@@ -486,11 +995,18 @@ let ``test Can use custom exceptions in async workflows`` () =
 [<Fact>]
 let ``test Async.AwaitEvent fires continuation when event is triggered`` () =
     let ev = Event<int>()
+    let cts = new System.Threading.CancellationTokenSource()
+    let mutable cancelCalled = false
+    let mutable completed = false
     Async.StartImmediate(async {
-        let! v = Async.AwaitEvent ev.Publish
+        let! v = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
         equal 42 v
-    })
+        completed <- true
+    }, cts.Token)
     ev.Trigger(42)
+    cts.Cancel()
+    equal true completed
+    equal false cancelCalled
 
 [<Fact>]
 let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
@@ -505,3 +1021,25 @@ let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
     equal true cancelCalled
 
 #endif
+[<Fact>]
+let ``test FromContinuations unit and generic values`` () =
+    let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+    let mutable completed = 0
+    let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok ())
+    Async.StartWithContinuations(unitWork, (fun () -> completed <- completed + 1), raise, raise)
+    Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+    Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+    equal 3 completed
+
+[<Fact>]
+let ``test unit continuations preserve captured callbacks`` () =
+    let mutable calls = 0
+    let rec genericDeadline callback value remaining =
+        if remaining > 0 then genericDeadline callback value (remaining - 1)
+        else Async.StartWithContinuations(async { return value }, (fun result -> callback result), raise, raise)
+    let rec unitDeadline (callback: unit -> unit) remaining =
+        if remaining > 0 then unitDeadline callback (remaining - 1)
+        else Async.StartWithContinuations(async { return () }, (fun () -> callback ()), raise, raise)
+    genericDeadline (fun () -> calls <- calls + 1) () 2
+    unitDeadline (fun () -> calls <- calls + 1) 2
+    equal 2 calls

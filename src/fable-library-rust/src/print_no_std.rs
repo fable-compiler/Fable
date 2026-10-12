@@ -4,7 +4,7 @@ const STDERR: i32 = 2;
 
 #[link(name = "c")]
 unsafe extern "C" {
-    fn write(filedes: i32, buf: *const core::ffi::c_void, nbyte: usize);
+    fn write(filedes: core::ffi::c_int, buf: *const core::ffi::c_void, nbyte: usize) -> isize;
 }
 
 pub fn write_to(filedes: i32, s: &str) {

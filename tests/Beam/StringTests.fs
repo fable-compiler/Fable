@@ -118,6 +118,10 @@ let ``test String.Trim with chars works`` () =
     @"\\\abc///".Trim('\\','/') |> equal "abc"
 
 [<Fact>]
+let ``test String.Trim with chars works with non-ASCII characters`` () =
+    "café".Trim('é') |> equal "caf"
+
+[<Fact>]
 let ``test String.TrimStart with chars works`` () =
     "!!--abc   ".TrimStart('!','-') |> equal "abc   "
 
@@ -308,6 +312,21 @@ let ``test String.Split works`` () =
     parts.[2] |> equal "c"
 
 [<Fact>]
+let ``test String.Split with character array separators works`` () =
+    "one,twoéthree".Split([| ','; 'é' |])
+    |> equal [| "one"; "two"; "three" |]
+
+[<Fact>]
+let ``test String.Split with character array removes empty entries`` () =
+    " one  two ".Split([| ' ' |], StringSplitOptions.RemoveEmptyEntries)
+    |> equal [| "one"; "two" |]
+
+[<Fact>]
+let ``test String.Split with string array separators and count works`` () =
+    "one,two.three".Split([| ","; "." |], 2, StringSplitOptions.None)
+    |> equal [| "one"; "two.three" |]
+
+[<Fact>]
 let ``test String.Split with char works`` () =
     "a b c  d".Split(' ')
     |> (=) [|"a";"b";"c";"";"d"|] |> equal true
@@ -341,6 +360,11 @@ let ``test String.forall and exists work`` () =
     "aaa" |> String.forall (fun c -> c = '!') |> equal false
 
 [<Fact>]
+let ``test String.forall works with non-ASCII characters`` () =
+    "café" |> String.forall (fun c -> c <> 'x') |> equal true
+    "café" |> String.exists (fun c -> c = 'é') |> equal true
+
+[<Fact>]
 let ``test String.init works`` () =
     String.init 3 (fun i -> "a") |> equal "aaa"
 
@@ -349,11 +373,21 @@ let ``test String.collect works`` () =
     "abc" |> String.collect (fun c -> "bcd") |> equal "bcdbcdbcd"
 
 [<Fact>]
+let ``test String.collect works with non-ASCII characters`` () =
+    "café" |> String.collect string |> equal "café"
+
+[<Fact>]
 let ``test String.iter works`` () =
     let res = ref ""
     "Hello world!"
     |> String.iter (fun c -> res.Value <- res.Value + c.ToString())
     equal "Hello world!" res.Value
+
+[<Fact>]
+let ``test String.iter works with non-ASCII characters`` () =
+    let res = ref ""
+    "café" |> String.iter (fun c -> res.Value <- res.Value + c.ToString())
+    equal "café" res.Value
 
 [<Fact>]
 let ``test String.iteri works`` () =
@@ -368,6 +402,11 @@ let ``test String.map works`` () =
     |> equal "_ello world!"
 
 [<Fact>]
+let ``test String.map works with non-ASCII characters`` () =
+    "café" |> String.map (fun c -> if c = 'é' then 'e' else c)
+    |> equal "cafe"
+
+[<Fact>]
 let ``test String.mapi works`` () =
     "Hello world!" |> String.mapi (fun i c -> if i = 1 || c = 'H' then '_' else c)
     |> equal "__llo world!"
@@ -375,6 +414,10 @@ let ``test String.mapi works`` () =
 [<Fact>]
 let ``test String.filter works`` () =
     String.filter (fun x -> x <> '.') "a.b.c" |> equal "abc"
+
+[<Fact>]
+let ``test String.filter works with non-ASCII characters`` () =
+    String.filter (fun c -> c <> 'é') "café" |> equal "caf"
 
 [<Fact>]
 let ``test String.filter works when predicate matches everything`` () =
@@ -432,6 +475,18 @@ let ``test String.ToCharArray works`` () =
 let ``test String.ToCharArray with range works`` () =
     let arr = "abcd".ToCharArray(1, 2)
     arr |> equal [|'b';'c'|]
+
+[<Fact>]
+let ``test String.ToCharArray works with non-ASCII characters`` () =
+    let s = "café"
+    let arr = s.ToCharArray()
+    arr |> equal [|'c';'a';'f';'é'|]
+    let rebuilt = arr |> Array.map string |> String.concat ""
+    rebuilt |> equal s
+
+[<Fact>]
+let ``test String.ToCharArray with range works with non-ASCII characters`` () =
+    "café".ToCharArray(2, 2) |> equal [|'f';'é'|]
 
 // --- String.Equals ---
 
@@ -722,6 +777,11 @@ let ``test String.IndexOfAny works`` () =
     "abcdbcebc".IndexOfAny([|'b'|]) |> equal 1
     "abcdbcebc".IndexOfAny([|'b'|], 2) |> equal 4
     "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
+
+[<Fact>]
+let ``test String.IndexOfAny works with non-ASCII characters`` () =
+    "café".IndexOfAny([|'é'|]) |> equal 3
+    "café".IndexOfAny([|'f'|]) |> equal 2
 
 [<Fact>]
 let ``test String.Join with indices works`` () =

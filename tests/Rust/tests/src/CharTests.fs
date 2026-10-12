@@ -24,6 +24,14 @@ let ``Char.ToLower with non-ASCII single mapping works`` () =
     Char.ToLower('É') |> equal 'é'
 
 [<Fact>]
+let ``Char.ToLower with invariant culture works`` () =
+    Char.ToLower('É', CultureInfo.InvariantCulture) |> equal 'é'
+
+[<Fact>]
+let ``Char.ToUpper with invariant culture works`` () =
+    Char.ToUpper('é', CultureInfo.InvariantCulture) |> equal 'É'
+
+[<Fact>]
 let ``Char.ToUpperInvariant works`` () =
     Char.ToUpperInvariant('b') |> equal 'B'
 
@@ -34,6 +42,18 @@ let ``Char.ToLowerInvariant works`` () =
 [<Fact>]
 let ``Char.ToString works`` () =
     Char.ToString('b') |> equal "b"
+
+[<Fact>]
+let ``Char.ToString with format provider works`` () =
+    'b'.ToString(CultureInfo.InvariantCulture) |> equal "b"
+
+[<Fact>]
+let ``Char.GetTypeCode works`` () =
+    'b'.GetTypeCode() |> equal TypeCode.Char
+
+[<Fact>]
+let ``Char.ConvertToUtf32 rejects non-surrogate pairs`` () =
+    throwsAnyError (fun () -> Char.ConvertToUtf32('a', 'b') |> ignore)
 
 [<Fact>]
 let ``Char.GetUnicodeCategory works`` () =
@@ -181,6 +201,20 @@ let ``Char.IsWhitespace works`` () =
     Char.IsWhiteSpace('\133') |> equal true
     Char.IsWhiteSpace('\160') |> equal true
     Char.IsWhiteSpace('-') |> equal false
+
+[<Fact>]
+let ``Char Unicode category predicates work`` () =
+    Char.IsControl('\u0085') |> equal true
+    Char.IsDigit('\u0661') |> equal true
+    Char.IsLetter('Ж') |> equal true
+    Char.IsLetterOrDigit('\u0661') |> equal true
+    Char.IsLower('я') |> equal true
+    Char.IsNumber('\u2167') |> equal true
+    Char.IsPunctuation('\u201C') |> equal true
+    Char.IsSeparator('\u2028') |> equal true
+    Char.IsSymbol('\u20AC') |> equal true
+    Char.IsUpper('Ж') |> equal true
+    Char.IsWhiteSpace('\u2007') |> equal true
 
 [<Fact>]
 let ``Char.IsWhitespace works with two args`` () =

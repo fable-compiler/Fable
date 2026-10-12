@@ -364,6 +364,14 @@ let ``Set.toSeq works`` () =
     |> equal true
 
 [<Fact>]
+let ``Sets can be enumerated`` () =
+    let xs = set [1.; 2.; 3.; 4.]
+    let mutable total = 0
+    for x in xs do
+        total <- total + int x
+    total |> equal 10
+
+[<Fact>]
 let ``Comparing large sets works`` () = // See #2203
     let largeSetA = Set.ofArray [| for i in 1 .. 100_000 -> i |]
     let largeSetB = Set.ofArray [| for i in 1 .. 100_000 -> i |]

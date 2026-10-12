@@ -2,6 +2,7 @@
 module Fable.Tests.AsyncTests
 
 open Util.Testing
+open System
 open System.Threading
 open System.Threading.Tasks
 
@@ -82,24 +83,44 @@ let ``return! propagates error Result from inner async`` () =
     Async.RunSynchronously (outer (Ok 99)) |> equal (Ok 99)
     Async.RunSynchronously (outer (Error "oops")) |> equal (Error "oops")
 
-// [<Fact>]
-// let shouldExecAsParallelStructurallyCorrect () =
-//     let t = Async.Parallel [
-//         async { return 1 }
-//         async { return 2 }
-//     ]
-//     t |> Async.RunSynchronously |> Array.sum |> equal 3
+[<Fact>]
+let shouldExecAsParallelStructurallyCorrect () =
+    let t = Async.Parallel [
+        async { return 1 }
+        async { return 2 }
+    ]
+    t |> Async.RunSynchronously |> Array.sum |> equal 3
 
-// [<Fact>]
-// let shouldMarshalMutOverAsyncClosureCorrectly () =
-//     let mutable x = 1
-//     let comp = async {
-//         let! z = async { return 3 }
-//         x <- x + 1
-//         return x + z
-//     }
-//     let t = Async.StartAsTask comp
-//     t.Result |> equal 5
+[<Fact>]
+let shouldExecAsParallelInOrder () =
+    Async.Parallel [
+        async { return 1 }
+        async { return 2 }
+        async { return 3 }
+    ]
+    |> Async.RunSynchronously
+    |> Array.toList
+    |> equal [ 1; 2; 3 ]
+
+[<Fact>]
+let shouldExecStartImmediateAsTask () =
+    // Runs on the calling thread instead of queueing onto the thread pool.
+    async { return 7 }
+    |> Async.StartImmediateAsTask
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    |> equal 7
+
+[<Fact>]
+let shouldMarshalMutOverAsyncClosureCorrectly () =
+    let mutable x = 1
+    let comp = async {
+        let! z = async { return 3 }
+        x <- x + 1
+        return x + z
+    }
+    let t = Async.StartAsTask comp
+    t.Result |> equal 5
 
 [<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.PointerType.Arc)>]
 type ArcRecord = {
@@ -131,17 +152,16 @@ let shouldExecuteTask () =
     }
     comp.Result |> equal 3
 
-// TODO: Fix ResumableStateMachine issue on .NET 8.0
-// [<Fact>]
-// let shouldExecuteMutationOnTask () =
-//     let a = Task.FromResult 0
-//     let mutable x = 0
-//     let comp = task {
-//         let! _ = a
-//         x <- x + 1
-//     }
-//     do comp.Result
-//     x |> equal 1
+[<Fact>]
+let shouldExecuteMutationOnTask () =
+    let a = Task.FromResult 0
+    let mutable x = 0
+    let comp = task {
+        let! _ = a
+        x <- x + 1
+    }
+    do comp.Result
+    x |> equal 1
 
 // [<Fact>]
 // let ``should execute mutation on thread unsafe`` () =
@@ -210,18 +230,18 @@ let ``Lock should return result`` () =
     let res = lock o (fun () -> { x = "42"})
     res.x |> equal "42"
 
-//[<Fact>]
-// let testShouldMutateAndLock () =
-//     let o = new System.Object()
-//     let mutable x = 1
-//     let lazyGet = async { return 1 }
-//     let comp = async {
-//         let! _ = lazyGet
-//         lock o (fun () -> x <- x + 1)
-//     }
-//     let t = Async.StartAsTask comp
-//     do t.Result
-//     x |> equal 2
+[<Fact>]
+let testShouldMutateAndLock () =
+    let o = { x = "test" }
+    let mutable x = 1
+    let lazyGet = async { return 1 }
+    let comp = async {
+        let! _ = lazyGet
+        lock o (fun () -> x <- x + 1)
+    }
+    let t = Async.StartAsTask comp
+    do t.Result
+    x |> equal 2
 
 [<Fact>]
 let ``Async.Sleep works`` () =
@@ -267,35 +287,35 @@ let ``Async.Sleep works`` () =
 //         res := true
 //     }, token)
 
-// let asyncMap f a = async {
-//     let! a = a
-//     return f a
-// }
+let asyncMap (f: int -> unit) (a: Async<int>) : Async<unit> = async {
+    let! a = a
+    return f a
+}
 
 
-// [<Fact>]
-// let ``Simple async translates without exception`` () =
-//     async { return () }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Simple async translates without exception`` () =
+    async { return () }
+    |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Async while binding works correctly`` () =
-//     let mutable result = 0
-//     async {
-//         while result < 10 do
-//             result <- result + 1
-//     } |> Async.StartImmediate
-//     equal result 10
+[<Fact>]
+let ``Async while binding works correctly`` () =
+    let mutable result = 0
+    async {
+        while result < 10 do
+            result <- result + 1
+    } |> Async.StartImmediate
+    equal result 10
 
-// [<Fact>]
-// let ``Async for binding works correctly`` () =
-//     let inputs = [|1; 2; 3|]
-//     let result = ref 0
-//     async {
-//         for inp in inputs do
-//             result := !result + inp
-//     } |> Async.StartImmediate
-//     equal !result 6
+[<Fact>]
+let ``Async for binding works correctly`` () =
+    let inputs = [|1; 2; 3|]
+    let result = ref 0
+    async {
+        for inp in inputs do
+            result := !result + inp
+    } |> Async.StartImmediate
+    equal !result 6
 
 // [<Fact>]
 // let ``Async exceptions are handled correctly`` () =
@@ -310,18 +330,18 @@ let ``Async.Sleep works`` () =
 //         !result
 //     f true + f false |> equal 22
 
-// [<Fact>]
-// let ``Simple async is executed correctly`` () =
-//     let result = ref false
-//     let x = async { return 99 }
-//     async {
-//         let! x = x
-//         let y = 99
-//         result := x = y
-//     }
-//     //TODO: RunSynchronously would make more sense here but in JS I think this will be ok.
-//     |> Async.StartImmediate
-//     equal !result true
+[<Fact>]
+let ``Simple async is executed correctly`` () =
+    let result = ref false
+    let x = async { return 99 }
+    async {
+        let! x = x
+        let y = 99
+        result := x = y
+    }
+    //TODO: RunSynchronously would make more sense here but in JS I think this will be ok.
+    |> Async.StartImmediate
+    equal !result true
 
 // [<Fact>]
 // let ``async use statements should dispose of resources when they go out of scope`` () =
@@ -340,29 +360,29 @@ let ``Async.Sleep works`` () =
 //     step2ok := !isDisposed
 //     (!step1ok && !step2ok) |> equal true
 
-// [<Fact>]
-// let ``Try _ with _ expressions inside async expressions work the same`` () =
-//     let result = ref ""
-//     let throw() : unit =
-//         raise(exn "Boo!")
-//     let append(x) =
-//         result := !result + x
-//     let innerAsync() =
-//         async {
-//             append "b"
-//             try append "c"
-//                 throw()
-//                 append "1"
-//             with _ -> append "d"
-//             append "e"
-//         }
-//     async {
-//         append "a"
-//         try do! innerAsync()
-//         with _ -> append "2"
-//         append "f"
-//     } |> Async.StartImmediate
-//     equal !result "abcdef"
+[<Fact>]
+let ``Try _ with _ expressions inside async expressions work the same`` () =
+    let result = ref ""
+    let throw() : unit =
+        raise(exn "Boo!")
+    let append(x) =
+        result := !result + x
+    let innerAsync() =
+        async {
+            append "b"
+            try append "c"
+                throw()
+                append "1"
+            with _ -> append "d"
+            append "e"
+        }
+    async {
+        append "a"
+        try do! innerAsync()
+        with _ -> append "2"
+        append "f"
+    } |> Async.StartImmediate
+    equal !result "abcdef"
 
 // // Disable this test for dotnet as it's failing too many times in Appveyor
 // #if FABLE_COMPILER
@@ -451,89 +471,89 @@ let ``Async.Sleep works`` () =
 //     }
 //     |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Async.Parallel works`` () =
-//     async {
-//         let makeWork i =
-//             async {
-//                 do! Async.Sleep 200
-//                 return i
-//             }
-//         let res: int[] ref = ref [||]
-//         let works = [makeWork 1; makeWork 2; makeWork 3]
-//         async {
-//             let! x = Async.Parallel works
-//             res := x
-//         } |> Async.StartImmediate
-//         do! Async.Sleep 500
-//         !res |> Array.sum |> equal 6
-//     }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Async.Parallel works`` () =
+    async {
+        let makeWork (i: int): Async<int> =
+            async {
+                do! Async.Sleep 200
+                return i
+            }
+        let res: int[] ref = ref [||]
+        let works = [makeWork 1; makeWork 2; makeWork 3]
+        async {
+            let! x = Async.Parallel works
+            res := x
+        } |> Async.StartImmediate
+        do! Async.Sleep 500
+        !res |> Array.sum |> equal 6
+    }
+    |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Async.Parallel is lazy`` () =
-//     async {
-//         let mutable x = 0
-//         let add i =
-// #if FABLE_COMPILER
-//             x <- x + i
-// #else
-//             Interlocked.Add(&x, i) |> ignore<int>
-// #endif
-//         let a = Async.Parallel [
-//             async { add 1 }
-//             async { add 2 }
-//         ]
-//         do! Async.Sleep 100
-//         equal 0 x
-//         let! _ = a
-//         equal 3 x
-//     }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Async.Parallel is lazy`` () =
+    async {
+        let mutable x = 0
+        let add i =
+#if FABLE_COMPILER
+            x <- x + i
+#else
+            Interlocked.Add(&x, i) |> ignore<int>
+#endif
+        let a = Async.Parallel [
+            async { add 1 }
+            async { add 2 }
+        ]
+        do! Async.Sleep 100
+        equal 0 x
+        let! _ = a
+        equal 3 x
+    }
+    |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Async.Sequential works`` () =
-//     async {
-//         let mutable _aggregate = 0
+[<Fact>]
+let ``Async.Sequential works`` () =
+    async {
+        let mutable _aggregate = 0
 
-//         let makeWork i =
-//             async {
-//                 // check that the individual work items run sequentially and not interleaved
-//                 _aggregate <- _aggregate + i
-//                 let copyOfI = _aggregate
-//                 do! Async.Sleep 100
-//                 equal copyOfI _aggregate
-//                 do! Async.Sleep 100
-//                 equal copyOfI _aggregate
-//                 return i
-//             }
-//         let works = [ for i in 1 .. 5 -> makeWork i ]
-//         let now = DateTimeOffset.Now
-//         let! result = Async.Sequential works
-//         let ``then`` = DateTimeOffset.Now
-//         let d = ``then`` - now
-//         // For some reason this sometimes fail in CI if d is exactly 1s so give it some breadth
-//         if d < TimeSpan.FromSeconds 0.9 then
-//             failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
-//         result |> equal [| 1 .. 5 |]
-//         result |> Seq.sum |> equal _aggregate
-//     }
-//     |> Async.StartImmediate
+        let makeWork i =
+            async {
+                // check that the individual work items run sequentially and not interleaved
+                _aggregate <- _aggregate + i
+                let copyOfI = _aggregate
+                do! Async.Sleep 100
+                equal copyOfI _aggregate
+                do! Async.Sleep 100
+                equal copyOfI _aggregate
+                return i
+            }
+        let works = [ for i in 1 .. 5 -> makeWork i ]
+        let now = DateTimeOffset.Now
+        let! result = Async.Sequential works
+        let ``then`` = DateTimeOffset.Now
+        let d = ``then`` - now
+        // For some reason this sometimes fail in CI if d is exactly 1s so give it some breadth
+        if d < TimeSpan.FromSeconds 0.9 then
+            failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
+        result |> equal [| 1 .. 5 |]
+        result |> Seq.sum |> equal _aggregate
+    }
+    |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Async.Sequential is lazy`` () =
-//     async {
-//         let mutable x = 0
-//         let a = Async.Sequential [
-//             async { x <- x + 1 }
-//             async { x <- x + 2 }
-//         ]
-//         do! Async.Sleep 100
-//         equal 0 x
-//         let! _ = a
-//         equal 3 x
-//     }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Async.Sequential is lazy`` () =
+    async {
+        let mutable x = 0
+        let a = Async.Sequential [
+            async { x <- x + 1 }
+            async { x <- x + 2 }
+        ]
+        do! Async.Sleep 100
+        equal 0 x
+        let! _ = a
+        equal 3 x
+    }
+    |> Async.StartImmediate
 
 // #if FABLE_COMPILER
 // [<Fact>]
@@ -668,58 +688,58 @@ let ``Async.Sleep works`` () =
 //     }
 //     |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Nested failure propagates in async expressions`` () =
-//     async {
-//         let data = ref ""
-//         let f1 x =
-//             async {
-//                 try
-//                     failwith "1"
-//                     return x
-//                 with
-//                 | e -> return! failwith ("2 " + e.Message)
-//             }
-//         let f2 x =
-//             async {
-//                 try
-//                     return! f1 x
-//                 with
-//                 | e -> return! failwith ("3 " + e.Message)
-//             }
-//         let f() =
-//             async {
-//                 try
-//                     let! y = f2 4
-//                     return ()
-//                 with
-//                 | e -> data := e.Message
-//             }
-//             |> Async.StartImmediate
-//         f()
-//         do! Async.Sleep 100
-//         equal "3 2 1" !data
-//     }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Nested failure propagates in async expressions`` () =
+    async {
+        let data = ref ""
+        let f1 x =
+            async {
+                try
+                    failwith "1"
+                    return x
+                with
+                | e -> return! failwith ("2 " + e.Message)
+            }
+        let f2 x =
+            async {
+                try
+                    return! f1 x
+                with
+                | e -> return! failwith ("3 " + e.Message)
+            }
+        let f() =
+            async {
+                try
+                    let! y = f2 4
+                    return ()
+                with
+                | e -> data := e.Message
+            }
+            |> Async.StartImmediate
+        f()
+        do! Async.Sleep 100
+        equal "3 2 1" !data
+    }
+    |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Try _ finally _ expressions inside async expressions work`` () =
-//     async {
-//         let data = ref ""
-//         async {
-//             try data := !data + "1 "
-//             finally data := !data + "2 "
-//         } |> Async.StartImmediate
-//         async {
-//             try
-//                 try failwith "boom!"
-//                 finally data := !data + "3"
-//             with _ -> ()
-//         } |> Async.StartImmediate
-//         do! Async.Sleep 100
-//         equal "1 2 3" !data
-//     }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Try _ finally _ expressions inside async expressions work`` () =
+    async {
+        let data = ref ""
+        async {
+            try data := !data + "1 "
+            finally data := !data + "2 "
+        } |> Async.StartImmediate
+        async {
+            try
+                try failwith "boom!"
+                finally data := !data + "3"
+            with _ -> ()
+        } |> Async.StartImmediate
+        do! Async.Sleep 100
+        equal "1 2 3" !data
+    }
+    |> Async.StartImmediate
 
 // [<Fact>]
 // let ``Final statement inside async expressions can throw`` () =
@@ -828,17 +848,17 @@ let ``Async.Sleep works`` () =
 //     }
 //     |> Async.StartImmediate
 
-// [<Fact>]
-// let ``Unit arguments are erased`` () = // See #1832
-//     let mutable token = 0
-//     async {
-//         let! res =
-//             async.Return 5
-//             |> asyncMap (fun x -> token <- x)
-//         equal 5 token
-//         res
-//     }
-//     |> Async.StartImmediate
+[<Fact>]
+let ``Unit arguments are erased`` () = // See #1832
+    let mutable token = 0
+    async {
+        let! res =
+            async.Return 5
+            |> asyncMap (fun x -> token <- x)
+        equal 5 token
+        res
+    }
+    |> Async.StartImmediate
 
 // [<Fact>]
 // let ``Can use custom exceptions in async workflows #2396`` () =
@@ -934,3 +954,198 @@ let ``Async.Sleep works`` () =
 //         acc > 2 |> equal true
 //     }
 //     |> Async.StartImmediate
+
+// The async builder's Combine, While, For, TryWith, TryFinally and Using used
+// to be missing from the Rust runtime, so any async block with a computation in
+// statement position failed to compile with "unresolved import
+// AsyncBuilder_::singleton".
+
+[<Fact>]
+let ``if without else in an async block combines`` () =
+    let comp = async {
+        if 1 < 2 then
+            do! async { return () }
+        return 42
+    }
+    comp |> Async.RunSynchronously |> equal 42
+
+[<Fact>]
+let ``while in an async block loops`` () =
+    let comp = async {
+        let mutable i = 0
+        while i < 3 do
+            let! step = async { return 1 }
+            i <- i + step
+        return i
+    }
+    comp |> Async.RunSynchronously |> equal 3
+
+[<Fact>]
+let ``while in an async block can run zero times`` () =
+    let comp = async {
+        let mutable i = 10
+        while i < 3 do
+            let! step = async { return 1 }
+            i <- i + step
+        return i
+    }
+    comp |> Async.RunSynchronously |> equal 10
+
+[<Fact>]
+let ``for in an async block iterates`` () =
+    let comp = async {
+        let mutable sum = 0
+        for x in [1; 2; 3] do
+            let! y = async { return x * 10 }
+            sum <- sum + y
+        return sum
+    }
+    comp |> Async.RunSynchronously |> equal 60
+
+// Delay used to run its builder immediately, so the `return` half of the block
+// was built -- and its value read -- before the loop above it had run. Only
+// Combine makes that visible, which is why it went unnoticed.
+[<Fact>]
+let ``state written by a loop is visible after it`` () =
+    let comp = async {
+        let mutable acc = ""
+        for x in ["a"; "b"] do
+            let! y = async { return x }
+            acc <- acc + y
+        return acc
+    }
+    comp |> Async.RunSynchronously |> equal "ab"
+
+[<Fact>]
+let ``try with in an async block catches`` () =
+    let comp = async {
+        try
+            let! _ = async { return 1 }
+            failwith "boom"
+            return 0
+        with _ ->
+            return -1
+    }
+    comp |> Async.RunSynchronously |> equal -1
+
+[<Fact>]
+let ``try with in an async block leaves a success alone`` () =
+    let comp = async {
+        try
+            let! x = async { return 1 }
+            return x
+        with _ ->
+            return -1
+    }
+    comp |> Async.RunSynchronously |> equal 1
+
+[<Fact>]
+let ``try finally in an async block runs the finalizer`` () =
+    let mutable ran = 0
+    let comp = async {
+        try
+            let! x = async { return 1 }
+            return x
+        finally
+            ran <- ran + 1
+    }
+    comp |> Async.RunSynchronously |> equal 1
+    ran |> equal 1
+
+[<Fact>]
+let ``try finally in an async block runs the finalizer on failure`` () =
+    let mutable ran = 0
+    let comp = async {
+        try
+            let! _ = async { return 1 }
+            failwith "boom"
+            return 0
+        finally
+            ran <- ran + 1
+    }
+    throwsAnyError (fun () -> comp |> Async.RunSynchronously)
+    ran |> equal 1
+
+type AsyncDisposable(onDispose: unit -> unit) =
+    interface System.IDisposable with
+        member _.Dispose() = onDispose()
+
+[<Fact>]
+let ``use in an async block disposes the resource`` () =
+    let mutable isDisposed = false
+    let comp = async {
+        use res = new AsyncDisposable(fun () -> isDisposed <- true)
+        let! x = async { return 1 }
+        return (if isNull (box res) then 0 else x)
+    }
+    comp |> Async.RunSynchronously |> equal 1
+    isDisposed |> equal true
+
+[<Fact>]
+let ``use in an async block disposes the resource when the body fails`` () =
+    let mutable isDisposed = false
+    let comp = async {
+        use res = new AsyncDisposable(fun () -> isDisposed <- true)
+        let! _ = async { return 1 }
+        failwith "boom"
+        return 0
+    }
+    throwsAnyError (fun () -> comp |> Async.RunSynchronously |> ignore)
+    isDisposed |> equal true
+
+[<Fact>]
+let ``nested loops in an async block`` () =
+    let comp = async {
+        let mutable total = 0
+        for i in 1 .. 3 do
+            let mutable j = 0
+            while j < 2 do
+                let! v = async { return i }
+                total <- total + v
+                j <- j + 1
+        return total
+    }
+    comp |> Async.RunSynchronously |> equal 12
+
+[<Fact>]
+let ``a loop body that awaits nothing still runs`` () =
+    let comp = async {
+        let mutable i = 0
+        while i < 3 do
+            i <- i + 1
+        return i
+    }
+    comp |> Async.RunSynchronously |> equal 3
+
+[<Fact>]
+let ``try with inside a loop catches each time`` () =
+    let comp = async {
+        let mutable caught = 0
+        for _ in 1 .. 3 do
+            try
+                let! _ = async { return () }
+                failwith "boom"
+            with _ ->
+                caught <- caught + 1
+        return caught
+    }
+    comp |> Async.RunSynchronously |> equal 3
+
+// The inner try/finally makes F# pass Delay a `unit -> Async<unit>` lambda whose
+// unit parameter is not erased, so the builder arrived as Func1 rather than
+// Func0 and this shape did not compile.
+[<Fact>]
+let ``try finally nested inside try with`` () =
+    let comp = async {
+        let mutable order = ""
+        try
+            try
+                let! _ = async { return () }
+                failwith "boom"
+            finally
+                order <- order + "inner"
+        with _ ->
+            order <- order + "-caught"
+        return order
+    }
+    comp |> Async.RunSynchronously |> equal "inner-caught"

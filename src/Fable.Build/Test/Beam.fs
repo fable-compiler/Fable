@@ -60,17 +60,148 @@ let private runErl (workingDir: string) (paArgs: string) (expr: string) =
     // stderr is folded into the returned text so a crash report reaches the failure message.
     stdout.Result + stderr.Result, proc.ExitCode
 
+/// Compile a fixture with the local Fable CLI while retaining diagnostics and the non-zero exit code.
+let private runFable (workingDir: string) (args: string list) =
+    let startInfo =
+        System.Diagnostics.ProcessStartInfo(
+            FileName = "dotnet",
+            WorkingDirectory = workingDir,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8
+        )
+
+    let localFableDir = Path.Resolve("src", "Fable.Cli")
+
+    for arg in [ "run"; "-c"; "Release"; "--project"; localFableDir; "--" ] @ args do
+        startInfo.ArgumentList.Add(arg)
+
+    use proc = System.Diagnostics.Process.Start(startInfo)
+    let stdout = proc.StandardOutput.ReadToEndAsync()
+    let stderr = proc.StandardError.ReadToEndAsync()
+    proc.WaitForExit()
+    stdout.Result + stderr.Result, proc.ExitCode
+
 let private expect (what: string) (expected: 'a) (actual: 'a) =
     if expected <> actual then
-        failwith $"Entry point test: %s{what}\n  expected: %A{expected}\n  actual:   %A{actual}"
+        failwith $"BEAM test: %s{what}\n  expected: %A{expected}\n  actual:   %A{actual}"
 
 /// Assert that a program's output contains `substring`, showing the output when it does not.
 /// `expect` on a bare `output.Contains ...` reports only `expected: true / actual: false`, which
 /// leaves a mismatch undiagnosable without re-running the program by hand.
 let private expectContains (what: string) (substring: string) (output: string) =
     if not (output.Contains substring) then
-        failwith
-            $"Entry point test: %s{what}\n  expected output to contain: %s{substring}\n  actual output:\n%s{output}"
+        failwith $"BEAM test: %s{what}\n  expected output to contain: %s{substring}\n  actual output:\n%s{output}"
+
+let private testUnsupportedDiagnostics () =
+    let programSourceDir = Path.Resolve("tests", "Beam", "UnsupportedNumericLiteral")
+    let programBuildDir = Path.Resolve("temp", "tests", "BeamUnsupportedNumericLiteral")
+    Directory.clean programBuildDir
+
+    let output, exitCode =
+        runFable
+            programBuildDir
+            [
+                programSourceDir
+                "--outDir"
+                programBuildDir
+                "--lang"
+                "beam"
+                "--exclude"
+                "Fable.Core"
+                "--noCache"
+            ]
+
+    expect "unsupported numeric literal compilation fails" 1 exitCode
+
+    expectContains
+        "unsupported numeric literal has an actionable source range"
+        "Program.fs(3,12): (3,31) error FABLE: Numeric literal kind 'Float16' is not supported for Beam target"
+        output
+
+    expectContains
+        "colliding record fields have an actionable diagnostic"
+        "Record 'Fable.Tests.UnsupportedNumericLiteral.CollidingRecord' has fields 'foo-bar' and 'foo_bar' that both compile to Erlang atom 'foo_bar_'. Rename one of the fields."
+        output
+
+    expectContains
+        "colliding anonymous record fields have an actionable diagnostic"
+        "Anonymous record has fields 'foo-bar' and 'foo_bar' that both compile to Erlang atom 'foo_bar_'. Rename one of the fields."
+        output
+
+    let generatedFile =
+        Path.Combine(programBuildDir, "src", "unsupported_numeric_literal_program.erl")
+
+    let generatedCode = File.ReadAllText(generatedFile)
+
+    expect
+        "unsupported numeric literal does not emit a runtime error placeholder"
+        false
+        (generatedCode.Contains("erlang:error(unsupported_"))
+
+let private testIdentifierCollisionDiagnostics () =
+    let programSourceDir = Path.Resolve("tests", "Beam", "CollidingMemberNames")
+    let programBuildDir = Path.Resolve("temp", "tests", "BeamCollidingMemberNames")
+    Directory.clean programBuildDir
+
+    let output, exitCode =
+        runFable
+            programBuildDir
+            [
+                programSourceDir
+                "--outDir"
+                programBuildDir
+                "--lang"
+                "beam"
+                "--exclude"
+                "Fable.Core"
+                "--noCache"
+            ]
+
+    expect "colliding member name compilation fails" 1 exitCode
+
+    expectContains
+        "colliding member names have an actionable diagnostic"
+        "Declarations 'fooBar' and 'foo_bar' in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_bar/0'. Rename one declaration."
+        output
+
+    expectContains
+        "class-generated and module member collisions have an actionable diagnostic"
+        "Declarations in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_ctor/0'. Rename one declaration or change its arity."
+        output
+
+    expectContains
+        "members differing only in case have an actionable diagnostic"
+        "compile to duplicate Erlang function 'renderer_work/1'. Rename one declaration or change its arity."
+        output
+
+    for owner in [ "CtorFields"; "ValFields" ] do
+        expectContains
+            $"colliding fields on '%s{owner}' have an actionable diagnostic"
+            $"Type 'Fable.Tests.CollidingMemberNames.%s{owner}' has fields 'fooBar' and 'FooBar' that both compile to Erlang atom 'field_foo_bar'. Rename one of the fields."
+            output
+
+    expectContains
+        "colliding union case tags have an actionable diagnostic"
+        "Union 'Fable.Tests.CollidingMemberNames.CollidingUnion' has cases 'FooBar' and 'Foo_Bar' that both compile to Erlang atom 'foo_bar'. Rename one of the cases."
+        output
+
+    expectContains
+        "a CompiledName colliding with a case name has an actionable diagnostic"
+        "Union 'Fable.Tests.CollidingMemberNames.CompiledNameUnion' has cases 'Tagged' and 'Foo_Bar' that both compile to Erlang atom 'foo_bar'. Rename one of the cases."
+        output
+
+    expectContains
+        "colliding interface members have an actionable diagnostic"
+        "Interface 'Fable.Tests.CollidingMemberNames.ICollidingMembers' has members 'FooBar' and 'Foo_Bar' that both dispatch through Erlang atom 'foo_bar'. Rename one of the members."
+        output
+
+    expectContains
+        "bounded interface setter keys participate in collision diagnostics"
+        "Interface 'Fable.Tests.CollidingMemberNames.ILongSetterCollision' has members"
+        output
 
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
@@ -233,3 +364,8 @@ let handle (args: string list) =
         // The suite above calls test functions directly and never runs a program end to end, so the
         // generated entry point shim is only exercised here.
         testEntryPointPrograms ()
+
+        // Unsupported constructs must stop compilation at their source location rather than leave
+        // an erlang:error placeholder that fails only when the generated code runs.
+        testUnsupportedDiagnostics ()
+        testIdentifierCollisionDiagnostics ()

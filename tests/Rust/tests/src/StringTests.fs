@@ -1590,3 +1590,31 @@ let ``String.filter with Char.IsDigit as a predicate doesn't hang`` () =
 //     let s3: FormattableString = $"""I have no holes"""
 //     s3.GetStrings() |> equal [|"I have no holes"|]
 // #endif
+
+// A string is enumerable in F#, but `string` is `LrcStr` in Rust with no
+// GetEnumerator to fall through to, so `for ch in s do` did not compile.
+[<Fact>]
+let ``for-in over a string works`` () =
+    let mutable count = 0
+    let mutable upper = ""
+
+    for ch in "abc" do
+        count <- count + 1
+        upper <- upper + string (System.Char.ToUpper ch)
+
+    count |> equal 3
+    upper |> equal "ABC"
+
+[<Fact>]
+let ``for-in over an empty string does nothing`` () =
+    let mutable count = 0
+
+    for _ in "" do
+        count <- count + 1
+
+    count |> equal 0
+
+[<Fact>]
+let ``a string works with the Seq functions`` () =
+    "hello" |> Seq.filter (fun c -> c = 'l') |> Seq.length |> equal 2
+    "hello" |> Seq.toList |> List.length |> equal 5

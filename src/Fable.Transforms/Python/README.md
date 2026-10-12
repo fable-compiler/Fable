@@ -32,24 +32,120 @@ Python source code.
 | `[]<single>` |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
 | `[]<'T>`     |      `list`      | Python list module                                                                |
 
+`FSharpArray` stores elements unboxed and hands them back in their Python representation, so an
+`int[]` yields plain `int`s. The element type is spelled with the Python representation:
+`Array[int]` and `Array[float]`, with `Array[uint8]` and friends for the wrapped widths.
+
 ## Numerics
 
-Most numeric types are now implemented using custom pyo3 wrapper types that maintain F#-style semantics while integrating with Python. Only `bigint` is still translated to Python's native `int` type. The wrapper types provide proper overflow behavior, type safety, and performance optimization while remaining compatible with Python code.
+F#'s two default numeric types are represented natively: `int` is a plain Python `int` and `float` is a
+plain Python `float`. The other widths use custom pyo3 wrapper types, which is what keeps a bare `int`
+or `float` an unambiguous runtime tag for the default width.
 
 | F#               | .NET       | Python  | Implementation                  |
 |:-----------------|:-----------|---------|---------------------------------|
 | bool             | Boolean    | bool    | Native Python type              |
-| int              | Int32      | Int32   | Custom pyo3 wrapper (ints.rs)   |
+| int              | Int32      | int     | Native Python type              |
+| float / double   | Double     | float   | Native Python type              |
+| bigint           | BigInteger | int     | Native Python type              |
 | byte             | Byte       | UInt8   | Custom pyo3 wrapper (ints.rs)   |
 | sbyte            | SByte      | Int8    | Custom pyo3 wrapper (ints.rs)   |
 | int16            | Int16      | Int16   | Custom pyo3 wrapper (ints.rs)   |
-| int64            | Int64      | Int64   | Custom pyo3 wrapper (ints.rs)   |
 | uint16           | Uint16     | UInt16  | Custom pyo3 wrapper (ints.rs)   |
 | uint32           | Uint32     | UInt32  | Custom pyo3 wrapper (ints.rs)   |
+| int64            | Int64      | Int64   | Custom pyo3 wrapper (ints.rs)   |
 | uint64           | Uint64     | UInt64  | Custom pyo3 wrapper (ints.rs)   |
-| float / double   | Double     | Float64 | Custom pyo3 wrapper (floats.rs) |
 | float32 / single | Single     | Float32 | Custom pyo3 wrapper (floats.rs) |
-| bigint           | BigInteger | int     | Native Python type              |
+
+### Int32 normalization
+
+A Python `int` is arbitrary precision, so the compiler normalizes results that can leave the 32-bit
+range, emitting `int32(...)` from `fable_library.core`. Two properties keep this cheap:
+
+- Normalization commutes with `+ - * << & | ^`, so **one normalization per expression tree** is
+  equivalent to one per operation. `int32(a * b + c)` and `int32(int32(a * b) + c)` always agree.
+- Only `+ - * <<` and unary `-` can leave the range at all. `& | ^ ~ >> / %`, comparisons, indexing
+  and literals map in-range operands to in-range results and are emitted bare.
+
+`transformOperation` implements this as a strip-then-wrap peephole keyed on the *Fable* operand node,
+never on the emitted Python — so it cannot strip a meaningful `int32(someFloat)` truncation, which
+does not commute with arithmetic. A four-operation tree emits a single wrap:
+
+```py
+def nested(a: int, b: int, c: int) -> int:
+    return int32(((a * b) + (c * 2)) - 1)
+```
+
+Float64 needs none of this: a Python `float` *is* an IEEE double, so arithmetic, overflow-to-infinity,
+NaN comparison, banker's rounding and signed zero already match .NET bit for bit.
+
+### Operators that diverge from Python
+
+| Expression | Python | .NET | Emitted |
+| --- | --- | --- | --- |
+| `-7 / 2` | `-4` (floors) | `-3` (truncates) | `int(a / b)` |
+| `-5 % 3` | `1` (sign of divisor) | `-2` (sign of dividend) | `op_remainder_int32(a, b)` |
+| `1 <<< 32` | `4294967296` | `1` (count masked) | `a << (b & 31)` |
+| `1.0 / 0.0` | `ZeroDivisionError` | `infinity` | `op_division_float64(a, b)` |
+| `-5.0 % 3.0` | `1.0` | `-2.0` | `op_remainder_float64(a, b)` |
+| `str(5.0)` | `'5.0'` | `'5'` | `exceptions.to_string` |
+| `str(inf)` | `'inf'` | `'Infinity'` | `exceptions.to_string` |
+
+Float division keeps a bare `/` when the divisor is a non-zero literal.
+
+`exceptions.to_string` must not call `int()` on a non-finite double — that raises `OverflowError` for
+the infinities and `ValueError` for NaN — so it checks `math.isfinite` before taking the whole-number
+path. The printf machinery in `strings.rs` spells the same three values out.
+
+**Known divergence:** `Int32.MinValue / -1` yields `2147483648` rather than throwing
+`OverflowException`. `/` cannot leave the 32-bit range for any other operand pair, so it carries no
+normalization, and adding one just for this case would tax every integer division.
+
+### Conversions between widths
+
+A widening conversion such as `int (x: sbyte)` or `float (x: float32)` reaches codegen as a bare
+`TypeCast` — `Replacements.needToCast` is false, because on .NET the value always fits. On Python the
+cast is not free even so: the source is a wrapper object, and leaving it in place would keep the
+arithmetic at the *source* width, so `Int8(100) + 100` would wrap to -56 instead of widening to 200.
+`transformCast` therefore emits `int32(...)` (which also truncates, matching an unchecked .NET cast)
+or the builtin `float(...)` whenever the source is not already the target's representation. Casting
+between two values that are both plain `int`, or both plain `float`, stays a no-op.
+
+`Int32.Parse`/`TryParse` go through the `int32` *module* rather than the `Int32` class, because the
+class's static methods return — and store into the ref cell — an `Int32` object.
+
+### Builtin entity annotations
+
+`makeBuiltinTypeAnnotation` in `Fable2Python.Annotation.fs` annotates most builtin entities as `Any`
+via its catch-all. The arms that would give them real types are present in the file but commented out;
+only `Set<'T>` is enabled, and only because the plain-`int` representation forced the issue.
+
+With `int` emitted as a bare literal, Pyright solves the element type of `singleton(1, cmp)` to
+`Literal[1]`. The comparer argument cannot widen it, because `IComparer_1` is contravariant and so
+`IComparer_1[int]` already satisfies `IComparer_1[Literal[1]]`. `FSharpSet` is invariant — its `T`
+appears in both `Contains(value: T)` and `GetEnumerator() -> IEnumerator[T]` — so
+`FSharpSet[Literal[1]]` will not unify with the `FSharpSet[Literal[2]]` of a sibling set. An `Any`
+binding gives bidirectional inference nothing to push down into those calls; annotating it
+`FSharpSet[T]` resolves both sides to `int`.
+
+**Not yet investigated:** `Map<'K,'V>`, `Dictionary<'K,'V>` and `HashSet<'T>` sit in the same
+commented-out block and still annotate as `Any`. They are not *known* to be wrong — nothing in the
+test corpus currently fails on them — but they are subject to the same literal-inference trap as
+`Set<'T>` was, so an `Any` there is hiding rather than answering the question. Enabling them is a much
+wider change than `Set` was: map- and dictionary-typed bindings are common across generated code, and
+`Any` has been absorbing whatever imprecision those annotations would otherwise expose. Worth doing
+one entity at a time, measuring the Pyright delta over `temp/tests/Python/` and `temp/fable-library-py/`
+after each.
+
+### Runtime type tests
+
+`:? int` and `:? float` compile to exact `type(x) is int` / `type(x) is float` checks rather than
+`isinstance`, because `bool` subclasses `int` — `isinstance` would report `box true :? int` as true.
+Exact matching also keeps `float` distinct from the `Float32` wrapper, which is not a `float` subclass.
+
+**Known limitation:** Python's `int` is already arbitrary precision, so a boxed `int` cannot be told
+apart from a `bigint` at runtime. One assertion in `tests/Python/TestType.fs` is guarded with
+`#if !FABLE_COMPILER_PYTHON`. JS avoids this only because it has a native `bigint` primitive.
 
 ## Interfaces and Protocols
 

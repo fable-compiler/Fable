@@ -561,7 +561,7 @@ let current i =
         | { root = Some t } :: _ ->
             if t.Height = 1 then
                 // KeyValuePair<_, _>(t.Key, t.Value)
-                (t.Key, t.Value)
+                struct (t.Key, t.Value)
             else
                 unexpectedStackForCurrent ()
         | _ -> alreadyFinished ()
@@ -582,7 +582,7 @@ let rec moveNext i =
         i.started <- true // The first call to MoveNext "starts" the enumeration.
         not i.stack.IsEmpty
 
-let toSeq (m: Map<'K, 'V>) =
+let toEnumerable (m: Map<'K, 'V>) =
     Seq.delay (fun () ->
         mkIterator m
         |> Seq.unfold (fun i ->
@@ -592,6 +592,9 @@ let toSeq (m: Map<'K, 'V>) =
                 None
         )
     )
+
+let toSeq (m: Map<'K, 'V>) =
+    Seq.map (fun struct (k, v) -> (k, v)) (toEnumerable m)
 
 let compareTo (m1: Map<'K, 'V>) (m2: Map<'K, 'V>) =
     // LanguagePrimitives.GenericComparison m1 m2

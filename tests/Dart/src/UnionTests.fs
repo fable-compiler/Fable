@@ -89,6 +89,10 @@ type T8 = T8
 type T9 = T9
 type 'a more = More of 'a
 
+type Id = Id of string
+
+type UnionWithIdField = WithId of Id: Id
+
 let tests() =
     testCase "Union cases matches with no arguments can be generated" <| fun () ->
         let x = Male
@@ -199,6 +203,13 @@ let tests() =
         |> Array.filter (fun r -> match r.Case with MyUnion.Case1 -> true | _ -> false)
         |> Array.length
         |> equal 2
+
+    testCase "Union field can have the same name as its type" <| fun () ->
+        let value = WithId(Id "foo")
+        match value with
+        | WithId id ->
+            match id with
+            | Id value -> value |> equal "foo"
 
     // TODO
 //    testCase "Case testing with erased unions works" <| fun () ->

@@ -40,6 +40,7 @@ type CompilerOptions =
         FileExtension: string
         TriggeredByDependency: bool
         NoReflection: bool
+        JsTemporal: bool
     }
 
 type PluginHelper =

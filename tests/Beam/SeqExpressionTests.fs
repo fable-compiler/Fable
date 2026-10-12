@@ -111,25 +111,23 @@ let ``test try...with in seq expressions preserves yielded elements before the e
     equal [1; 3] xs
     equal true caught
 
-// TODO: enable when Beam correctly rethrows exceptions not matched by a filtered
-// try/with handler in seq expressions (see PR #4719 review discussion)
-// [<Fact>]
-// let ``test try...with in seq expressions rethrows unmatched exceptions`` () =
-//     let mutable propagated = false
-//     try
-//         seq {
-//             try
-//                 yield 1
-//                 raise (System.InvalidOperationException "boom")
-//                 yield 2
-//             with :? System.ArgumentException ->
-//                 yield 0
-//         }
-//         |> Seq.toList
-//         |> ignore
-//     with :? System.InvalidOperationException ->
-//         propagated <- true
-//     equal true propagated
+[<Fact>]
+let ``test try...with in seq expressions rethrows unmatched exceptions`` () =
+    let mutable propagated = false
+    try
+        seq {
+            try
+                yield 1
+                raise (System.InvalidOperationException "boom")
+                yield 2
+            with :? System.ArgumentException ->
+                yield 0
+        }
+        |> Seq.toList
+        |> ignore
+    with :? System.InvalidOperationException ->
+        propagated <- true
+    equal true propagated
 
 [<Fact>]
 let ``test array expressions work`` () =

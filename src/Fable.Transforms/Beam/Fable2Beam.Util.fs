@@ -9,6 +9,37 @@ open Fable.Beam
 let toErlangVar (ident: Ident) =
     Naming.capitalizeFirst ident.Name |> Naming.sanitizeErlangVar
 
+/// Test the existing DU representation without inspecting payload types.
+let makeUnionTypeTest (cases: UnionCase list) (expr: Beam.ErlExpr) =
+    // decision: Match emitted case tags and arities because DU values carry no nominal type or generic argument metadata.
+    // invariant: Patterns accept arbitrary terms safely and evaluate the tested expression once.
+    let caseClause (uci: UnionCase) : Beam.ErlCaseClause =
+        let tag =
+            Naming.unionCaseTagName uci.CompiledName uci.Name
+            |> Beam.Atom
+            |> Beam.ErlLiteral.AtomLit
+            |> Beam.PLiteral
+
+        let pattern =
+            match uci.UnionCaseFields with
+            | [] -> tag
+            | fields -> Beam.PTuple(tag :: List.replicate fields.Length Beam.PWildcard)
+
+        {
+            Pattern = pattern
+            Guard = []
+            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true) ]
+        }
+
+    let fallback: Beam.ErlCaseClause =
+        {
+            Pattern = Beam.PWildcard
+            Guard = []
+            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit false) ]
+        }
+
+    Beam.ErlExpr.Case(expr, List.map caseClause cases @ [ fallback ])
+
 let isIntegerType (typ: Fable.AST.Fable.Type) =
     match typ with
     | Fable.AST.Fable.Type.Number(kind, _) ->
@@ -63,7 +94,7 @@ let private wrappedLiteral (bits: int, signed: bool) (value: int64) =
 
     if not signed && truncated < 0L then
         // 64-bit unsigned above Int64.MaxValue: does not fit an Erlang int64 literal
-        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> (uint64 truncated)))
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64>(uint64 truncated)))
     else
         Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer truncated)
 
@@ -436,6 +467,45 @@ let wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : Beam.Erl
 let atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
 
+/// Whether generated Erlang still reads a variable. This is intentionally checked after
+/// lowering: a Fable catch identifier used only by `reraise` becomes the raw
+/// class/reason/stacktrace variables and does not need a separately wrapped exception value.
+let rec referencesVariable (name: string) (expr: Beam.ErlExpr) : bool =
+    let anyReferences exprs =
+        exprs |> List.exists (referencesVariable name)
+
+    match expr with
+    | Beam.ErlExpr.Variable varName -> varName = name
+    | Beam.ErlExpr.Tuple elements
+    | Beam.ErlExpr.List elements
+    | Beam.ErlExpr.Block elements -> anyReferences elements
+    | Beam.ErlExpr.ListCons(head, tail)
+    | Beam.ErlExpr.BinOp(_, head, tail) -> referencesVariable name head || referencesVariable name tail
+    | Beam.ErlExpr.Map entries ->
+        entries
+        |> List.exists (fun (key, value) -> referencesVariable name key || referencesVariable name value)
+    | Beam.ErlExpr.Call(_, _, args) -> anyReferences args
+    | Beam.ErlExpr.Apply(func, args) -> referencesVariable name func || anyReferences args
+    | Beam.ErlExpr.Fun clauses
+    | Beam.ErlExpr.NamedFun(_, clauses) ->
+        clauses
+        |> List.exists (fun clause -> anyReferences clause.Guard || anyReferences clause.Body)
+    | Beam.ErlExpr.Case(value, clauses) ->
+        referencesVariable name value
+        || clauses
+           |> List.exists (fun clause -> anyReferences clause.Guard || anyReferences clause.Body)
+    | Beam.ErlExpr.Match(_, value)
+    | Beam.ErlExpr.UnaryOp(_, value) -> referencesVariable name value
+    | Beam.ErlExpr.TryCatch(body, _, _, _, catchBody, after) ->
+        anyReferences body || anyReferences catchBody || anyReferences after
+    | Beam.ErlExpr.Emit(_, args) -> anyReferences args
+    | Beam.ErlExpr.Receive(clauses, after) ->
+        clauses
+        |> List.exists (fun clause -> anyReferences clause.Guard || anyReferences clause.Body)
+        || (after
+            |> Option.exists (fun (timeout, body) -> referencesVariable name timeout || anyReferences body))
+    | Beam.ErlExpr.Literal _ -> false
+
 let rec private patternBinds (pattern: Beam.ErlPattern) : bool =
     match pattern with
     | Beam.PVar _ -> true
@@ -518,4 +588,4 @@ let isolateScope (body: Beam.ErlExpr list) : Beam.ErlExpr =
 /// and the declaration/initializer must all derive their key through this helper or state
 /// silently breaks.
 let mutableStateKey (moduleName: string) (name: string) =
-    moduleName + "_" + Naming.sanitizeErlangName name
+    Naming.limitErlangAtomLength (moduleName + "_" + Naming.sanitizeErlangName name)

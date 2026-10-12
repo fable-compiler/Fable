@@ -10,6 +10,8 @@
     from_int/1,
     from_float/1,
     from_parts/5,
+    from_bits/1,
+    get_bits/1,
     parse/1,
     try_parse/2,
     get_one/0,
@@ -33,6 +35,8 @@
 -spec from_int(integer()) -> integer().
 -spec from_float(float() | integer()) -> integer().
 -spec from_parts(integer(), integer(), integer(), boolean(), non_neg_integer()) -> integer().
+-spec from_bits([integer()]) -> integer().
+-spec get_bits(integer()) -> [integer()].
 -spec parse(binary()) -> integer().
 -spec try_parse(binary(), reference()) -> boolean().
 -spec get_one() -> integer().
@@ -150,7 +154,7 @@ shift(Value, Exp) ->
 
 %% MakeDecimal(low, mid, high, isNegative, scale)
 %% low/mid/high are signed int32 from .NET — mask to unsigned
-from_parts(Low, Mid, High, IsNegative, Scale) ->
+from_parts(Low, Mid, High, IsNegative, Scale) when Scale >= 0, Scale =< 28 ->
     L = Low band 16#FFFFFFFF,
     M = Mid band 16#FFFFFFFF,
     H = High band 16#FFFFFFFF,
@@ -161,6 +165,66 @@ from_parts(Low, Mid, High, IsNegative, Scale) ->
     case IsNegative of
         true -> -Adjusted;
         false -> Adjusted
+    end;
+from_parts(_Low, _Mid, _High, _IsNegative, Scale) ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message => <<"Decimal scale must be between 0 and 28.">>,
+        param_name => <<"scale">>,
+        actual_value => Scale
+    }).
+
+from_bits([Low, Mid, High, Flags]) ->
+    UnsignedFlags = Flags band 16#FFFFFFFF,
+    Scale = (UnsignedFlags bsr 16) band 16#FF,
+    ReservedBits = UnsignedFlags band 16#7F00FFFF,
+    case ReservedBits =:= 0 andalso Scale =< 28 of
+        true ->
+            IsNegative = (UnsignedFlags band 16#80000000) =/= 0,
+            from_parts(Low, Mid, High, IsNegative, Scale);
+        false ->
+            invalid_decimal_bits()
+    end;
+from_bits(_Bits) ->
+    invalid_decimal_bits().
+
+invalid_decimal_bits() ->
+    erlang:error(#{
+        exn_type => argument_exception,
+        message => <<"Decimal constructor requires four integers with valid sign and scale bits.">>
+    }).
+
+%% decision: GetBits emits the smallest scale because fixed-scale values do not retain input scale or negative zero.
+%% invariant: every representable .NET decimal round-trips numerically through get_bits/1 and from_bits/1.
+get_bits(Value) ->
+    IsNegative = Value < 0,
+    {Coefficient, Scale} = canonical_coefficient(abs(Value), 28),
+    case Coefficient < (1 bsl 96) of
+        true ->
+            Low = to_signed_int32(Coefficient),
+            Mid = to_signed_int32(Coefficient bsr 32),
+            High = to_signed_int32(Coefficient bsr 64),
+            Flags = (Scale bsl 16) bor case IsNegative of true -> 16#80000000; false -> 0 end,
+            [Low, Mid, High, to_signed_int32(Flags)];
+        false ->
+            erlang:error(#{
+                exn_type => overflow_exception,
+                message => <<"Value was either too large or too small for a Decimal.">>
+            })
+    end.
+
+canonical_coefficient(0, _Scale) ->
+    {0, 0};
+canonical_coefficient(Coefficient, Scale) when Scale > 0, Coefficient rem 10 =:= 0 ->
+    canonical_coefficient(Coefficient div 10, Scale - 1);
+canonical_coefficient(Coefficient, Scale) ->
+    {Coefficient, Scale}.
+
+to_signed_int32(Value) ->
+    Masked = Value band 16#FFFFFFFF,
+    case Masked >= 16#80000000 of
+        true -> Masked - 16#100000000;
+        false -> Masked
     end.
 
 pow10(0) ->

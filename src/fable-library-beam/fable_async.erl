@@ -2,7 +2,7 @@
 -export([
     start_immediate/1, start_immediate/2,
     start_child/1, start_child/2,
-    run_synchronously/1, run_synchronously/2,
+    run_synchronously/1, run_synchronously/2, run_synchronously/3,
     start_with_continuations/4, start_with_continuations/5,
     sleep/1,
     await_event/1, await_event/2,
@@ -24,7 +24,8 @@
     on_success := fun(),
     on_error := fun(),
     on_cancel := fun(),
-    cancel_token := reference() | undefined
+    cancel_token := reference() | undefined,
+    wait_for_async := boolean()
 }.
 -type async(T) :: fun((async_ctx()) -> T).
 
@@ -33,7 +34,8 @@
 -spec start_child(async(term())) -> async(async(term())).
 -spec start_child(async(term()), non_neg_integer() | undefined) -> async(async(term())).
 -spec run_synchronously(async(term())) -> term().
--spec run_synchronously(async(term()), reference() | undefined) -> term().
+-spec run_synchronously(async(term()), integer() | reference() | undefined) -> term().
+-spec run_synchronously(async(term()), integer() | undefined, reference() | undefined) -> term().
 -spec start_with_continuations(async(term()), fun(), fun(), fun()) -> term().
 -spec start_with_continuations(async(term()), fun(), fun(), fun(), reference() | undefined) ->
     term().
@@ -97,7 +99,8 @@ default_ctx(CancelToken) ->
         on_success => fun(_) -> ok end,
         on_error => fun(E) -> erlang:error(E) end,
         on_cancel => fun(_) -> ok end,
-        cancel_token => CancelToken
+        cancel_token => CancelToken,
+        wait_for_async => false
     }.
 
 %% StartImmediate: run with default context (fire-and-forget)
@@ -120,10 +123,9 @@ start_immediate(Computation, CancelToken) ->
 %% it is killed (e.g. on timeout) or the VM stops, so a child whose result is
 %% never awaited leaves an idle process behind.
 %%
-%% Cancellation tokens are intentionally not propagated to the child: tokens are
-%% held in the process dictionary (see fable_cancellation), so they are only
-%% meaningful within a single process and cannot be shared with the child's
-%% separate process. This matches parallel/1.
+%% StartChild does not currently propagate its parent context's token. Tokens are
+%% process-portable, but changing combinator propagation is a separate semantic
+%% change from making an explicitly supplied or captured token safe to share.
 start_child(Computation) -> start_child(Computation, undefined).
 start_child(Computation, Timeout) ->
     fun(Ctx) ->
@@ -171,9 +173,53 @@ child_result_holder(ResultRef, Result) ->
             child_result_holder(ResultRef, Result)
     end.
 
-%% RunSynchronously: run CPS chain in current process, capture result
-run_synchronously(Computation) -> run_synchronously(Computation, undefined).
+%% RunSynchronously: unlimited waits run inline; finite deadlines use a worker.
+run_synchronously(Computation) -> run_synchronously(Computation, undefined, undefined).
+%% decision: retain native /2 token callers while compiled F# uses the unambiguous /3 ABI.
+run_synchronously(Computation, Timeout) when is_integer(Timeout) ->
+    run_synchronously(Computation, Timeout, undefined);
 run_synchronously(Computation, CancelToken) ->
+    run_synchronously(Computation, undefined, CancelToken).
+
+run_synchronously(Computation, Timeout, CancelToken) when Timeout =:= undefined; Timeout =:= -1 ->
+    run_inline(Computation, CancelToken);
+run_synchronously(Computation, Timeout, CancelToken) when is_integer(Timeout), Timeout >= 0 ->
+    run_with_timeout(Computation, Timeout, CancelToken);
+run_synchronously(_Computation, _Timeout, _CancelToken) ->
+    erlang:error(#{exn_type => argument_exception, message => <<"The timeout must be non-negative or -1.">>}).
+
+%% decision: finite timeouts use a monitored worker so blocking BEAM operations cannot block the deadline.
+%% invariant: timeout requests cooperative cancellation rather than killing work and skipping finalizers.
+%% tradeoff: timed work runs in another process and cannot share process-dictionary-backed mutable values.
+run_with_timeout(Computation, Timeout, CancelToken) ->
+    Token = fable_cancellation:create(),
+    Registration = fable_cancellation:register(CancelToken, fun(_) -> fable_cancellation:cancel(Token) end),
+    {Pid, Monitor} = spawn_monitor(fun() ->
+        Result = try run_inline(Computation, CancelToken, Token) of
+            Value -> {ok, Value}
+        catch Class:Reason:Stacktrace -> {error, Class, Reason, Stacktrace}
+        end,
+        exit({fable_async_result, Result})
+    end),
+    try
+        receive
+            {'DOWN', Monitor, process, Pid, {fable_async_result, {ok, Value}}} -> Value;
+            {'DOWN', Monitor, process, Pid, {fable_async_result, {error, Class, Reason, Stacktrace}}} ->
+                erlang:raise(Class, Reason, Stacktrace);
+            {'DOWN', Monitor, process, Pid, Reason} -> erlang:error(Reason)
+        after Timeout ->
+            fable_cancellation:cancel(Token),
+            erlang:error(#{exn_type => timeout_exception, message => <<"The operation has timed out.">>})
+        end
+    after
+        erlang:demonitor(Monitor, [flush]),
+        fable_utils:safe_dispose(Registration)
+    end.
+
+run_inline(Computation, CancelToken) ->
+    run_inline(Computation, CancelToken, CancelToken).
+
+run_inline(Computation, UserToken, CancelToken) ->
     %% Use a unique ref as key to store result in process dict
     Ref = make_ref(),
     %% Take over stacktrace parking for the duration of this run, handing it back afterwards so a
@@ -184,8 +230,14 @@ run_synchronously(Computation, CancelToken) ->
     Ctx = #{
         on_success => fun(V) -> put(Ref, {ok, V}) end,
         on_error => fun(E) -> put(Ref, {error, E}) end,
-        on_cancel => fun(_) -> put(Ref, {cancelled}) end,
-        cancel_token => CancelToken
+        on_cancel => fun(E) -> put(Ref, {cancelled, E}) end,
+        cancel_token => CancelToken,
+        %% invariant: Async.CancellationToken returns the supplied token even when a timeout
+        %% needs a linked token internally to cancel waits without cancelling the user's source.
+        user_cancel_token => UserToken,
+        %% invariant: runtime-owned callbacks are handled by the process that created their
+        %% process-dictionary-backed continuations.
+        wait_for_async => true
     },
     try
         Computation(Ctx)
@@ -204,7 +256,14 @@ run_synchronously(Computation, CancelToken) ->
     case Result of
         {ok, Value} -> Value;
         {error, Error} -> reraise(Ref, Parked, Error);
-        {cancelled} -> erlang:error(operation_cancelled);
+        {cancelled, Error} ->
+            %% invariant: RunSynchronously rethrows the cancellation exception supplied by the
+            %% continuation; legacy native callbacks that pass unit still receive a typed exception.
+            Exception = wrap_error(Error),
+            case fable_utils:is_exception_type(Exception, operation_canceled_exception) of
+                true -> erlang:error(Exception);
+                false -> erlang:error(fable_cancellation:exception())
+            end;
         undefined -> erlang:error(async_no_result)
     end.
 
@@ -216,7 +275,8 @@ start_with_continuations(Comp, OnSuccess, OnError, OnCancel, Token) ->
         on_success => OnSuccess,
         on_error => OnError,
         on_cancel => OnCancel,
-        cancel_token => Token
+        cancel_token => Token,
+        wait_for_async => false
     },
     try
         Comp(Ctx)
@@ -238,12 +298,12 @@ sleep(Milliseconds) ->
                 %% Check if already cancelled before sleeping
                 case fable_cancellation:is_cancellation_requested(Token) of
                     true ->
-                        (maps:get(on_cancel, Ctx))(ok);
+                        (maps:get(on_cancel, Ctx))(fable_cancellation:exception());
                     false ->
                         %% Set up a timer to send us a wake-up message
                         Self = self(),
                         TimerRef = make_ref(),
-                        timer:apply_after(Milliseconds, erlang, send, [Self, {sleep_done, TimerRef}]),
+                        SleepTimer = erlang:send_after(Milliseconds, Self, {sleep_done, TimerRef}),
                         %% Register a cancellation listener to wake us up early
                         RegId = fable_cancellation:register(Token, fun(_) ->
                             Self ! {sleep_cancelled, TimerRef}
@@ -253,17 +313,10 @@ sleep(Milliseconds) ->
                             {sleep_done, TimerRef} ->
                                 (maps:get(on_success, Ctx))(ok);
                             {sleep_cancelled, TimerRef} ->
-                                (maps:get(on_cancel, Ctx))(ok);
-                            {cancel_token, Token} ->
-                                %% Timer-based cancel via cancel_after
-                                fable_cancellation:cancel(Token),
-                                (maps:get(on_cancel, Ctx))(ok)
+                                (maps:get(on_cancel, Ctx))(fable_cancellation:exception())
                         end,
-                        %% Clean up registration if we have one
-                        case RegId of
-                            undefined -> ok;
-                            _ -> ok
-                        end
+                        erlang:cancel_timer(SleepTimer),
+                        fable_utils:safe_dispose(RegId)
                 end
         end
     end.
@@ -275,27 +328,91 @@ await_event(Event, CancelAction) ->
         OnSuccess = maps:get(on_success, Ctx),
         OnCancel = maps:get(on_cancel, Ctx),
         Token = maps:get(cancel_token, Ctx),
+        Owner = self(),
+        AwaitRef = make_ref(),
+        RegistrationRef = make_ref(),
+        put(AwaitRef, pending),
+        put(RegistrationRef, undefined),
 
         Handler = fun F(_Sender, Value) ->
-            (maps:get(remove_handler, Event))(F),
-            OnSuccess(Value)
+            case self() =:= Owner of
+                true ->
+                    finish_await_event(
+                        {success, Value}, Event, F, Token, CancelAction,
+                        OnSuccess, OnCancel, AwaitRef, RegistrationRef
+                    );
+                false ->
+                    Owner ! {fable_async_await_event, AwaitRef, {success, Value}}
+            end
         end,
 
-        case Token of
-            undefined -> ok;
+        %% Subscribe before registering cancellation so an already-cancelled token can remove the
+        %% handler synchronously instead of leaving a handler that can never complete successfully.
+        (maps:get(add_handler, Event))(Handler),
+        Registration = case Token of
+            undefined -> undefined;
             _ ->
                 fable_cancellation:register(Token, fun(_) ->
-                    (maps:get(remove_handler, Event))(Handler),
-                    case CancelAction of
-                        undefined -> ok;
-                        _ -> CancelAction(ok)
-                    end,
-                    OnCancel(ok)
+                    case self() =:= Owner of
+                        true ->
+                            finish_await_event(
+                                cancelled, Event, Handler, Token, CancelAction,
+                                OnSuccess, OnCancel, AwaitRef, RegistrationRef
+                            );
+                        false ->
+                            Owner ! {fable_async_await_event, AwaitRef, cancelled}
+                    end
                 end)
         end,
+        case get(AwaitRef) of
+            pending -> put(RegistrationRef, Registration);
+            _ -> fable_utils:safe_dispose(Registration)
+        end,
 
-        (maps:get(add_handler, Event))(Handler)
+        case maps:get(wait_for_async, Ctx, false) andalso get(AwaitRef) =:= pending of
+            true ->
+                receive
+                    {fable_async_await_event, AwaitRef, Result} ->
+                        finish_await_event(
+                            Result, Event, Handler, Token, CancelAction,
+                            OnSuccess, OnCancel, AwaitRef, RegistrationRef
+                        )
+                end;
+            false -> ok
+        end
     end.
+
+finish_await_event(
+    Result, Event, Handler, Token, CancelAction,
+    OnSuccess, OnCancel, AwaitRef, RegistrationRef
+) ->
+    case get(AwaitRef) of
+        pending ->
+            put(AwaitRef, completed),
+            (maps:get(remove_handler, Event))(Handler),
+            fable_utils:safe_dispose(get(RegistrationRef)),
+            erase(AwaitRef),
+            erase(RegistrationRef),
+            case Result of
+                {success, Value} ->
+                    %% Cancellation that has already won the broker race must also win an event
+                    %% delivery racing with its owner-process message.
+                    case fable_cancellation:is_cancellation_requested(Token) of
+                        true -> invoke_await_event_cancel(CancelAction, OnCancel);
+                        false -> OnSuccess(Value)
+                    end;
+                cancelled ->
+                    invoke_await_event_cancel(CancelAction, OnCancel)
+            end;
+        _ -> ok
+    end.
+
+invoke_await_event_cancel(CancelAction, OnCancel) ->
+    case CancelAction of
+        undefined -> ok;
+        _ -> CancelAction(ok)
+    end,
+    OnCancel(fable_cancellation:exception()).
 
 %% Parallel: spawn one process per computation, collect results in order
 parallel(Computations) when is_reference(Computations) ->
@@ -349,7 +466,7 @@ sequential(Computations) ->
 %% Uses atom tags matching Beam union representation: choice1_of2 = Choice1Of2, choice2_of2 = Choice2Of2
 catch_async(Computation) ->
     fun(Ctx) ->
-        Ctx2 = #{
+        Ctx2 = Ctx#{
             on_success => fun(V) -> (maps:get(on_success, Ctx))({choice1_of2, V}) end,
             on_error => fun(E) -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(E)}) end,
             on_cancel => maps:get(on_cancel, Ctx),
@@ -381,10 +498,10 @@ start_as_task(Computation) ->
 %% convert — the task *is* the async computation.
 await_task(Task) -> Task.
 
-%% CancellationToken: returns async that extracts cancel_token from context
+%% CancellationToken: expose the supplied token independently of timeout wake-ups.
 cancellation_token() ->
     fun(Ctx) ->
-        Token = maps:get(cancel_token, Ctx),
+        Token = maps:get(user_cancel_token, Ctx, maps:get(cancel_token, Ctx)),
         (maps:get(on_success, Ctx))(Token)
     end.
 
@@ -394,6 +511,8 @@ create_cancellation_token(Arg) -> fable_cancellation:create(Arg).
 
 %% Wrap raw error values as exception maps so .Message accessor works.
 %% Errors from failwith are raw binaries; errors from raise(exn ...) are already maps.
+%% decision: recognize the legacy runtime atom by identity, never by a formatted message or token state.
+wrap_error(operation_cancelled) -> fable_cancellation:exception();
 wrap_error(Err) when is_binary(Err) -> #{message => Err};
 wrap_error(Err) when is_map(Err) -> Err;
 wrap_error(Err) when is_reference(Err) -> Err;

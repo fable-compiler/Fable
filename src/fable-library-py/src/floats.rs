@@ -18,7 +18,6 @@ macro_rules! float_variant {
         impl Deref for $name {
             type Target = $type;
 
-
             #[inline]
             fn deref(&self) -> &Self::Target {
                 &self.0
@@ -145,7 +144,11 @@ macro_rules! float_variant {
                 Ok(Self(other_val % self.0))
             }
 
-            pub fn __pow__(&self, other: &Bound<'_, PyAny>, modulo: Option<$type>) -> PyResult<Self> {
+            pub fn __pow__(
+                &self,
+                other: &Bound<'_, PyAny>,
+                modulo: Option<$type>,
+            ) -> PyResult<Self> {
                 if modulo.is_some() {
                     return Err(PyErr::new::<exceptions::PyTypeError, _>(
                         "pow() with modulo not supported for floats",
@@ -560,7 +563,10 @@ macro_rules! float_variant {
                 let py = value.py();
                 // If the value has __float__, extract it as a Python float
                 if value.hasattr("__float__")? {
-                    Ok(value.call_method0("__float__")?.into_pyobject(py).map(|o| o.unbind())?)
+                    Ok(value
+                        .call_method0("__float__")?
+                        .into_pyobject(py)
+                        .map(|o| o.unbind())?)
                 } else {
                     Ok(value.clone().unbind())
                 }
@@ -615,128 +621,128 @@ float_variant!(Float64, f64);
 
 // Free functions for mathematical operations
 #[pyfunction]
-pub fn abs(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn abs(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(Float64(x_val.0.abs()));
+        return Ok(x_val.0.abs());
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val.abs()))
+    Ok(x_val.abs())
 }
 
 #[pyfunction]
-pub fn sqrt(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn sqrt(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return x_val.sqrt();
+        return Ok(x_val.sqrt()?.0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Float64(x_val).sqrt()
+    Ok(Float64(x_val).sqrt()?.0)
 }
 
 #[pyfunction]
-pub fn cos(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn cos(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.cos());
+        return Ok(x_val.cos().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).cos())
+    Ok(Float64(x_val).cos().0)
 }
 
 #[pyfunction]
-pub fn sin(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn sin(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.sin());
+        return Ok(x_val.sin().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).sin())
+    Ok(Float64(x_val).sin().0)
 }
 
 #[pyfunction]
-pub fn tan(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn tan(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.tan());
+        return Ok(x_val.tan().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).tan())
+    Ok(Float64(x_val).tan().0)
 }
 
 #[pyfunction]
-pub fn cosh(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn cosh(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.cosh());
+        return Ok(x_val.cosh().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).cosh())
+    Ok(Float64(x_val).cosh().0)
 }
 
 #[pyfunction]
-pub fn sinh(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn sinh(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.sinh());
+        return Ok(x_val.sinh().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).sinh())
+    Ok(Float64(x_val).sinh().0)
 }
 
 #[pyfunction]
-pub fn tanh(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn tanh(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.tanh());
+        return Ok(x_val.tanh().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).tanh())
+    Ok(Float64(x_val).tanh().0)
 }
 
 #[pyfunction]
-pub fn acos(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn acos(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return x_val.acos();
+        return Ok(x_val.acos()?.0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Float64(x_val).acos()
+    Ok(Float64(x_val).acos()?.0)
 }
 
 #[pyfunction]
-pub fn asin(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn asin(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return x_val.asin();
+        return Ok(x_val.asin()?.0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Float64(x_val).asin()
+    Ok(Float64(x_val).asin()?.0)
 }
 
 #[pyfunction]
-pub fn atan(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn atan(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.atan());
+        return Ok(x_val.atan().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).atan())
+    Ok(Float64(x_val).atan().0)
 }
 
 #[pyfunction]
-pub fn atan2(py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub fn atan2(_py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: y is already our type
     let y_val = if let Ok(y_val) = y.extract::<Float64>() {
         y_val
@@ -752,27 +758,27 @@ pub fn atan2(py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyRe
         Float64(x.extract::<f64>()?)
     };
     let result = y_val.atan2(*x_val)?;
-    Ok(result.into_pyobject(py)?.into())
+    Ok(result.0)
 }
 
 #[pyfunction]
-pub fn exp(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn exp(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.exp());
+        return Ok(x_val.exp().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).exp())
+    Ok(Float64(x_val).exp().0)
 }
 
 #[pyfunction]
 #[pyo3(signature = (x, base = None))]
 pub fn log(
-    py: Python<'_>,
+    _py: Python<'_>,
     x: &Bound<'_, PyAny>,
     base: Option<&Bound<'_, PyAny>>,
-) -> PyResult<Py<PyAny>> {
+) -> PyResult<f64> {
     // Fast path: x is already our type
     let f64_val = if let Ok(f64_val) = x.extract::<Float64>() {
         f64_val
@@ -785,33 +791,33 @@ pub fn log(
         None => None,
     };
     let result = f64_val.log(base)?;
-    Ok(result.into_pyobject(py)?.into())
+    Ok(result.0)
 }
 
 #[pyfunction]
-pub fn log10(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn log10(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.log10());
+        return Ok(x_val.log10().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).log10())
+    Ok(Float64(x_val).log10().0)
 }
 
 #[pyfunction]
-pub fn log2(x: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn log2(x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return Ok(x_val.log2());
+        return Ok(x_val.log2().0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Ok(Float64(x_val).log2())
+    Ok(Float64(x_val).log2().0)
 }
 
 #[pyfunction]
-pub fn degrees(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub fn degrees(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     let f64_val = if let Ok(f64_val) = x.extract::<Float64>() {
         f64_val
@@ -820,11 +826,11 @@ pub fn degrees(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         Float64(x.extract::<f64>()?)
     };
     let result = f64_val.degrees();
-    Ok(result.into_pyobject(py)?.into())
+    Ok(result.0)
 }
 
 #[pyfunction]
-pub fn radians(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub fn radians(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     let f64_val = if let Ok(f64_val) = x.extract::<Float64>() {
         f64_val
@@ -833,7 +839,7 @@ pub fn radians(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         Float64(x.extract::<f64>()?)
     };
     let result = f64_val.radians();
-    Ok(result.into_pyobject(py)?.into())
+    Ok(result.0)
 }
 
 #[pyfunction]
@@ -885,7 +891,7 @@ pub fn is_negative_infinity(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<b
 }
 
 #[pyfunction]
-pub fn floor(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub fn floor(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     let f64_val = if let Ok(f64_val) = x.extract::<Float64>() {
         f64_val
@@ -894,11 +900,11 @@ pub fn floor(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         Float64(x.extract::<f64>()?)
     };
     let result = f64_val.floor();
-    Ok(result.into_pyobject(py)?.into())
+    Ok(result.0)
 }
 
 #[pyfunction]
-pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub fn ceil(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     let f64_val = if let Ok(f64_val) = x.extract::<Float64>() {
         f64_val
@@ -907,24 +913,23 @@ pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         Float64(x.extract::<f64>()?)
     };
     let result = f64_val.ceil();
-    Ok(result.into_pyobject(py)?.into())
+    Ok(result.0)
 }
 
 #[pyfunction]
-pub fn pow(x: &Bound<'_, PyAny>, y: &Bound<'_, PyAny>) -> PyResult<Float64> {
+pub fn pow(x: &Bound<'_, PyAny>, y: &Bound<'_, PyAny>) -> PyResult<f64> {
     // Fast path: x is already our type
     if let Ok(x_val) = x.extract::<Float64>() {
-        return x_val.__pow__(y, None);
+        return Ok(x_val.__pow__(y, None)?.0);
     }
     // Slow path: extract as primitive
     let x_val = x.extract::<f64>()?;
-    Float64(x_val).__pow__(y, None)
+    Ok(Float64(x_val).__pow__(y, None)?.0)
 }
 
 #[pyfunction]
-pub fn parse(x: &str) -> PyResult<Float64> {
-    let value = x.trim().parse::<f64>()?;
-    Ok(Float64(value))
+pub fn parse(x: &str) -> PyResult<f64> {
+    Ok(x.trim().parse::<f64>()?)
 }
 
 #[pyfunction]

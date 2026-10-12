@@ -1,0 +1,18 @@
+name: Setup .NET
+description: Install the .NET SDK pinned by global.json with a cached NuGet package directory.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+        cache: true
+        # Package versions also come from .props, which .fsproj files interpolate.
+        # restore writes *.nuget.g.props into obj/.
+        cache-dependency-path: |
+          **/*.fsproj
+          **/*.props
+          **/*.targets
+          .config/dotnet-tools.json
+          !**/obj/**

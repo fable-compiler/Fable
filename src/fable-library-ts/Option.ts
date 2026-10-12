@@ -98,40 +98,13 @@ export function defaultArg<T>(opt: Option<T>, defaultValue: T): T {
   return (opt != null) ? value(opt) : defaultValue;
 }
 
-export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T): T {
-  return (opt != null) ? value(opt) : defThunk();
-}
-
 export function orElse<T>(opt: Option<T>, ifNone: Option<T>): Option<T> {
   return opt == null ? ifNone : opt;
 }
 
-export function orElseWith<T>(opt: Option<T>, ifNoneThunk: () => Option<T>): Option<T> {
-  return opt == null ? ifNoneThunk() : opt;
-}
-
-export function filter<T>(predicate: (arg: T) => boolean, opt: Option<T>): Option<T> {
-  return (opt != null) ? (predicate(value(opt)) ? opt : undefined) : opt;
-}
-
+// Only used by Replacements.Util.fs's curry/uncurry helpers, not by `Option.map` itself.
 export function map<T, U>(mapping: (arg: T) => U, opt: Option<T>): Option<U> {
   return (opt != null) ? some(mapping(value(opt))) : undefined;
-}
-
-export function map2<T1, T2, U>(
-  mapping: (arg1: T1, arg2: T2) => Option<U>,
-  opt1: Option<T1>, opt2: Option<T2>): Option<U> {
-  return (opt1 != null && opt2 != null) ? mapping(value(opt1), value(opt2)) : undefined;
-}
-
-export function map3<T1, T2, T3, U>(
-  mapping: (arg1: T1, arg2: T2, arg3: T3) => Option<U>,
-  opt1: Option<T1>, opt2: Option<T2>, opt3: Option<T3>): Option<U> {
-  return (opt1 != null && opt2 != null && opt3 != null) ? mapping(value(opt1), value(opt2), value(opt3)) : undefined;
-}
-
-export function bind<T, U>(binder: (arg: T) => Option<U>, opt: Option<T>): Option<U> {
-  return opt != null ? binder(value(opt)) : undefined;
 }
 
 export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {

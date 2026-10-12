@@ -6,6 +6,7 @@ open Expecto
 let allTests =
     [
         CompilerMessages.tests
+        CodeServicesApi.tests
         AnonRecordInInterface.tests
         CompilerHelpers.tests
         Inflate.tests

@@ -836,30 +836,26 @@ let ``test Math.DivRem works with ints`` () =
     Math.DivRem(5, 2) |> equal (2, 1)
     Math.DivRem(4, 2) |> equal (2, 0)
 
-// TODO: DivRem with ref requires byref/address-of support which uses different
-// ref patterns in Beam (process dictionary refs vs map-based refs).
-// [<Fact>]
-// let ``test Math.DivRem works with ints and ref`` () =
-//     let rem = ref -1
-//     Math.DivRem(5, 2, rem) |> equal 2
-//     rem.Value |> equal 1
-//     Math.DivRem(4, 2, rem) |> equal 2
-//     rem.Value |> equal 0
+[<Fact>]
+let ``test Math.DivRem works with ints and ref`` () =
+    let rem = ref -1
+    Math.DivRem(5, 2, rem) |> equal 2
+    rem.Value |> equal 1
+    Math.DivRem(4, 2, rem) |> equal 2
+    rem.Value |> equal 0
 
 [<Fact>]
 let ``test Math.DivRem works with longs`` () =
     Math.DivRem(5L, 2L) |> equal (2L, 1L)
     Math.DivRem(4L, 2L) |> equal (2L, 0L)
 
-// TODO: DivRem with ref requires byref/address-of support which uses different
-// ref patterns in Beam (process dictionary refs vs map-based refs).
-// [<Fact>]
-// let ``test Math.DivRem works with longs and ref`` () =
-//     let rem = ref -1L
-//     Math.DivRem(5L, 2L, rem) |> equal 2L
-//     rem.Value |> equal 1L
-//     Math.DivRem(4L, 2L, rem) |> equal 2L
-//     rem.Value |> equal 0L
+[<Fact>]
+let ``test Math.DivRem works with longs and ref`` () =
+    let rem = ref -1L
+    Math.DivRem(5L, 2L, rem) |> equal 2L
+    rem.Value |> equal 1L
+    Math.DivRem(4L, 2L, rem) |> equal 2L
+    rem.Value |> equal 0L
 
 // --- Math.MinMagnitude / MaxMagnitude ---
 
@@ -940,15 +936,28 @@ let ``test Numeric Clamp works`` () =
     Decimal.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
     bigint.Clamp(5I, -4I, 3I) |> equal 3I
 
-// TODO: Erlang math:log2 returns float, but Numeric Log2 for integer types expects integer result.
-// SByte.Log2, Int16.Log2, Byte.Log2, UInt16.Log2, UInt32.Log2, UInt64.Log2 would need trunc().
-// [<Fact>]
-// let ``test Numeric Log2 works`` () =
-//     Int32.Log2 8 |> equal 3
-//     Int64.Log2 8L |> equal 3L
-//     Double.Log2 8.0 |> equal 3.0
-//     Single.Log2 8.0f |> equal 3.0f
-//     bigint.Log2 8I |> equal 3I
+[<Fact>]
+let ``test Numeric Log2 works`` () =
+    SByte.Log2 8y |> equal 3y
+    Int16.Log2 8s |> equal 3s
+    Int32.Log2 8 |> equal 3
+    Int64.Log2 8L |> equal 3L
+    Byte.Log2 8uy |> equal 3uy
+    UInt16.Log2 8us |> equal 3us
+    UInt32.Log2 8u |> equal 3u
+    UInt64.Log2 8UL |> equal 3UL
+    Double.Log2 8.0 |> equal 3.0
+    Single.Log2 8.0f |> equal 3.0f
+    bigint.Log2 8I |> equal 3I
+
+    Int32.Log2 0 |> equal 0
+    Int32.Log2 5 |> equal 2
+    Int64.Log2 Int64.MaxValue |> equal 62L
+    UInt64.Log2 UInt64.MaxValue |> equal 63UL
+    bigint.Log2 ((1I <<< 256) + 1I) |> equal 256I
+
+    throwsAnyError (fun () -> Int64.Log2 -1L |> ignore)
+    throwsAnyError (fun () -> bigint.Log2 -1I |> ignore)
 
 [<Fact>]
 let ``test Math.Clamp expanded works`` () =
@@ -1047,24 +1056,92 @@ let ``test Decimal floor works`` () =
 let ``test Decimal pown works`` () =
     pown 2.2M 3 |> equal 10.648M
 
-// TODO: Decimal constructors from GetBits require low/mid/high int32 representation
-// which doesn't map to the fixed-scale integer approach used in Beam.
-// [<Fact>]
-// let ``test Decimal constructors work`` () =
-//     let d = 1.2493M
-//     let bits = Decimal.GetBits(d)
-//     let d2 = Decimal(bits)
-//     d2 |> equal d
+[<Fact>]
+let ``test Decimal constructors work`` () =
+    let d = 1.2493M
+    let bits = Decimal.GetBits(d)
+    let d2 = Decimal(bits)
+    let d3 = Decimal(bits.[0], bits.[1], bits.[2], false, 4uy)
+    bits |> equal [| 12493; 0; 0; 262144 |]
+    d2 |> equal d
+    d3 |> equal d
 
-// TODO: BigInt byte array conversion requires two's complement encoding
-// which isn't natively supported in Erlang.
-// [<Fact>]
-// let ``test Big integer to byte array works`` () =
-//     32767I.ToByteArray() |> equal [|255uy; 127uy|]
+[<Fact>]
+let ``test Decimal GetBits works`` () =
+    let d = Decimal([| -1; -1; -2; 0 |])
+    let bits = Decimal.GetBits(d)
+    let d2 = Decimal(bits)
+    let d3 = Decimal(bits.[0], bits.[1], bits.[2], true, 0uy)
+    bits |> equal [| -1; -1; -2; 0 |]
+    d2 |> equal d
+    d3 |> equal -d
 
-// [<Fact>]
-// let ``test Big integer from byte array works`` () =
-//     Numerics.BigInteger([|255uy; 127uy|]) |> equal 32767I
+[<Fact>]
+let ``test Decimal bit constructors reject invalid layouts`` () =
+    throwsAnyError (fun () -> Decimal([| 0; 0; 0 |]) |> ignore)
+    throwsAnyError (fun () -> Decimal([| 0; 0; 0; 1 |]) |> ignore)
+    throwsAnyError (fun () -> Decimal(0, 0, 0, false, 29uy) |> ignore)
+
+[<Fact>]
+let ``test Decimal GetBits works with arithmetic operations`` () =
+    let check (d: decimal) =
+        let bits = Decimal.GetBits(d)
+        Decimal(bits) |> equal d
+
+    check (10M + 10M)
+    check (100.5M - 0.5M)
+    check (5M * 200M)
+    check (-0.1M * 100M)
+    check (2000M / 10M)
+    check (1.5M + 0.5M)
+
+[<Fact>]
+let ``test Big integer to byte array works`` () =
+    0I.ToByteArray() |> equal [| 0uy |]
+    32767I.ToByteArray() |> equal [| 255uy; 127uy |]
+    32768I.ToByteArray() |> equal [| 0uy; 128uy; 0uy |]
+    -32768I.ToByteArray() |> equal [| 0uy; 128uy |]
+    -32769I.ToByteArray() |> equal [| 255uy; 127uy; 255uy |]
+
+    111222333444555666777888999I.ToByteArray()
+    |> equal [| 231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy |]
+
+    -111222333444555666777888999I.ToByteArray()
+    |> equal [| 25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy |]
+
+[<Fact>]
+let ``test Big integer from byte array works`` () =
+    Numerics.BigInteger([||]) |> equal 0I
+    Numerics.BigInteger([| 255uy; 127uy |]) |> equal 32767I
+    Numerics.BigInteger([| 0uy; 128uy; 0uy |]) |> equal 32768I
+    Numerics.BigInteger([| 0uy; 128uy |]) |> equal -32768I
+    Numerics.BigInteger([| 255uy; 127uy; 255uy |]) |> equal -32769I
+
+    Numerics.BigInteger([| 231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy |])
+    |> equal 111222333444555666777888999I
+
+    Numerics.BigInteger([| 25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy |])
+    |> equal -111222333444555666777888999I
+
+[<Fact>]
+let ``test Big integer byte arrays round-trip sign boundaries`` () =
+    [ -62837I; -256I; -129I; -128I; -1I; 0I; 127I; 128I; 255I; 256I ]
+    |> List.iter (fun value -> Numerics.BigInteger(value.ToByteArray()) |> equal value)
+
+[<Fact>]
+let ``test BigInteger Pow stays exact`` () =
+    bigint.Pow(0I, 0) |> equal 1I
+    bigint.Pow(-3I, 5) |> equal -243I
+    bigint.Pow(2I, 256) |> equal (1I <<< 256)
+    bigint.Pow(1I <<< 4_000_000, 1) |> equal (1I <<< 4_000_000)
+    throwsAnyError (fun () -> bigint.Pow(2I, -1) |> ignore)
+
+[<Fact>]
+let ``test BigInteger GreatestCommonDivisor works with negatives`` () =
+    bigint.GreatestCommonDivisor(-4I, 6I) |> equal 2I
+    bigint.GreatestCommonDivisor(4I, -6I) |> equal 2I
+    bigint.GreatestCommonDivisor(-4I, -6I) |> equal 2I
+    bigint.GreatestCommonDivisor(0I, -5I) |> equal 5I
 
 // --- Fixed-width integer semantics ---
 // .NET integers wrap on overflow; Erlang integers are arbitrary precision and never do.

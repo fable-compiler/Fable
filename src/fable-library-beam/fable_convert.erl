@@ -2,7 +2,10 @@
 -export([
     to_float/1,
     to_int/1,
+    to_int/3,
+    convert_to_int/3,
     to_int_with_base/2,
+    to_int_with_base/4,
     to_string/1,
     to_string_with_base/3,
     to_base64/1,
@@ -11,12 +14,16 @@
     boolean_try_parse/2,
     int_to_string_with_format/2,
     try_parse_int/2,
+    try_parse_int/4,
     try_parse_float/2
 ]).
 
 -spec to_float(binary() | integer() | float()) -> float().
 -spec to_int(binary() | integer() | float()) -> integer().
+-spec to_int(binary() | integer() | float(), pos_integer(), boolean()) -> integer().
+-spec convert_to_int(boolean() | integer() | float(), pos_integer(), boolean()) -> integer().
 -spec to_int_with_base(binary(), integer()) -> integer().
+-spec to_int_with_base(binary(), integer(), pos_integer(), boolean()) -> integer().
 -spec to_string(term()) -> binary().
 -spec to_string_with_base(integer(), integer(), integer()) -> binary().
 -spec to_base64(tuple() | list() | binary()) -> binary().
@@ -25,6 +32,7 @@
 -spec boolean_try_parse(binary(), reference()) -> boolean().
 -spec int_to_string_with_format(integer(), binary()) -> binary().
 -spec try_parse_int(binary(), reference()) -> boolean().
+-spec try_parse_int(binary(), reference(), pos_integer(), boolean()) -> boolean().
 -spec try_parse_float(binary(), reference()) -> boolean().
 
 %% Robust string-to-float conversion that handles edge cases
@@ -68,9 +76,79 @@ to_int(Bin) when is_binary(Bin) ->
 to_int(N) when is_integer(N) -> N;
 to_int(F) when is_float(F) -> trunc(F).
 
+to_int(Bin, Bits, Signed) when is_binary(Bin) ->
+    case Bin of
+        <<"0x", Rest/binary>> -> to_int_with_base(Rest, 16, Bits, Signed);
+        <<"0X", Rest/binary>> -> to_int_with_base(Rest, 16, Bits, Signed);
+        <<"0o", Rest/binary>> -> to_int_with_base(Rest, 8, Bits, Signed);
+        <<"0O", Rest/binary>> -> to_int_with_base(Rest, 8, Bits, Signed);
+        <<"0b", Rest/binary>> -> to_int_with_base(Rest, 2, Bits, Signed);
+        <<"0B", Rest/binary>> -> to_int_with_base(Rest, 2, Bits, Signed);
+        _ -> ensure_integer_range(binary_to_integer(Bin), Bits, Signed)
+    end;
+to_int(N, Bits, Signed) when is_integer(N) -> ensure_integer_range(N, Bits, Signed);
+to_int(F, Bits, Signed) when is_float(F) -> ensure_integer_range(trunc(F), Bits, Signed).
+
+%% System.Convert rounds floating-point values before checking the target range.
+%% invariant: checked conversions round midpoint values to even and stay within the target width.
+convert_to_int(true, Bits, Signed) -> ensure_integer_range(1, Bits, Signed);
+convert_to_int(false, Bits, Signed) -> ensure_integer_range(0, Bits, Signed);
+convert_to_int(N, Bits, Signed) when is_integer(N) -> ensure_integer_range(N, Bits, Signed);
+convert_to_int(F, Bits, Signed) when is_float(F) ->
+    ensure_integer_range(round_half_to_even(F), Bits, Signed).
+
+round_half_to_even(F) ->
+    Truncated = trunc(F),
+    Fraction = F - Truncated,
+    AbsFraction = abs(Fraction),
+    if
+        AbsFraction < 0.5 ->
+            Truncated;
+        AbsFraction > 0.5 ->
+            Truncated + round_direction(Fraction);
+        Truncated rem 2 =:= 0 ->
+            Truncated;
+        true ->
+            Truncated + round_direction(Fraction)
+    end.
+
+round_direction(Fraction) when Fraction < 0 -> -1;
+round_direction(_Fraction) -> 1.
+
 %% Parse string to integer with given base (2, 8, 10, 16)
 to_int_with_base(Bin, Base) when is_binary(Bin), is_integer(Base) ->
     binary_to_integer(Bin, Base).
+
+to_int_with_base(Bin, Base, Bits, Signed) when is_binary(Bin), is_integer(Base) ->
+    checked_base_integer(binary_to_integer(Bin, Base), Base, Bits, Signed).
+
+%% Non-decimal signed parsing accepts the target width's two's-complement form.
+%% invariant: checked integer parsing never returns a value outside the selected target width.
+checked_base_integer(N, Base, Bits, true) when Base =/= 10 ->
+    SignBit = 1 bsl (Bits - 1),
+    Modulus = 1 bsl Bits,
+    case N >= SignBit andalso N < Modulus of
+        true -> N - Modulus;
+        false -> ensure_integer_range(N, Bits, true)
+    end;
+checked_base_integer(N, _Base, Bits, Signed) ->
+    ensure_integer_range(N, Bits, Signed).
+
+ensure_integer_range(N, Bits, Signed) ->
+    case integer_in_range(N, Bits, Signed) of
+        true -> N;
+        false ->
+            erlang:error(#{
+                exn_type => overflow_exception,
+                message => <<"Value was either too large or too small for an integer type.">>
+            })
+    end.
+
+integer_in_range(N, Bits, true) ->
+    Limit = 1 bsl (Bits - 1),
+    N >= -Limit andalso N < Limit;
+integer_in_range(N, Bits, false) ->
+    N >= 0 andalso N < (1 bsl Bits).
 
 %% Convert integer to string with given base and bit width
 %% BitWidth: 8 (SByte), 16 (Int16), 32 (Int32), 64 (Int64)
@@ -130,6 +208,23 @@ try_parse_int(Bin, OutRef) when is_binary(Bin) ->
             false
     end;
 try_parse_int(_, _) ->
+    false.
+
+try_parse_int(Bin, OutRef, Bits, Signed) when is_binary(Bin) ->
+    Trimmed = string:trim(binary_to_list(Bin)),
+    case string:to_integer(Trimmed) of
+        {Int, []} ->
+            case integer_in_range(Int, Bits, Signed) of
+                true ->
+                    put(OutRef, Int),
+                    true;
+                false ->
+                    false
+            end;
+        _ ->
+            false
+    end;
+try_parse_int(_, _, _, _) ->
     false.
 
 try_parse_float(Bin, OutRef) when is_binary(Bin) ->

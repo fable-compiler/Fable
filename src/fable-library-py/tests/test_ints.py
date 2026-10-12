@@ -3,7 +3,9 @@ from decimal import Decimal
 
 import pytest
 
-from fable_library.core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
+from fable_library.core import FSharpRef, Int32, byte, float32, int16, int32, int64, sbyte, uint16, uint32, uint64
+from fable_library.int32 import parse as int32_parse
+from fable_library.int32 import try_parse as int32_try_parse
 from pydantic import BaseModel
 
 
@@ -43,8 +45,8 @@ def test_int16_create() -> None:
     assert int16(32767) == 32767
     assert int16(32768) == -32768
     assert int16(-1) == -1
-    assert int16(int32(1)) == 1
-    assert int16(int32(-1)) == -1
+    assert int16(Int32(1)) == 1
+    assert int16(Int32(-1)) == -1
 
 
 def test_uint64_create() -> None:
@@ -54,6 +56,76 @@ def test_uint64_create() -> None:
     assert uint64(uint64(42)) == 42
     assert uint64(uint64(1)) == 1
     assert uint64(uint32(-1)) == 4294967295
+
+
+# NumberStyles.Any (511) has no AllowHexSpecifier, so it reaches the prefix
+# check in `determine_radix`. NumberStyles.HexNumber (515) short-circuits to
+# radix 16 and reaches the prefix check in `remove_prefix` instead. Both used
+# to panic on a multi-byte first character.
+@pytest.mark.parametrize(
+    "style",
+    [
+        pytest.param(511, id="any"),
+        pytest.param(515, id="hex-number"),
+    ],
+)
+def test_int32_try_parse_multibyte_unicode_returns_false(style: int) -> None:
+    result = FSharpRef(0)
+
+    assert Int32.try_parse("–", style, result) is False
+    assert result.contents == 0
+
+
+# NumberStyles.Any (511) is what the compiler emits for `int "..."`. Leading
+# whitespace and the sign both precede the radix specifier, so they have to be
+# stripped before the 0x/0o/0b prefix is looked for. Expectations verified
+# against .NET.
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("0x11", 17),
+        (" 0x11", 17),
+        ("0x11 ", 17),
+        ("  0o11  ", 9),
+        ("  0b11  ", 3),
+        ("-0x11", -17),
+        (" -0x11 ", -17),
+        (" -0b11 ", -3),
+        ("-1_1", -11),
+        ("+11", 11),
+        ("-11", -11),
+    ],
+)
+def test_int32_parse_prefix_after_whitespace_and_sign(text: str, expected: int) -> None:
+    assert Int32.parse(text, 511) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("-0x11", -17),
+        (" -0x11 ", -17),
+        ("-0b11", -3),
+        ("0x11", 17),
+    ],
+)
+def test_int64_parse_signed_non_decimal(text: str, expected: int) -> None:
+    # A negative non-decimal literal is a plain signed value, not a two's
+    # complement bit pattern, so it cannot go through the u64 fast path
+    assert int64.parse(text, 511) == expected
+
+
+def test_int64_parse_large_hex_is_twos_complement() -> None:
+    # The u64 fast path must still apply to unsigned values that set the high bit
+    assert int64.parse("FFFFFFFFFFFFFFFF", 515) == -1
+    assert int64.parse("7FFFFFFFFFFFFFFF", 515) == 9223372036854775807
+
+
+@pytest.mark.parametrize("text", ["+0x11", "0x", "-", "foo", "–"])
+def test_int32_parse_rejects_invalid(text: str) -> None:
+    # `int "+0x11"` is a format error on .NET: only `-` precedes the specifier
+    with pytest.raises(ValueError):
+        Int32.parse(text, 511)
 
 
 def test_byte_add() -> None:
@@ -123,6 +195,30 @@ def test_byte_lshift():
     assert 1 << byte(9) == 512
 
 
+def test_lshift_discards_bits_shifted_out_of_width():
+    # Multi-bit values distinguish a shift from a rotation: a rotation would wrap
+    # bit 1 around to bit 0 and give -2147483647 for the Int32 case.
+    assert Int32(3) << 31 == -2147483648
+    assert sbyte(3) << 7 == -128
+    assert int16(3) << 15 == -32768
+    assert int64(3) << 63 == -9223372036854775808
+    assert byte(3) << 7 == 128
+    assert uint16(3) << 15 == 32768
+    assert uint32(3) << 31 == 2147483648
+    assert uint64(3) << 63 == 9223372036854775808
+
+
+def test_lshift_masks_shift_count_to_width():
+    assert Int32(1) << 32 == 1
+    assert Int32(1) << 33 == 2
+    assert sbyte(1) << 8 == 1
+    assert int16(1) << 16 == 1
+    assert int64(1) << 64 == 1
+    assert byte(1) << 9 == 2
+    assert uint16(1) << 16 == 1
+    assert uint32(1) << 32 == 1
+
+
 def test_binary_complement():
     assert ~byte(0) == 255
     assert ~byte(1) == 254
@@ -153,8 +249,8 @@ def test_abs():
     assert abs(sbyte(-1)) == 1
     assert abs(int16(-42)) == 42
     assert abs(int16(-1)) == 1
-    assert abs(int32(-42)) == 42
-    assert abs(int32(-1)) == 1
+    assert abs(Int32(-42)) == 42
+    assert abs(Int32(-1)) == 1
     assert abs(int64(-42)) == 42
     assert abs(int64(-1)) == 1
     assert abs(uint16(42)) == 42
@@ -172,7 +268,7 @@ def test_divide():
     assert 10 / byte(3) == 3.3333333333333335
     assert 10 / sbyte(3) == 3.3333333333333335
     assert 10 / int16(3) == 3.3333333333333335
-    assert 10 / int32(3) == 3.3333333333333335
+    assert 10 / Int32(3) == 3.3333333333333335
     assert 10 / int64(3) == 3.3333333333333335
     assert 10 / uint16(3) == 3.3333333333333335
     assert 10 / uint32(3) == 3.3333333333333335
@@ -184,9 +280,9 @@ def test_divide():
 def test_divide_same_type():
     # Same-type division uses the typed integer fast path (truncates toward
     # zero, matching .NET) rather than a float fallback.
-    assert int32(100) / int32(7) == 14
-    assert int32(-100) / int32(7) == -14
-    assert int32(100) / int32(-7) == -14
+    assert Int32(100) / Int32(7) == 14
+    assert Int32(-100) / Int32(7) == -14
+    assert Int32(100) / Int32(-7) == -14
     assert int64(100) / int64(7) == 14
     assert byte(10) / byte(3) == 3
     # uint64 operand exceeding i64::MAX: the old OtherType path fell back to
@@ -196,14 +292,14 @@ def test_divide_same_type():
 
 def test_divide_same_type_by_zero():
     with pytest.raises(ZeroDivisionError):
-        int32(1) / int32(0)
+        Int32(1) / Int32(0)
 
 
 def test_hash():
     assert hash(byte(42)) != 0
     assert hash(sbyte(42)) != 0
     assert hash(int16(42)) != 0
-    assert hash(int32(42)) != 0
+    assert hash(Int32(42)) != 0
     assert hash(int64(42)) != 0
     assert hash(uint16(42)) != 0
     assert hash(uint32(42)) != 0
@@ -230,8 +326,8 @@ def test_addition():
     assert sbyte(1) + byte(1) == 2
     assert byte(1) + int16(1) == 2
     assert int16(1) + byte(1) == 2
-    assert byte(1) + int32(1) == 2
-    assert int32(1) + byte(1) == 2
+    assert byte(1) + Int32(1) == 2
+    assert Int32(1) + byte(1) == 2
     assert byte(1) + int64(1) == 2
     assert int64(1) + byte(1) == 2
 
@@ -244,8 +340,8 @@ def test_addition_overflow():
     assert sbyte(1) + byte(127) == -128
     assert byte(255) + int16(1) == 0
     assert int16(1) + 32767 == -32768
-    assert byte(255) + int32(1) == 0
-    assert int32(1) + 2147483647 == -2147483648
+    assert byte(255) + Int32(1) == 0
+    assert Int32(1) + 2147483647 == -2147483648
     assert byte(255) + int64(1) == 0
     assert int64(1) + 9223372036854775807 == -9223372036854775808
 
@@ -261,8 +357,8 @@ def test_float_to_int_conversion():
     assert int16(float32(42.7)) == 42
     assert int16(float32(-42.7)) == -42
     assert uint16(float32(42.7)) == 42
-    assert int32(float32(42.7)) == 42
-    assert int32(float32(-42.7)) == -42
+    assert Int32(float32(42.7)) == 42
+    assert Int32(float32(-42.7)) == -42
     assert uint32(float32(42.7)) == 42
     assert int64(float32(42.7)) == 42
     assert int64(float32(-42.7)) == -42
@@ -275,8 +371,8 @@ def test_float_to_int_conversion():
     assert int16(float64(42.7)) == 42
     assert int16(float64(-42.7)) == -42
     assert uint16(float64(42.7)) == 42
-    assert int32(float64(42.7)) == 42
-    assert int32(float64(-42.7)) == -42
+    assert Int32(float64(42.7)) == 42
+    assert Int32(float64(-42.7)) == -42
     assert uint32(float64(42.7)) == 42
     assert int64(float64(42.7)) == 42
     assert int64(float64(-42.7)) == -42
@@ -287,10 +383,10 @@ def test_pydantic_int_model_definition():
     """Test that Fable integer types can be used in Pydantic models."""
 
     class User(BaseModel):
-        age: int32
+        age: Int32
         level: byte
 
-    user = User(age=int32(25), level=byte(3))
+    user = User(age=Int32(25), level=byte(3))
     assert user.age == 25
     assert user.level == 3
     assert type(user.age).__name__ == "Int32"
@@ -301,10 +397,10 @@ def test_pydantic_int_serialization():
     """Test JSON serialization of Pydantic models with Fable integer types."""
 
     class User(BaseModel):
-        age: int32
+        age: Int32
         level: byte
 
-    user = User(age=int32(25), level=byte(3))
+    user = User(age=Int32(25), level=byte(3))
     assert user.model_dump_json() == '{"age":25,"level":3}'
     assert user.model_dump() == {"age": 25, "level": 3}
 
@@ -313,7 +409,7 @@ def test_pydantic_int_json_schema():
     """Test JSON Schema generation for Pydantic models with Fable integer types."""
 
     class User(BaseModel):
-        age: int32
+        age: Int32
 
     schema = User.model_json_schema()
     assert schema["properties"]["age"]["type"] == "integer"
@@ -327,7 +423,7 @@ def test_pydantic_all_int_types():
         b: byte
         c: int16
         d: uint16
-        e: int32
+        e: Int32
         f: uint32
         g: int64
         h: uint64
@@ -337,7 +433,7 @@ def test_pydantic_all_int_types():
         b=byte(255),
         c=int16(-32768),
         d=uint16(65535),
-        e=int32(-2147483648),
+        e=Int32(-2147483648),
         f=uint32(4294967295),
         g=int64(-1000000),
         h=uint64(1000000),
@@ -364,10 +460,10 @@ def test_pydantic_int_from_fable_type():
     """Test that Pydantic models accept Fable types directly as input."""
 
     class Simple(BaseModel):
-        val: int32
+        val: Int32
 
     # Pass a Fable Int32 directly
-    simple = Simple(val=int32(42))
+    simple = Simple(val=Int32(42))
     assert simple.val == 42
     assert type(simple.val).__name__ == "Int32"
 
@@ -376,13 +472,13 @@ def test_pydantic_nested_int_models():
     """Test nested Pydantic models with Fable integer types."""
 
     class Address(BaseModel):
-        zip_code: int32
+        zip_code: Int32
 
     class Person(BaseModel):
-        age: int32
+        age: Int32
         address: Address
 
-    person = Person(age=int32(30), address=Address(zip_code=int32(12345)))
+    person = Person(age=Int32(30), address=Address(zip_code=Int32(12345)))
     assert person.age == 30
     assert person.address.zip_code == 12345
     assert person.model_dump_json() == '{"age":30,"address":{"zip_code":12345}}'
@@ -393,7 +489,7 @@ def test_pydantic_int_json_deserialization():
 
     class User(BaseModel):
         name: str
-        age: int32
+        age: Int32
 
     json_str = '{"name": "Alice", "age": 30}'
     user = User.model_validate_json(json_str)
@@ -456,3 +552,59 @@ def test_pydantic_large_int64_values():
     restored = Int64Data.model_validate_json(json_str)
     assert restored.value == 9223372036854775807
     assert type(restored.value).__name__ == "Int64"
+
+
+def test_int32_module_parse_returns_plain_int() -> None:
+    """`Int32.Parse` must hand back a plain `int`, not an `Int32`.
+
+    The wrapper class's static `parse` returns an `Int32`, so generated code goes
+    through the `int32` module instead. A value assertion alone would not catch a
+    regression here: an `Int32` compares equal to its value.
+    """
+    assert int32_parse("42", 511) == 42
+    assert type(int32_parse("42", 511)) is int
+    assert type(int32_parse("-2147483648", 511)) is int
+    # Non-decimal radixes read as two's complement, as .NET does
+    assert int32_parse("FFFFFFFF", 515) == -1
+
+    with pytest.raises(ValueError):
+        int32_parse("2147483648", 511)
+
+    ref: FSharpRef[int] = FSharpRef(0)
+    assert int32_try_parse("7", 511, ref) is True
+    assert ref.contents == 7
+    assert type(ref.contents) is int
+
+    assert int32_try_parse("foo", 511, ref) is False
+
+
+def test_int32_normalizer_wraps_on_the_slow_path() -> None:
+    """`int32` must wrap at the 32-bit boundary for values that miss the fast path.
+
+    The fast path returns already-in-range plain ints untouched; everything else —
+    out-of-range ints, the fixed-width wrappers, floats, and anything that merely
+    implements `__int__` — falls through to the masking branch, which is inlined
+    rather than recursive.
+    """
+    assert int32(2147483648) == -2147483648
+    assert int32(-2147483649) == 2147483647
+    assert int32(4294967295) == -1
+    assert int32(uint32(4294967295)) == -1
+    assert int32(uint64(2**64 - 1)) == -1
+    assert int32(int64(2**40)) == 0
+    assert int32(float32(42.7)) == 42
+    assert int32() == 0
+
+    # A plain `int` is what generated code expects to receive back, whatever went in
+    assert type(int32(uint32(7))) is int
+
+    # `bool` is an `int` subclass, so `type(value) is int` is False and it takes the
+    # slow path too
+    assert int32(True) == 1
+    assert type(int32(True)) is int
+
+    class SupportsIntOnly:
+        def __int__(self) -> int:
+            return 2**40 + 5
+
+    assert int32(SupportsIntOnly()) == 5

@@ -25,7 +25,8 @@ RUN apt-get update && apt-get install -y xz-utils
 # Options
 # Let it here to avoid conflicts with Microsoft options !!!
 ARG DOTNET_VERSION=10.0.100
-ARG NODE_VERSION=18.8.0
+# Keep in sync with the "engines.node" field in package.json
+ARG NODE_VERSION=26
 ARG PYTHON_VERSION=3.12
 ARG DART_VERSION=3.1.2
 

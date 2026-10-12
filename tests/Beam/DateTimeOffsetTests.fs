@@ -427,6 +427,69 @@ let ``test DateTimeOffset.TryParse works`` () =
     f "2014-09-10T13:50:34" |> equal true
 
 [<Fact>]
+let ``test DateTimeOffset.TryParse preserves a numeric zone offset`` () =
+    let parse (s: string) =
+        let (isSuccess, d) = DateTimeOffset.TryParse s
+        isSuccess |> equal true
+        d
+
+    let d = parse "2026-08-03T16:30:15+02:00"
+    d.Hour |> equal 16
+    d.Offset |> equal (TimeSpan.FromHours 2.0)
+
+    let d = parse "2026-08-03T09:30:15-05:00"
+    d.Hour |> equal 9
+    d.Offset |> equal (TimeSpan.FromHours -5.0)
+
+    // Compact and hour-only forms
+    let d = parse "2026-08-03T16:30:15+0200"
+    d.Offset |> equal (TimeSpan.FromHours 2.0)
+
+    let d = parse "2026-08-03T16:30:15+02"
+    d.Offset |> equal (TimeSpan.FromHours 2.0)
+
+    // Fractional seconds combined with an offset
+    let d = parse "2026-08-03T16:30:15.1234567+02:00"
+    d.Millisecond |> equal 123
+    d.Offset |> equal (TimeSpan.FromHours 2.0)
+
+    // "Z" keeps a zero offset
+    let d = parse "2026-08-03T14:30:15Z"
+    d.Offset |> equal TimeSpan.Zero
+
+    // A bare timestamp still parses, keeping its wall clock (its offset is the
+    // machine's local offset, so it is not asserted here)
+    let d = parse "2026-08-03T14:30:15"
+    d.Hour |> equal 14
+
+[<Fact>]
+let ``test DateTimeOffset.Parse with a zone offset denotes the same instant as Z`` () =
+    let d = DateTimeOffset.Parse "2026-08-03T16:30:15+02:00"
+    let utc = DateTimeOffset.Parse "2026-08-03T14:30:15Z"
+    d = utc |> equal true
+    d.EqualsExact utc |> equal false
+
+[<Fact>]
+let ``test DateTimeOffset equality compares the instant`` () =
+    let utc = DateTimeOffset(2026, 8, 3, 14, 30, 15, TimeSpan.Zero)
+    let plus2 = DateTimeOffset(2026, 8, 3, 16, 30, 15, TimeSpan.FromHours 2.0)
+    utc = plus2 |> equal true
+    utc <> plus2 |> equal false
+    utc.Equals plus2 |> equal true
+    // EqualsExact additionally requires the same offset
+    utc.EqualsExact plus2 |> equal false
+    utc <= plus2 |> equal true
+    utc >= plus2 |> equal true
+    utc < plus2 |> equal false
+    compare utc plus2 |> equal 0
+
+[<Fact>]
+let ``test DateTimeOffset round-trips through the O format`` () =
+    let d = DateTimeOffset(2026, 8, 3, 16, 30, 15, TimeSpan.FromHours 2.0)
+    d.ToString("O") |> equal "2026-08-03T16:30:15.0000000+02:00"
+    (DateTimeOffset.Parse (d.ToString "O")).EqualsExact d |> equal true
+
+[<Fact>]
 let ``test DateTimeOffset.ToString() default works`` () =
     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
     let str = d.ToString()

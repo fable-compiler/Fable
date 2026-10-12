@@ -47,6 +47,21 @@ type SourceMapping = int * int * int * int * string option
 
 type IChecker = interface end
 
+/// Root modules and inline member bodies from a `fable precompile` output.
+type IPrecompiledInfo =
+    /// Must be the name the precompiled assembly is referenced under, plus ".dll"
+    abstract DllPath: string
+    abstract TryGetRootModule: normalizedFullPath: string -> string option
+
+    /// The first member name of each inline-expression chunk, straight out of
+    /// precompiled_info.json. Leave it empty to compile without inline support, in which case
+    /// calling an inline member of the library reports that its body could not be found.
+    abstract InlineExprHeaders: string[]
+
+    /// Contents of the matching inline_exprs_<index>.browser.json. Called while compiling, so the
+    /// host has to be holding it already rather than fetching it here.
+    abstract ReadInlineExprsChunk: index: int -> string
+
 type IParseAndCheckResults =
     abstract OtherFSharpOptions: string[]
     abstract Errors: Error[]
@@ -72,7 +87,8 @@ type IFableManager =
         projectFileName: string *
         fileNames: string[] *
         sources: string[] *
-        ?otherFSharpOptions: string[] ->
+        ?otherFSharpOptions: string[] *
+        ?precompiledInfo: IPrecompiledInfo ->
             IParseAndCheckResults
 
     abstract ParseAndCheckFileInProject:
@@ -81,7 +97,8 @@ type IFableManager =
         projectFileName: string *
         fileNames: string[] *
         sources: string[] *
-        ?otherFSharpOptions: string[] ->
+        ?otherFSharpOptions: string[] *
+        ?precompiledInfo: IPrecompiledInfo ->
             IParseAndCheckResults
 
     abstract GetErrors: parseResults: IParseAndCheckResults -> Error[]

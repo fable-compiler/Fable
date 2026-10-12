@@ -81,6 +81,13 @@ open Fable.Core.JsInterop
 #endif
 type DU = Int of int | Str of string
 
+type ErasedPayload = { Description: string; Membership: int }
+
+[<Fable.Core.Erase>]
+type ErasedWrapper =
+    | ErasedSuccess of ErasedPayload
+    | ErasedFailure of string
+
 type T1 = T1
 type T2 = T2
 type T3 = T3
@@ -213,6 +220,14 @@ let tests =
         "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
     #endif
 
+    testCase "Erased union payload fields can be read" <| fun () ->
+        let payload = { Description = "a"; Membership = 2 }
+
+        match ErasedSuccess payload with
+        | ErasedSuccess details -> details.Membership
+        | ErasedFailure _ -> -1
+        |> equal 2
+
     testCase "Equality works in filter" <| fun () ->
         let original = [| { Name = "1"; Case = MyUnion.Case1 } ; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
         original
@@ -267,6 +282,18 @@ let tests =
         let x : U9<T1,T2,T3,int,T5,T6,T7,T8,
                    U9<T1 more, T2 more, T3 more, int, T5 more, T6 more, T7 more, T8 more, T9 more>> = !^42
         x |> equal (U9.Case4 42)
+
+    testCase "Implicit conversion to erased unions works" <| fun () ->
+        let strify (x: U3<int, string, bool>) =
+            match x with
+            | U3.Case1 i -> "i: " + string i
+            | U3.Case2 s -> "s: " + s
+            | U3.Case3 b -> if b then "b: yes" else "b: no"
+        let s: U2<int, string> = "foo"
+        s |> equal (U2.Case2 "foo")
+        strify 42 |> equal "i: 42"
+        strify "foo" |> equal "s: foo"
+        strify true |> equal "b: yes"
     #endif
 
     testCase "Verify that union cases can have `-` in their names" <| fun () ->

@@ -103,3 +103,13 @@ let ``Can create tuples of single element`` () =
     let t1b = Tuple.Create "b"
     t1.Item1 |> equal 4
     t1b.Item1 |> equal "b"
+
+// Rust has no Display for tuples and the orphan rule rules out adding one, so
+// `string` on a tuple did not compile. Building the text from each element's own
+// ToString also matches .NET, where a string element is unquoted and a bool
+// prints as True -- neither of which a derived Debug would give.
+[<Fact>]
+let ``string on a tuple matches .NET`` () =
+    string (1, 2) |> equal "(1, 2)"
+    string (1, "a", true) |> equal "(1, a, True)"
+    string ((1, 2), 3) |> equal "((1, 2), 3)"

@@ -272,6 +272,15 @@ let ``Dictionary.Remove works`` () =
     dict.Count |> equal 1
 
 [<Fact>]
+let ``Dictionary.Remove with complex keys works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add((0,"A"), "Hello")
+    dic.Add((1,"B"), "World!")
+    dic.Remove((0,"A")) |> equal true
+    dic.Remove((1,"B")) |> equal true
+    dic.Count |> equal 0
+
+[<Fact>]
 let ``Dictionary.Remove with records as keys works`` () =
     let x1 = { a = 5 }
     let x2 = { a = 5 }

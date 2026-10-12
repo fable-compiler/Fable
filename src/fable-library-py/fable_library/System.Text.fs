@@ -162,6 +162,14 @@ type StringBuilder(value: string, capacity: int) =
                 let pos = index - len
                 buf[i] <- buf[i][0 .. (pos - 1)] + (string<char> value) + buf[i][(pos + 1) ..]
 
+    member x.Length =
+        let mutable len = 0
+
+        for i = buf.Count - 1 downto 0 do
+            len <- len + buf[i].Length
+
+        len
+
     member x.Replace(oldValue: char, newValue: char) =
         for i = buf.Count - 1 downto 0 do
             buf[i] <- buf[i].Replace(oldValue, newValue)
@@ -172,19 +180,11 @@ type StringBuilder(value: string, capacity: int) =
         let str = x.ToString().Replace(oldValue, newValue)
         x.Clear().Append(str)
 
-    member x.Length =
-        let mutable len = 0
-
-        for i = buf.Count - 1 downto 0 do
-            len <- len + buf[i].Length
-
-        len
-
     override _.ToString() = System.String.Concat(buf)
 
-    member x.ToString(firstIndex: int, length: int) =
+    member x.ToString(startIndex: int, length: int) =
         let str = x.ToString()
-        str.Substring(firstIndex, length)
+        str.Substring(startIndex, length)
 
     // -------------------------------------------------------------------------
     // Object overrides

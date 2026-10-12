@@ -1,7 +1,7 @@
 import { defaultCancellationToken } from "./Async.ts";
 import { fromContinuations } from "./Async.ts";
 import { startImmediate } from "./Async.ts";
-import { Async } from "./AsyncBuilder.ts";
+import { Async, IAsyncContext, OperationCanceledException, protectedCont } from "./AsyncBuilder.ts";
 import { Continuation, Continuations } from "./AsyncBuilder.ts";
 import { CancellationToken } from "./AsyncBuilder.ts";
 import { Exception } from "./Util.ts";
@@ -80,12 +80,25 @@ export function startInstance<Msg>($this: MailboxProcessor<Msg>) {
 }
 
 export function receive<Msg>($this: MailboxProcessor<Msg>) {
-  return fromContinuations((conts: Continuations<Msg>) => {
+  return protectedCont((ctx: IAsyncContext<Msg>) => {
     if ($this.continuation) {
       throw new Exception("Receive can only be called once!");
     }
-    $this.continuation = conts[0];
-    __processEvents($this);
+    let tokenId: number | undefined;
+    const continuation = (message: Msg) => {
+      if (tokenId !== undefined) { ctx.cancelToken.removeListener(tokenId); }
+      ctx.onSuccess(message);
+    };
+    $this.continuation = continuation;
+    tokenId = ctx.cancelToken.addListener(() => {
+      if ($this.continuation === continuation) {
+        delete $this.continuation;
+        ctx.onCancel(new OperationCanceledException());
+      }
+    });
+    if ($this.continuation === continuation) {
+      __processEvents($this);
+    }
   });
 }
 

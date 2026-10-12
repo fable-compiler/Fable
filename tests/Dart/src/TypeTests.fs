@@ -595,6 +595,17 @@ type Model = unit
 let update (model: Model) =
     model, ()
 
+type Id = Id of string
+
+type IHasId =
+    abstract Id: Id
+    abstract GetId: unit -> Id
+
+type IdHolder(id: Id) =
+    interface IHasId with
+        member _.Id = id
+        member _.GetId() = id
+
 let tests() =
 
     testCase "Unit arguments work" <| fun () ->
@@ -613,6 +624,13 @@ let tests() =
         let ex = System.ArgumentException("outer message", inner)
         ex.Message |> equal "outer message"
         ex.InnerException.Message |> equal "the inner cause"
+
+    testCase "Interface members can have the same name as their type" <| fun () ->
+        let holder = IdHolder(Id "foo") :> IHasId
+        match holder.Id with
+        | Id value -> value |> equal "foo"
+        match holder.GetId() with
+        | Id value -> value |> equal "foo"
 
 //     testCase "Can implement interface optional properties" <| fun () ->
 //         let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface

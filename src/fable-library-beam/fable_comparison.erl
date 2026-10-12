@@ -1,9 +1,10 @@
 -module(fable_comparison).
--export([compare/2, compare_union/3, equals/2, hash/1]).
+-export([compare/2, compare_union/3, equals/2, get_hash_code/1, hash/1]).
 
 -spec equals(term(), term()) -> boolean().
 -spec compare(term(), term()) -> -1 | 0 | 1.
 -spec compare_union([binary()], term(), term()) -> -1 | 0 | 1.
+-spec get_hash_code(term()) -> non_neg_integer().
 -spec hash(term()) -> non_neg_integer().
 
 %% Deep equality that handles ref-wrapped arrays (process dict refs)
@@ -151,6 +152,11 @@ union_tag_index(TagOrder, Name) -> union_tag_index(TagOrder, Name, 0).
 union_tag_index([Name | _], Name, I) -> I;
 union_tag_index([_ | T], Name, I) -> union_tag_index(T, Name, I + 1);
 union_tag_index([], _, _) -> -1.
+
+%% invariant: Object.GetHashCode hashes reference-backed storage by identity, while hash/1 remains structural.
+get_hash_code({byte_array, _, _} = V) -> erlang:phash2(V);
+get_hash_code(V) when is_reference(V) -> erlang:phash2(V);
+get_hash_code(V) -> hash(V).
 
 %% Hash that derefs refs and byte arrays before hashing.
 hash({byte_array, _, _} = V) ->

@@ -6,6 +6,25 @@ open Util.Testing
 
 #if FABLE_COMPILER
 open Fable.Core
+
+type private Deferred =
+    [<ImportMember("./js/async-deferred.js")>]
+    static member startDeferred(computation: Async<int>, token: System.Threading.CancellationToken, onSuccess: int -> unit, onError: exn -> unit, onCancel: exn -> unit): unit -> unit = jsNative
+
+    [<ImportMember("./js/async-deferred.js")>]
+    static member handlerCount(event: Event<int>): int = jsNative
+
+module private Runtime =
+    open Fable.Core.JsInterop
+
+    type Timer =
+        abstract retired: int
+        abstract invalidHandles: int
+        abstract fire: unit -> unit
+
+    let withTimers (action: Timer -> unit): unit = importMember "./js/async-runtime.js"
+    let listenerCount (token: System.Threading.CancellationToken): int = importMember "./js/async-runtime.js"
+    let cancellationErrorCount (error: exn): int = importMember "./js/async-runtime.js"
 #endif
 
 type DisposableAction(f) =
@@ -40,9 +59,244 @@ let asyncMap f a = async {
 
 let tests =
   testList "Async" [
+    testCase "FromContinuations unit and generic values" <| fun () ->
+        let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let mutable completed = 0
+        let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok ())
+        Async.StartWithContinuations(unitWork, (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 3 completed
+
+    testCase "Generic unit continuations work through recursive bindings and aliases" <| fun () ->
+        let mutable recurse = true
+        let rec fromValue value =
+            if recurse then
+                recurse <- false
+                fromValue value
+            else Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let alias = fromValue
+        let mutable completed = 0
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        recurse <- true
+        Async.StartWithContinuations(alias (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(alias 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 3 completed
+
+    testCase "Generic unit continuations work through tuple pattern bindings" <| fun () ->
+        let fromValue, fromOther =
+            (fun (value: 'T) -> Async.FromContinuations(fun (ok, _, _) -> ok value)),
+            (fun (value: 'U) -> Async.FromContinuations(fun (ok, _, _) -> ok value))
+        let mutable completed = 0
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromOther (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromOther "a", (fun value -> equal "a" value; completed <- completed + 1), raise, raise)
+        equal 4 completed
+
+    testCase "Generic unit continuations work inside nested lambdas and object expressions" <| fun () ->
+        let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let mutable completed = 0
+        let startUnit () = Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        let disposable =
+            { new IDisposable with
+                member _.Dispose() =
+                    Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise) }
+        startUnit ()
+        startUnit ()
+        disposable.Dispose()
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 4 completed
+
+    testCase "Unit continuations preserve captured callbacks" <| fun () ->
+        let mutable calls = 0
+        let rec genericDeadline callback value remaining =
+            if remaining > 0 then genericDeadline callback value (remaining - 1)
+            else Async.StartWithContinuations(async { return value }, (fun result -> callback result), raise, raise)
+        let rec unitDeadline (callback: unit -> unit) remaining =
+            if remaining > 0 then unitDeadline callback (remaining - 1)
+            else Async.StartWithContinuations(async { return () }, (fun () -> callback ()), raise, raise)
+        genericDeadline (fun () -> calls <- calls + 1) () 2
+        unitDeadline (fun () -> calls <- calls + 1) 2
+        equal 2 calls
+
+    testCase "Finalizer failure overrides success once" <| fun () ->
+        let mutable finalizers = 0
+        let terminal = ResizeArray<string>()
+        let work = async {
+            try return! successWork
+            finally
+                finalizers <- finalizers + 1
+                failwith "finalizer"
+        }
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+        equal [| "finalizer" |] (terminal.ToArray())
+        equal 1 finalizers
+
+    testCase "Finalizer failure overrides body failure once" <| fun () ->
+        let mutable finalizers = 0
+        let terminal = ResizeArray<string>()
+        let work = async {
+            try return! errorWork
+            finally
+                finalizers <- finalizers + 1
+                failwith "finalizer"
+        }
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+        equal [| "finalizer" |] (terminal.ToArray())
+        equal 1 finalizers
+
+    testCase "Finalizer failure preserves cancellation once" <| fun () ->
+        let mutable finalizers = 0
+        let terminal = ResizeArray<string>()
+        let work = async {
+            try return! cancelWork
+            finally
+                finalizers <- finalizers + 1
+                failwith "finalizer"
+        }
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun _ -> terminal.Add "error"), (fun _ -> terminal.Add "cancel"))
+        equal [| "cancel" |] (terminal.ToArray())
+        equal 1 finalizers
+
+    testCase "Cancellation registrations dispose pending callbacks and invoke late callbacks" <| fun () ->
+        use source = new System.Threading.CancellationTokenSource()
+        let calls = ResizeArray<int>()
+        let first: IDisposable = source.Token.Register(fun () -> calls.Add 1)
+        let mutable second: IDisposable = null
+        second <- source.Token.Register(fun () ->
+            second.Dispose()
+            first.Dispose()
+            calls.Add 2)
+        source.Cancel()
+        let late: IDisposable = source.Token.Register((fun state -> calls.Add (unbox<int> state)), box 0)
+        late.Dispose()
+        second.Dispose()
+        equal [| 2; 0 |] (calls.ToArray())
+#if FABLE_COMPILER
+        equal 0 (Runtime.listenerCount source.Token)
+#endif
+
+    testCase "Cancellation callback failure preserves remaining listeners" <| fun () ->
+        use source = new System.Threading.CancellationTokenSource()
+        let mutable remaining = 0
+        let mutable errors = -1
+        source.Token.Register(fun () -> remaining <- remaining + 1) |> ignore
+        source.Token.Register(fun () -> failwith "callback") |> ignore
+        try source.Cancel()
+        with error ->
+#if FABLE_COMPILER
+            errors <- Runtime.cancellationErrorCount error
+#else
+            errors <- (error :?> AggregateException).InnerExceptions.Count
+#endif
+        equal 1 errors
+        equal 1 remaining
+#if FABLE_COMPILER
+        equal 0 (Runtime.listenerCount source.Token)
+#endif
+
+#if FABLE_COMPILER
+    testCase "Sleep settles once and retires its timer and listener" <| fun () ->
+        for cancelFirst in [ true; false ] do
+            for throws in [ true; false ] do
+                Runtime.withTimers (fun timer ->
+                    use source = new System.Threading.CancellationTokenSource()
+                    let terminal = ResizeArray<string>()
+                    let mutable finalizers = 0
+                    let work = async {
+                        try do! Async.Sleep 100
+                        finally
+                            finalizers <- finalizers + 1
+                            if throws then failwith "finalizer"
+                    }
+                    Async.StartWithContinuations(work, (fun () -> terminal.Add "success"), (fun _ -> terminal.Add "error"), (fun _ -> terminal.Add "cancel"), source.Token)
+                    if cancelFirst then
+                        source.Cancel()
+                        timer.fire()
+                    else
+                        timer.fire()
+                        source.Cancel()
+                    timer.fire()
+                    let expected = if cancelFirst then "cancel" elif throws then "error" else "success"
+                    equal [| expected |] (terminal.ToArray())
+                    equal 1 finalizers
+                    equal 0 (Runtime.listenerCount source.Token)
+                    equal 1 timer.retired
+                    equal 0 timer.invalidHandles)
+
+    testCase "Idle Receive is cancelled by its token and keeps later posts queued" <| fun () ->
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+        let terminal = ResizeArray<string>()
+        Async.StartWithContinuations(mailbox.Receive(), (fun value -> terminal.Add (string value)), raise, (fun _ -> terminal.Add "cancel"), source.Token)
+        source.Cancel()
+        equal [| "cancel" |] (terminal.ToArray())
+        equal 0 (Runtime.listenerCount source.Token)
+        mailbox.Post 42
+        equal [| "cancel" |] (terminal.ToArray())
+        Async.StartWithContinuations(mailbox.Receive(), (fun value -> terminal.Add $"next {value}"), raise, (fun _ -> terminal.Add "next cancel"))
+        equal [| "cancel"; "next 42" |] (terminal.ToArray())
+#endif
+
+    testCaseAsync "Cancelling a waiting Receive reports cancel and keeps later posts queued" <| fun () -> async {
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                Async.StartWithContinuations(mailbox.Receive(), (fun value -> ok $"value {value}"), (fun _ -> ok "error"), (fun _ -> ok "cancel"), source.Token)
+                source.Cancel())
+        equal "cancel" outcome
+        mailbox.Post 42
+        let! next = mailbox.Receive()
+        equal 42 next
+    }
+
+    testCaseAsync "Cancelling the mailbox token cancels a body waiting in Receive" <| fun () -> async {
+        use source = new System.Threading.CancellationTokenSource()
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                MailboxProcessor<int>.Start((fun inbox -> async {
+                    let received = ref None
+                    try
+                        source.CancelAfter 50
+                        let! message = inbox.Receive()
+                        received.Value <- Some message
+                    finally
+                        match received.Value with
+                        | Some message -> ok $"received {message}"
+                        | None -> ok "cancelled" }), source.Token)
+                |> ignore)
+        equal "cancelled" outcome
+    }
+
     testCase "Simple async translates without exception" <| fun () ->
         async { return () }
         |> Async.StartImmediate
+
+    testCase "Cancellation callback errors expose the first InnerException" <| fun () ->
+        for count in [1; 2] do
+            use cts = new System.Threading.CancellationTokenSource()
+            let errors = Array.init count (fun i -> exn (string i))
+            let mutable calls = 0
+            errors |> Array.iter (fun error ->
+                cts.Token.Register(fun () ->
+                    calls <- calls + 1
+                    raise error) |> ignore)
+            let caught =
+                try
+                    cts.Cancel()
+                    None
+                with ex -> Some ex
+            match caught with
+            | Some ex ->
+                equal errors[count - 1].Message ex.InnerException.Message
+                equal true (obj.ReferenceEquals(errors[count - 1], ex.InnerException))
+            | None -> failwith "Expected cancellation callback errors"
+            equal count calls
+            equal true cts.IsCancellationRequested
+            cts.Cancel()
+            equal count calls
 
     testCase "Async while binding works correctly" <| fun () ->
         let mutable result = 0
@@ -683,6 +937,21 @@ let tests =
         }, cts.Token)
         cts.Cancel()
         async { equal true cancelCalled }
+
+#if FABLE_COMPILER
+    testCase "Async.AwaitEvent cancelled before its body runs does not subscribe" <| fun () ->
+        let ev = Event<int>()
+        let cts = new System.Threading.CancellationTokenSource()
+        let calls = ResizeArray<string>()
+        let resume =
+            Deferred.startDeferred(Async.AwaitEvent ev.Publish, cts.Token,
+                (fun v -> calls.Add $"success {v}"), (fun _ -> calls.Add "error"), (fun _ -> calls.Add "cancel"))
+        cts.Cancel()
+        resume ()
+        ev.Trigger(42)
+        equal [ "cancel" ] (List.ofSeq calls)
+        equal 0 (Deferred.handlerCount ev)
+#endif
 
     testCase "Async try .. with does not run 'with' branch when body succeeds" <| fun () ->
         let work = async {

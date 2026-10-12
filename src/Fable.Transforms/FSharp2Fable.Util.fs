@@ -12,7 +12,7 @@ open Fable.Transforms
 open Fable.Transforms.FSharp2Fable
 
 module Extensions =
-    let areParamTypesEqual genArgs (args1: Fable.Type array) (args2: IList<IList<FSharpParameter>>) =
+    let areParamTypesEqual strict genArgs (args1: Fable.Type array) (args2: IList<IList<FSharpParameter>>) =
         // Not entirely sure why, but it seems members with a single unit argument sometimes have this parameter
         // and sometimes none, so just to be sure always remove single unit arguments
         let args2 =
@@ -24,7 +24,7 @@ module Extensions =
         if args1.Length = args2.Length then
             let args2 = args2 |> Array.map (fun p -> TypeHelpers.makeType genArgs p.Type)
 
-            Array.forall2 (typeEquals false) args1 args2
+            Array.forall2 (typeEquals strict) args1 args2
         else
             false
 
@@ -432,19 +432,23 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             )
 
         // entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
-        members.Force()
-        |> Seq.tryFind (fun m ->
-            if
+        let candidates =
+            members.Force()
+            |> Seq.filter (fun m ->
                 m.CompiledName = compiledName
                 && m.IsInstanceMember = isInstance
                 && (doNotRequireDispatchSlot || m.IsDispatchSlot)
-            then
-                match argTypes with
-                | Some argTypes -> Extensions.areParamTypesEqual genArgs argTypes m.CurriedParameterGroups
-                | None -> true
-            else
-                false
-        )
+            )
+
+        match argTypes with
+        | None -> Seq.tryHead candidates
+        | Some argTypes ->
+            let hasParamTypes strict =
+                candidates
+                |> Seq.tryFind (fun m -> Extensions.areParamTypesEqual strict genArgs argTypes m.CurriedParameterGroups)
+
+            // A loose comparison accepts a generic parameter as equal to any type
+            hasParamTypes true |> Option.orElseWith (fun () -> hasParamTypes false)
 
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
@@ -789,6 +793,11 @@ module Helpers =
                 |> Fable.Py.Naming.toPythonNaming
             | Rust -> Naming.buildNameWithoutSanitation name part
             | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
+            | Beam when memb.IsProperty || memb.IsPropertyGetterMethod || memb.IsPropertySetterMethod ->
+                // decision: BEAM accessors carry a kind marker because snake_case merges `set_Foo` with `SetFoo` (and `get_Foo` with `GetFoo`).
+                // invariant: A CLI event's property symbol and its getter method receive the same marker.
+                // invariant: Declarations and local, cross-file, and referenced-library calls derive the accessor marker from the same member metadata.
+                Naming.sanitizeJsIdent (fun _ -> false) name part + Naming.beamAccessorSuffix
             | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
 
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
@@ -806,6 +815,13 @@ module Helpers =
         || ctx.UsedNamesInDeclarationScope.Contains name
 
     let getIdentUniqueName (com: Compiler) (ctx: Context) name =
+        // Reserve the emitted Python name so tuple-match temporaries cannot shadow
+        // existing bindings when camelCase is converted to snake_case.
+        let name =
+            match com.Options.Language with
+            | Python -> Fable.Py.Naming.toPythonNaming name
+            | _ -> name
+
         let sanitizeIdent =
             match com.Options.Language with
             | Python -> Fable.Py.Naming.sanitizeIdent
@@ -1071,7 +1087,7 @@ module Helpers =
 
         let getCaseRule (att: FSharpAttribute) =
             match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? int as rule)) -> enum<CaseRules> (rule)
+            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
             | _ -> CaseRules.LowerFirst
 
         unionCase.Attributes
@@ -1099,7 +1115,7 @@ module Helpers =
                             | Some(_, (:? string as name)), None ->
                                 Some(TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, CaseRules.LowerFirst))
                             | Some(_, (:? string as name)), Some(_, (:? int as rule)) ->
-                                Some(TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, enum<CaseRules> (rule)))
+                                Some(TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, enum<CaseRules>(rule)))
                             | _ -> failwith "Invalid TypeScriptTaggedUnion attribute"
                         | _ -> None
                     )
@@ -1249,6 +1265,39 @@ module Patterns =
             && field.Name = "Tail"
             ->
             ValueSome(ident, value, body)
+        | _ -> ValueNone
+
+    /// Matches an `int` range operator with a compile-time-constant step of +1 or -1,
+    /// i.e. `start .. 1 .. stop` or `start .. -1 .. stop`. Any coercion to `seq` is stripped.
+    /// Only ±1 int32 steps are matched, so the range lowers to a plain counted `for`
+    /// (`Fable.ForLoop`), producing the same output as the `to`/`downto` forms.
+    [<return: Struct>]
+    let (|ConstStepIntRange|_|) (expr: FSharpExpr) =
+        let rec stripCoerce =
+            function
+            | Coerce(_, inner) -> stripCoerce inner
+            | e -> e
+
+        match stripCoerce expr with
+        | Call(None, meth, _, _, [ start; Const((:? int as step), _); stop ]) when
+            meth.CompiledName = "op_RangeStep" && (step = 1 || step = -1)
+            ->
+            ValueSome(start, step, stop)
+        | _ -> ValueNone
+
+    /// A `for x in start .. ±1 .. stop do` loop, which F# does not lower to a fast
+    /// counted loop (unlike `to`/`downto`) and would otherwise allocate a range
+    /// sequence + enumerator. Yields the loop variable, bounds, step and body.
+    ///
+    /// F# desugars `for i in <range> do` to `let inputSequence = <range> in <for-of>`,
+    /// so the range is bound one level above the enumerator loop matched by `ForOf`.
+    [<return: Struct>]
+    let (|ForOfConstStepRange|_|) =
+        function
+        | Let((seqVar, ConstStepIntRange(start, step, stop), _), ForOf(ident, Value enumeratedVar, body)) when
+            seqVar.Equals(enumeratedVar)
+            ->
+            ValueSome(ident, start, step, stop, body)
         | _ -> ValueNone
 
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
@@ -1653,7 +1702,17 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
-            | _ when hasAttrib Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
+            // A `[<StringEnum>]` value *is* a string at runtime, so the type follows the
+            // representation. Not on TypeScript, which keeps the literal-union type, and not on
+            // Beam, where the cases compile to atoms instead of binaries (see
+            // `transformStringEnumAsAtom`) — calling it a string there would make `string x`
+            // erase to a no-op and hand an atom to code expecting a binary.
+            | _ when
+                hasAttrib Atts.stringEnum tdef.Attributes
+                && Compiler.Language <> TypeScript
+                && Compiler.Language <> Beam
+                ->
+                Fable.String
             | _ ->
                 let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
 
@@ -2402,7 +2461,12 @@ module Util =
             else
                 Some(entityIdent com ent.Ref)
 
-    let memberIdent (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
+    let private isInlinedInDeclaringFileOnly (ctx: Context) =
+        match ctx.PrecompilingInlineFunction with
+        | Some inlineMemb -> not (isNotPrivate inlineMemb)
+        | None -> false
+
+    let memberIdent (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
 
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
@@ -2420,31 +2484,47 @@ module Util =
             | _ -> memberName
 
         let file =
-            memb.DeclaringEntity
-            |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
+            match memb.DeclaringEntity with
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            |> Option.defaultValue com.CurrentFile
+            | None -> Some com.CurrentFile
+            | Some ent -> FsEnt.Ref(ent).SourcePath
 
-        // If precompiling inline function always reference with Import and not as IdentExpr
-        if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
-            { makeTypedIdent typ memberName with
-                Range = r
-                IsMutable = memb.IsMutable
-            }
-            |> Fable.IdentExpr
-        else
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if hasOverloadSuffix then
-                com.AddWatchDependency(file)
+        match file with
+        // A quotation keeps the reference as metadata, so it needs no import
+        | None when not ctx.CapturingQuotation ->
+            let name =
+                match memb.DeclaringEntity with
+                | Some ent -> FsEnt.FullName ent + "." + memb.DisplayName
+                | None -> memb.DisplayName
 
-            // Private values are not exported so they can't be imported by call sites in other files.
-            // We need to handle it manually because Fable handle resolve inline function itself
-            if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
-                $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
-                |> addError com [] r
+            $"Cannot reference member from .dll reference, Fable packages must include F# sources: %s{name}"
+            |> addErrorAndReturnNull com [] r
+        | file ->
+            let file = Option.defaultValue com.CurrentFile file
+            // If precompiling inline function always reference with Import and not as IdentExpr
+            if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
+                { makeTypedIdent typ memberName with
+                    Range = r
+                    IsMutable = memb.IsMutable
+                }
+                |> Fable.IdentExpr
+            else
+                // If the overload suffix changes, we need to recompile the files that call this member
+                if hasOverloadSuffix then
+                    com.AddWatchDependency(file)
 
-            makeInternalMemberImport com typ membRef memberName file
+                // Private values are not exported so they can't be imported by call sites in other files.
+                // We need to handle it manually because Fable handle resolve inline function itself
+                if
+                    com.IsPrecompilingInlineFunction
+                    && not (isNotPrivate memb)
+                    && not (isInlinedInDeclaringFileOnly ctx)
+                then
+                    $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
+                    |> addError com [] r
+
+                makeInternalMemberImport com typ membRef memberName file r
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -3092,7 +3172,7 @@ module Util =
                 else
                     callInfo
 
-            memberIdent com r membTyp memb membRef |> makeCall r typ callInfo
+            memberIdent com ctx r membTyp memb membRef |> makeCall r typ callInfo
 
         | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some callInfo) imported -> imported
@@ -3160,7 +3240,7 @@ module Util =
 
         | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
-            memberIdent com r typ memb membRef
+            memberIdent com ctx r typ memb membRef
 
         // (optional, Dart only) Call the implicit constructor instead of the mangled one
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
@@ -3172,7 +3252,7 @@ module Util =
             let typ = makeType ctx.GenericArgs memb.FullType
             let retTyp = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callInfo = { callInfo with Tags = "value" :: callInfo.Tags }
-            let callExpr = memberIdent com r typ memb membRef |> makeCall r retTyp callInfo
+            let callExpr = memberIdent com ctx r typ memb membRef |> makeCall r retTyp callInfo
 
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
@@ -3213,4 +3293,4 @@ module Util =
         | Emitted com ctx r typ None emitted, _ -> emitted
         | Imported com ctx r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
-        | _ -> getValueMemberRef v |> memberIdent com r typ v
+        | _ -> getValueMemberRef v |> memberIdent com ctx r typ v

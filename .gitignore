@@ -223,6 +223,7 @@ __pycache__/
 
 # Compilation tests
 tests/**/*.actual
+tests/Integration/Integration/data/*/precompiled/
 
 # Analyzers
 *.sarif

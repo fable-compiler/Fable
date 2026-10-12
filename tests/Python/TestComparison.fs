@@ -69,6 +69,22 @@ type Status =
 type MyClass(v) =
     member val Value: int = v with get, set
 
+// See https://github.com/fable-compiler/Fable/issues/4834
+type CustomValue(value: int, label: string) =
+    member _.Value = value
+    member _.Label = label
+
+    override _.Equals(other) =
+        match other with
+        | :? CustomValue as other -> value = other.Value
+        | _ -> false
+
+    override _.GetHashCode() = value
+
+type WrappedUnion = WrappedUnion of CustomValue
+
+type WrappedRecord = { Value: CustomValue }
+
 [<Fact>]
 let ``test PhysicalEquality works`` () = // See #3998
     let r1 = ResizeArray([1; 2])
@@ -582,6 +598,23 @@ let ``test Classes must use identity hashing by default`` () =
 //     ([2; 1].GetHashCode(), [1; 2].GetHashCode()) ||> notEqual
 
 [<Fact>]
+let ``test Custom Equals and GetHashCode are used by structural values`` () = // See #4834
+    let left = CustomValue(1, "left")
+    let right = CustomValue(1, "right")
+
+    left = right |> equal true
+    hash left = hash right |> equal true
+
+    WrappedUnion left = WrappedUnion right |> equal true
+    hash (WrappedUnion left) = hash (WrappedUnion right) |> equal true
+
+    { Value = left } = { Value = right } |> equal true
+    hash { Value = left } = hash { Value = right } |> equal true
+
+    [| left |] = [| right |] |> equal true
+    hash [| left |] = hash [| right |] |> equal true
+
+[<Fact>]
 let ``GetHashCode with primitives works`` () =
     ((1).GetHashCode(), (1).GetHashCode()) ||> equal
     ((2).GetHashCode(), (1).GetHashCode()) ||> notEqual
@@ -623,3 +656,44 @@ let ``CompareTo with primitives works`` () =
     (1.).CompareTo(1.) |> equal 0
     (1.m).CompareTo(1.m) |> equal 0
     ("1").CompareTo("1") |> equal 0
+
+[<Fact>]
+let ``test GetHashCode with wide numeric types works`` () =
+    // These route through identity hashing, which used to take a different path
+    // than structural hashing for the widths below.
+    (5L).GetHashCode() |> equal ((5L).GetHashCode())
+    (5UL).GetHashCode() |> equal ((5UL).GetHashCode())
+    (5M).GetHashCode() |> equal ((5M).GetHashCode())
+    (5I).GetHashCode() |> equal ((5I).GetHashCode())
+    (5L).GetHashCode() = (6L).GetHashCode() |> equal false
+    (5UL).GetHashCode() = (6UL).GetHashCode() |> equal false
+    (5M).GetHashCode() = (6M).GetHashCode() |> equal false
+    (5I).GetHashCode() = (6I).GetHashCode() |> equal false
+
+[<Fact>]
+let ``test hashing wide numeric types agrees with GetHashCode`` () =
+    hash 5L |> equal ((5L).GetHashCode())
+    hash 5UL |> equal ((5UL).GetHashCode())
+    hash 5M |> equal ((5M).GetHashCode())
+    hash 5I |> equal ((5I).GetHashCode())
+
+[<Fact>]
+let ``test wide numeric types work as hash keys`` () =
+    // Added one at a time rather than from a sequence: constructing a HashSet from
+    // an IEnumerable trips a known Pyright gap, the one that keeps test_hash_set.py
+    // in the CI exclude list.
+    let longs = System.Collections.Generic.HashSet<int64>()
+    longs.Add 1L |> ignore
+    longs.Add 2L |> ignore
+    longs.Add 2L |> equal false
+    longs.Contains 2L |> equal true
+    longs.Contains 9L |> equal false
+    let ulongs = System.Collections.Generic.HashSet<uint64>()
+    ulongs.Add 2UL |> ignore
+    ulongs.Contains 2UL |> equal true
+    let decimals = System.Collections.Generic.HashSet<decimal>()
+    decimals.Add 2M |> ignore
+    decimals.Contains 2M |> equal true
+    let bigs = System.Collections.Generic.HashSet<bigint>()
+    bigs.Add 2I |> ignore
+    bigs.Contains 2I |> equal true

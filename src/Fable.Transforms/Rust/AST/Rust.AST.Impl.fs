@@ -374,7 +374,7 @@ type Expr with
 type MacCall with
 
     member self.span() : Span =
-        self.path.span.to_ (self.args.span().unwrap_or (self.path.span))
+        self.path.span.to_ (self.args.span().unwrap_or(self.path.span))
 
 type MacArgs with
 

@@ -195,6 +195,38 @@ let tests =
     testCase "Decimal division precision is kept" <| fun () ->
         string (8M / 3M) |> equal "2.6666666666666666666666666667"
 
+    testCase "Decimal ToString keeps the sign of values below 0.1" <| fun () ->
+        string (decimal -0.001) |> equal "-0.001"
+        string (decimal -0.05) |> equal "-0.05"
+        string (decimal -0.1) |> equal "-0.1"
+        string (decimal -1.5) |> equal "-1.5"
+        string -0.001M |> equal "-0.001"
+        string (decimal 0) |> equal "0"
+
+    testCase "Decimal ToString round-trips negative values parsed from a string" <| fun () ->
+        string (decimal "-0.000001") |> equal "-0.000001"
+        string (decimal "-0.001") |> equal "-0.001"
+        string (decimal "-0.05") |> equal "-0.05"
+        string (decimal "-0.5") |> equal "-0.5"
+        string (decimal "-0.000") |> equal "0.000"
+
+    testCase "Decimal fixed-point formatting respects the precision" <| fun () ->
+        let inv = System.Globalization.CultureInfo.InvariantCulture
+        (decimal 0.001).ToString("F2", inv) |> equal "0.00"
+        (decimal 0.05).ToString("F1", inv) |> equal "0.1"
+        (decimal 0.001).ToString("N2", inv) |> equal "0.00"
+        (decimal "0.001").ToString("F2", inv) |> equal "0.00"
+        sprintf "%.2f" (decimal 0.001) |> equal "0.00"
+
+    testCase "Decimal fixed-point formatting omits the sign when the result rounds to zero" <| fun () ->
+        let inv = System.Globalization.CultureInfo.InvariantCulture
+        (-0.001M).ToString("F2", inv) |> equal "0.00"
+        (-0.1M).ToString("F0", inv) |> equal "0"
+        (-0.4M).ToString("F0", inv) |> equal "0"
+        (-0.001M).ToString("N2", inv) |> equal "0.00"
+        (-0.6M).ToString("F0", inv) |> equal "-1"
+        (-1.5M).ToString("F0", inv) |> equal "-2"
+
     testCase "Decimal division works" <| fun () ->
         let a = decimal 0.00001
         let b = 1000.M

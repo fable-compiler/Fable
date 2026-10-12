@@ -1,4 +1,5 @@
 import './src/ArithmeticTests.dart' as arithmetic;
+import './src/AsyncTests.dart' as async_;
 import './src/RandomTests.dart' as random;
 import './src/ArrayTests.dart' as array;
 import './src/ComparisonTests.dart' as comparison;
@@ -19,6 +20,7 @@ import './src/RecordTests.dart' as record;
 import './src/RegexTests.dart' as regex;
 import './src/ResizeArrayTests.dart' as resize_array;
 import './src/ResultTests.dart' as result;
+import './src/RuneTests.dart' as rune;
 import './src/SeqTests.dart' as seq;
 import './src/SeqExpressionTests.dart' as seq_expression;
 import './src/SetTests.dart' as set_;
@@ -32,6 +34,7 @@ import './src/UnionTests.dart' as union;
 
 void main() {
   arithmetic.tests();
+  async_.tests();
   random.tests();
   array.tests();
   comparison.tests();
@@ -52,6 +55,7 @@ void main() {
   regex.tests();
   resize_array.tests();
   result.tests();
+  rune.tests();
   seq.tests();
   seq_expression.tests();
   set_.tests();

@@ -490,6 +490,26 @@ let ``test DateTimeOffset.ToString with custom format works`` () =
     |> equal "16:37"
 
 [<Fact>]
+let ``test DateTimeOffset.ToString with Round-trip format works`` () =
+    // A DateTimeOffset always prints its own numeric offset — even "+00:00",
+    // where a DateTime with Kind = Utc would print "Z" instead.
+    DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.FromHours 2).ToString("O", CultureInfo.InvariantCulture)
+    |> equal "2014-09-11T16:37:02.0000000+02:00"
+
+    DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("o", CultureInfo.InvariantCulture)
+    |> equal "2014-09-11T16:37:02.0000000+00:00"
+
+    DateTimeOffset(2014, 9, 11, 16, 37, 2, 345, TimeSpan.FromMinutes -330.0).ToString("O", CultureInfo.InvariantCulture)
+    |> equal "2014-09-11T16:37:02.3450000-05:30"
+
+[<Fact>]
+let ``test DateTimeOffset.ToString with Round-trip format round-trips`` () =
+    let d = DateTimeOffset(2014, 9, 11, 16, 37, 2, 345, TimeSpan.FromHours 2)
+    let parsed = DateTimeOffset.Parse(d.ToString("O", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+    parsed |> equal d
+    parsed.Offset |> equal d.Offset
+
+[<Fact>]
 let ``test DateTimeOffset.ToString("R") works`` () =
     // R always formats in UTC
     DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("R", CultureInfo.InvariantCulture)

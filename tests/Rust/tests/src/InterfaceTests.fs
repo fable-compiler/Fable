@@ -15,6 +15,16 @@ type Adder3 (m: int) =
     interface IHasAdd with
       member _.Add x y = x + y - m
 
+type IHasValue =
+    abstract Value: int
+
+type ValueHolder(value: int) =
+    interface IHasValue with
+        member _.Value = value
+
+let castToIHasValue (value: obj) : IHasValue =
+    value :?> IHasValue
+
 let addWithAdder (i: IHasAdd) =
     i.Add 3 4
 
@@ -39,6 +49,13 @@ let ``Class interface impl works`` () =
     let aCasted = (a :> IHasAdd)
     let res = aCasted.Add 2 1
     res |> equal 3
+
+[<Fact>]
+let ``Interface cast through obj works`` () =
+    let original = ValueHolder(42) :> IHasValue
+    let boxed: obj = original :> obj
+    let casted = castToIHasValue boxed
+    casted.Value |> equal 42
 
 [<Fact>]
 let ``Class interface impl works II`` () =

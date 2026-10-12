@@ -22,15 +22,13 @@ jobs:
     # Only run if the build workflow succeeded
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           # We need to fetch more than the last commit to be able to generate the changelog based on the commit history.
           # Adapt this value based on your needs.
           fetch-depth: 2000
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
       # Run your tests before generating the changelog to make sure everything is working fine before creating a pull request.
       - name: Prepare for release
         run: ./build.sh prepare-release
@@ -45,19 +43,13 @@ jobs:
     runs-on: ubuntu-latest
     if: "github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_commit.message, 'chore: release ')"
     steps:
-      - uses: actions/checkout@v7
-      # Configure how you want to publish your package, e.g. using the NuGet CLI, dotnet CLI, NPM, etc.
-      # It is recommanded to use Trusted Publishing to avoid having to manage API keys in your repository.
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+      - uses: actions/checkout@v7.0.1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+      - name: Setup .NET
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable

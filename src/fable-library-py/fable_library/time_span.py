@@ -47,32 +47,32 @@ def create(
     )
 
 
-def total_nanoseconds(ts: TimeSpan) -> float64:
+def total_nanoseconds(ts: TimeSpan) -> float:
     # We store timespan as the Tick value so nanoseconds step is 100
     return float64(ts) * 100
 
 
-def total_microseconds(ts: TimeSpan) -> float64:
+def total_microseconds(ts: TimeSpan) -> float:
     return float64(ts) / 10
 
 
-def total_milliseconds(ts: TimeSpan) -> float64:
+def total_milliseconds(ts: TimeSpan) -> float:
     return float64(ts) / 10000
 
 
-def total_seconds(ts: TimeSpan) -> float64:
+def total_seconds(ts: TimeSpan) -> float:
     return float64(ts) / 10000000
 
 
-def total_minutes(ts: TimeSpan) -> float64:
+def total_minutes(ts: TimeSpan) -> float:
     return float64(ts) / 600000000
 
 
-def total_hours(ts: TimeSpan) -> float64:
+def total_hours(ts: TimeSpan) -> float:
     return float64(ts) / 36000000000
 
 
-def total_days(ts: TimeSpan) -> float64:
+def total_days(ts: TimeSpan) -> float:
     return float64(ts) / 864000000000
 
 

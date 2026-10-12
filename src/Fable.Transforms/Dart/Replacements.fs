@@ -50,6 +50,7 @@ let coreModFor =
     | FSharpReference _ -> "Types"
     | BclHashSet _ -> "MutableSet"
     | BclDictionary _ -> "MutableMap"
+    | BclRune
     | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeLongInt com r t signed (x: uint64) =
@@ -247,6 +248,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | String -> head
         | Char -> charToString head
+        | DeclaredType({ FullName = Types.rune }, _) -> charToString head
         //        | Builtin BclGuid when tail.IsEmpty -> head
         //        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly as bt) ->
         //            Helper.LibCall(com, coreModFor bt, "toString", String, args)
@@ -632,6 +634,13 @@ let tryEntityIdent (com: Compiler) entFullName =
     match entFullName with
     | "Fable.Core.Dart.Future`1" -> makeIdentExpr "Future" |> Some
     | "Fable.Core.Dart.Stream`1" -> makeIdentExpr "Stream" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsync`1" -> makeImportLib com MetaType "Async" "AsyncBuilder" |> Some
+    | "System.Threading.CancellationToken"
+    | "System.Threading.CancellationTokenSource" ->
+        makeImportLib com MetaType "CancellationToken" "AsyncBuilder" |> Some
+    | "System.Threading.CancellationTokenRegistration" -> makeImportLib com MetaType "IDisposable" "Types" |> Some
+    | "System.OperationCanceledException" ->
+        makeImportLib com MetaType "OperationCanceledException" "AsyncBuilder" |> Some
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "DateTime" |> Some
@@ -715,6 +724,8 @@ let tryCoreOp com r t coreModule coreMember args =
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
+    | _, "Async.AwaitFuture.Static" -> Helper.LibCall(com, "Async", "awaitFuture", t, args, ?loc = r) |> Some
+    | _, "Async.StartAsFuture.Static" -> Helper.LibCall(com, "Async", "startAsFuture", t, args, ?loc = r) |> Some
     | "Fable.Core.Reflection", meth -> Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r) |> Some
     | "Fable.Core.Compiler", meth ->
         match meth with
@@ -854,15 +865,20 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     moduleName, mangledName
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName, mangledName = getMangledNames i thisArg
+    match i.CompiledName, thisArg, args with
+    | "ToString", Some callee, [] -> Helper.InstanceCall(callee, "toString", t, args, ?loc = r) |> Some
+    | "GetHashCode", Some callee, [] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | "Equals", Some callee, [ other ] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | _ ->
+        let moduleName, mangledName = getMangledNames i thisArg
 
-    let args =
-        match thisArg with
-        | Some callee -> callee :: args
-        | _ -> args
+        let args =
+            match thisArg with
+            | Some callee -> callee :: args
+            | _ -> args
 
-    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
-    |> Some
+        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
 
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName, mangledName = getMangledNames i thisArg
@@ -1392,6 +1408,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "compareWith", Int32.Number, [ x; y; kind ])
 
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
+    | "EnumerateRunes", Some c, _ -> Helper.LibCall(com, "String", "enumerateRunes", t, [ c ], ?loc = r) |> Some
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
@@ -1548,6 +1565,17 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         |> Some
     | _ -> None
 
+let runes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "GetRuneAt", None, [ input; index ] ->
+        Helper.LibCall(com, "String", "getRuneAt", t, [ input; index ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_Value", Some rune, [] -> Some rune
+    | "get_Utf16SequenceLength", Some runes, [] ->
+        let isBmp = makeEqOp r runes (makeIntConst 0xFFFF) BinaryLessOrEqual
+        IfThenElse(isBmp, makeIntConst 1, makeIntConst 2, r) |> Some
+    | _ -> None
+
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Length", [ arg ] -> getLength arg |> Some
@@ -1625,7 +1653,7 @@ let formattableString
                     |}
                 )
 
-            printJsTaggedTemplate str holes (fun i -> "$" + string<int> (i + offset))
+            printJsTaggedTemplate str holes (fun i -> "$" + string<int>(i + offset))
 
         emitExpr r t args (callMacro + jsTaggedTemplate) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [ x ], ?loc = r) |> Some
@@ -2609,6 +2637,9 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        | "System.OperationCanceledException" ->
+            let e = makeImportLib com Any "OperationCanceledException" "AsyncBuilder"
+            Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
         | _ ->
             let e = makeImportLib com Any "ExceptionBase" "Types"
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
@@ -3935,6 +3966,7 @@ let private replacedModules =
             "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
             Types.char, chars
             Types.string, strings
+            Types.rune, runes
             "Microsoft.FSharp.Core.StringModule", stringModule
             "System.FormattableString", formattableString
             "System.Runtime.CompilerServices.FormattableStringFactory", formattableString
@@ -4019,12 +4051,13 @@ let private replacedModules =
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
-            "System.Random", random
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
+            "System.Threading.CancellationTokenRegistration", disposables
             "System.Threading.Monitor", monitor
             "System.Activator", activator
             "System.Text.Encoding", encoding
@@ -4191,12 +4224,13 @@ let tryType typ =
     | List genArg -> Some(Types.list, lists, [ genArg ])
     | Builtin kind ->
         match kind with
+        | BclRune -> None
         | BclGuid -> Some(Types.guid, guids, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])

@@ -44,16 +44,56 @@ let getCapturedNames expr =
 let isIdentCaptured identName expr =
     walkCapturedIdents (fun candidate -> candidate = identName) expr
 
-let isTailRecursive identName expr =
+let isUnitArg (ident: Ident) =
+    ident.IsCompilerGenerated
+    && ident.Type = Unit
+    && (ident.DisplayName.StartsWith("unitVar", System.StringComparison.Ordinal)
+        || ident.DisplayName.Contains("@"))
+
+let discardUnitArg (genArgs: Type list) (args: Ident list) =
+    match genArgs, args with
+    | [ Unit ], [ arg ] -> args // don't drop unit arg when generic arg is unit
+    | _ ->
+        match args with
+        | [] -> []
+        | [ arg ] when isUnitArg arg -> []
+        | [ thisArg; arg ] when thisArg.IsThisArgument && isUnitArg arg -> [ thisArg ]
+        | args -> args
+
+let discardThisArg (args: Ident list) =
+    match args with
+    | thisArg :: args when thisArg.IsThisArgument -> args
+    | _ -> args
+
+let isTailRecursive (com: Compiler) name (args: Ident list) body =
     let mutable isTailRec = true
     let mutable isRecursive = false
 
-    let rec loop inTailPos =
-        function
-        | CurriedApply(IdentExpr i, _, _, _)
-        | Call(IdentExpr i, _, _, _) as e when i.Name = identName ->
-            isRecursive <- true
-            isTailRec <- isTailRec && inTailPos
+    let args = args |> discardUnitArg [] |> discardThisArg
+    let argTypes = args |> List.map (fun arg -> arg.Type)
+
+    let rec loop inTailPos e =
+        match e with
+        | CurriedApply(IdentExpr id, callArgs, _, _) ->
+            let callArgTypes = callArgs |> List.map (fun arg -> arg.Type)
+
+            if name = id.Name && argTypes = callArgTypes then
+                isRecursive <- true
+                isTailRec <- isTailRec && inTailPos
+
+            getSubExpressions e |> List.iter (loop false)
+        | Call(IdentExpr id, info, _, _) ->
+            let callArgTypes = info.Args |> List.map (fun arg -> arg.Type)
+
+            let isNameEqual =
+                match Option.bind com.TryGetMember info.MemberRef with
+                | Some memb -> name = memb.FullName
+                | None -> name = id.Name
+
+            if isNameEqual && argTypes = callArgTypes then
+                isRecursive <- true
+                isTailRec <- isTailRec && inTailPos
+
             getSubExpressions e |> List.iter (loop false)
         | Sequential exprs ->
             let lastIndex = (List.length exprs) - 1
@@ -73,7 +113,7 @@ let isTailRecursive identName expr =
             List.map snd targets |> List.iter (loop inTailPos)
         | e -> getSubExpressions e |> List.iter (loop false)
 
-    loop true expr
+    loop true body
     isTailRec <- isTailRec && isRecursive
     isRecursive, isTailRec
 
@@ -230,10 +270,14 @@ let noSideEffectBeforeIdent identName expr =
         | Let(_, v, b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e, _)
         | Test(e, _, _) -> findIdentOrSideEffect e
-        | IfThenElse(cond, thenExpr, elseExpr, _) ->
-            findIdentOrSideEffect cond
-            || findIdentOrSideEffect thenExpr
-            || findIdentOrSideEffect elseExpr
+        // Only `cond` always runs; `thenExpr`/`elseExpr` are conditional, so treat them like
+        // WhileLoop/ForLoop/TryCatch/DecisionTree below (opaque, assume unsafe).
+        | IfThenElse(cond, _, _, _) ->
+            if findIdentOrSideEffect cond then
+                true
+            else
+                sideEffect <- true
+                true
         // TODO: Check member bodies in ObjectExpr
         | ObjectExpr _
         | LetRec _
@@ -251,40 +295,56 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
+/// A binding referenced from inside a quotation must not be inlined. `visit`
+/// deliberately does not rewrite quoted expressions, so the substitution would
+/// never reach that reference, and removing the binding would leave the captured
+/// value dangling.
+let isReferencedInsideQuote identName body =
+    body
+    |> deepExists (
+        function
+        | Quote(quotedExpr, _, _) -> countReferencesUntil 1 identName quotedExpr >= 1
+        | _ -> false
+    )
+
 let canInlineArg (com: Compiler) identName value body =
-    match value with
-    | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
-    | Value(StringConstant s, _) ->
-        match com.Options.Language with
-        | Python ->
-            // Only inline short strings if they're referenced at most once,
-            // to avoid duplicating the literal in generated code (which can cause
-            // issues like property access on string literals in Python)
-            s.Length < 100 && countReferencesUntil 2 identName body <= 1
-        | _ -> s.Length < 100
-    | _ ->
-        let refCount = countReferencesUntil 2 identName body
+    if isReferencedInsideQuote identName body then
+        false
+    else
 
-        // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
-        // into closures: even though creation is side-effect-free, inlining into a closure
-        // called multiple times would create a new instance per call instead of sharing the
-        // single captured instance
-        let createsMutableState =
-            match value with
-            | Value(NewArray(_, _, kind), _) ->
-                match kind with
-                | MutableArray
-                | ResizeArray -> true
-                | ImmutableArray -> false
-            | _ -> false
+        match value with
+        | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
+        | Value(StringConstant s, _) ->
+            match com.Options.Language with
+            | Python ->
+                // Only inline short strings if they're referenced at most once,
+                // to avoid duplicating the literal in generated code (which can cause
+                // issues like property access on string literals in Python)
+                s.Length < 100 && countReferencesUntil 2 identName body <= 1
+            | _ -> s.Length < 100
+        | _ ->
+            let refCount = countReferencesUntil 2 identName body
 
-        (refCount <= 1
-         && not (canHaveSideEffects com value)
-         && not (createsMutableState && isIdentCaptured identName body))
-        // If it can have side effects, make sure is at least referenced once so the expression is not erased
-        || (refCount = 1
-            && noSideEffectBeforeIdent identName body
-            && not (isIdentCaptured identName body))
+            // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
+            // into closures: even though creation is side-effect-free, inlining into a closure
+            // called multiple times would create a new instance per call instead of sharing the
+            // single captured instance
+            let createsMutableState =
+                match value with
+                | Value(NewArray(_, _, kind), _) ->
+                    match kind with
+                    | MutableArray
+                    | ResizeArray -> true
+                    | ImmutableArray -> false
+                | _ -> false
+
+            (refCount <= 1
+             && not (canHaveSideEffects com value)
+             && not (createsMutableState && isIdentCaptured identName body))
+            // If it can have side effects, make sure is at least referenced once so the expression is not erased
+            || (refCount = 1
+                && noSideEffectBeforeIdent identName body
+                && not (isIdentCaptured identName body))
 
 /// Returns arity of lambda (or lambda option) types
 let (|Arity|) typ =
@@ -441,6 +501,19 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
 
         match e with
+        | Let(ident, value, letBody) when
+            (not ident.IsMutable)
+            && isErasingCandidate ident
+            && countReferencesUntil 1 ident.Name letBody = 0
+            && canHaveSideEffects com value
+            && not (com.Options.Language = Rust)  // Rust emits warnings on missing bindings
+            ->
+            // The binding is never read but its value may have side effects (e.g. residue from
+            // inlining CE builder methods like `Combine`/`Run` that discard their argument).
+            // Keep evaluating it for its effects, but drop the now-useless named binding.
+            match letBody with
+            | Sequential exprs -> Sequential(value :: exprs)
+            | letBody -> Sequential [ value; letBody ]
         | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             match tryInlineBinding com ident value letBody with
             | Some(ident, value) ->
@@ -735,8 +808,8 @@ module private Transforms =
             Delegate(args, body, name, tags)
 
         // Uncurry getters for Rust
-        | Call(Get(_callee, FieldGet _, _, _), m, _, r) when com.Options.Language = Rust ->
-            match Option.bind com.TryGetMember m.MemberRef with
+        | Call(Get(_callee, FieldGet _, _, _), info, _, r) when com.Options.Language = Rust ->
+            match Option.bind com.TryGetMember info.MemberRef with
             | Some memb when isGetterOrValueWithoutGenerics memb ->
                 match memb.ReturnParameter.Type with
                 // It may happen the arity of the abstract signature is smaller than actual arity

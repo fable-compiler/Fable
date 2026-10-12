@@ -39,7 +39,7 @@
     split_remove_empty/2,
     split_with_count/3,
     to_string/1,
-    printf/1,
+    printf/1, printf/2,
     to_text/1, to_text/2, to_text/3, to_text/4, to_text/5,
     to_console/1, to_console/2, to_console/3, to_console/4, to_console/5,
     to_console_error/1, to_console_error/2, to_console_error/3,
@@ -103,6 +103,7 @@
 -spec split_with_count(binary(), binary() | integer() | list(), non_neg_integer()) -> list().
 -spec to_string(term()) -> binary().
 -spec printf(binary()) -> map().
+-spec printf(binary(), list()) -> map().
 -spec to_text(map() | binary()) -> binary() | fun().
 -spec to_text(map() | binary(), term()) -> binary() | fun().
 -spec to_text(map() | binary(), term(), term()) -> binary() | fun().
@@ -216,11 +217,11 @@ is_null_or_white_space(Str) ->
 %% String module functions (F# String.forall, String.exists, etc.)
 
 forall(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     lists:all(Fn, Chars).
 
 exists(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     lists:any(Fn, Chars).
 
 init(Count, Fn) ->
@@ -228,17 +229,17 @@ init(Count, Fn) ->
     iolist_to_binary(Chars).
 
 collect(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     Parts = lists:map(fun(C) -> (Fn)(C) end, Chars),
     iolist_to_binary(Parts).
 
 iter(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     lists:foreach(Fn, Chars),
     ok.
 
 iteri(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     iteri_loop(Fn, Chars, 0),
     ok.
 
@@ -249,17 +250,17 @@ iteri_loop(Fn, [C | Rest], Idx) ->
     iteri_loop(Fn, Rest, Idx + 1).
 
 map(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     Mapped = lists:map(Fn, Chars),
     <<<<C/utf8>> || C <- Mapped>>.
 
 mapi(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     {Mapped, _} = lists:mapfoldl(fun(C, I) -> {((Fn)(I))(C), I + 1} end, 0, Chars),
     <<<<C/utf8>> || C <- Mapped>>.
 
 filter(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     Filtered = lists:filter(Fn, Chars),
     <<<<C/utf8>> || C <- Filtered>>.
 
@@ -285,8 +286,8 @@ index_of_any(Str, Chars, StartIdx) when is_reference(Chars) ->
     index_of_any(Str, get(Chars), StartIdx);
 index_of_any(Str, Chars, StartIdx) ->
     CharSet = Chars,
-    Bytes = binary_to_list(Str),
-    index_of_any_loop(Bytes, CharSet, 0, StartIdx).
+    Codepoints = unicode:characters_to_list(Str),
+    index_of_any_loop(Codepoints, CharSet, 0, StartIdx).
 
 index_of_any_loop([], _CharSet, _Idx, _StartIdx) ->
     -1;
@@ -322,26 +323,32 @@ contains(Str, Sub) ->
 trim_chars(Str, Chars) when is_integer(Chars) ->
     trim_chars(Str, [Chars]);
 trim_chars(Str, Chars) ->
-    iolist_to_binary(string:trim(binary_to_list(Str), both, Chars)).
+    iolist_to_binary(string:trim(Str, both, Chars)).
 
 trim_start_chars(Str, Chars) when is_integer(Chars) ->
     trim_start_chars(Str, [Chars]);
 trim_start_chars(Str, Chars) ->
-    iolist_to_binary(string:trim(binary_to_list(Str), leading, Chars)).
+    iolist_to_binary(string:trim(Str, leading, Chars)).
 
 trim_end_chars(Str, Chars) when is_integer(Chars) ->
     trim_end_chars(Str, [Chars]);
 trim_end_chars(Str, Chars) ->
-    iolist_to_binary(string:trim(binary_to_list(Str), trailing, Chars)).
+    iolist_to_binary(string:trim(Str, trailing, Chars)).
 
 %% ToCharArray
+%%
+%% An F# string is a UTF-8 binary, so splitting it into chars means walking Unicode
+%% codepoints, not raw bytes — `binary_to_list/1` would instead hand back one bogus
+%% "char" per byte of a multi-byte codepoint's UTF-8 encoding. Start/Len are char
+%% (codepoint) offsets, matching .NET's `ToCharArray(startIndex, length)`, so they're
+%% applied to the codepoint list rather than to the binary's byte offsets.
 
 to_char_array(Str) ->
-    binary_to_list(Str).
+    unicode:characters_to_list(Str).
 
 to_char_array(Str, Start, Len) ->
-    Part = binary:part(Str, Start, Len),
-    binary_to_list(Part).
+    Chars = unicode:characters_to_list(Str),
+    lists:sublist(Chars, Start + 1, Len).
 
 %% String comparison
 
@@ -378,14 +385,14 @@ string_ctor_chars_range(Chars, Start, Len) ->
 normalize_sep(Sep) when is_integer(Sep) -> <<Sep/utf8>>;
 normalize_sep(Sep) -> Sep.
 
-%% Normalize separator that may be a list of chars to a list of binaries
+%% decision: shares separator normalization across split overloads so char codes never reach binary:split
 normalize_sep_list(Sep) when is_integer(Sep) -> <<Sep/utf8>>;
 normalize_sep_list(Sep) when is_binary(Sep) -> Sep;
 normalize_sep_list(Sep) when is_list(Sep) ->
-    [<<C/utf8>> || C <- Sep].
+    [normalize_sep(C) || C <- Sep].
 
 split(Str, Sep) ->
-    binary:split(Str, normalize_sep(Sep), [global]).
+    binary:split(Str, normalize_sep_list(Sep), [global]).
 
 split(Str, Sep, 0) ->
     split(Str, Sep);
@@ -395,7 +402,7 @@ split(Str, Sep, _Options) ->
     split(Str, Sep).
 
 split_remove_empty(Str, Seps) ->
-    Parts = binary:split(Str, normalize_sep(Seps), [global]),
+    Parts = binary:split(Str, normalize_sep_list(Seps), [global]),
     [P || P <- Parts, P =/= <<>>].
 
 split_with_count(Str, Seps, Count) ->
@@ -432,10 +439,14 @@ to_string(V) ->
 %% Printf / sprintf / String.Format support
 %% =====================================================================
 
-%% printf/1 — Parse an F# format string and return a format object (map).
+%% printf/1,2 — Parse an F# format string and return a format object (map).
+%% The formatter list preserves statically known custom ToString converters for %O arguments.
 %% The format object has: input (original string), cont (function accepting a continuation).
 printf(Str) ->
-    Printer = fs_format(Str),
+    printf(Str, []).
+
+printf(Str, Formatters) ->
+    Printer = fs_format(Str, Formatters),
     #{input => Str, cont => Printer}.
 
 %% apply_curried/2 — Apply a list of args one at a time to a curried function.
@@ -795,11 +806,11 @@ pad_zeros(Bin, Width) ->
 %% Internal: F# format string parser
 %% =====================================================================
 
-%% fs_format/1 — Parse F# format string like "%d %s %.2f" and return
+%% fs_format/2 — Parse F# format string like "%d %s %.2f" and return
 %% fun(Cont) -> fun(Arg1) -> fun(Arg2) -> ... -> Cont(Result) end end end
-fs_format(Str) ->
+fs_format(Str, Formatters) ->
     {Parts, Specs} = parse_format(Str, <<>>, [], []),
-    create_printer(Parts, Specs).
+    create_printer(Parts, Specs, Formatters).
 
 %% parse_format/4 — Split format string into literal parts and format specifiers.
 %% Returns {[binary()], [string()]} where Parts has one more element than Specs.
@@ -839,30 +850,43 @@ parse_spec_precision(<<C, Rest/binary>>, Acc) when C >= $0, C =< $9 ->
 parse_spec_precision(<<C, Rest/binary>>, Acc) ->
     {[C | Acc], Rest}.
 
-%% create_printer/2 — Build nested curried functions from parts and specifiers.
+%% create_printer/3 — Build nested curried functions from parts and specifiers.
 %% Parts = [P0, P1, P2, ...], Specs = [S1, S2, ...]
 %% Result: fun(Cont) -> if no specs, Cont(P0); else fun(Arg1) -> ... end end
-create_printer([SinglePart], []) ->
+create_printer([SinglePart], [], _Formatters) ->
     %% No format specifiers — just a plain string
     fun(Cont) -> Cont(SinglePart) end;
-create_printer(Parts, Specs) ->
+create_printer(Parts, Specs, Formatters) ->
     fun(Cont) ->
-        build_curried(Parts, Specs, Cont, <<>>)
+        build_curried(Parts, Specs, Formatters, Cont, <<>>)
     end.
 
-build_curried([Part], [], Cont, Acc) ->
+build_curried([Part], [], _Formatters, Cont, Acc) ->
     Cont(<<Acc/binary, Part/binary>>);
-build_curried([Part | RestParts], [Spec | RestSpecs], Cont, Acc) ->
+build_curried([Part | RestParts], [Spec | RestSpecs], [Formatter | RestFormatters], Cont, Acc) ->
     NewAcc = <<Acc/binary, Part/binary>>,
     fun(Arg) ->
-        Formatted = format_value(Spec, Arg),
-        build_curried(RestParts, RestSpecs, Cont, <<NewAcc/binary, Formatted/binary>>)
+        Formatted = format_value(Spec, Arg, Formatter),
+        build_curried(RestParts, RestSpecs, RestFormatters, Cont, <<NewAcc/binary, Formatted/binary>>)
+    end;
+build_curried([Part | RestParts], [Spec | RestSpecs], [], Cont, Acc) ->
+    NewAcc = <<Acc/binary, Part/binary>>,
+    fun(Arg) ->
+        Formatted = format_value(Spec, Arg, undefined),
+        build_curried(RestParts, RestSpecs, [], Cont, <<NewAcc/binary, Formatted/binary>>)
     end.
 
-%% format_value/2 — Format a single value according to a format specifier string.
+%% format_value/2,3 — Format a single value according to a format specifier string.
 format_value(Spec, Value) ->
+    format_value(Spec, Value, undefined).
+
+format_value(Spec, Value, Formatter) ->
     {Flags, Width, Prec, Type} = parse_spec_parts(Spec),
-    Raw = format_raw(Type, Prec, Value),
+    Raw =
+        case Type =:= $O andalso is_function(Formatter, 1) of
+            true -> Formatter(Value);
+            false -> format_raw(Type, Prec, Value)
+        end,
     WithSign = apply_sign_flag(Flags, Raw, Value),
     apply_width(Flags, Width, WithSign).
 

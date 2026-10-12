@@ -68,6 +68,7 @@ pub mod Native_ {
 
     use crate::System::Collections::Generic::EqualityComparer_1;
     use crate::System::Collections::Generic::IEnumerable_1;
+    use crate::System::Collections::Generic::IEnumerator_1;
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     // TODO: use these types in generated code
@@ -100,6 +101,8 @@ pub mod Native_ {
 
     // impl<T: ?Sized + AsAny> Downcast for T {}
 
+    static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
+
     pub trait NullableRef {
         fn null() -> Self;
         fn is_null(&self) -> bool;
@@ -115,6 +118,19 @@ pub mod Native_ {
         #[inline]
         fn is_null(&self) -> bool {
             is_null_ptr(self)
+        }
+    }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    impl NullableRef for Lrc<dyn Any> {
+        #[inline]
+        fn null() -> Self {
+            NULL.get_or_init(|| Lrc::new(())).clone()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            Lrc::ptr_eq(self, &Self::null())
         }
     }
 
@@ -300,8 +316,7 @@ pub mod Native_ {
     }
 
     pub fn null_ptr<T>() -> Lrc<T> {
-        static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
-        let null_rc = NULL.get_or_init(move || Lrc::new(()));
+        let null_rc = NULL.get_or_init(|| Lrc::new(()));
         unsafe { Lrc::from_raw(Lrc::into_raw(null_rc.clone()) as *const T) }
     }
 
@@ -314,11 +329,10 @@ pub mod Native_ {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
-    // A valid placeholder value of type `LrcPtr<dyn Any>`. Used to pre-declare
-    // reference-typed (`obj`) match bindings, as `getZero`/`mem::zeroed` panics on
-    // the `Rc` fat pointer and `null` is not available for the unsized `dyn Any`.
+    // A valid null value of type `LrcPtr<dyn Any>`, used for `obj` match bindings
+    // and event sender arguments.
     pub fn getZeroObj() -> LrcPtr<dyn Any> {
-        box_(())
+        null::<LrcPtr<dyn Any>>()
     }
 
     pub fn defaultOf<T: Default>() -> T {
@@ -418,7 +432,7 @@ pub mod Native_ {
     {
         interface_cast!(
             EqualityComparer_1::<T>::get_Default(),
-            Lrc<dyn IEqualityComparer_1<T>>,
+            Lrc<dyn IEqualityComparer_1<T>>
         )
     }
 
@@ -479,11 +493,14 @@ pub mod Native_ {
     // Type testing
     // -----------------------------------------------------------
 
-    pub fn try_downcast<T: 'static, U: 'static>(value: &T) -> Option<&U> {
+    // Returns an owned value rather than a reference: `match o with :? string as s`
+    // binds `s` as the tested type, and codegen emits `if let Some(s) = try_downcast(..)`,
+    // so a borrow here made `s` a `&U` wherever a `U` was expected.
+    pub fn try_downcast<T: 'static, U: 'static + Clone>(value: &T) -> Option<U> {
         if let Some(o) = (value as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
-            o.downcast_ref::<U>()
+            o.downcast_ref::<U>().cloned()
         } else {
-            (value as &dyn Any).downcast_ref::<U>()
+            (value as &dyn Any).downcast_ref::<U>().cloned()
         }
     }
 
@@ -578,7 +595,7 @@ pub mod Native_ {
     #[cfg(not(feature = "lrc_ptr"))]
     #[macro_export]
     macro_rules! interface_cast {
-        ($value:expr, $ifc:ty,) => {
+        ($value:expr, $ifc:ty) => {
             ($value as $ifc)
         };
     }
@@ -586,7 +603,7 @@ pub mod Native_ {
     #[cfg(feature = "lrc_ptr")]
     #[macro_export]
     macro_rules! interface_cast {
-        ($value:expr, $ifc:ty,) => {
+        ($value:expr, $ifc:ty) => {
             LrcPtr::from((*$value).clone() as $ifc)
         };
     }
@@ -620,8 +637,8 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! un_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
-            impl<$($args),*> core::ops::$op_trait for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty $(,$args:ty)*) => {
+            impl<$($args)*> core::ops::$op_trait for $obj {
                 type Output = Self;
                 #[inline]
                 fn $op_fn(self) -> Self::Output {
@@ -633,8 +650,8 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! bin_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
-            impl<$($args),*> core::ops::$op_trait<$rhs> for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty $(,$args:ty,)*) => {
+            impl<$($args)*> core::ops::$op_trait<$rhs> for $obj {
                 type Output = Self;
                 #[inline]
                 fn $op_fn(self, rhs: $rhs) -> Self::Output {
@@ -646,8 +663,8 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! div_int_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
-            impl<$($args),*> $crate::Native_::DivideByInt for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty $(,$args:ty,)*) => {
+            impl<$($args)*> $crate::Native_::DivideByInt for $obj {
                 #[inline]
                 fn divide_by_int(self, rhs: i32) -> Self {
                     <$obj>::$op(self, rhs)
@@ -704,6 +721,72 @@ pub mod Native_ {
         try_downcast::<_, T>(&o).unwrap().clone()
     }
 
+    // Boxing/unboxing for reference-typed (Lrc-wrapped) declared types such as
+    // records and unions. Unlike `box_`, which wraps the value in a fresh Lrc,
+    // these coerce the *same* smart pointer to `dyn Any`, so the boxed value's
+    // concrete pointee is the record/union struct itself. That lets a plain
+    // downcast recover it, and lets `TypeId::of::<T>()` (computed at the typeof
+    // site) match the pointee's runtime type id for value-based reflection.
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        o
+    }
+
+    // With the `lrc_ptr` feature LrcPtr is a wrapper without CoerceUnsized, so
+    // coerce the inner Rc/Arc (which has it) and re-wrap. Same allocation, so
+    // pointer identity and the pointee's runtime type id are both preserved.
+    #[cfg(feature = "lrc_ptr")]
+    pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        let inner: Lrc<T> = Lrc::clone(&*o);
+        let coerced: Lrc<dyn Any> = inner;
+        LrcPtr::from(coerced)
+    }
+
+    pub fn box_rc<T: Clone + 'static>(o: Rc<T>) -> LrcPtr<dyn Any> {
+        box_((*o).clone())
+    }
+
+    pub fn box_arc<T: Clone + 'static>(o: Arc<T>) -> LrcPtr<dyn Any> {
+        box_((*o).clone())
+    }
+
+    pub fn box_box<T: Clone + 'static>(o: Box<T>) -> LrcPtr<dyn Any> {
+        box_((*o).clone())
+    }
+
+    pub fn unbox_lrc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> LrcPtr<T> {
+        #[cfg(not(feature = "lrc_ptr"))]
+        let inner: Lrc<dyn Any> = o;
+        #[cfg(feature = "lrc_ptr")]
+        let inner: Lrc<dyn Any> = Lrc::clone(&*o);
+
+        // Downcast the smart pointer itself rather than cloning the value, so
+        // box_lrc + unbox_lrc round-trips pointer identity (ReferenceEquals).
+        // SAFETY: the `is::<T>` check guarantees the allocation's pointee is a T;
+        // casting the fat pointer to *const T only drops the vtable. This is what
+        // Rc::downcast does internally, done manually because Arc only offers a
+        // stable downcast for Send + Sync pointees.
+        if (*inner).is::<T>() {
+            let raw = Lrc::into_raw(inner) as *const T;
+            let typed = unsafe { Lrc::from_raw(raw) };
+            fromFluent(typed)
+        } else {
+            panic!("Invalid unbox")
+        }
+    }
+
+    pub fn unbox_rc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> Rc<T> {
+        Rc::new(unbox(o))
+    }
+
+    pub fn unbox_arc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> Arc<T> {
+        Arc::new(unbox(o))
+    }
+
+    pub fn unbox_box<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> Box<T> {
+        Box::new(unbox(o))
+    }
+
     pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
         if is_null(&value) {
             None::<T>
@@ -722,6 +805,30 @@ pub mod Native_ {
     // -----------------------------------------------------------
     // Sequences
     // -----------------------------------------------------------
+
+    pub struct SeqIterator<T: Clone + 'static> {
+        en: LrcPtr<dyn IEnumerator_1<T>>,
+    }
+
+    impl<T: Clone> SeqIterator<T> {
+        pub fn new(seq: Seq<T>) -> Self {
+            SeqIterator {
+                en: seq.GetEnumerator(),
+            }
+        }
+    }
+
+    impl<T: Clone> Iterator for SeqIterator<T> {
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.en.MoveNext() {
+                Some(self.en.get_Current().clone())
+            } else {
+                None
+            }
+        }
+    }
 
     pub fn seq_to_iter<T>(seq: Seq<T>) -> impl Iterator<Item = T>
     where

@@ -368,7 +368,7 @@ type ExprPrecedence with
         | ExprPrecedence.Range -> PREC_RANGE
 
         // Binop-like expr kinds, handled by `AssocOp`.
-        | ExprPrecedence.Binary(op) -> AssocOp.from_ast_binop(op).precedence ()
+        | ExprPrecedence.Binary(op) -> AssocOp.from_ast_binop(op).precedence()
         | ExprPrecedence.Cast -> AssocOp.As.precedence ()
         | ExprPrecedence.Type -> AssocOp.Colon.precedence ()
 

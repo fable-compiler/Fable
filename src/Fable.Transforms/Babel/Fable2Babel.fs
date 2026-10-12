@@ -47,6 +47,7 @@ type Context =
         TailCallOpportunity: ITailCallOpportunity option
         OptimizeTailCall: unit -> unit
         ScopedTypeParams: Set<string>
+        BoundTypes: Map<string, Fable.Type>
         ForcedIdents: Set<string>
     }
 
@@ -363,6 +364,7 @@ module Reflection =
                 | Replacements.Util.BclDateTimeOffset
                 | Replacements.Util.BclDateOnly
                 | Replacements.Util.BclTimeOnly
+                | Replacements.Util.BclRune
                 | Replacements.Util.BclTimer -> genericEntity fullName [||]
                 | Replacements.Util.BclHashSet gen
                 | Replacements.Util.FSharpSet gen ->
@@ -415,7 +417,14 @@ module Reflection =
                     | Atts.erase ->
                         match ent.UnionCases with
                         | [ uci ] when List.isSingle uci.UnionCaseFields ->
-                            transformTypeInfoFor purpose com ctx r genMap uci.UnionCaseFields[0].FieldType
+                            // Map the union's own generic parameters to the concrete use-site args
+                            // so the wrapped field type (e.g. `Node<'T>` in `View<int>`) resolves.
+                            let fieldGenMap =
+                                Seq.zip (ent.GenericParameters |> Seq.map (fun p -> p.Name)) generics
+                                |> Map
+                                |> Some
+
+                            transformTypeInfoFor purpose com ctx r fieldGenMap uci.UnionCaseFields[0].FieldType
                         | cases when cases |> List.forall (fun c -> List.isEmpty c.UnionCaseFields) ->
                             primitiveTypeInfo "string"
                         | _ -> genericEntity ent.FullName generics
@@ -742,11 +751,32 @@ module Annotation =
     let makeBuiltinTypeAnnotation com ctx typ kind =
         match kind with
         | Replacements.Util.BclGuid -> StringTypeAnnotation
-        | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
-        | Replacements.Util.BclDateTime -> makeAliasTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclDateTimeOffset -> makeAliasTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclDateOnly -> makeAliasTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
+        | Replacements.Util.BclTimeSpan ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "TimeSpanTemporal" "Duration"
+            else
+                NumberTypeAnnotation
+        | Replacements.Util.BclDateTime ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "DateTimeTemporal" "PlainDateTime"
+            else
+                makeAliasTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateTimeOffset ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "DateTimeOffsetTemporal" "ZonedDateTime"
+            else
+                makeAliasTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclDateOnly ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "DateOnlyTemporal" "PlainDate"
+            else
+                makeAliasTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclTimeOnly ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "TimeOnlyTemporal" "PlainTime"
+            else
+                NumberTypeAnnotation
+        | Replacements.Util.BclRune -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeFableLibImportTypeAnnotation com ctx [] "Timer" "Timer"
         | Replacements.Util.BclHashSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Util" "ISet"
         | Replacements.Util.BclDictionary(key, value) ->
@@ -839,7 +869,7 @@ module Annotation =
     let makeStringEnumTypeAnnotation (ent: Fable.Entity) (attArgs: obj list) =
         let rule =
             match List.tryHead attArgs with
-            | Some(:? int as rule) -> enum<Core.CaseRules> (rule)
+            | Some(:? int as rule) -> enum<Core.CaseRules>(rule)
             | _ -> Core.CaseRules.LowerFirst
 
         ent.UnionCases
@@ -869,7 +899,7 @@ module Annotation =
     let makeTypeScriptTaggedUnionTypeAnnotation com ctx genArgs (ent: Fable.Entity) (attArgs: obj list) =
         let tag, rule =
             match attArgs with
-            | (:? string as tag) :: (:? int as rule) :: _ -> tag, enum<Core.CaseRules> (rule)
+            | (:? string as tag) :: (:? int as rule) :: _ -> tag, enum<Core.CaseRules>(rule)
             | (:? string as tag) :: _ -> tag, Core.CaseRules.LowerFirst
             | _ -> "kind", Core.CaseRules.LowerFirst
 
@@ -1265,7 +1295,8 @@ module Util =
             variables
             |> Seq.distinctBy (fun (id, _) -> id.Name)
             |> Seq.map (fun (id, value) ->
-                let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx id.Type value
+                let idType = Replacements.Util.getIdentValueType com id id.Type
+                let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx idType value
 
                 let value =
                     if com.IsTypeScript && Option.isNone value then
@@ -1312,24 +1343,32 @@ module Util =
             // let e = defaultArg eOpt (Expression.numericLiteral (0.))
             Expression.unaryExpression ("void", e, ?loc = range)
 
-    let getTypeParameters (ctx: Context) (types: Fable.Type list) =
-        let mutable scopedTypeParams = ctx.ScopedTypeParams
+    let private getConstraintTypes (c: Fable.Constraint) =
+        match c with
+        | Fable.Constraint.CoercesTo target -> [ target ]
+        | Fable.Constraint.IsDelegate(argsType, retType) -> [ argsType; retType ]
+        | Fable.Constraint.IsEnum baseType -> [ baseType ]
+        | Fable.Constraint.SimpleChoice types -> types
+        | _ -> []
 
-        let typeParams =
-            types
-            |> FSharp2Fable.Util.getGenParamTypes
-            |> List.filter (fun typ ->
+    let getTypeParameters (ctx: Context) (types: Fable.Type list) =
+        // A type parameter can appear only in another one's constraint (e.g. `$b :> Lazy<$c>`) and still be referenced by the body.
+        let rec collect state types =
+            (state, FSharp2Fable.Util.getGenParamTypes types)
+            ||> List.fold (fun (scopedTypeParams, typeParams) typ ->
                 match typ with
-                | Fable.GenericParam(name = name) ->
-                    if Set.contains name scopedTypeParams then
-                        false
-                    else
-                        scopedTypeParams <- Set.add name scopedTypeParams
-                        true
-                | _ -> false
+                | Fable.GenericParam(name = name; constraints = constraints) when
+                    not (Set.contains name scopedTypeParams)
+                    ->
+                    constraints
+                    |> List.collect getConstraintTypes
+                    |> collect (Set.add name scopedTypeParams, typ :: typeParams)
+                | _ -> scopedTypeParams, typeParams
             )
 
-        scopedTypeParams, typeParams
+        let scopedTypeParams, typeParams = collect (ctx.ScopedTypeParams, []) types
+
+        scopedTypeParams, List.rev typeParams
 
     [<Struct>]
     type MemberKind =
@@ -2177,6 +2216,7 @@ but thanks to the optimisation done below we get
             | _ -> ValueNone
 
         // Make it easy to check if we are calling the expected function
+
         and [<return: Struct>] (|CalledExpression|_|) (callerText: string) value =
             match value with
             | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> ValueSome exprs
@@ -2412,17 +2452,35 @@ but thanks to the optimisation done below we get
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
 
-    let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        (applied, args)
-        ||> List.fold (fun expr arg ->
-            match arg with
-            // TODO: If arg type is unit but it's an expression with potential
-            // side-effects, we need to extract it and execute it before the call
-            | Fable.Value(Fable.UnitConstant, _) -> []
-            | Fable.IdentExpr ident when ident.Type = Fable.Unit -> []
-            | TransformExpr com ctx arg -> [ arg ]
-            |> callFunction com ctx range expr []
+    let transformCurriedApply (com: IBabelCompiler) ctx range (applied: Fable.Expr) args =
+        // decision: declaration types preserve generic unit arguments despite specialized identifier types at call sites
+        let appliedType =
+            match applied with
+            // invariant: FSharp2Fable makes local names unique within a declaration (getIdentUniqueName)
+            | MaybeCasted(Fable.IdentExpr id) -> Map.tryFind id.Name ctx.BoundTypes |> Option.defaultValue id.Type
+            | _ -> applied.Type
+
+        let applied = com.TransformAsExpr(ctx, applied)
+
+        ((applied, appliedType), args)
+        ||> List.fold (fun (expr, calleeType) arg ->
+            let argType, returnType =
+                match calleeType with
+                | Fable.LambdaType(argType, returnType) -> Some argType, returnType
+                | _ -> None, Fable.Any
+
+            let args =
+                match arg, argType with
+                | _, Some argType when argType <> Fable.Unit -> [ com.TransformAsExpr(ctx, arg) ]
+                // TODO: If arg type is unit but it's an expression with potential
+                // side-effects, we need to extract it and execute it before the call
+                | Fable.Value(Fable.UnitConstant, _), _ -> []
+                | Fable.IdentExpr ident, _ when ident.Type = Fable.Unit -> []
+                | TransformExpr com ctx arg, _ -> [ arg ]
+
+            callFunction com ctx range expr [] args, returnType
         )
+        |> fst
 
     let transformCallAsStatements com ctx range typ returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -2656,15 +2714,7 @@ but thanks to the optimisation done below we get
         transformBindingExprBody com ctx var value |> assign var.Range (identAsExpr var)
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        // Compiler-generated copy-update locals (inputRecord, copyOfStruct) are treated as plain
-        // values at runtime even though their Fable type is byref. Strip the wrapper for TS annotation.
-        let varType =
-            if var.IsCompilerGenerated then
-                match var.Type with
-                | Replacements.Util.IsByRefType com innerType -> innerType
-                | typ -> typ
-            else
-                var.Type
+        let varType = Replacements.Util.getIdentValueType com var var.Type
 
         if isJsStatement ctx false value then
             let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx varType None
@@ -3166,6 +3216,7 @@ but thanks to the optimisation done below we get
         | Fable.Let(ident, value, body) ->
             if ctx.HoistVars [ ident ] then
                 let assignment = transformBindingAsExpr com ctx ident value
+                let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
 
                 Expression.sequenceExpression ([| assignment; com.TransformAsExpr(ctx, body) |])
             else
@@ -3173,6 +3224,13 @@ but thanks to the optimisation done below we get
 
         | Fable.LetRec(bindings, body) ->
             if ctx.HoistVars(List.map fst bindings) then
+                let ctx =
+                    { ctx with
+                        BoundTypes =
+                            (ctx.BoundTypes, bindings)
+                            ||> List.fold (fun types (id, _) -> Map.add id.Name id.Type types)
+                    }
+
                 let values =
                     bindings
                     |> List.mapToArray (fun (id, value) -> transformBindingAsExpr com ctx id value)
@@ -3279,10 +3337,18 @@ but thanks to the optimisation done below we get
 
         | Fable.Let(ident, value, body) ->
             let binding = transformBindingAsStatements com ctx ident value
+            let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
 
             Array.append binding (transformAsStatements com ctx returnStrategy body)
 
         | Fable.LetRec(bindings, body) ->
+            let ctx =
+                { ctx with
+                    BoundTypes =
+                        (ctx.BoundTypes, bindings)
+                        ||> List.fold (fun types (id, _) -> Map.add id.Name id.Type types)
+                }
+
             let bindings =
                 bindings
                 |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
@@ -3388,6 +3454,9 @@ but thanks to the optimisation done below we get
             { ctx with
                 TailCallOpportunity = tailcallChance
                 OptimizeTailCall = fun () -> isTailCallOptimized <- true
+                BoundTypes =
+                    (ctx.BoundTypes, args)
+                    ||> List.fold (fun types id -> Map.add id.Name id.Type types)
             }
 
         let returnStrategy =
@@ -3511,11 +3580,15 @@ but thanks to the optimisation done below we get
             | Fable.Char -> Expression.stringLiteral "\u0000"
             | Fable.Number(kind, uom) ->
                 com.TransformAsExpr(ctx, Fable.NumberConstant(Fable.NumberValue.GetZero kind, uom) |> makeValue None)
+            | Builtin BclTimeOnly when com.Options.JsTemporal ->
+                libCall com ctx None "TimeOnlyTemporal" "minValue" [] []
+            | Builtin BclTimeSpan when com.Options.JsTemporal -> libCall com ctx None "TimeSpanTemporal" "zero" [] []
             | Builtin(BclTimeSpan | BclTimeOnly) -> Expression.numericLiteral 0
             | Builtin BclGuid -> Expression.stringLiteral "00000000-0000-0000-0000-000000000000"
-            | Builtin BclDateTime -> libCall com ctx None "Date" "minValue" [] []
-            | Builtin BclDateTimeOffset -> libCall com ctx None "DateOffset" "minValue" [] []
-            | Builtin BclDateOnly -> libCall com ctx None "DateOnly" "minValue" [] []
+            | Builtin BclDateTime -> libCall com ctx None (JS.Replacements.dateTimeModule com) "minValue" [] []
+            | Builtin BclDateTimeOffset ->
+                libCall com ctx None (JS.Replacements.dateTimeOffsetModule com) "minValue" [] []
+            | Builtin BclDateOnly -> libCall com ctx None (JS.Replacements.dateOnlyModule com) "minValue" [] []
             | _ -> libCall com ctx None "Util" "defaultOf" [] []
 
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
@@ -5017,6 +5090,7 @@ module Compiler =
                 TailCallOpportunity = None
                 OptimizeTailCall = fun () -> ()
                 ScopedTypeParams = Set.empty
+                BoundTypes = Map.empty
                 ForcedIdents = Set.empty
             }
 

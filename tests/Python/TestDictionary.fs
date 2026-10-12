@@ -226,16 +226,39 @@ let ``test Dictionary.ContainsValue works`` () =
     dic.ContainsValue("Everybody!") |> equal false
 
 [<Fact>]
-let ``test Dictionary.Delete works`` () =
+let ``test Dictionary.Remove works`` () =
     let dic = Dictionary<_, _>()
     dic.Add("A", "Hello")
     dic.Add("B", "World!")
     dic.ContainsValue("Hello") |> equal true
     dic.Remove("A") |> equal true
     dic.ContainsValue("Hello") |> equal false
+    dic.Count |> equal 1
 
 [<Fact>]
-let ``test Dictionary.Delete works with tuples as keys`` () =
+let ``test Dictionary.Remove with complex keys works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add((0,"A"), "Hello")
+    dic.Add((1,"B"), "World!")
+    dic.Remove((0,"A")) |> equal true
+    dic.Remove((1,"B")) |> equal true
+    dic.Count |> equal 0
+
+[<Fact>]
+let ``test Dictionary.Remove with records as keys works`` () =
+    let x1 = { a = 5 }
+    let x2 = { a = 5 }
+    let x3 = { a = 10 }
+    let x4 = { a = 15 }
+    let dict = Dictionary<_, _>()
+    dict.Add(x1, "Hello")
+    dict.Add(x3, "World!")
+    dict.Remove(x2) |> equal true
+    dict.Remove(x4) |> equal false
+    dict.Count |> equal 1
+
+[<Fact>]
+let ``test Dictionary.Remove works with tuples as keys`` () =
     let my_dict = Dictionary((Map [for i in 0..10 do yield (i,i), sprintf "Number: %i" i]))
     my_dict.ContainsKey((0,0)) |> equal true
     my_dict.Remove((0,0)) |> equal true

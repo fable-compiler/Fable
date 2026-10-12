@@ -1,5 +1,5 @@
 ---
-last_commit_released: 6568f35ece227fc30ce84111c8d2e975b09bac00
+last_commit_released: 148f989e1b37b3f6560c3dda615b6a3a8efffcb8
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,71 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.8.1 - 2026-10-12
+
+### 🐞 Bug Fixes
+
+* *(js/ts/python)* Synchronize cancellation registrations (#5036) ([07db576c](https://github.com/fable-compiler/Fable/commit/07db576c4ae16dcef9d1773ac4d6c70b2a223f0a))
+* *(js/ts/python)* Settle cancelled delays and finalizers once (#5038) ([a9802484](https://github.com/fable-compiler/Fable/commit/a9802484c8cdeadd5203123d76f42e375c1c3159))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36..148f989e1b37b3f6560c3dda615b6a3a8efffcb8)</small></strong>
+
+## 2.8.0 - 2026-09-25
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Fix Dictionary.Remove and HashSet.Remove to remove empty buckets (#4985) ([aea61b56](https://github.com/fable-compiler/Fable/commit/aea61b562c461a9b383e805f06f68a3b21ed45c2))
+* *(js/ts)* Clear custom System.Collections.IList implementations ([2369fbd2](https://github.com/fable-compiler/Fable/commit/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Faster `resizeArray.Clear()` in JS/TS ([32d85add](https://github.com/fable-compiler/Fable/commit/32d85add01422547dba03b15e0a0787d8afb031b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/4a441b1926387a42db6a3a4294acd97b02760ca3..2369fbd24fafe851544c1ed6eb54f0bfc2b75f36)</small></strong>
+
+## 2.7.1 - 2026-09-11
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Keep the sign of negative decimals below 0.1 ([91d80f18](https://github.com/fable-compiler/Fable/commit/91d80f185fb38e4d23fd9e906037a14daab3e3b9))
+* *(js/ts)* Respect the precision when formatting decimals below 0.1 ([1c02557e](https://github.com/fable-compiler/Fable/commit/1c02557efd113d8d30a922c74c3fc9d1e7168cfd))
+* *(js/ts)* Omit the decimal sign when the rounded result is zero ([ef63087d](https://github.com/fable-compiler/Fable/commit/ef63087d97b61927763023c4b2e5bb16bcd64af2))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321..4a441b1926387a42db6a3a4294acd97b02760ca3)</small></strong>
+
+## 2.7.0 - 2026-09-08
+
+### 🚀 Features
+
+* Add Temporal dates and times (opt-in) (#4759) ([3e8f56f7](https://github.com/fable-compiler/Fable/commit/3e8f56f78345fbee8a4394c5452eb212264701f9))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Match .NET for G, E and custom numeric formats ([6fb03090](https://github.com/fable-compiler/Fable/commit/6fb03090ce328b8c5d6a36422f120dd641aefe3a))
+* *(js/ts)* Allow the E format specifier on Int64 and UInt64 ([c49d1ec5](https://github.com/fable-compiler/Fable/commit/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/bf694309ae5dbc6bb546d9acc4d091f5e35fe330..c49d1ec5d1a491bfff65fe4bd6c71014cac9b321)</small></strong>
+
+## 2.6.0 - 2026-09-03
+
+### 🚀 Features
+
+* *(all)* Quotations: DerivedPatterns, and captured locals as Value nodes (#4919) ([fae5093f](https://github.com/fable-compiler/Fable/commit/fae5093f2801195e865adf1acfaec63f38bbf973))
+
+### 🐞 Bug Fixes
+
+* *(all)* Emit instance calls for virtual methods inherited from Object (#4926) ([2fb535a7](https://github.com/fable-compiler/Fable/commit/2fb535a7cd35cef501c56684f205e2dffa3c36e6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/619d7afddbaf25108e819abaaa9d8a6503c457d6..bf694309ae5dbc6bb546d9acc4d091f5e35fe330)</small></strong>
+
+## 2.5.1 - 2026-07-24
+
+### 🐞 Bug Fixes
+
+* *(js/ts,python)* Inline Option/ValueOption combinators to avoid closures and allocations (#4836) ([61cac646](https://github.com/fable-compiler/Fable/commit/61cac646e6385d82247082dbb90a98b1646560de))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/6568f35ece227fc30ce84111c8d2e975b09bac00..619d7afddbaf25108e819abaaa9d8a6503c457d6)</small></strong>
 
 ## 2.5.0 - 2026-07-15
 

@@ -229,6 +229,9 @@ module Types =
     let timeOnly = "System.TimeOnly"
 
     [<Literal>]
+    let rune = "System.Text.Rune"
+
+    [<Literal>]
     let timer = "System.Timers.Timer"
 
     [<Literal>]
@@ -472,6 +475,9 @@ module Types =
     let iformatProvider = "System.IFormatProvider"
 
     [<Literal>]
+    let cultureInfo = "System.Globalization.CultureInfo"
+
+    [<Literal>]
     let iobserverGeneric = "System.IObserver`1"
 
     [<Literal>]
@@ -491,6 +497,9 @@ module Types =
 
     [<Literal>]
     let patternsModule = "Microsoft.FSharp.Quotations.PatternsModule"
+
+    [<Literal>]
+    let derivedPatternsModule = "Microsoft.FSharp.Quotations.DerivedPatternsModule"
 
     [<Literal>]
     let printfModule = "Microsoft.FSharp.Core.PrintfModule"
@@ -1263,7 +1272,7 @@ module AST =
         LibraryImportInfo.Create(isInstanceMember = false, isModuleMember = true)
         |> makeImportLibWithInfo com t memberName moduleName
 
-    let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
+    let private makeInternalImport (com: Compiler) t (selector: string) (path: string) range kind =
         let path =
             if com.CurrentFile = path then
                 "./" + Path.GetFileName(path)
@@ -1277,14 +1286,14 @@ module AST =
                 Kind = kind
             },
             t,
-            None
+            range
         )
 
-    let makeInternalMemberImport com t membRef (selector: string) (path: string) =
-        MemberImport(membRef) |> makeInternalImport com t selector path
+    let makeInternalMemberImport com t membRef (selector: string) (path: string) range =
+        MemberImport(membRef) |> makeInternalImport com t selector path range
 
     let makeInternalClassImport com entRef (selector: string) (path: string) =
-        ClassImport(entRef) |> makeInternalImport com Any selector path
+        ClassImport(entRef) |> makeInternalImport com Any selector path None
 
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Create(?thisArg = thisArg, args = args, sigArgTypes = sigArgTypes)
@@ -1430,6 +1439,16 @@ module AST =
         | h1 :: t1, h2 :: t2 -> f h1 h2 && listEquals f t1 t2
         | _ -> false
 
+    /// SourcePath and PrecompiledLib denote the same entity when they carry the same source file
+    let entityRefEquals (ent1: EntityRef) (ent2: EntityRef) =
+        ent1.FullName = ent2.FullName
+        && (ent1.Path = ent2.Path
+            || (
+                match ent1.SourcePath, ent2.SourcePath with
+                | Some path1, Some path2 -> path1 = path2
+                | _ -> false
+            ))
+
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
         match typ1, typ2 with
@@ -1450,7 +1469,8 @@ module AST =
         | LambdaType(a1, t1), LambdaType(a2, t2) -> typeEquals strict a1 a2 && typeEquals strict t1 t2
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
             listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
-        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) -> ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
+        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
+            entityRefEquals ent1 ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _
         | _, GenericParam _ when not strict -> true
         | GenericParam(name = name1), GenericParam(name = name2) -> name1 = name2
@@ -1790,7 +1810,12 @@ module AST =
             | None -> body :: (Option.toList finalizer)
         | DecisionTree(expr, targets) -> expr :: (List.map snd targets)
         | DecisionTreeSuccess(_, boundValues, _) -> boundValues
-        | Quote _ -> [] // Quoted expressions are opaque data — don't traverse
+        // Quoted expressions must not be *rewritten* (see `visit` above, which
+        // leaves them alone), but analysis has to see inside them: a local that
+        // is only referenced from within a quotation is still referenced, and
+        // returning [] here let reference counting treat it as dead and drop the
+        // binding out from under the captured value.
+        | Quote(quotedExpr, _, _) -> [ quotedExpr ]
 
     let deepExists (f: Expr -> bool) expr =
         let rec deepExistsInner (exprs: ResizeArray<Expr>) =

@@ -466,6 +466,15 @@ type Distinct1 =
     static member OfList(_elements: list<'K * 'V>) = ()
     static member OfList(_elements: list<struct('K * 'V)>) = ()
 
+type FlexibleOverloads() =
+    member _.For(xs: 'a list, f: 'a -> 'b list) : 'b list = xs |> List.collect f
+    member _.For(xs: #seq<'a>, f: 'a -> unit) : int =
+        let mutable count = 0
+        for x in xs do
+            f x
+            count <- count + 1
+        count
+
 type InfoA = {
     Foo: string
 }
@@ -873,6 +882,18 @@ let inline outerGet<'a, 'b when 'a: (static member GetValue: unit -> string)
                             and 'b: (static member GetValue: unit -> string)> () =
     innerGet<'a>(), innerGet<'b>()
 
+type LazyTree<'a> = LazyNode of 'a * LazyTree<'a> list
+
+let describeLazy (x: Lazy<'a>) : string = string (x.Force())
+
+let walkLazyTree (tree: LazyTree<Lazy<'a>>) : string =
+    let rec loop (LazyNode(root, xs)) =
+        match xs with
+        | [] -> describeLazy root
+        | x :: _ -> loop x
+
+    loop tree
+
 let tests =
   testList "Types" [
 
@@ -1109,6 +1130,13 @@ let tests =
         t.Overload(2) |> equal 4
         t.Overload(2, 3) |> equal 5
 
+    testCase "Overloads distinguished by a flexible type work" <| fun () ->
+        let t = FlexibleOverloads()
+        t.For([1; 2], fun i -> [i; i * 10]) |> equal [1; 10; 2; 20]
+        let mutable sum = 0
+        t.For([|1; 2; 3|], fun i -> sum <- sum + i) |> equal 3
+        sum |> equal 6
+
     testCase "Type abbreviation works" <| fun () ->
         let t = T4()
         t.Value2 |> equal "Bye"
@@ -1261,6 +1289,10 @@ let tests =
         let search e = items.Value |> List.tryFind (fun m -> m = e)
         search "b" |> equal (Some "b")
         search "d" |> equal None
+
+    testCase "Local function generic over a Lazy subtype constraint works" <| fun () ->
+        LazyNode(lazy 5, [LazyNode(lazy 7, [])]) |> walkLazyTree |> equal "7"
+        LazyNode(lazy 5, []) |> walkLazyTree |> equal "5"
 
     testCase "Secondary constructors work" <| fun () ->
         let s1 = SecondaryCons(3)

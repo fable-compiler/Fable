@@ -757,6 +757,19 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
+type ReactiveNode<'T>(value: 'T) =
+    member _.Value = value
+
+[<Struct; Erase>]
+type ErasedView<'T> =
+    | ErasedView of node: ReactiveNode<'T>
+
+type ModelWithErasedField = { Item: ErasedView<int> }
+
+type DuWithErasedField =
+    | Wrapped of ErasedView<int>
+    | Empty
+
 let fableTests = [
     testCase "Recursively reading generic arguments of nested generic types works" <| fun () ->
         let typeInfo = Types.get<Maybe<Maybe<int>>>()
@@ -795,6 +808,28 @@ let fableTests = [
         getCaseName y |> equal "Union20_B"
         getCaseFields x |> equal [||]
         getCaseFields y |> equal [|5; "foo"|]
+
+    testCase "Reflection works for a record with an erased generic union field" <| fun () ->
+        // The record's generated reflection must resolve the erased union's generic
+        // parameter; ErasedView<int> erases to (and reflects as) ReactiveNode<int>.
+        let typ = typeof<ModelWithErasedField>
+        FSharpType.IsRecord typ |> equal true
+        let fields = FSharpType.GetRecordFields typ
+        fields.Length |> equal 1
+        fields.[0].PropertyType.GetGenericArguments().[0] |> equal typeof<int>
+        // Reading the field back confirms the runtime value is the erased node itself.
+        let model = { Item = ErasedView(ReactiveNode 42) }
+        (FSharpValue.GetRecordFields model |> Array.head :?> ReactiveNode<int>).Value |> equal 42
+
+    testCase "Reflection works for a union with an erased generic union field" <| fun () ->
+        // Same fix as records: a union case field reflection must resolve the
+        // erased union's generic parameter.
+        let typ = typeof<DuWithErasedField>
+        let case = (FSharpType.GetUnionCases typ).[0]
+        case.GetFields().[0].PropertyType.GetGenericArguments().[0] |> equal typeof<int>
+        let value = Wrapped(ErasedView(ReactiveNode 7))
+        let _, fields = FSharpValue.GetUnionFields(value, typ)
+        (fields.[0] :?> ReactiveNode<int>).Value |> equal 7
 ]
 
 #else

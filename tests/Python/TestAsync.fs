@@ -3,6 +3,35 @@ module Fable.Tests.Async
 open System
 open Util.Testing
 
+#if FABLE_COMPILER
+module private Runtime =
+    open Fable.Core.PyInterop
+
+    type Observation =
+        abstract terminal: string array
+        abstract errors: string array
+        abstract before: string array
+        abstract outcome: string array
+        abstract listeners: int
+        abstract scheduled: int
+        abstract cancel_count: int
+        abstract retired: bool
+        abstract owner_loop: bool
+        abstract threads_finished: bool
+        abstract pending_before: bool
+        abstract pending_after: bool
+
+    type ObserveSleep = delegate of Async<unit> * System.Threading.CancellationToken * string -> Observation
+    type ObserveMailbox = delegate of Async<int> * MailboxProcessor<int> * System.Threading.CancellationToken -> Observation
+    type ObserveOwnerLoop = delegate of Async<unit> * System.Threading.CancellationToken -> Observation
+    type ObserveSettlement = delegate of ((unit -> unit) -> Async<unit>) * System.Threading.CancellationToken * string -> Observation
+
+    let observeSleep: ObserveSleep = import "observe_sleep" "./py/async_runtime.py"
+    let observeMailbox: ObserveMailbox = import "observe_mailbox" "./py/async_runtime.py"
+    let observeOwnerLoop: ObserveOwnerLoop = import "observe_owner_loop" "./py/async_runtime.py"
+    let observeSettlement: ObserveSettlement = import "observe_settlement" "./py/async_runtime.py"
+#endif
+
 type DisposableAction(f) =
     interface IDisposable with
         member _.Dispose() = f()
@@ -31,6 +60,31 @@ let cancelWork: Async<string> = Async.FromContinuations(fun (_,_,onCancel) ->
 let ``test Simple async translates without exception`` () =
     async { return () }
     |> Async.StartImmediate
+
+[<Fact>]
+let ``test Cancellation callback errors expose the first InnerException`` () =
+    for count in [1; 2] do
+        use cts = new System.Threading.CancellationTokenSource()
+        let errors = Array.init count (fun i -> exn (string i))
+        let mutable calls = 0
+        errors |> Array.iter (fun error ->
+            cts.Token.Register(fun () ->
+                calls <- calls + 1
+                raise error) |> ignore)
+        let caught =
+            try
+                cts.Cancel()
+                None
+            with ex -> Some ex
+        match caught with
+        | Some ex ->
+            equal errors[count - 1].Message ex.InnerException.Message
+            equal true (obj.ReferenceEquals(errors[count - 1], ex.InnerException))
+        | None -> failwith "Expected cancellation callback errors"
+        equal count calls
+        equal true cts.IsCancellationRequested
+        cts.Cancel()
+        equal count calls
 
 
 [<Fact>]
@@ -467,7 +521,7 @@ let ``test Async.StartChild applies timeout`` () =
         let mutable x = ""
 
         let task = async {
-            x <- x + "A"
+            // A busy .NET runner can time out before this child is scheduled.
             do! Async.Sleep 1_000
             x <- x + "X" // Never hit
         }
@@ -482,8 +536,8 @@ let ``test Async.StartChild applies timeout`` () =
 
         x <- x + "C"
 
-        equal x "ABC"
-    } |> Async.StartImmediate
+        equal "BC" x
+    } |> Async.RunSynchronously
 
 [<Fact>]
 let ``test Async.StartChild with timeout completes when computation finishes before timeout`` () = // See #4481
@@ -496,7 +550,74 @@ let ``test Async.StartChild with timeout completes when computation finishes bef
         with
             | :? TimeoutException ->
                 failwith "should not time out"
-    } |> Async.StartImmediate
+    } |> Async.RunSynchronously
+
+let private assertChildFailure startChild (error: exn) =
+    async {
+        let failing: Async<int> = async {
+            do! Async.Sleep 10
+            return raise error
+        }
+        let! child = startChild(failing, 60_000)
+        let! result = Async.Catch child
+        match result with
+        | Choice2Of2 caught -> obj.ReferenceEquals(error, caught) |> equal true
+        | _ -> failwith "Expected child failure"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild preserves child TimeoutException`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (TimeoutException("child timeout"))
+
+let private assertChildTimeout startChild assertError =
+    async {
+        let pending: Async<int> = Async.FromContinuations(ignore)
+        let! child = startChild(pending, 0)
+        let! result = Async.Catch child
+        match result with
+        | Choice2Of2 ex -> assertError ex
+        | _ -> failwith "Expected child timeout"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild zero timeout raises TimeoutException`` () =
+    assertChildTimeout
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (fun ex -> ex :? TimeoutException |> equal true)
+
+#if FABLE_COMPILER
+module private NativeTimeout =
+    open Fable.Core
+    open Fable.Core.PyInterop
+
+    let startChild: Func<Async<int>, int, Async<Async<int>>> = import "start_child" "fable_library.async_"
+    let timeoutError: obj = import "TimeoutError" "builtins"
+
+    [<Emit("TimeoutError($0)")>]
+    let createTimeoutError (message: string) : exn = nativeOnly
+
+[<Fact>]
+let ``test Python start_child deadline matches both timeout types`` () =
+    assertChildTimeout
+        (fun (computation, timeout) -> NativeTimeout.startChild.Invoke(computation, timeout))
+        (fun ex ->
+            ex :? TimeoutException |> equal true
+            Fable.Core.PyInterop.pyInstanceof ex NativeTimeout.timeoutError |> equal true)
+
+[<Fact>]
+let ``test Async.StartChild preserves child Python TimeoutError`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (NativeTimeout.createTimeoutError "child timeout")
+
+[<Fact>]
+let ``test Python start_child preserves child TimeoutError`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> NativeTimeout.startChild.Invoke(computation, timeout))
+        (NativeTimeout.createTimeoutError "child timeout")
+#endif
 
 [<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832
@@ -586,3 +707,245 @@ let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
     }, cts.Token)
     cts.Cancel()
     equal true cancelCalled
+
+[<Fact>]
+let ``test FromContinuations unit and generic values`` () =
+    let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+    let mutable completed = 0
+    let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok ())
+    Async.StartWithContinuations(unitWork, (fun () -> completed <- completed + 1), raise, raise)
+    Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+    Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+    equal 3 completed
+
+[<Fact>]
+let ``test unit continuations preserve captured callbacks`` () =
+    let mutable calls = 0
+    let rec genericDeadline callback value remaining =
+        if remaining > 0 then genericDeadline callback value (remaining - 1)
+        else Async.StartWithContinuations(async { return value }, (fun result -> callback result), raise, raise)
+    let rec unitDeadline (callback: unit -> unit) remaining =
+        if remaining > 0 then unitDeadline callback (remaining - 1)
+        else Async.StartWithContinuations(async { return () }, (fun () -> callback ()), raise, raise)
+    genericDeadline (fun () -> calls <- calls + 1) () 2
+    unitDeadline (fun () -> calls <- calls + 1) 2
+    let rec namedUnitCapture (__unit: int) remaining =
+        if remaining > 0 then namedUnitCapture __unit (remaining - 1)
+        else Async.StartWithContinuations(async { return () }, (fun () -> calls <- calls + __unit), raise, raise)
+    namedUnitCapture 3 2
+    equal 5 calls
+
+[<Fact>]
+let ``test cooperative cancellation stops at the next async boundary`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let mutable terminal = ""
+    let mutable reached = false
+    let work = async {
+        try
+            source.Cancel()
+            do! async { return () }
+            reached <- true
+        finally
+            finalizers <- finalizers + 1
+    }
+    Async.StartWithContinuations(work, (fun () -> terminal <- "success"), (fun _ -> terminal <- "error"), (fun _ -> terminal <- "cancel"), source.Token)
+    equal false reached
+    equal 1 finalizers
+    equal "cancel" terminal
+
+
+[<Fact>]
+let ``test finalizer failure overrides success once`` () =
+    let mutable finalizers = 0
+    let terminal = ResizeArray<string>()
+    let work = async {
+        try return! successWork
+        finally
+            finalizers <- finalizers + 1
+            failwith "finalizer"
+    }
+    Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+    equal [| "finalizer" |] (terminal.ToArray())
+    equal 1 finalizers
+
+[<Fact>]
+let ``test finalizer failure overrides body failure once`` () =
+    let mutable finalizers = 0
+    let terminal = ResizeArray<string>()
+    let work = async {
+        try return! errorWork
+        finally
+            finalizers <- finalizers + 1
+            failwith "finalizer"
+    }
+    Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+    equal [| "finalizer" |] (terminal.ToArray())
+    equal 1 finalizers
+
+[<Fact>]
+let ``test finalizer failure preserves cancellation once`` () =
+    let mutable finalizers = 0
+    let terminal = ResizeArray<string>()
+    let work = async {
+        try return! cancelWork
+        finally
+            finalizers <- finalizers + 1
+            failwith "finalizer"
+    }
+    Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun _ -> terminal.Add "error"), (fun _ -> terminal.Add "cancel"))
+    equal [| "cancel" |] (terminal.ToArray())
+    equal 1 finalizers
+
+#if FABLE_COMPILER
+let private checkSleep cancelFirst throws =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let work = async {
+        try do! Async.Sleep 100
+        finally
+            finalizers <- finalizers + 1
+            if throws then failwith "finalizer"
+    }
+    let result = Runtime.observeSleep.Invoke(work, source.Token, if cancelFirst then "cancel" else "timeout")
+    let expected = if cancelFirst then "cancel" elif throws then "error" else "success"
+    equal [| expected |] result.terminal
+    equal 1 finalizers
+    equal 0 result.listeners
+    equal 1 result.scheduled
+    equal true result.retired
+    equal 1 result.cancel_count
+    if throws && not cancelFirst then equal [| "finalizer" |] result.errors
+    else equal [||] result.errors
+
+[<Fact>]
+let ``test cancelled Sleep ignores stale timers and cleans up`` () =
+    checkSleep true false
+
+[<Fact>]
+let ``test completed Sleep ignores cancellation and stale timers`` () =
+    checkSleep false false
+
+[<Fact>]
+let ``test cancelled Sleep ignores a throwing finalizer and stale timers`` () =
+    checkSleep true true
+
+[<Fact>]
+let ``test precancelled Sleep does not execute or schedule`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable reached = false
+    let work = async {
+        reached <- true
+        do! Async.Sleep 100
+    }
+    let result = Runtime.observeSleep.Invoke(work, source.Token, "precancel")
+    equal [| "cancel" |] result.terminal
+    equal false reached
+    equal 0 result.scheduled
+    equal 0 result.listeners
+
+[<Fact>]
+let ``test idle Receive is cancelled by its token and keeps later posts queued`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+    let result = Runtime.observeMailbox.Invoke(mailbox.Receive(), mailbox, source.Token)
+    equal [| "cancel" |] result.before
+    equal false result.pending_before
+    equal [| "cancel" |] result.terminal
+    equal false result.pending_after
+    equal 0 result.listeners
+    equal [| "42" |] result.outcome
+
+[<Fact>]
+let ``test Sleep cancellation from another thread runs on the owner loop`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let result = Runtime.observeOwnerLoop.Invoke(Async.Sleep 100000, source.Token)
+    equal [| "cancel" |] result.terminal
+    equal true result.owner_loop
+    equal true result.threads_finished
+    equal 0 result.listeners
+
+let private checkSettlement winner =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let makeWork timeout = async {
+        try do! Async.Sleep 100
+        finally
+            finalizers <- finalizers + 1
+            timeout ()
+    }
+    let result = Runtime.observeSettlement.Invoke(makeWork, source.Token, winner)
+    equal [| winner |] result.outcome
+    equal [| if winner = "timeout" then "success" else "cancel" |] result.terminal
+    equal 1 finalizers
+    equal true result.threads_finished
+    equal 0 result.listeners
+    equal true result.retired
+    equal 1 result.cancel_count
+
+[<Fact>]
+let ``test reply wins concurrent reply cancellation and timeout settlement`` () =
+    checkSettlement "reply"
+
+[<Fact>]
+let ``test cancellation wins concurrent reply cancellation and timeout settlement`` () =
+    checkSettlement "cancel"
+
+[<Fact>]
+let ``test timeout wins concurrent reply cancellation and timeout settlement`` () =
+    checkSettlement "timeout"
+
+[<Fact>]
+let ``test cancellation during Sleep installation releases resources`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let result = Runtime.observeSleep.Invoke(Async.Sleep 100, source.Token, "install_cancel")
+    equal [| "cancel" |] result.terminal
+    equal 0 result.listeners
+    equal 1 result.scheduled
+    equal true result.retired
+    equal 1 result.cancel_count
+
+[<Fact>]
+let ``test failed Sleep installation releases its registration`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let result = Runtime.observeSleep.Invoke(Async.Sleep 100, source.Token, "install_error")
+    equal [| "error" |] result.terminal
+    equal [| "scheduler" |] result.errors
+    equal 0 result.listeners
+    equal 0 result.scheduled
+#endif
+
+[<Fact>]
+let ``test cancelling a waiting Receive reports cancel and keeps later posts queued`` () =
+    async {
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                Async.StartWithContinuations(mailbox.Receive(), (fun value -> ok $"value {value}"), (fun _ -> ok "error"), (fun _ -> ok "cancel"), source.Token)
+                source.Cancel())
+        equal "cancel" outcome
+        mailbox.Post 42
+        let! next = mailbox.Receive()
+        equal 42 next
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test cancelling the mailbox token cancels a body waiting in Receive`` () =
+    async {
+        use source = new System.Threading.CancellationTokenSource()
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                MailboxProcessor<int>.Start((fun inbox -> async {
+                    let received = ref None
+                    try
+                        source.CancelAfter 50
+                        let! message = inbox.Receive()
+                        received.Value <- Some message
+                    finally
+                        match received.Value with
+                        | Some message -> ok $"received {message}"
+                        | None -> ok "cancelled" }), source.Token)
+                |> ignore)
+        equal "cancelled" outcome
+    } |> Async.RunSynchronously

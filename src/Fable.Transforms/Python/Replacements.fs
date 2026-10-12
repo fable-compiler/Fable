@@ -30,15 +30,13 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         | UInt32 -> ValueSome "UInt32ArrayCons"
         | Float32 -> ValueSome "Float32ArrayCons"
         | Float64 -> ValueSome "Float64ArrayCons"
-        // Don't use typed array for int64 until we remove our int64 polyfill
-        // and use JS BigInt to represent int64
-        //        | Int64 -> Some "BigInt64ArrayCons"
-        //        | UInt64 -> Some "BigUint64ArrayCons"
+        // Unlike JavaScript, which has no typed array for int64 while it polyfills the
+        // type, Python backs these with `Vec<i64>`/`Vec<u64>` in the Rust core.
+        | Int64 -> ValueSome "Int64ArrayCons"
+        | UInt64 -> ValueSome "UInt64ArrayCons"
         | Int128
         | UInt128
         | Float16
-        | Int64
-        | UInt64
         | BigInt
         | Decimal
         | NativeInt
@@ -92,6 +90,7 @@ let coreModFor =
     | BclDictionary _ -> "mutable_map"
     | BclDateOnly -> "date_only"
     | BclTimeOnly -> "time_only"
+    | BclRune
     | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeDecimal com r t (x: decimal) =
@@ -292,6 +291,19 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         TypeCast(args.Head, targetType)
 
 
+/// Calls a sized integer's parse-family method (`parse` or `try_parse`).
+///
+/// Most widths use the wrapper class's static method, which returns a value of that
+/// wrapper type. Int32 is represented as a plain Python `int`, so it goes through the
+/// `int32` module instead: `Int32.parse` would hand back an `Int32` object, and
+/// `Int32.try_parse` would store one in the ref cell.
+let makeIntParseCall com r t kind meth (args: Expr list) =
+    match kind with
+    | Int32 -> Helper.LibCall(com, "int32", meth, t, args, ?loc = r)
+    | _ ->
+        let typeExpr = Helper.LibValue(com, "core", getIntTypeName kind, Any)
+        Helper.InstanceCall(typeExpr, meth, t, args, ?loc = r)
+
 let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
         match targetType with
@@ -299,10 +311,10 @@ let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
         | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
 
     let style = int System.Globalization.NumberStyles.Any
+    let parseArgs = [ args.Head; makeIntConst style ] @ args.Tail
+
     // Use the type's static parse method: e.g., int8.parse(string, style)
-    let typeName = getIntTypeName kind
-    let typeExpr = Helper.LibValue(com, "core", typeName, Any)
-    Helper.InstanceCall(typeExpr, "parse", targetType, [ args.Head; makeIntConst style ] @ args.Tail, ?loc = r)
+    makeIntParseCall com r targetType kind "parse" parseArgs
 
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : Expr =
     let fromInteger kind arg =
@@ -396,9 +408,12 @@ let toString com (ctx: Context) r (args: Expr list) =
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "to_string", String, args)
+        // Int32 is a plain Python `int`, which has no `to_string` method
         | Number(Int32, _) ->
-            let expr = Helper.LibCall(com, "core", "int32", head.Type, [ head ], ?loc = r)
-            Helper.InstanceCall(expr, "to_string", String, tail, ?loc = r)
+            if tail.Length > 0 then
+                Helper.LibCall(com, "int32", "to_string", String, head :: tail, ?loc = r)
+            else
+                Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int64 | UInt64), _) ->
             if tail.Length > 0 then
                 Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
@@ -487,7 +502,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             match argTypes with
             | Number(Int8, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int8", t, args, ?loc = r)
             | Number(Int16, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int16", t, args, ?loc = r)
-            | Number(Int32, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int32", t, args, ?loc = r)
+            // Int32 is a plain Python `int`; `transformOperation` normalizes the
+            // result, which is only out of range for `-Int32.MinValue`.
             | _ -> unOp UnaryMinus operand
         | Operators.unaryPlus, [ operand ] -> unOp UnaryPlus operand
         | _ ->
@@ -543,7 +559,10 @@ let identityHash com r (arg: Expr) =
         | Char
         | String
         | Builtin BclGuid -> "stringHash"
-        | Number((Decimal | BigInt | Int64 | UInt64), _) -> "safeHash"
+        // Every numeric width reaches the same `GetHashCode`, so routing the wider
+        // ones through `safeHash` only added a frame and its protocol check. This
+        // now matches `structuralHash`, which has always sent all of them to
+        // `numberHash`.
         | Number _
         | Builtin BclTimeSpan -> "numberHash"
         | List _ -> "safeHash"
@@ -1054,15 +1073,20 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     moduleName, mangledName
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName, mangledName = getMangledNames i thisArg
+    match i.CompiledName, thisArg, args with
+    | "ToString", Some callee, [] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | "GetHashCode", Some callee, [] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | "Equals", Some callee, [ other ] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | _ ->
+        let moduleName, mangledName = getMangledNames i thisArg
 
-    let args =
-        match thisArg with
-        | Some callee -> callee :: args
-        | _ -> args
+        let args =
+            match thisArg with
+            | Some callee -> callee :: args
+            | _ -> args
 
-    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc = r)
-    |> Some
+        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
 
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName, mangledName = getMangledNames i thisArg
@@ -1669,7 +1693,7 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | "Length", [ arg ] ->
         // Use int32(len()) to ensure consistent return type
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
@@ -1704,7 +1728,7 @@ let formattableString
         let lenExpr =
             Helper.GlobalCall("len", Int32.Number, [ getField x "args" ], ?loc = r)
 
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "GetArgument", Some x, [ idx ] -> getExpr r t (getField x "args") idx |> Some
     | "GetArguments", Some x, [] -> getFieldWith r t x "args" |> Some
     | _ -> None
@@ -1867,7 +1891,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         match ar.Type with
         | Array _ ->
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ ar ], ?loc = r)
-            Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+            lenExpr |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
     | "Find", Some ar, [ arg ] ->
@@ -1997,7 +2021,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ ->
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Equals", Some arg1, [ arg2 ] -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
@@ -2039,21 +2063,13 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
     match i.CompiledName, args with
     | "ToSeq", [ arg ] -> Some arg
-    | "OfSeq", [ arg ] ->
-        let meth = Naming.lowerFirst i.CompiledName
-        let args = injectArg com ctx r "Array" meth i.GenericArgs args
-
-        Helper.LibCall(com, "array", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "OfList", [ arg ] ->
-        Helper.LibCall(com, "list", "to_array", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | ("OfSeq" | "OfList"), [ arg ] -> makeArrayFrom (getElementType t) arg |> Some
     | "ToList", args ->
         Helper.LibCall(com, "list", "of_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Length" | "Count"), [ arg ] ->
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -2133,6 +2149,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
 
         Helper.LibCall(com, "seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "ToArray", [ arg ] -> makeArrayFrom (getElementType t) arg |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args
@@ -2232,9 +2249,14 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | ("ToObj" | "ToNullable"), _ -> Helper.LibCall(com, "option", "to_nullable", t, args, ?loc = r) |> Some
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
-        Helper.LibCall(com, "option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+    | "Flatten", args ->
+        Helper.LibCall(com, "option", "flatten", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "Map", [ mapping; opt ] -> Options.map com ctx r t isStruct mapping opt |> Some
+    | "Map2", [ mapping; opt1; opt2 ] -> Options.map2 com ctx r t isStruct mapping opt1 opt2 |> Some
+    | "Map3", [ mapping; opt1; opt2; opt3 ] -> Options.map3 com ctx r t isStruct mapping opt1 opt2 opt3 |> Some
+    | "Bind", [ binder; opt ] -> Options.bind com ctx r t isStruct binder opt |> Some
+    | "Filter", [ predicate; opt ] -> Options.filter com ctx r isStruct predicate opt |> Some
     | "ToArray", [ arg ] -> toArray r t arg |> Some
     | "ToList", [ arg ] ->
         let args = args |> List.replaceLast (toArray None t)
@@ -2244,14 +2266,11 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
         Helper.LibCall(com, "seq", "fold_back", t, [ folder; toArray None t opt; state ], i.SignatureArgTypes, ?loc = r)
         |> Some
     | "DefaultValue", _ -> Helper.LibCall(com, "option", "default_arg", t, List.rev args, ?loc = r) |> Some
-    | "DefaultWith", _ ->
-        Helper.LibCall(com, "option", "default_arg_with", t, List.rev args, List.rev i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "DefaultWith", [ defThunk; opt ] -> Options.defaultWith com ctx r t defThunk opt |> Some
     | "OrElse", _ -> Helper.LibCall(com, "Option", "or_else", t, List.rev args, ?loc = r) |> Some
-    | "OrElseWith", _ ->
-        Helper.LibCall(com, "Option", "or_else_with", t, List.rev args, List.rev i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
+    | "OrElseWith", [ ifNoneThunk; opt ] -> Options.orElseWith com ctx r t ifNoneThunk opt |> Some
+    | "Iterate", [ action; opt ] -> Options.iterate com ctx r t action opt |> Some
+    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" as meth), _ ->
         let meth = Naming.lowerFirst meth
         let args = args |> List.replaceLast (toArray None t)
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -2298,10 +2317,15 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         else
             // For integer types, call the static parse method on the type
             // This generates: int8.parse(string, style) instead of parse_int32(string, style, unsigned, bitsize)
-            let typeName = getIntTypeName kind
-            let typeExpr = Helper.LibValue(com, "core", typeName, Any)
             let args = [ str; makeIntConst style ] @ outValue
-            Helper.InstanceCall(typeExpr, Naming.lowerFirst meth, t, args, ?loc = r) |> Some
+
+            let methName =
+                if meth = "TryParse" then
+                    "try_parse"
+                else
+                    "parse"
+
+            makeIntParseCall com r t kind methName args |> Some
 
     let isFloat =
         match i.SignatureArgTypes with
@@ -2687,7 +2711,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "get_Count", Some c ->
         // Use int32(len()) to work with both Dictionary class and plain Python dict
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
         match thisArg, args with
@@ -2823,11 +2847,14 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         // | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
         | _ ->
-            let e = makeImportLib com Any "ExceptionBase" "Types"
+            let e = makeImportLib com Any "ExceptionBase" "exception_bases"
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
-    | "get_InnerException", Some e -> getFieldWith r t e "inner_exception" |> Some
+    | "get_InnerException", Some e ->
+        // Caught exceptions are typed as Python's built-in Exception, which lacks this attribute.
+        Helper.GlobalCall("getattr", t, [ e; makeStrConst "inner_exception" ], ?loc = r)
+        |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -3506,7 +3533,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         thisArg
         |> Option.map (fun c ->
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
-            Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r)
+            lenExpr
         )
     | "GetEnumerator" -> thisArg |> Option.map (fun thisArg -> getEnumerator com r t thisArg)
     | "IsMatch"
@@ -3648,6 +3675,13 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "FromContinuations" when
+        (match t with
+         | Fable.DeclaredType(_, [ Fable.Unit ]) -> true
+         | _ -> false)
+        ->
+        Helper.LibCall(com, "async_", "from_continuations_unit", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -4194,14 +4228,14 @@ let private replacedModules =
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
             "System.IO.File", files
             "System.IO.Directory", directories
             "System.IO.Path", paths
             "System.IO.TextWriter", textWriter
-            "System.Random", random
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
             "System.Threading.Monitor", monitor
@@ -4305,7 +4339,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeImportLib com Any "ExceptionBase" "Types", args)
+    | Types.exception_ -> Some(makeImportLib com Any "ExceptionBase" "exception_bases", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =
@@ -4357,11 +4391,12 @@ let tryType typ =
     | List genArg -> Some(Types.list, lists, [ genArg ])
     | Builtin kind ->
         match kind with
+        | BclRune -> None
         | BclGuid -> Some(Types.guid, guids, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [ key; value ])

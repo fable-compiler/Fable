@@ -12,6 +12,7 @@ open Fable
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
+open Fable.Compiler
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
 
@@ -87,35 +88,6 @@ module private Util =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
         |> Seq.iter (fun log -> Log.error (formatLog rootDir log))
-
-    let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
-        diagnostics
-        |> Array.map (fun er ->
-            let severity =
-                match er.Severity with
-                | FSharpDiagnosticSeverity.Hidden
-                | FSharpDiagnosticSeverity.Info -> Severity.Info
-                | FSharpDiagnosticSeverity.Warning -> Severity.Warning
-                | FSharpDiagnosticSeverity.Error -> Severity.Error
-
-            let range =
-                SourceLocation.Create(
-                    start =
-                        {
-                            line = er.StartLine
-                            column = er.StartColumn + 1
-                        },
-                    ``end`` =
-                        {
-                            line = er.EndLine
-                            column = er.EndColumn + 1
-                        }
-                )
-
-            let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
-
-            LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
-        )
 
     let getOutPath (cliArgs: CliArgs) pathResolver file =
         match cliArgs.CompilerOptions.Language with
@@ -502,6 +474,9 @@ type FableCompilerState =
         FilesCheckedButNotCompiled: Set<string>
         FableFilesToCompileExpectedCount: int
         FableFilesCompiledCount: int
+        /// For Rust: the project's last file, held back until every other file
+        /// has compiled. See the note where it is set.
+        DelayedLastFile: string option
         FSharpLogs: LogEntry[]
         FableResults: FableCompileResult list
         HasFSharpCompilationFinished: bool
@@ -521,6 +496,7 @@ type FableCompilerState =
             FilesCheckedButNotCompiled = Set.empty
             FableFilesToCompileExpectedCount = filesToCompile |> Array.filter isImplementationFile |> Array.length
             FableFilesCompiledCount = 0
+            DelayedLastFile = None
             FSharpLogs = [||]
             FableResults = []
             HasFSharpCompilationFinished = false
@@ -623,14 +599,6 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                         // It seems when there's a pair .fsi/.fs the F# compiler gives the .fsi extension to the implementation file
                         let fileName = file.FileName |> Path.normalizePath |> Path.ensureFsExtension
 
-                        // For Rust, delay last file's compilation so other files can finish compiling
-                        if
-                            projCracked.CliArgs.CompilerOptions.Language = Rust
-                            && fileName = Array.last state.FilesToCompile
-                            && state.FableFilesCompiledCount < state.FableFilesToCompileExpectedCount - 1
-                        then
-                            do! Async.Sleep(1000)
-
                         Log.verbose (
                             lazy $"Type checked: {IO.Path.GetRelativePath(projCracked.CliArgs.RootDir, file.FileName)}"
                         )
@@ -646,7 +614,28 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                 state
                             else
                                 let state = { state with FableProj = state.FableProj.Update([ file ]) }
-                                fableCompile state fileName
+
+                                // For Rust the last file has to compile after every other
+                                // one: it re-exports the namespaces the other files
+                                // register into a shared registry while they compile, so
+                                // compiling it early silently drops whatever had not
+                                // registered yet. It is held back here and released by
+                                // FableFileCompiled once the rest are done -- a wait on
+                                // the actual condition, where the fixed sleep this
+                                // replaces only shrank the race for small projects.
+                                if
+                                    projCracked.CliArgs.CompilerOptions.Language = Rust
+                                    && fileName = Array.last state.FilesToCompile
+                                    && state.FableFilesCompiledCount < state.FableFilesToCompileExpectedCount - 1
+                                then
+                                    { state with
+                                        DelayedLastFile = Some fileName
+                                        // Marked pending so the finished check keeps
+                                        // waiting for it.
+                                        FilesCheckedButNotCompiled = Set.add fileName state.FilesCheckedButNotCompiled
+                                    }
+                                else
+                                    fableCompile state fileName
 
                         return! loop state
 
@@ -655,7 +644,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
                         let state =
                             { state with
-                                FSharpLogs = getFSharpDiagnostics results.Diagnostics
+                                FSharpLogs = CodeServices.getFSharpDiagnostics results.Diagnostics
                                 HasFSharpCompilationFinished = true
                             }
 
@@ -690,6 +679,16 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                 FableFilesCompiledCount = state.FableFilesCompiledCount + 1
                                 FilesCheckedButNotCompiled = Set.remove fileName state.FilesCheckedButNotCompiled
                             }
+
+                        // Everything else is compiled: release the held-back Rust
+                        // last file (see FSharpFileTypeChecked).
+                        let state =
+                            match state.DelayedLastFile with
+                            | Some delayed when
+                                state.FableFilesCompiledCount = state.FableFilesToCompileExpectedCount - 1
+                                ->
+                                fableCompile { state with DelayedLastFile = None } delayed
+                            | _ -> state
 
                         if not state.IsSilent then
                             let msg =
@@ -1563,7 +1562,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                             match result with
                             | Some ex ->
-                                getFSharpDiagnostics diagnostics |> logErrors cliArgs.RootDir
+                                CodeServices.getFSharpDiagnostics diagnostics |> logErrors cliArgs.RootDir
                                 Log.error (ex.Message)
                                 return 1
                             | None ->

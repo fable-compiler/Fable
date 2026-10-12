@@ -61,6 +61,10 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
         match this.TryFindIndex(k) with
         | true, h, i when i > -1 ->
             hashMap.[h].RemoveAt(i)
+
+            if hashMap.[h].Count = 0 then
+                hashMap.Remove(h) |> ignore
+
             true
         | _, _, _ -> false
 

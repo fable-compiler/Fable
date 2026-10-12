@@ -24,6 +24,9 @@
     using/2,
     to_list/1,
     enumerate_to_list/1,
+    aggregate_exception/2,
+    exception_message/1,
+    is_exception_type/2,
     new_byte_array/1,
     new_byte_array_zeroed/1,
     new_byte_array_filled/2,
@@ -63,6 +66,9 @@
 -spec using(term(), fun()) -> term().
 -spec to_list(term()) -> list().
 -spec enumerate_to_list(term()) -> list().
+-spec aggregate_exception(binary(), term()) -> map().
+-spec exception_message(term()) -> binary().
+-spec is_exception_type(term(), atom()) -> boolean().
 -spec new_byte_array(list() | binary() | tuple()) -> tuple().
 -spec new_byte_array_zeroed(non_neg_integer()) -> tuple().
 -spec new_byte_array_filled(non_neg_integer(), non_neg_integer()) -> tuple().
@@ -450,6 +456,76 @@ to_list(V) when is_binary(V) ->
     unicode:characters_to_list(V);
 to_list(V) ->
     V.
+
+%% AggregateException keeps the normal BEAM exception-map representation. Its exception
+%% sequence may be a params array ref, a list, or any other Fable enumerable.
+aggregate_exception(BaseMessage, ExceptionsValue) ->
+    Exceptions = to_list(ExceptionsValue),
+    InnerException =
+        case Exceptions of
+            [First | _] -> First;
+            [] -> undefined
+        end,
+    Message = iolist_to_binary([
+        BaseMessage
+        | [[<<" (">>, exception_message(Exception), <<")">>] || Exception <- Exceptions]
+    ]),
+    #{
+        exn_type => aggregate_exception,
+        message => Message,
+        inner_exception => InnerException,
+        inner_exceptions => new_ref(Exceptions)
+    }.
+
+%% Built-in .NET exceptions carry a compact nominal tag. Follow the .NET exception
+%% hierarchy here so a catch for a base exception also accepts its derived exceptions.
+is_exception_type(Exception, Expected) when is_reference(Exception) ->
+    is_exception_type(get(Exception), Expected);
+is_exception_type(#{exn_type := Actual}, Expected) ->
+    exception_type_is(Actual, Expected);
+is_exception_type(#{message := _}, exception) ->
+    true;
+is_exception_type(_, _) ->
+    false.
+
+exception_type_is(Type, Type) -> true;
+exception_type_is(_, exception) -> true;
+exception_type_is(application_exception, Expected) -> exception_type_is(exception, Expected);
+exception_type_is(argument_exception, Expected) -> exception_type_is(system_exception, Expected);
+exception_type_is(argument_null_exception, Expected) ->
+    exception_type_is(argument_exception, Expected);
+exception_type_is(argument_out_of_range_exception, Expected) ->
+    exception_type_is(argument_exception, Expected);
+exception_type_is(arithmetic_exception, Expected) -> exception_type_is(system_exception, Expected);
+exception_type_is(divide_by_zero_exception, Expected) ->
+    exception_type_is(arithmetic_exception, Expected);
+exception_type_is(not_finite_number_exception, Expected) ->
+    exception_type_is(arithmetic_exception, Expected);
+exception_type_is(overflow_exception, Expected) -> exception_type_is(arithmetic_exception, Expected);
+exception_type_is(aggregate_exception, Expected) -> exception_type_is(exception, Expected);
+exception_type_is(key_not_found_exception, Expected) -> exception_type_is(system_exception, Expected);
+exception_type_is(operation_canceled_exception, Expected) ->
+    exception_type_is(system_exception, Expected);
+exception_type_is(Type, Expected)
+    when Type =:= format_exception;
+        Type =:= index_out_of_range_exception;
+        Type =:= invalid_operation_exception;
+        Type =:= not_implemented_exception;
+        Type =:= not_supported_exception;
+        Type =:= null_reference_exception;
+        Type =:= out_of_memory_exception;
+        Type =:= rank_exception;
+        Type =:= stack_overflow_exception;
+        Type =:= timeout_exception ->
+    exception_type_is(system_exception, Expected);
+exception_type_is(system_exception, Expected) -> exception_type_is(exception, Expected);
+exception_type_is(_, _) -> false.
+
+%% decision: formats message metadata at the read boundary so exception payload fields retain their original types
+%% invariant: Message access and aggregate formatting return binaries for arbitrary F# exception payloads
+exception_message(#{message := Message}) -> format_term(Message);
+exception_message(Exception) when is_reference(Exception) -> exception_message(get(Exception));
+exception_message(Exception) -> format_term(Exception).
 
 %% Enumerate a lazy seq object to a plain list using get_enumerator/move_next/get_current.
 enumerate_to_list(Seq) ->

@@ -66,8 +66,55 @@ module Naming =
 
         sb.ToString()
 
-    let sanitizeErlangName (name: string) =
-        // Decode $XXXX hex sequences from F# compiled names (e.g. $0020 -> space -> _)
+    /// Decode F# `$XXXX` compiled-name escapes for source-facing diagnostics.
+    let decodeFSharpCompiledName (name: string) =
+        Regex.Replace(
+            name,
+            @"\$([0-9A-Fa-f]{4})",
+            fun m -> char (System.Convert.ToInt32(m.Groups.[1].Value, 16)) |> string<char>
+        )
+
+    /// Erlang caps atoms at 255 characters, but `erlc` builds atoms of its own out of a function's
+    /// name for the closures, comprehensions and try blocks inside it (`-name/1-fun-0-`), and it
+    /// crashes in `list_to_atom` rather than reporting an error when one of those overflows. Leave
+    /// that decoration room.
+    let private maxErlangAtomLength = 223
+
+    let private atomNameHash (name: string) =
+#if FABLE_COMPILER
+        // tradeoff: Standalone uses the existing portable hash to avoid cryptography dependencies; overlong atoms differ from native output.
+        (uint32 (Fable.Naming.stringHash name)).ToString("x8")
+#else
+        use sha256 = System.Security.Cryptography.SHA256.Create()
+
+        name
+        |> System.Text.Encoding.UTF8.GetBytes
+        |> sha256.ComputeHash
+        |> System.BitConverter.ToString
+        |> _.Replace("-", "")
+        |> _.ToLowerInvariant()
+#endif
+
+    /// Cap an atom at the length Erlang accepts, keeping a readable prefix plus a hash of the full
+    /// name. Atoms built by joining already-capped parts have to be capped again.
+    let limitErlangAtomLength (name: string) =
+        if name.Length <= maxErlangAtomLength then
+            name
+        else
+            let suffix = "_" + atomNameHash name
+            let mutable prefixLength = maxErlangAtomLength - suffix.Length
+
+            if System.Char.IsHighSurrogate(name.[prefixLength - 1]) then
+                prefixLength <- prefixLength - 1
+
+            // decision: Native compilation uses SHA-256 to distinguish overlong names; standalone keeps its portable hash without adding BCL support.
+            name.Substring(0, prefixLength) + suffix
+
+    /// Drop or encode the characters an F# name may carry that an unquoted Erlang atom cannot
+    /// (`base'`, `op_$0020`, `Foo.Bar`, ...). Every name that ends up as an atom has to go
+    /// through this, or the printer emits something like `'base'_'` — invalid Erlang.
+    let private stripNonAtomChars (name: string) =
+        // invariant: Encoded F# punctuation remains distinct from literal underscores — sanitization must not merge declarations.
         Regex.Replace(
             name,
             @"\$([0-9A-Fa-f]{4})",
@@ -77,19 +124,32 @@ module Naming =
                 if System.Char.IsLetterOrDigit(c) then
                     c.ToString()
                 else
-                    "_"
+                    $"_x%s{m.Groups.[1].Value.ToLowerInvariant()}_"
         )
         |> fun s ->
             s.Replace("'", "").Replace("$", "_").Replace("@", "").Replace(".", "_").Replace("`", "_").Replace("-", "_")
+
+    let sanitizeErlangName (name: string) =
+        stripNonAtomChars name
         |> toSnakeCase
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
         |> checkErlKeywords
+        |> limitErlangAtomLength
+
+    /// The atom a union case is tagged with at runtime: `[<CompiledName>]` verbatim when present,
+    /// otherwise the snake_cased case name. Codegen and the `erl_tag` in reflection metadata must
+    /// both go through this, or reflection looks up a tag the constructor never emitted.
+    let unionCaseTagName (compiledName: string option) (caseName: string) =
+        match compiledName with
+        | Some name -> limitErlangAtomLength name
+        | None -> sanitizeErlangName caseName
 
     let moduleNameFromFile (filePath: string) =
         Fable.Path.GetFileNameWithoutExtension(filePath)
         |> fun s -> s.Replace(".", "_").Replace("-", "_")
         |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        |> limitErlangAtomLength
 
     // ----------------------------------------------------------------------------------
     // Qualified module names
@@ -397,6 +457,7 @@ module Naming =
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
         |> checkErlKeywords
+        |> limitErlangAtomLength
 
     /// Number of leading segments `a` and `b` have in common.
     let private commonPrefixLength (a: string[]) (b: string[]) =
@@ -467,8 +528,12 @@ module Naming =
     /// Convert a field name to a safe Erlang atom (snake_case + keyword escaping).
     /// camelCase names get a trailing '_' to avoid collision with PascalCase names
     /// (e.g., firstName -> first_name_, FirstName -> first_name).
+    ///
+    /// This is the single source of truth for the key a record/anonymous-record field is stored
+    /// under in the runtime map: both `NewRecord` codegen and the `erl_name` the reflection
+    /// metadata advertises must go through it, or reflection reads a key that was never written.
     let sanitizeFieldName (name: string) =
-        let snakeName = toSnakeCase name
+        let snakeName = stripNonAtomChars name |> toSnakeCase
 
         let disambiguated =
             if name.Length > 0 && System.Char.IsLower(name.[0]) then
@@ -476,9 +541,33 @@ module Naming =
             else
                 snakeName
 
-        checkErlKeywords disambiguated
+        checkErlKeywords disambiguated |> limitErlangAtomLength
+
+    /// The atom a class or `val` field is stored under in the instance map. Codegen and the
+    /// collision diagnostic must both derive it here, or a collision is emitted unreported.
+    let classFieldAtomName (name: string) =
+        limitErlangAtomLength ("field_" + sanitizeErlangName name)
+
+    /// Mark a generated accessor before atom sanitization, including runtime replacement calls.
+    let accessorFunctionName name = name + Fable.Naming.beamAccessorSuffix
+
+    /// Derive the map key shared by interface implementations, dispatch, and collision diagnostics.
+    let interfaceMemberKey isSetter (name: string) =
+        let memberName = sanitizeErlangName name
+
+        if isSetter then
+            limitErlangAtomLength ("set_" + memberName)
+        else
+            memberName
 
     /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
+    ///
+    /// Inside the quotes a `\` and a `'` have to be escaped, or what comes back is not the atom that
+    /// was asked for. `'it's'` is a syntax error; `'back\slash'` is worse, because Erlang reads the
+    /// same escape sequences in a quoted atom as in a string and `\s` means space — so it compiles,
+    /// silently, to the atom `back lash`. Both are reachable: `[<CompiledName>]` reaches the atom
+    /// text verbatim (`unionCaseTagName`, and `[<StringEnum>]` cases on top of it), and
+    /// `sanitizeErlangName` only strips these characters on the paths that go through it.
     let quoteErlangAtom (name: string) =
         if name.Length = 0 then
             "''"
@@ -489,7 +578,10 @@ module Naming =
         then
             name
         else
-            $"'%s{name}'"
+            // Backslashes first — otherwise the ones the second replace adds get escaped again.
+            let escaped = name.Replace("\\", @"\\").Replace("'", @"\'")
+
+            $"'%s{escaped}'"
 
     let sanitizeErlangVar (name: string) =
         // Remove/replace characters invalid in Erlang variable names
@@ -520,6 +612,65 @@ module Chars =
         | Some _ -> Char
         | None -> e.Type
 
+/// Statically resolved implementations of virtual System.Object members.
+///
+/// Records and unions are bare maps/tuples/atoms on Beam, so they cannot carry an instance method
+/// table. Keep the generated function naming and lookup contract in one place: declaration emission
+/// uses the same name that call sites import.
+module ObjectOverrides =
+    open Fable
+    open Fable.AST
+    open Fable.AST.Fable
+    open Fable.Transforms
+
+    let isSystemObjectOverride (memb: MemberDecl) =
+        match memb.ImplementedSignatureRef with
+        | Some(MemberRef(entityRef, _)) -> entityRef.FullName = Types.object
+        | _ -> false
+
+    let functionName entityName memberName =
+        let entityName = Naming.sanitizeErlangName entityName
+        Naming.limitErlangAtomLength $"%s{entityName}_%s{Naming.sanitizeErlangName memberName}"
+
+    let tryCallZeroArg
+        (com: FSharp2Fable.IFableCompiler)
+        (r: SourceLocation option)
+        (returnType: Type)
+        memberName
+        (arg: Expr)
+        =
+        match arg.Type with
+        | DeclaredType(entRef, _) ->
+            let memberInfo =
+                {
+                    IsInstance = true
+                    CompiledName = memberName
+                    NonCurriedArgTypes = Some []
+                    AttributeFullNames = []
+                }
+
+            com.TryGetEntity(entRef)
+            |> Option.bind (fun ent -> ent.TryFindMember(memberInfo))
+            |> Option.filter (fun memb -> memb.IsOverrideOrExplicitInterfaceImplementation)
+            |> Option.bind (fun memb ->
+                entRef.SourcePath
+                |> Option.map (fun sourcePath ->
+                    let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com entRef
+                    let calleeName = functionName entityName memb.CompiledName
+                    let calleeType = LambdaType(arg.Type, returnType)
+                    let memberRef = MemberRef(entRef, memberInfo)
+
+                    let callee =
+                        if sourcePath = com.CurrentFile && not com.IsPrecompilingInlineFunction then
+                            makeTypedIdentExpr calleeType calleeName
+                        else
+                            makeInternalMemberImport com calleeType memberRef calleeName sourcePath r
+
+                    makeCall r returnType (makeCallInfo None [ arg ] [ arg.Type ]) callee
+                )
+            )
+        | _ -> None
+
 /// Conversion of a value to its `string` form, dispatched on the static type.
 module ToString =
     open Fable.AST
@@ -540,18 +691,31 @@ module ToString =
     let toStringByType (com: ICompiler) (r: SourceLocation option) (t: Type) (arg: Expr) =
         let arg = Chars.tryAsChar arg |> Option.defaultValue arg
 
-        match arg.Type with
-        | Type.String -> Some arg
-        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
-            | Float16
-            | Float32
-            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
-            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
-        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+        match ObjectOverrides.tryCallZeroArg com r t "ToString" arg with
+        | Some call -> Some call
+        | None ->
+            match arg.Type with
+            | Type.String -> Some arg
+            | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
+            | Type.Number(kind, _) ->
+                match kind with
+                | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
+                | Float16
+                | Float32
+                | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+                | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
+            | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
+            | DeclaredType(ent, _) when ent.FullName = Types.timespan ->
+                Helper.LibCall(com, "fable_timespan", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = Types.datetime ->
+                Helper.LibCall(com, "fable_date", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
+                Helper.LibCall(com, "fable_uri", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
+                // StringBuilder.ToString() → iolist_to_binary(get(maps:get(field_buf, get(Sb))))
+                emitExpr r t [ arg ] "iolist_to_binary(get(maps:get(field_buf, get($0))))"
+                |> Some
+            | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
 
 /// Fixed-width integer semantics. Erlang integers are arbitrary precision and never
 /// overflow, so operations that can leave the width of a .NET sized integer are routed

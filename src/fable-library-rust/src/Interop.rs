@@ -1,19 +1,25 @@
 pub mod ListExt {
     // use core::ops::Deref;
     use crate::List_::{List, cons, empty, isEmpty, reverse};
-    use crate::Native_::{NullableRef, Vec, seq_to_iter};
+    use crate::Native_::{NullableRef, Vec};
     use crate::Seq_::ofList;
 
-    impl<T: Clone> List<T> {
-        //todo - non-consuming iter by ref
-        // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
-        //     let s = ofList(self.clone());
-        //     seq_to_iter(s)
-        // }
+    pub struct ListIterator<T: Clone + 'static> {
+        list: List<T>,
+    }
 
-        pub fn into_iter(&self) -> impl Iterator<Item = T> {
-            let s = ofList(self.clone());
-            seq_to_iter(s)
+    impl<T: Clone> Iterator for ListIterator<T> {
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.list.root.as_ref() {
+                Some(node) => {
+                    let head = node.head.clone();
+                    self.list.root = node.tail.root.clone();
+                    Some(head)
+                }
+                None => None,
+            }
         }
     }
 
@@ -67,6 +73,15 @@ pub mod ListExt {
         }
     }
 
+    impl<T: Clone> IntoIterator for List<T> {
+        type Item = T;
+        type IntoIter = ListIterator<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            ListIterator { list: self }
+        }
+    }
+
     impl<T: Clone> Into<Vec<T>> for List<T> {
         fn into(self) -> Vec<T> {
             self.into_iter().collect()
@@ -75,23 +90,12 @@ pub mod ListExt {
 }
 
 pub mod SetExt {
-    use crate::Native_::{Func2, Hashable, NullableRef, Vec, combineHashCodes, make_compare, seq_to_iter};
+    use crate::Native_::{
+        Func2, Hashable, NullableRef, SeqIterator, Vec, combineHashCodes, make_compare,
+    };
     use crate::Set_::{Set, add, compareTo, empty, equals, isEmpty, toSeq};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
-
-    impl<T: Clone + Hashable + PartialOrd> Set<T> {
-        //todo - non-consuming iter by ref
-        // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
-        //     let s = toSeq(self.clone());
-        //     seq_to_iter(s)
-        // }
-
-        pub fn into_iter(&self) -> impl Iterator<Item = T> {
-            let s = toSeq(self.clone());
-            seq_to_iter(s)
-        }
-    }
 
     impl<T: Clone> NullableRef for Set<T> {
         #[inline]
@@ -115,9 +119,8 @@ pub mod SetExt {
 
     impl<T: Clone + Hashable + PartialOrd> Hashable for Set<T> {
         fn getHashCode(&self) -> i32 {
-            let s = toSeq(self.clone());
             let mut res = 0_i32;
-            for value in seq_to_iter(s) {
+            for value in self.clone().into_iter() {
                 res = combineHashCodes(res, value.getHashCode());
             }
             res
@@ -126,8 +129,7 @@ pub mod SetExt {
 
     impl<T: Clone + Hashable + PartialOrd + Hash> Hash for Set<T> {
         fn hash<H: Hasher>(&self, state: &mut H) {
-            let s = toSeq(self.clone());
-            seq_to_iter(s).for_each(|x| x.hash(state))
+            self.clone().into_iter().for_each(|x| x.hash(state))
         }
     }
 
@@ -173,6 +175,15 @@ pub mod SetExt {
         }
     }
 
+    impl<T: Clone + Hashable + PartialOrd> IntoIterator for Set<T> {
+        type Item = T;
+        type IntoIter = SeqIterator<T>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            SeqIterator::new(toSeq(self))
+        }
+    }
+
     impl<T: Clone + Hashable + PartialOrd> Into<Vec<T>> for Set<T> {
         fn into(self) -> Vec<T> {
             self.into_iter().collect()
@@ -181,23 +192,12 @@ pub mod SetExt {
 }
 
 pub mod MapExt {
-    use crate::Map_::{Map, add, compareTo, empty, equals, isEmpty, iterate, toSeq};
-    use crate::Native_::{Func2, Hashable, NullableRef, Vec, combineHashCodes, make_compare, seq_to_iter};
+    use crate::Map_::{Map, add, compareTo, empty, equals, isEmpty, iterate, toEnumerable};
+    use crate::Native_::{
+        Func2, Hashable, LrcPtr, NullableRef, SeqIterator, Vec, combineHashCodes, make_compare,
+    };
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
-
-    impl<K: Clone + Hashable + PartialOrd, V: Clone> Map<K, V> {
-        //todo - non-consuming iter by ref
-        // pub fn iter<'a>(&self) -> impl Iterator<Item = (& 'a K, & 'a V)> {
-        //     let s = toSeq(self.clone());
-        //     seq_to_iter(s).map(|kvp| kvp.as_ref().clone())
-        // }
-
-        pub fn into_iter(&self) -> impl Iterator<Item = (K, V)> {
-            let s = toSeq(self.clone());
-            seq_to_iter(s).map(|kvp| kvp.as_ref().clone())
-        }
-    }
 
     impl<K: Clone + Hashable + PartialOrd, V: Clone> NullableRef for Map<K, V> {
         #[inline]
@@ -221,10 +221,8 @@ pub mod MapExt {
 
     impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> Hashable for Map<K, V> {
         fn getHashCode(&self) -> i32 {
-            let s = toSeq(self.clone());
             let mut res = 0_i32;
-            for kvp in seq_to_iter(s) {
-                let (key, value) = kvp.as_ref();
+            for (key, value) in self.clone().into_iter() {
                 res = combineHashCodes(res, key.getHashCode());
                 res = combineHashCodes(res, value.getHashCode());
             }
@@ -234,8 +232,7 @@ pub mod MapExt {
 
     impl<K: Clone + Hashable + PartialOrd + Hash, V: Clone + Hash> Hash for Map<K, V> {
         fn hash<H: Hasher>(&self, state: &mut H) {
-            let s = toSeq(self.clone());
-            seq_to_iter(s).for_each(|kvp| kvp.hash(state))
+            self.clone().into_iter().for_each(|kvp| kvp.hash(state))
         }
     }
 
@@ -268,6 +265,15 @@ pub mod MapExt {
                 map = add(k, v.clone(), map);
             }
             map
+        }
+    }
+
+    impl<K: Clone + Hashable + PartialOrd, V: Clone> IntoIterator for Map<K, V> {
+        type Item = (K, V);
+        type IntoIter = SeqIterator<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            SeqIterator::new(toEnumerable(self))
         }
     }
 

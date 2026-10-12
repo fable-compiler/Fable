@@ -14,6 +14,25 @@ pub mod NativeArray_ {
 
     pub type Array<T> = LrcPtr<MutArray<T>>;
 
+    pub struct ArrayIterator<T: Clone> {
+        arr: MutArray<T>,
+        pos: usize,
+    }
+
+    impl<T: Clone> Iterator for ArrayIterator<T> {
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.pos < self.arr.len() {
+                let item = self.arr[self.pos as i32].clone();
+                self.pos += 1;
+                Some(item)
+            } else {
+                None
+            }
+        }
+    }
+
     impl<T: Clone> core::ops::Deref for MutArray<T> {
         type Target = MutCell<Vec<T>>;
         fn deref(&self) -> &Self::Target {
@@ -44,6 +63,24 @@ pub mod NativeArray_ {
         fn from(v: &Vec<T>) -> Self {
             let v2: Vec<T> = v.iter().map(|item| item.clone()).collect();
             MutArray(MutCell::from(v2))
+        }
+    }
+
+    impl<T> core::ops::Index<i32> for MutArray<T> {
+        type Output = T;
+
+        #[inline]
+        fn index(&self, idx: i32) -> &Self::Output {
+            &self.0.get()[idx as usize]
+        }
+    }
+
+    impl<T: Clone> IntoIterator for MutArray<T> {
+        type Item = T;
+        type IntoIter = ArrayIterator<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            ArrayIterator { arr: self, pos: 0 }
         }
     }
 

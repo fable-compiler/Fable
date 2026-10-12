@@ -160,6 +160,8 @@ let tests =
         (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+        (fun () -> Int32.Parse("–", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "System.Int64.Parse works" <| fun () ->
         Int64.Parse("5") |> equal 5L
@@ -190,11 +192,24 @@ let tests =
         tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
         tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
 
+    testCase "System.UInt64.TryParse works above Int64.MaxValue" <| fun () ->
+        tryParse UInt64.TryParse 0UL "9223372036854775808" |> equal (true, 9223372036854775808UL)
+        tryParse UInt64.TryParse 0UL "18446744073709551615" |> equal (true, UInt64.MaxValue)
+        tryParse UInt64.TryParse 0UL "18446744073709551616" |> equal (false, 0UL)
+        tryParse UInt64.TryParse 0UL "-1" |> equal (false, 0UL)
+
     testCase "Parsing integers with different radices works" <| fun () ->
         equal 11 (int "11")
         equal 17 (int "0x11")
         equal 9  (int "0o11")
         equal 3  (int "0b11")
+        // Leading whitespace and the sign both precede the radix specifier
+        equal 17 (int " 0x11")
+        equal 9  (int "  0o11  ")
+        equal -17 (int "-0x11")
+        equal -3 (int " -0b11 ")
+        equal -17L (int64 "-0x11")
+        equal -11 (int "-1_1")
 
     testCase "System.Int32.TryParse works" <| fun () ->
         tryParse Int32.TryParse 0 "1" |> equal (true, 1)
@@ -207,6 +222,10 @@ let tests =
         tryParse Int32.TryParse 0 "X9TRE34" |> equal (false, 0)
         tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
         tryParse Int32.TryParse 0 "-1" |> equal (true, -1)
+        // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+        tryParse Int32.TryParse 0 "–" |> equal (false, 0)
+        tryParse Int32.TryParse 0 "é" |> equal (false, 0)
+        tryParse Int32.TryParse 0 "𝟙" |> equal (false, 0)
 
     testCase "BigInt.TryParse works" <| fun () ->
         tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
@@ -592,49 +611,49 @@ let tests =
         // |> adaptExponentValue
         // |> equal "2.550000000000000e+2"
 
-    // testCase "int64.ToString 'E' works"
-    // <| fun () ->
-    //     (255L).ToString("E2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+    testCase "int64.ToString 'E' works"
+    <| fun () ->
+        (255L).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255L).ToString("E15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255L).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
-    //     (-255L).ToString("E", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "-2.550000e+2"
+        (-255L).ToString("E", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-2.550000e+2"
 
-    //     (255L).ToString("e2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+        (255L).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255L).ToString("e15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255L).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
-    //     (-255L).ToString("e", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "-2.550000e+2"
+        (-255L).ToString("e", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-2.550000e+2"
 
-    // testCase "uint64.ToString 'E' works"
-    // <| fun () ->
-    //     (255UL).ToString("E2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+    testCase "uint64.ToString 'E' works"
+    <| fun () ->
+        (255UL).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255UL).ToString("E15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255UL).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
-    //     (255UL).ToString("e2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+        (255UL).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255UL).ToString("e15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255UL).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
     testCase "float.ToString 'E' works"
     <| fun () ->
@@ -900,6 +919,64 @@ let tests =
         // (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
         // |> adaptExponentValue
         // |> equal "-255.2357"
+
+    testCase "ToString 'G' keeps the trailing zeros of the integer part"
+    <| fun () ->
+        (100000).ToString("G", CultureInfo.InvariantCulture) |> equal "100000"
+        (100).ToString("G", CultureInfo.InvariantCulture) |> equal "100"
+        (0).ToString("G", CultureInfo.InvariantCulture) |> equal "0"
+        (-1200).ToString("G", CultureInfo.InvariantCulture) |> equal "-1200"
+        (100.0).ToString("G", CultureInfo.InvariantCulture) |> equal "100"
+        (100000L).ToString("G", CultureInfo.InvariantCulture) |> equal "100000"
+        (100000).ToString("G4", CultureInfo.InvariantCulture) |> equal "1E+05"
+        (100000).ToString("g4", CultureInfo.InvariantCulture) |> equal "1e+05"
+        (1.5).ToString("G4", CultureInfo.InvariantCulture) |> equal "1.5"
+
+    testCase "ToString 'E' pads the exponent and keeps its case"
+    <| fun () ->
+        (100000).ToString("E", CultureInfo.InvariantCulture) |> equal "1.000000E+005"
+        (100000).ToString("e", CultureInfo.InvariantCulture) |> equal "1.000000e+005"
+        (100000).ToString("E0", CultureInfo.InvariantCulture) |> equal "1E+005"
+        (100000).ToString("E2", CultureInfo.InvariantCulture) |> equal "1.00E+005"
+        (1234.5678).ToString("E", CultureInfo.InvariantCulture) |> equal "1.234568E+003"
+        (0.00012).ToString("E2", CultureInfo.InvariantCulture) |> equal "1.20E-004"
+        (-1234.5).ToString("E2", CultureInfo.InvariantCulture) |> equal "-1.23E+003"
+        $"{100000L:E}" |> equal "1.000000E+005"
+        $"{100000L:E2}" |> equal "1.00E+005"
+
+    testCase "ToString 'E' keeps every digit of a 64 bit integer"
+    <| fun () ->
+        (0L).ToString("E2", CultureInfo.InvariantCulture) |> equal "0.00E+000"
+        (100000L).ToString("e4", CultureInfo.InvariantCulture) |> equal "1.0000e+005"
+        (999999L).ToString("E2", CultureInfo.InvariantCulture) |> equal "1.00E+006"
+        (9223372036854775807L).ToString("E17", CultureInfo.InvariantCulture)
+        |> equal "9.22337203685477581E+018"
+        (-9223372036854775808L).ToString("E2", CultureInfo.InvariantCulture) |> equal "-9.22E+018"
+        (18446744073709551615UL).ToString("E", CultureInfo.InvariantCulture) |> equal "1.844674E+019"
+
+    testCase "ToString with a custom percent format multiplies by 100"
+    <| fun () ->
+        (100000).ToString("0.0%", CultureInfo.InvariantCulture) |> equal "10000000.0%"
+        (0.1234).ToString("0.00%", CultureInfo.InvariantCulture) |> equal "12.34%"
+        (0.5).ToString("#.##%", CultureInfo.InvariantCulture) |> equal "50%"
+        (0.42).ToString("0%", CultureInfo.InvariantCulture) |> equal "42%"
+        (-0.5).ToString("0.0%", CultureInfo.InvariantCulture) |> equal "-50.0%"
+        (0.5).ToString("0.0%%", CultureInfo.InvariantCulture) |> equal "5000.0%%"
+        (0.5).ToString("%0.0", CultureInfo.InvariantCulture) |> equal "%50.0"
+
+    testCase "ToString with a custom format scales by trailing commas"
+    <| fun () ->
+        (100000).ToString("0,", CultureInfo.InvariantCulture) |> equal "100"
+        (100000).ToString("0,,", CultureInfo.InvariantCulture) |> equal "0"
+        (-123456789).ToString("0,,", CultureInfo.InvariantCulture) |> equal "-123"
+        (1234567890).ToString("#,#,,", CultureInfo.InvariantCulture) |> equal "1,235"
+        (123456789).ToString("0,,.0", CultureInfo.InvariantCulture) |> equal "123.5"
+        (1234567.0).ToString("0,,", CultureInfo.InvariantCulture) |> equal "1"
+        // A comma that is not next to the decimal point only turns on digit grouping
+        (123456789).ToString("#,,#", CultureInfo.InvariantCulture) |> equal "123,456,789"
+        (100000).ToString("#,#", CultureInfo.InvariantCulture) |> equal "100,000"
+        // .NET ignores commas placed after the decimal placeholders
+        (123456789).ToString("0.0,,", CultureInfo.InvariantCulture) |> equal "123456789.0"
 
     testCase "byte.ToString 'N' works"
     <| fun () ->
@@ -2285,6 +2362,12 @@ let tests =
     testCase "Convert byte array to Guid works" <| fun () ->
         let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
         g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+
+    testCase "Convert byte array built from a list or seq to Guid works" <| fun () ->
+        let bytes = id [6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy]
+        Guid(List.toArray bytes).ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+        Guid(Array.ofList bytes).ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+        Guid(Array.ofSeq (Seq.ofList bytes)).ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
 
     testCase "Guid.ToString works with formats" <| fun () ->
         let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")

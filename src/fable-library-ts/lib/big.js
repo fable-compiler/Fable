@@ -267,6 +267,11 @@ function round(x, sd, rm, more) {
 }
 
 
+function hasNonzeroDigit(x) {
+  return x.c.some(d => d !== 0);
+}
+
+
 /*
  * Return a string representing the value of Big x in normal or exponential notation.
  * Handles P.toExponential, P.toFixed, P.toJSON, P.toPrecision, P.toString and P.valueOf.
@@ -932,7 +937,7 @@ P.times = P.mul = function (y) {
  */
 P.toExponential = function (dp, rm) {
   var x = this,
-    n = x.c[0];
+    n = hasNonzeroDigit(x);
 
   if (dp !== UNDEFINED) {
     if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
@@ -942,7 +947,7 @@ P.toExponential = function (dp, rm) {
     for (; x.c.length < dp;) x.c.push(0);
   }
 
-  return stringify(x, true, !!n);
+  return stringify(x, true, n);
 };
 
 
@@ -953,24 +958,24 @@ P.toExponential = function (dp, rm) {
  * dp? {number} Decimal places: integer, 0 to MAX_DP inclusive.
  * rm? {number} Rounding mode: 0 (down), 1 (half-up), 2 (half-even) or 3 (up).
  *
- * (-0).toFixed(0) is '0', but (-0.1).toFixed(0) is '-0'.
- * (-0).toFixed(1) is '0.0', but (-0.01).toFixed(1) is '-0.0'.
+ * Unlike JavaScript, the sign is omitted when the rounded result is zero:
+ * (-0.1).toFixed(0) is '0' and (-0.01).toFixed(1) is '0.0', matching .NET.
  */
 P.toFixed = function (dp, rm) {
-  var x = this,
-    n = x.c[0];
+  var x = this;
 
   if (dp !== UNDEFINED) {
     if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
       throw Error(INVALID_DP);
     }
-    x = round(new x.constructor(x), dp + x.e + 1, rm);
+    x = new x.constructor(x);
+    x = round(x, dp + x.e + 1, rm);
 
     // x.e may have changed if the value is rounded up.
     for (dp = dp + x.e + 1; x.c.length < dp;) x.c.push(0);
   }
 
-  return stringify(x, false, !!n);
+  return stringify(x, false, hasNonzeroDigit(x));
 };
 
 
@@ -983,7 +988,7 @@ P.toFixed = function (dp, rm) {
 P.toJSON = P.toString = function () {
   var x = this,
     Big = x.constructor;
-  return stringify(x, x.e <= Big.NE || x.e >= Big.PE, !!x.c[0]);
+  return stringify(x, x.e <= Big.NE || x.e >= Big.PE, hasNonzeroDigit(x));
 };
 
 
@@ -1011,7 +1016,7 @@ P.toNumber = function () {
 P.toPrecision = function (sd, rm) {
   var x = this,
     Big = x.constructor,
-    n = x.c[0];
+    n = hasNonzeroDigit(x);
 
   if (sd !== UNDEFINED) {
     if (sd !== ~~sd || sd < 1 || sd > MAX_DP) {
@@ -1021,7 +1026,7 @@ P.toPrecision = function (sd, rm) {
     for (; x.c.length < sd;) x.c.push(0);
   }
 
-  return stringify(x, sd <= x.e || x.e <= Big.NE || x.e >= Big.PE, !!n);
+  return stringify(x, sd <= x.e || x.e <= Big.NE || x.e >= Big.PE, n);
 };
 
 

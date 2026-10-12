@@ -143,19 +143,13 @@ export function remove<T>(col: Iterable<T>, item: T): boolean {
 export function clear<T>(col: Iterable<T>): void {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.Clear"] === "function") {
     return (col as any)["System.Collections.Generic.ICollection`1.Clear"](); // collection
+  } else if (Array.isArray(col)) {
+    col.length = 0;
+  } else if (ArrayBuffer.isView(col)) {
+    // TODO: throw for typed arrays?
+  } else if (typeof (col as any).clear === "function") {
+    (col as any).clear(); // map, set
   } else {
-    if (isArrayLike(col)) {
-      if (ArrayBuffer.isView(col)) {
-        // TODO: throw for typed arrays?
-      } else {
-        col.splice(0); // array, resize array
-      }
-    } else {
-      if (typeof (col as any).clear === "function") {
-        (col as any).clear(); // map, set
-      } else {
-        // TODO: throw for other collections?
-      }
-    }
+    // TODO: throw for other collections?
   }
 }

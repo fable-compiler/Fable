@@ -194,6 +194,15 @@ let tests =
         dic.Add("B", "World!")
         dic.Remove("A") |> equal true
         dic.Remove("C") |> equal false
+        dic.Count |> equal 1
+
+    testCase "Dictionary.Remove with complex keys works" <| fun () ->
+        let dic = Dictionary<_, _>()
+        dic.Add((0,"A"), "Hello")
+        dic.Add((1,"B"), "World!")
+        dic.Remove((0,"A")) |> equal true
+        dic.Remove((1,"B")) |> equal true
+        dic.Count |> equal 0
 
     testCase "Dictionary.Remove with records as keys works" <| fun () ->
         let x1 = { a = 5 }
@@ -205,6 +214,7 @@ let tests =
         dic.Add(x3, "World!")
         dic.Remove(x2) |> equal true
         dic.Remove(x4) |> equal false
+        dic.Count |> equal 1
 
     testCase "Interface IDictionary.Count works" <| fun () ->
         let dic = dict <| seq { for i in 1. .. 10. -> i.ToString(), i*i }

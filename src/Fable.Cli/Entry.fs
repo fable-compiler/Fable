@@ -126,6 +126,7 @@ let knownCliArgs () =
         [ "--trimRootModule" ], []
         [ "--fableLib" ], []
         [ "--replace" ], []
+        [ "--test:js-temporal" ], []
     ]
 
 let printKnownCliArgs () =
@@ -314,12 +315,16 @@ type Runner =
                 | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
                 | Some configurationArg -> configurationArg
 
+            let jsTemporal = args.FlagEnabled "--test:js-temporal"
+
             let define =
                 args.Values "--define"
                 |> List.append
                     [
                         "FABLE_COMPILER"
                         "FABLE_COMPILER_5"
+                        if jsTemporal then
+                            "FABLE_COMPILER_JAVASCRIPT_TEMPORAL"
                         match language with
                         | Php -> "FABLE_COMPILER_PHP"
                         | Rust -> "FABLE_COMPILER_RUST"
@@ -353,7 +358,8 @@ type Runner =
                     debugMode = (configuration = "Debug"),
                     optimizeFSharpAst = args.FlagEnabled "--optimize",
                     noReflection = args.FlagEnabled "--noReflection",
-                    verbosity = verbosity
+                    verbosity = verbosity,
+                    jsTemporal = jsTemporal
                 )
 
             let cliArgs =

@@ -44,6 +44,7 @@ type Context =
         /// Vars declared in current function scope
         VarsDeclaredInScope: HashSet<string>
         ConstIdents: Set<string>
+        ShadowingMemberNames: Set<string>
     }
 
     member this.AddToScope(name) =
@@ -219,7 +220,8 @@ module Util =
             Type.reference (makeImmutableIdent MetaType "MapEntry", [ key; value ])
 
         match entRef.FullName, genArgs with
-        | Types.enum_, _ -> Integer
+        | Types.enum_, _
+        | Types.rune, _ -> Integer
         // F# Quotation types are modelled dynamically by the quotation runtime,
         // so map them to `dynamic` (the runtime returns plain tagged objects).
         | Types.fsharpExpr, _
@@ -241,7 +243,7 @@ module Util =
         | "Fable.Core.Dart.DartNullable`1", [ genArg ] -> Nullable genArg
         | Types.regexGroup, _ -> Nullable String
         | Types.regexMatch, _ -> makeTypeRefFromName "Match" []
-        | "System.Random", _ -> libTypeRef com ctx "Random" "Random" []
+        | Types.random, _ -> libTypeRef com ctx "Random" "Random" []
         // We use `dynamic` for Exception because there is no single type that catches all errors in Dart
         // (except when inherited as base class, then it's getExceptionType, see transformInheritedClass)
         | Types.exception_, _ -> Dynamic // getExceptionType com ctx
@@ -290,6 +292,44 @@ module Util =
             | '@' -> "$"
             | _ -> "_")
             name
+
+    /// In Dart, class members shadow the file scope within the class body, see https://github.com/fable-compiler/Fable/issues/4979
+    let isShadowedByClassMember (ctx: Context) (name: string) =
+        let isLocalName =
+            let locals = ctx.UsedNames.CurrentDeclarationScope
+            not (isNull locals) && locals.Contains(name)
+
+        ctx.ShadowingMemberNames.Contains(name)
+        && ctx.File.UsedNamesInRootScope.Contains(name)
+        && not isLocalName
+
+    let getShadowingMemberNames (ent: Fable.Entity) (decl: Fable.ClassDecl) =
+        let dispatchSlots =
+            ent.MembersFunctionsAndValues
+            |> Seq.choose (fun memb ->
+                if memb.IsDispatchSlot then
+                    Some memb.DisplayName
+                else
+                    None
+            )
+
+        set
+            [
+                yield! dispatchSlots
+                yield! ent.FSharpFields |> List.map (fun f -> sanitizeMember f.Name)
+                yield! decl.AttachedMembers |> List.map (fun memb -> sanitizeMember memb.Name)
+                if ent.IsFSharpUnion then
+                    "tag"
+
+                    yield!
+                        ent.UnionCases
+                        |> List.collect (fun uci -> uci.UnionCaseFields |> List.map (fun f -> sanitizeMember f.Name))
+            ]
+
+    /// A Dart library can import itself
+    let getSelfImportPrefix (com: IDartCompiler) ctx =
+        let selfModule = com.GetImportIdent(ctx, "*", com.CurrentFile, Fable.MetaType)
+        selfModule.Name
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
@@ -704,7 +744,12 @@ module Util =
         makeIdent isMutable typ name
 
     let transformIdent (com: IDartCompiler) ctx (id: Fable.Ident) : Ident =
-        transformIdentWith com ctx id.IsMutable id.Type id.Name
+        let ident = transformIdentWith com ctx id.IsMutable id.Type id.Name
+
+        if isShadowedByClassMember ctx id.Name then
+            { ident with ImportModule = Some(getSelfImportPrefix com ctx) }
+        else
+            ident
 
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
         transformIdent com ctx id |> Expression.identExpression
@@ -2158,6 +2203,19 @@ module Util =
             bindings @ body, captureExpr
 
         | Fable.Sequential exprs ->
+            // Fable appends a unit value after a throw, which Dart cannot type
+            let exprs =
+                match
+                    exprs
+                    |> List.tryFindIndex (fun e ->
+                        match e with
+                        | Fable.Extended(Fable.Throw _, _) -> true
+                        | _ -> false
+                    )
+                with
+                | Some i -> List.truncate (i + 1) exprs
+                | None -> exprs
+
             let exprs, lastExpr = List.splitLast exprs
 
             let statements1 = exprs |> List.collect (transform com ctx Ignore >> fst)
@@ -3022,6 +3080,8 @@ module Util =
             let entRef = decl.Entity
             let ent = com.GetEntity(entRef)
 
+            let ctx = { ctx with ShadowingMemberNames = getShadowingMemberNames ent decl }
+
             if ent.IsInterface then
                 transformInterfaceDeclaration com ctx decl ent
             else
@@ -3182,6 +3242,7 @@ module Compiler =
                 OptimizeTailCall = fun () -> ()
                 VarsDeclaredInScope = HashSet()
                 ConstIdents = Set.empty
+                ShadowingMemberNames = Set.empty
             }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations

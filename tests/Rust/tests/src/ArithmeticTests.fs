@@ -174,17 +174,6 @@ let ``Decimal literals can be generated`` () =
     -79228162514264337593543950335M |> equal Decimal.MinValue
 
 [<Fact>]
-let ``Decimal integer predicates work`` () =
-    System.Decimal.IsInteger(3M) |> equal true
-    System.Decimal.IsInteger(3.5M) |> equal false
-    System.Decimal.IsEvenInteger(4M) |> equal true
-    System.Decimal.IsEvenInteger(3M) |> equal false
-    System.Decimal.IsOddInteger(3M) |> equal true
-    System.Decimal.IsOddInteger(4M) |> equal false
-    System.Decimal.IsOddInteger(-3M) |> equal true
-    System.Decimal.IsOddInteger(3.5M) |> equal false
-
-[<Fact>]
 let ``Decimal.IsCanonical works`` () =
     // Canonical means the value's stored scale is already minimal (no representable
     // trailing zero digits); non-canonical values have a scale larger than needed.
@@ -196,6 +185,102 @@ let ``Decimal.IsCanonical works`` () =
     System.Decimal.IsCanonical(1.0M) |> equal false
     System.Decimal.IsCanonical(1.20M) |> equal false
     System.Decimal.IsCanonical(0.0M) |> equal false
+
+[<Fact>]
+let ``Decimal.IsInteger works`` () =
+    System.Decimal.IsInteger(3M) |> equal true
+    System.Decimal.IsInteger(3.5M) |> equal false
+    System.Decimal.IsInteger(-3M) |> equal true
+    System.Decimal.IsInteger(-3.5M) |> equal false
+
+[<Fact>]
+let ``Decimal.IsEvenInteger works`` () =
+    System.Decimal.IsEvenInteger(3M) |> equal false
+    System.Decimal.IsEvenInteger(4M) |> equal true
+    System.Decimal.IsEvenInteger(-3M) |> equal false
+    System.Decimal.IsEvenInteger(-4M) |> equal true
+    System.Decimal.IsEvenInteger(3.5M) |> equal false
+    System.Decimal.IsEvenInteger(-3.5M) |> equal false
+
+[<Fact>]
+let ``Decimal.IsOddInteger works`` () =
+    System.Decimal.IsOddInteger(3M) |> equal true
+    System.Decimal.IsOddInteger(4M) |> equal false
+    System.Decimal.IsOddInteger(-3M) |> equal true
+    System.Decimal.IsOddInteger(-4M) |> equal false
+    System.Decimal.IsOddInteger(3.5M) |> equal false
+    System.Decimal.IsOddInteger(-3.5M) |> equal false
+
+[<Fact>]
+let ``Decimal.IsNegative works`` () =
+    System.Decimal.IsNegative(-1M) |> equal true
+    System.Decimal.IsNegative(1M) |> equal false
+
+[<Fact>]
+let ``Decimal.IsPositive works`` () =
+    System.Decimal.IsPositive(1M) |> equal true
+    System.Decimal.IsPositive(-1M) |> equal false
+
+[<Fact>]
+let ``Decimal.Scale works`` () =
+    1M.Scale |> equal 0uy
+    1.20M.Scale |> equal 2uy
+
+[<Fact>]
+let ``Decimal.CopySign works`` () =
+    Decimal.CopySign(1M, 2M) |> equal 1M
+    Decimal.CopySign(-1M, 2M) |> equal 1M
+    Decimal.CopySign(1M, -2M) |> equal -1M
+    Decimal.CopySign(-1M, -2M) |> equal -1M
+
+[<Fact>]
+let ``Decimal.FromOACurrency works`` () =
+    Decimal.FromOACurrency(0L) |> equal 0M
+    Decimal.FromOACurrency(1L) |> equal 0.0001M
+    Decimal.FromOACurrency(100000L) |> equal 10M
+    Decimal.FromOACurrency(100000000000L) |> equal 10000000M
+    Decimal.FromOACurrency(1000000000000000000L) |> equal 100000000000000M
+    Decimal.FromOACurrency(1000000000000000001L) |> equal 100000000000000.0001M
+    Decimal.FromOACurrency(Int64.MaxValue) |> equal 922337203685477.5807M
+    Decimal.FromOACurrency(Int64.MinValue) |> equal -922337203685477.5808M
+    Decimal.FromOACurrency(123456L) |> equal 12.3456M
+    Decimal.FromOACurrency(123456789L) |> equal 12345.6789M
+    Decimal.FromOACurrency(1234567890000L) |> equal 123456789M
+    Decimal.FromOACurrency(1234567890987654321L) |> equal 123456789098765.4321M
+    Decimal.FromOACurrency(4294967295L) |> equal 429496.7295M
+
+[<Fact>]
+let ``Decimal.ToOACurrency works`` () =
+    Decimal.ToOACurrency(0M) |> equal 0L
+    Decimal.ToOACurrency(1M) |> equal 10000L
+    Decimal.ToOACurrency(1.0000000000000000000000000000M) |> equal 10000L
+    Decimal.ToOACurrency(100000000000000M) |> equal 1000000000000000000L
+    Decimal.ToOACurrency(100000000000000.00000000000000M) |> equal 1000000000000000000L
+    throwsAnyError (fun () -> Decimal.ToOACurrency(10000000000000000000000000000M) |> ignore)
+    Decimal.ToOACurrency(0.000000000123456789M) |> equal 0L
+    Decimal.ToOACurrency(0.123456789M) |> equal 1235L
+    Decimal.ToOACurrency(12.3456M) |> equal 123456L
+    Decimal.ToOACurrency(123456789M) |> equal 1234567890000L
+    throwsAnyError (fun () -> Decimal.ToOACurrency(123456789000000000M) |> ignore)
+    Decimal.ToOACurrency(4294967295M) |> equal 42949672950000L
+    throwsAnyError (fun () -> Decimal.ToOACurrency(18446744073709551615M) |> ignore)
+    Decimal.ToOACurrency(-79.228162514264337593543950335M) |> equal -792282L
+    Decimal.ToOACurrency(-79228162514264.337593543950335M) |> equal -792281625142643376L
+
+[<Fact>]
+let ``Decimal.GetTypeCode works`` () =
+    1M.GetTypeCode() |> equal TypeCode.Decimal
+
+[<Fact>]
+let ``Decimal.Abs works`` () =
+    Decimal.Abs(4M) |> equal 4M
+    Decimal.Abs(-4M) |> equal 4M
+
+[<Fact>]
+let ``Decimal.Sign works`` () =
+    Decimal.Sign(-1M) |> equal -1
+    Decimal.Sign(0M) |> equal 0
+    Decimal.Sign(1M) |> equal 1
 
 [<Fact>]
 let ``Decimal.ToString works`` () =

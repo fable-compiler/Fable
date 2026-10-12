@@ -55,7 +55,9 @@ type Context =
         ScopedSymbols: FSharp.Collections.Map<string, ScopedVarAttrs>
         // HasMultipleUses: bool //this could be a closure in a map, or a for loop. The point is anything leaving the scope cannot be assumed to be the only reference
         InferAnyType: bool
+        SkipRecordTypeRegistration: bool
         IsAssocMember: bool
+        IsFluentMember: bool
         IsLambda: bool
         IsParamByRefPreferred: bool
         RequiresSendSync: bool // a way to implicitly propagate Arc's down the hierarchy when it is not possible to explicitly tag
@@ -619,6 +621,21 @@ module TypeInfo =
          -> true
         | _ -> false
 
+    // A reference-typed (non-struct) record or union. Such entities are Lrc-wrapped
+    // at the value level, so boxing/unboxing them to `obj` needs a smart-pointer
+    // coercion rather than the plain value-type box (see transformCast).
+    let isReferenceRecordOrUnion (com: IRustCompiler) (entRef: Fable.EntityRef) =
+        let ent = com.GetEntity(entRef)
+        (ent.IsFSharpRecord || ent.IsFSharpUnion) && not ent.IsValueType
+
+    let isReferenceClass (com: IRustCompiler) (entRef: Fable.EntityRef) =
+        let ent = com.GetEntity(entRef)
+
+        not ent.IsInterface
+        && not ent.IsValueType
+        && not ent.IsFSharpRecord
+        && not ent.IsFSharpUnion
+
     // Checks whether the type needs a ref counted wrapper
     // such as Rc<T> (or Arc<T> in a multithreaded context)
     let shouldBeRefCountWrapped (com: IRustCompiler) ctx typ =
@@ -632,12 +649,15 @@ module TypeInfo =
         // always not Rc-wrapped
         | Fable.Unit
         | Fable.Measure _
-        | Fable.MetaType
         | Fable.Boolean
         | Fable.Char
         | Fable.Number _ -> None
 
         // should be Rc-wrapped
+        // MetaType (System.Type) is erased to Any and carries a boxed reflection
+        // object at runtime, so it must be Lrc-wrapped like Any (a bare `dyn Any`
+        // is unsized and cannot appear as a value/argument).
+        | Fable.MetaType
         | Fable.Any
         | Fable.Regex
         | Replacements.Util.Builtin(Replacements.Util.FSharpReference _)
@@ -846,6 +866,8 @@ module TypeInfo =
     let transformTimeOnlyType com ctx : Rust.Ty =
         transformImportType com ctx [] "TimeOnly" "TimeOnly"
 
+    let transformRuneType _com _ctx : Rust.Ty = primitiveType "char"
+
     let transformTimerType com ctx : Rust.Ty =
         transformImportType com ctx [] "DateTime" "Timer"
 
@@ -879,7 +901,7 @@ module TypeInfo =
             | [ Fable.Unit ] -> []
             | _ -> argTypes
 
-        let argCount = string<int> (List.length argTypes)
+        let argCount = string<int>(List.length argTypes)
         let genArgs = argTypes @ [ returnType ]
         transformImportType com ctx genArgs "Native" ("Func" + argCount)
 
@@ -1010,8 +1032,12 @@ module TypeInfo =
             mkEmitTy value genArgs
         | ent when ent.IsInterface -> transformInterfaceType com ctx entRef genArgs
         | ent when ent.IsAbstractClass -> transformAbstractClassType com ctx entRef genArgs
-        | _ when entRef.FullName = "System.Random" ->
+        | _ when entRef.FullName = Types.random ->
             let entName = getLibraryImportName com ctx "Random" "Random"
+            let genArgsOpt = transformGenArgs com ctx genArgs
+            makeFullNamePathTy entName genArgsOpt
+        | _ when entRef.FullName = "System.Uri" ->
+            let entName = getLibraryImportName com ctx "Uri" "Uri"
             let genArgsOpt = transformGenArgs com ctx genArgs
             makeFullNamePathTy entName genArgsOpt
         | ent ->
@@ -1023,7 +1049,7 @@ module TypeInfo =
         transformGenericType com ctx genArgs (rawIdent "Result")
 
     let transformChoiceType com ctx genArgs : Rust.Ty =
-        let argCount = string<int> (List.length genArgs)
+        let argCount = string<int>(List.length genArgs)
         transformImportType com ctx genArgs "Choice" ("Choice`" + argCount)
 
     let transformRefCellType com ctx genArg : Rust.Ty =
@@ -1087,7 +1113,8 @@ module TypeInfo =
         //     // primitiveType name |> makeLrcPtrTy com ctx
         // else
         if isInferredGenericParam com ctx name isMeasure then
-            mkInferTy () // mkNeverTy ()
+            // mkNeverTy () // unstable
+            mkInferTy ()
         else
             primitiveType name
 
@@ -1105,6 +1132,7 @@ module TypeInfo =
         | Replacements.Util.BclDateTimeOffset -> transformDateTimeOffsetType com ctx
         | Replacements.Util.BclDateOnly -> transformDateOnlyType com ctx
         | Replacements.Util.BclTimeOnly -> transformTimeOnlyType com ctx
+        | Replacements.Util.BclRune -> transformRuneType com ctx
         | Replacements.Util.BclTimer -> transformTimerType com ctx
         | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
         | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [ k; v ]
@@ -1128,7 +1156,11 @@ module TypeInfo =
             | Fable.Char -> primitiveType "char"
             | Fable.Boolean -> primitiveType "bool"
             | Fable.String -> transformStringType com ctx
-            | Fable.MetaType -> transformMetaType com ctx
+            // System.Type has no faithful runtime on Rust (reflection is a stub), so erase it
+            // to Any. This lets the NewRecord quotation deconstruction bind its type slot to the
+            // boxed value the quotation runtime returns; typeof-based reflection is unsupported
+            // regardless (see the disabled ReflectionTests).
+            | Fable.MetaType -> transformAnyType com ctx
             | Fable.Number(kind, _) -> transformNumberType com ctx kind
             | Fable.LambdaType(argType, returnType) ->
                 let argTypes, returnType = ([ argType ], returnType)
@@ -1163,6 +1195,20 @@ module TypeInfo =
             // implemented random type
             | Replacements.Util.IsEntity (Types.random) (_, []) -> transformImportType com ctx [] "Random" "Random"
 
+            // implemented uri type
+            | Replacements.Util.IsEntity ("System.Uri") (_, []) -> transformImportType com ctx [] "Uri" "Uri"
+
+            // implemented event type (FSharpEvent`1); the module functions and
+            // the .ctor are routed to Event_ by the events replacement, so the
+            // concrete type must resolve to Event_::FSharpEvent`1 as well.
+            | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`1") (_, [ t ]) ->
+                transformImportType com ctx [ t ] "Event" "FSharpEvent`1"
+            | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`2") (_, [ _delegateType; argsType ]) ->
+                transformImportType com ctx [ argsType ] "Event" "FSharpEvent`2"
+
+            | Replacements.Util.IsEntity ("Microsoft.FSharp.Core.CompilerServices.ResumableStateMachine`1") (_, [ t ]) ->
+                mkUnitTy () // spurious ResumableStateMachine type is erased to unit type
+
             // implemented regex types
             | Replacements.Util.IsEntity (Types.regexMatch) (_, []) -> transformImportType com ctx [] "RegExp" "Match"
             | Replacements.Util.IsEntity (Types.regexGroup) (_, []) -> transformImportType com ctx [] "RegExp" "Group"
@@ -1183,6 +1229,52 @@ module TypeInfo =
 
             // built-in types
             | Replacements.Util.Builtin kind -> transformBuiltinType com ctx typ kind
+
+            // Typed quotation Expr<'T>: erase the type argument so it shares the untyped
+            // FSharpExpr runtime representation. This lets a typed quotation (e.g. <@ 42 @>)
+            // be matched directly against the Patterns active patterns, which operate on
+            // the untyped Expr.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = Types.fsharpExprGeneric ->
+                transformEntityType com ctx { entRef with FullName = Types.fsharpExpr } []
+
+            // UnionCaseInfo (from a NewUnionCase quotation deconstruction) is erased to the
+            // Rust-native FSharpUnionCaseInfo carrier so uci.Name/uci.Tag resolve to the
+            // quotation runtime accessors. We build the import path directly (rather than via
+            // transformEntityType) because that carrier type does not exist in FSharp.Core, so
+            // com.GetEntity on the renamed ref would fail; getEntityFullName imports the type
+            // from fable_library_rust purely by FullName.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+                let entName =
+                    getEntityFullName
+                        com
+                        ctx
+                        { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpUnionCaseInfo" }
+
+                makeFullNamePathTy entName None
+
+            // System.Reflection.MethodInfo (from a Call quotation deconstruction) is erased to
+            // the Rust-native FSharpMethodInfo carrier so mi.Name / mi.DeclaringType resolve to
+            // the quotation runtime accessors. Built directly by FullName (mirrors the
+            // UnionCaseInfo case) because that carrier type does not exist in FSharp.Core.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = "System.Reflection.MethodInfo" ->
+                let entName =
+                    getEntityFullName com ctx { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpMethodInfo" }
+
+                makeFullNamePathTy entName None
+
+            // System.Reflection.PropertyInfo is erased to the Rust-native FSharpPropertyInfo
+            // carrier, so p.Name / p.GetValue and FSharpValue.GetRecordField resolve to the
+            // reflection runtime. One carrier serves both reflection (GetRecordFields) and
+            // quotations (PropertyGet's propInfo), as in .NET. Built directly by FullName
+            // (mirrors the MethodInfo case) because that carrier does not exist in FSharp.Core.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = "System.Reflection.PropertyInfo" ->
+                let entName =
+                    getEntityFullName
+                        com
+                        ctx
+                        { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpPropertyInfo" }
+
+                makeFullNamePathTy entName None
 
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) -> transformEntityType com ctx entRef genArgs
@@ -1289,22 +1381,6 @@ module Util =
         | Replacements.Util.IsEntity (Types.ienumerable) _ -> ValueSome(Fable.Any)
         | _ -> ValueNone
 
-    let isUnitArg (ident: Fable.Ident) =
-        ident.IsCompilerGenerated
-        && ident.Type = Fable.Unit
-        && (ident.DisplayName.StartsWith("unitVar", StringComparison.Ordinal)
-            || ident.DisplayName.Contains("@"))
-
-    let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
-        match genArgs, args with
-        | [ Fable.Unit ], [ arg ] -> args // don't drop unit arg when generic arg is unit
-        | _ ->
-            match args with
-            | [] -> []
-            | [ arg ] when isUnitArg arg -> []
-            | [ thisArg; arg ] when thisArg.IsThisArgument && isUnitArg arg -> [ thisArg ]
-            | args -> args
-
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
     /// Should this be done in FSharp2Fable step?
     let sanitizeMember (name: string) =
@@ -1335,9 +1411,11 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
-    type NamedTailCallOpportunity(_com: IRustCompiler, ctx, name, args: Fable.Ident list) =
+    type NamedTailCallOpportunity(com: IRustCompiler, ctx, name, args: Fable.Ident list) =
         let args =
-            args |> discardUnitArg [] |> List.filter (fun arg -> not (arg.IsThisArgument))
+            args |> FableTransforms.discardUnitArg [] |> FableTransforms.discardThisArg
+
+        let argTypes = args |> List.map (fun arg -> arg.Type)
 
         let label = Fable.Naming.splitLast name
 
@@ -1347,7 +1425,15 @@ module Util =
 
             member _.IsRecursiveRef(e) =
                 match e with
-                | Fable.IdentExpr ident -> name = ident.Name
+                | Fable.CurriedApply(Fable.IdentExpr id, callArgs, _, _) ->
+                    let callArgTypes = callArgs |> List.map (fun arg -> arg.Type)
+                    name = id.Name && argTypes = callArgTypes
+                | Fable.Call(Fable.IdentExpr id, info, _, _) ->
+                    let callArgTypes = info.Args |> List.map (fun arg -> arg.Type)
+
+                    match Option.bind com.TryGetMember info.MemberRef with
+                    | Some memb -> name = memb.FullName && argTypes = callArgTypes
+                    | None -> name = id.Name && argTypes = callArgTypes
                 | _ -> false
 
     let getDecisionTarget (ctx: Context) targetIndex =
@@ -1383,6 +1469,14 @@ module Util =
     //         transformIdent com ctx None id
     //     | _ -> com.TransformExpr(ctx, expr)
 
+    let isTempLocal (ident: Fable.Ident) =
+        ident.IsCompilerGenerated
+        && (ident.Name = "copyOfStruct" || ident.Name = "inputRecord")
+
+    // let isMutableOrByRef (ident: Fable.Ident) =
+    //     (ident.IsMutable || isByRefType ident)
+    //     && not (isTempLocal ident)
+
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
 
@@ -1401,16 +1495,22 @@ module Util =
         mutableSet expr value
 
     let transformIdentType com ctx isCaptured (ident: Fable.Ident) =
-        let ty = transformType com ctx ident.Type
+        // let typ = Replacements.Util.getIdentValueType com ident ident.Type
+        match ident.Type with
+        | Replacements.Util.IsByRefType com typ when isTempLocal ident ->
+            // transform temporary local byref type to a reference type
+            transformType com ctx typ |> mkRefTy None
+        | _ ->
+            let ty = transformType com ctx ident.Type
 
-        if isByRefType com ident.Type then
-            ty // already wrapped
-        elif ident.IsMutable && isCaptured then
-            ty |> makeMutTy com ctx |> makeLrcPtrTy com ctx
-        elif ident.IsMutable then
-            ty |> makeMutTy com ctx
-        else
-            ty
+            if isByRefType com ident.Type then
+                ty // already wrapped
+            elif ident.IsMutable && isCaptured then
+                ty |> makeMutTy com ctx |> makeLrcPtrTy com ctx
+            elif ident.IsMutable then
+                ty |> makeMutTy com ctx
+            else
+                ty
 
     let getField r (expr: Rust.Expr) (fieldName: string) =
         mkFieldExpr expr (fieldName |> sanitizeMember) // ?loc=r)
@@ -1543,6 +1643,10 @@ module Util =
         | Fable.String, IEnumerable _ ->
             let chars = makeLibCall com ctx None "String" "toCharArray" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ chars ]
+        | Replacements.Util.Builtin(Replacements.Util.FSharpSet genArg), IEnumerable _ ->
+            makeLibCall com ctx None "Set" "toEnumerable" [ expr ]
+        | Replacements.Util.Builtin(Replacements.Util.FSharpMap(k, v)), IEnumerable _ ->
+            makeLibCall com ctx None "Map" "toEnumerable" [ expr ]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
             let ar = makeLibCall com ctx None "HashSet" "entries" [ expr ]
@@ -1553,11 +1657,61 @@ module Util =
             let ar = makeLibCall com ctx None "HashMap" "entries" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ ar ]
 
-        // boxing value types or wrapped types
-        | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> boxValue com ctx
+        // Casting Enumerators to IDisposable
+        | Fable.Any, IDisposable when
+            (match nestedExpr.Type with
+             | Replacements.Util.IsEnumerator _ -> true
+             | _ -> false)
+            ->
+            expr
+
+        // Boxing reads a value through an owned Rust expression. Clone first so fields
+        // read from reference-counted records are not moved out of their owner.
+        | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> makeClone |> boxValue com ctx
 
         // unboxing value types or wrapped types
         | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
+
+        // Boxing a reference-typed record/union must use the same pointer representation
+        // as the source value. The LrcPtr case preserves identity; the explicit pointer
+        // attributes use a cloned underlying value so the object still carries its record
+        // TypeId even when Rc/Arc/Box cannot be unsized to the target object pointer.
+        | Fable.DeclaredType(entRef, genArgs), Fable.Any when isReferenceRecordOrUnion com entRef ->
+            let boxMethod =
+                match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
+                | Some Lrc -> "box_lrc"
+                | Some Rc -> "box_rc"
+                | Some Arc -> "box_arc"
+                | Some Box -> "box_box"
+                | None -> "box_"
+
+            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" boxMethod
+
+        | Fable.DeclaredType(entRef, genArgs), Fable.Any when
+            ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
+            ->
+            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
+
+        // unboxing obj back to a reference-typed record/union: downcast + re-wrap.
+        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef ->
+            let rawTy = transformEntityType com ctx entRef genArgs
+            let genArgsOpt = [ rawTy ] |> mkTypesGenericArgs
+
+            let unboxMethod =
+                match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
+                | Some Lrc -> "unbox_lrc"
+                | Some Rc -> "unbox_rc"
+                | Some Arc -> "unbox_arc"
+                | Some Box -> "unbox_box"
+                | None -> "unbox"
+
+            [ expr ] |> makeLibCall com ctx genArgsOpt "Native" unboxMethod
+
+        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when
+            ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
+            ->
+            let genArgsOpt = transformGenArgs com ctx [ Fable.DeclaredType(entRef, genArgs) ]
+            [ expr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
 
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
@@ -1565,8 +1719,24 @@ module Util =
         // casts to IDictionary, for now does nothing // TODO: fix it
         | Replacements.Util.IsEntity (Types.dictionary) _, Replacements.Util.IsEntity (Types.idictionary) _ -> expr
 
+        // IEvent inherits IObservable in F#, but the generated Rust traits are flattened
+        // rather than related by Rust trait inheritance. Adapt the event view explicitly.
+        | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.IEvent`2") (_, [ _; eventType ]),
+          Replacements.Util.IsEntity ("System.IObservable`1") (_, [ observableType ]) when eventType = observableType ->
+            makeLibCall com ctx None "Event" "asObservable" [ expr ]
+
+        // casts from interface to object
+        | t, Fable.Any when isInterface com t -> [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
+
         // casts from object to interface
-        | t1, t2 when not (isInterface com t1) && (isInterface com t2) -> makeInterfaceCast com ctx t2 expr
+        | t1, t2 when not (isInterface com t1) && (isInterface com t2) ->
+            match t1, nestedExpr with
+            | Fable.Any, Fable.ObjectExpr _ -> makeInterfaceCast com ctx t2 expr
+            | Fable.Any, _ ->
+                let genArgsOpt = transformGenArgs com ctx [ t2 ]
+                let boxedExpr = makeLibCall com ctx None "Native" "box_" [ expr ]
+                [ boxedExpr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
+            | _ -> makeInterfaceCast com ctx t2 expr
 
         // casts from interface to interface
         | _, t when isInterface com t -> expr |> makeClone |> mkCastExpr ty //TODO: not working, implement
@@ -1643,7 +1813,7 @@ module Util =
             | [ Fable.Unit ] -> []
             | _ -> argTypes
 
-        let argCount = string<int> (List.length argTypes)
+        let argCount = string<int>(List.length argTypes)
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
         let expr = transformIdent com ctx None ident
 
@@ -1710,7 +1880,32 @@ module Util =
                     let ctx =
                         { ctx with IsParamByRefPreferred = isByRefPreferred || ctx.IsParamByRefPreferred }
 
-                    transformLeaveContext com ctx argType arg
+                    match argType, arg.Type with
+                    | Some Fable.Any, actualType ->
+                        match arg, actualType with
+                        | MaybeCasted(Fable.IdentExpr ident), _ when ident.IsThisArgument && ctx.IsAssocMember ->
+                            let expr = transformLeaveContext com ctx (Some Fable.Any) arg
+                            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_lrc"
+                        | _, Fable.DeclaredType(entRef, genArgs) when isReferenceClass com entRef ->
+                            let expr = transformLeaveContext com ctx (Some Fable.Any) arg
+
+                            let boxMethod =
+                                match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
+                                | Some Lrc -> "box_lrc"
+                                | Some Rc -> "box_rc"
+                                | Some Arc -> "box_arc"
+                                | Some Box -> "box_box"
+                                | None -> "box_"
+
+                            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" boxMethod
+                        | _, actualType when actualType <> Fable.Any -> transformCast com ctx Fable.Any arg
+                        | _ -> transformLeaveContext com ctx (Some Fable.Any) arg
+                    | Some(Replacements.Util.IsEntity ("System.IObservable`1") (_, [ observableType ])),
+                      Replacements.Util.IsEntity ("Microsoft.FSharp.Control.IEvent`2") (_, [ _; eventType ]) when
+                        observableType = eventType
+                        ->
+                        transformCast com ctx observableType arg
+                    | _ -> transformLeaveContext com ctx argType arg
             )
 
     let makeRefForPatternMatch (com: IRustCompiler) ctx typ (nameOpt: string option) fableExpr =
@@ -1835,11 +2030,6 @@ module Util =
         makeLibCall com ctx None "Native" "is_null" [ value |> mkAddrOfExpr ]
 
     let makeNull com ctx (typ: Fable.Type) =
-        let typ =
-            match typ with
-            | Fable.Any -> Fable.Unit
-            | t -> t
-
         let genArgsOpt = transformGenArgs com ctx [ typ ]
         makeLibCall com ctx genArgsOpt "Native" "null" []
 
@@ -1849,24 +2039,36 @@ module Util =
         // bindings we must emit a valid placeholder value instead (it is only there to
         // satisfy definite-assignment and gets overwritten before it is ever read).
         match typ with
-        | Fable.Any ->
+        | Fable.Any
+        | Fable.MetaType ->
             // `dyn Any` is unsized, so `Native::null` (needs a sized `NullableRef`) does
             // not apply; use a valid boxed-unit placeholder of type `LrcPtr<dyn Any>`.
+            // `MetaType` (System.Type) is now also represented as `LrcPtr<dyn Any>`,
+            // so it must take this path too (the `_` branch would emit a null of an
+            // unsized `dyn Any`, which does not compile).
             makeLibCall com ctx None "Native" "getZeroObj" []
         | _ ->
-            // Only concrete (sized) `Lrc`-wrapped reference types can use the null-ref
-            // placeholder. Unsized refs (interfaces, enumerators) and Arc/Box-wrapped
-            // types keep `getZero` (they don't reach this path in practice).
-            let isConcreteLrcRef =
-                match shouldBeRefCountWrapped com ctx typ with
-                | Some Lrc ->
-                    match typ with
-                    | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
-                    | Replacements.Util.IsEnumerator _ -> false
-                    | _ -> true
-                | _ -> false
+            // Everything with a `NullableRef` implementation takes the null-ref
+            // placeholder: concrete (sized) `Lrc`-wrapped reference types, plus
+            // string, option, array and list, whose library types implement it
+            // directly. What is left is the primitives, for which `mem::zeroed`
+            // is a valid bit pattern.
+            let isNullableRef =
+                match typ with
+                | Fable.String
+                | Fable.Option _
+                | Fable.Array _
+                | Fable.List _ -> true
+                | _ ->
+                    match shouldBeRefCountWrapped com ctx typ with
+                    | Some Lrc ->
+                        match typ with
+                        | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
+                        | Replacements.Util.IsEnumerator _ -> false
+                        | _ -> true
+                    | _ -> false
 
-            if isConcreteLrcRef then
+            if isNullableRef then
                 makeNull com ctx typ
             else
                 let genArgsOpt = transformGenArgs com ctx [ typ ]
@@ -1958,6 +2160,23 @@ module Util =
         let ent = com.GetEntity(entRef)
         let idents = getEntityFieldsAsIdents com ent
 
+        // An F# `exception` declaration gets a synthetic __base__ field, so that
+        // the generated Deref to System.Exception (and hence .Message) works.
+        // A class constructor puts a matching value at the head of its NewRecord,
+        // but an exception constructor carries only the declared fields, leaving
+        // one more ident than values. Supply the base here instead of zipping
+        // lists of different lengths, which failed with no source location.
+        let baseFields, idents =
+            match idents with
+            | baseIdent :: restIdents when
+                ent.IsFSharpExceptionDeclaration && List.length restIdents = List.length values
+                ->
+                let msg = mkStrLitExpr "" |> makeStaticString com ctx
+                let baseExpr = makeLibCall com ctx None "Util" "new_Exception" [ msg ]
+                let fieldName = baseIdent.Name |> sanitizeMember
+                [ mkExprField [] fieldName baseExpr false false ], restIdents
+            | _ -> [], idents
+
         let fields =
             List.zip idents values
             |> List.map (fun (ident, value) ->
@@ -1983,13 +2202,14 @@ module Util =
                 mkExprField [] fieldName expr false false
             )
 
-        let fields = List.append fields phantomFields
+        let fields = List.append baseFields (List.append fields phantomFields)
 
         let genArgsOpt = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
         let path = makeFullNamePath entName genArgsOpt
         let expr = mkStructExpr path fields // TODO: range
-        expr |> maybeWrapSmartPtr com ctx ent
+        let expr = expr |> maybeWrapSmartPtr com ctx ent
+        expr
 
     let tryUseKnownUnionCaseNames fullName =
         match fullName with
@@ -2060,10 +2280,101 @@ module Util =
         let fmt = makeFormatString parts
         makeFormatExpr com ctx fmt values
 
+    // Builds a rich reflection value for a record declaration. The emitted expression
+    // registers the record's field metadata + constructor/getter closures keyed by
+    // its concrete TypeId and returns a boxed RecordTypeInfo (the runtime value that
+    // a `System.Type` holds on the Rust target). This backs FSharpValue.MakeRecord,
+    // FSharpValue.GetRecordFields/GetRecordField and FSharpType.GetRecordFields.
+    let makeRecordTypeInfo (com: IRustCompiler) ctx r (entRef: Fable.EntityRef) genArgs (typ: Fable.Type) : Rust.Expr =
+        let ctx = { ctx with SkipRecordTypeRegistration = true }
+        let ent = com.GetEntity(entRef)
+        let idents = getEntityFieldsAsIdents com ent
+        let objType = Fable.Any
+        let arrObjType = Fable.Array(objType, Fable.MutableArray)
+
+        // tid = Reflection::type_id::<Foo>()  (concrete, unwrapped struct type)
+        let rawTy = transformEntityType com ctx entRef genArgs
+        let tidGenArgs = [ rawTy ] |> mkTypesGenericArgs
+        let tidExpr = makeLibCall com ctx tidGenArgs "Reflection" "type_id" []
+
+        // name
+        let nameExpr = makeStrConst ent.FullName |> transformExpr com ctx
+
+        // field names: string[]
+        let fieldNamesExpr =
+            let names = idents |> List.map (fun ident -> makeStrConst ident.Name)
+
+            Fable.Value(Fable.NewArray(Fable.ArrayValues names, Fable.String, Fable.MutableArray), None)
+            |> transformExpr com ctx
+
+        // make: |vs: obj[]| box (Foo { X = unbox vs.[0]; Y = unbox vs.[1] })
+        let makeExpr =
+            let vsIdent = makeTypedIdent arrObjType "vs"
+
+            let ctorValues =
+                idents
+                |> List.mapi (fun i ident ->
+                    let elem =
+                        Fable.Get(Fable.IdentExpr vsIdent, Fable.ExprGet(makeIntConst i), objType, None)
+
+                    Fable.TypeCast(elem, ident.Type) // unbox to field type
+                )
+
+            let recordExpr = Fable.Value(Fable.NewRecord(ctorValues, entRef, genArgs), None)
+            let body = Fable.TypeCast(recordExpr, objType) // box the record
+
+            Fable.Delegate([ vsIdent ], body, None, Fable.Tags.empty)
+            |> transformExpr com ctx
+
+        // getters: (obj -> obj)[], each |o| box ((unbox<Foo> o).Field)
+        let gettersExpr =
+            let getterFnType = Fable.DelegateType([ objType ], objType)
+
+            let getters =
+                idents
+                |> List.map (fun ident ->
+                    let oIdent = makeTypedIdent objType "o"
+                    let recExpr = Fable.TypeCast(Fable.IdentExpr oIdent, typ) // unbox obj -> Foo
+                    let fieldInfo = Fable.FieldInfo.Create(ident.Name, ident.Type, ident.IsMutable)
+                    let fieldGet = Fable.Get(recExpr, fieldInfo, ident.Type, None)
+                    let body = Fable.TypeCast(fieldGet, objType) // box the field value
+                    Fable.Delegate([ oIdent ], body, None, Fable.Tags.empty)
+                )
+
+            Fable.Value(Fable.NewArray(Fable.ArrayValues getters, getterFnType, Fable.MutableArray), None)
+            |> transformExpr com ctx
+
+        makeLibCall com ctx None "Reflection" "recordType" [ tidExpr; nameExpr; fieldNamesExpr; makeExpr; gettersExpr ]
+
+    let makeRecordTypeInfoItem (com: IRustCompiler) ctx (ent: Fable.Entity) genArgs =
+        let typ = Fable.DeclaredType(ent.Ref, genArgs)
+
+        let body =
+            makeRecordTypeInfo com ctx None ent.Ref genArgs typ |> mkExprBlock |> Some
+
+        let returnType = transformType com ctx Fable.MetaType |> mkFnRetTy
+        let fnDecl = mkFnDecl [] returnType
+        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS body
+
+        let attr = [ mkAttr "cfg" [ "feature = \"reflection\"" ] ]
+        mkFnAssocItem attr "__type_info__" fnKind |> mkPublicAssocItem
+
     let makeTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type) : Rust.Expr =
-        let importName = getLibraryImportName com ctx "Reflection" "TypeId"
-        let genArgsOpt = transformGenArgs com ctx [ typ ]
-        makeFullNamePathExpr importName genArgsOpt
+        match typ with
+        | Fable.DeclaredType(entRef, genArgs) when (com.GetEntity(entRef)).IsFSharpRecord ->
+            let entName = getEntityFullName com ctx entRef
+            let genArgsOpt = transformGenArgs com ctx genArgs
+            let callee = makeStaticCallPathExpr (entName + "::__type_info__") genArgsOpt None
+            mkCallExpr callee []
+        | _ ->
+            // Non-record `System.Type` value: carry the concrete `TypeId`, boxed as
+            // `LrcPtr<dyn Any>` so it flows through the same `obj` slot as record type
+            // infos. Emitting a bare `Reflection_::TypeId::<T>` path is not a valid
+            // value expression, and comparing the boxed carrier's runtime `type_id()`
+            // (as `typeEquals` did) would make all non-record types compare equal.
+            let genArgsOpt = transformGenArgs com ctx [ typ ]
+            let tidExpr = makeLibCall com ctx genArgsOpt "Reflection" "type_id" []
+            makeLibCall com ctx None "Native" "box_" [ tidExpr ]
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value : Rust.Expr =
         let unimplemented () =
@@ -2177,6 +2488,19 @@ module Util =
             let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr(ctx, e)
 
+        let expr =
+            if isThisArgumentIdentExpr ctx e && not targetIsRef && not ctx.IsFluentMember then
+                let expr = expr |> makeClone
+
+                match shouldBeRefCountWrapped com ctx e.Type with
+                | Some Lrc -> makeLrcPtrValue com ctx expr
+                | Some Rc -> makeRcValue com ctx expr
+                | Some Arc -> makeArcValue com ctx expr
+                | Some Box -> makeBoxValue com ctx expr
+                | None -> expr
+            else
+                expr
+
         match sourceIsRef, targetIsRef, implCopy, implClone, mustClone, isUnreachable with
         | true, true, _, _, _, false -> expr
         | false, true, _, _, _, false -> expr |> mkAddrOfExpr
@@ -2221,7 +2545,6 @@ module Util =
         assert (ent.IsInterface)
 
         FSharp2Fable.Util.getInterfaceMembers com ent
-        |> Seq.filter (fun (ifc, memb) -> not memb.IsProperty)
         |> Seq.distinctBy (fun (ifc, memb) -> memb.CompiledName) // skip inherited overwrites
 
     let getInterfaceMemberNames (com: IRustCompiler) (entRef: Fable.EntityRef) =
@@ -2232,7 +2555,11 @@ module Util =
         |> Set.ofSeq
 
     let makeObjectExprMemberDecl (com: IRustCompiler) ctx (memb: Fable.ObjectExprMember) =
-        let capturedIdents = getCapturedIdents com ctx (Some memb.Name) memb.Args memb.Body
+        let capturedIdents =
+            getCapturedIdents com ctx (Some memb.Name) memb.Args memb.Body
+            |> Map.toList
+            |> List.map (fun (_, (ident: Fable.Ident)) -> ident.Name, ident)
+            |> Map.ofList
 
         let thisArg = { makeIdent selfName with IsThisArgument = true } |> Fable.IdentExpr
 
@@ -2303,17 +2630,6 @@ module Util =
                     memberDecl
                 )
 
-            let decl: Fable.ClassDecl =
-                {
-                    Name = entName
-                    Entity = entRef
-                    Constructor = None
-                    BaseCall = baseCall
-                    AttachedMembers = members
-                    XmlDoc = None
-                    Tags = []
-                }
-
             let fieldIdents =
                 fieldsMap.Values
                 // |> Seq.map (fun ident -> { ident with Type = FableTransforms.uncurryType ident.Type })
@@ -2323,6 +2639,18 @@ module Util =
                 fieldIdents
                 |> List.map (fun ident ->
                     let expr = transformIdent com ctx None ident |> makeClone
+
+                    let expr =
+                        if ident.IsThisArgument then
+                            match shouldBeRefCountWrapped com ctx ident.Type with
+                            | Some Lrc -> makeLrcPtrValue com ctx expr
+                            | Some Rc -> makeRcValue com ctx expr
+                            | Some Arc -> makeArcValue com ctx expr
+                            | Some Box -> makeBoxValue com ctx expr
+                            | None -> expr
+                        else
+                            expr
+
                     let fieldName = ident.Name |> sanitizeMember
                     mkExprField [] fieldName expr false false
                 )
@@ -2334,6 +2662,122 @@ module Util =
                     baseIdent :: fieldIdents
                 else
                     fieldIdents
+
+            let interfaceGenMap =
+                let genericNames =
+                    ent.GenericParameters |> List.map (fun parameter -> parameter.Name)
+
+                List.zip genericNames genArgs |> Map
+
+            let existingMemberNames =
+                members
+                |> List.map (getDeclMember com >> fun memberValue -> memberValue.CompiledName)
+                |> Set.ofList
+
+            let eventPropertyNames =
+                existingMemberNames
+                |> Seq.choose (fun memberName ->
+                    if memberName.StartsWith("add_", StringComparison.Ordinal) then
+                        Some(memberName.Substring(4))
+                    elif memberName.StartsWith("remove_", StringComparison.Ordinal) then
+                        Some(memberName.Substring(7))
+                    else
+                        None
+                )
+                |> Set.ofSeq
+
+            let eventGetters =
+                FSharp2Fable.Util.getInterfaceMembers com ent
+                |> Seq.filter (fun (_, interfaceMember) ->
+                    interfaceMember.CompiledName.StartsWith("get_", StringComparison.Ordinal)
+                )
+                |> Seq.distinctBy (fun (_, interfaceMember) -> interfaceMember.CompiledName)
+                |> Seq.choose (fun (_, interfaceMember) ->
+                    let propertyName = interfaceMember.CompiledName.Substring(4)
+
+                    if
+                        Set.contains interfaceMember.CompiledName existingMemberNames
+                        || not (Set.contains propertyName eventPropertyNames)
+                    then
+                        None
+                    else
+                        fieldIdents
+                        |> List.tryFind (fun ident ->
+                            ident.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase)
+                        )
+                        |> Option.map (fun backingField ->
+                            let propertyType =
+                                interfaceMember.ReturnParameter.Type
+                                |> resolveInlineType interfaceGenMap
+                                |> FableTransforms.uncurryType
+
+                            let interfaceType = Fable.DeclaredType(entRef, genArgs)
+
+                            let thisArg = { makeTypedIdent interfaceType "this" with IsThisArgument = true }
+
+                            let objectSelf =
+                                { makeIdent selfName with IsThisArgument = true } |> Fable.IdentExpr
+
+                            let eventExpr =
+                                Fable.Get(
+                                    objectSelf,
+                                    Fable.FieldInfo.Create(backingField.Name, backingField.Type),
+                                    backingField.Type,
+                                    None
+                                )
+
+                            let body =
+                                Fable.Get(
+                                    eventExpr,
+                                    Fable.FieldInfo.Create("Publish", propertyType),
+                                    propertyType,
+                                    None
+                                )
+
+                            let memberRef =
+                                Fable.MemberRef(
+                                    interfaceMember.DeclaringEntity |> Option.defaultValue entRef,
+                                    {
+                                        IsInstance = true
+                                        CompiledName = interfaceMember.CompiledName
+                                        NonCurriedArgTypes = Some []
+                                        AttributeFullNames = []
+                                    }
+                                )
+
+                            let memberDecl: Fable.MemberDecl =
+                                {
+                                    Name = interfaceMember.CompiledName
+                                    Args = [ thisArg ]
+                                    Body = body
+                                    MemberRef = memberRef
+                                    IsMangled = false
+                                    ImplementedSignatureRef = None
+                                    UsedNames = Set.empty
+                                    XmlDoc = None
+                                    Tags = []
+                                }
+
+                            memberDecl
+                        )
+                )
+                |> Seq.toList
+
+            let members = members @ eventGetters
+
+            let decl: Fable.ClassDecl =
+                {
+                    Name = entName
+                    Entity = entRef
+                    Constructor = None
+                    BaseCall = baseCall
+                    AttachedMembers = members
+                    XmlDoc = None
+                    Tags = []
+                }
+
+            let objectGenArgs =
+                FSharp2Fable.Util.getGenParamTypes (genArgs @ (fieldIdents |> List.map (fun ident -> ident.Type)))
 
             let fields =
                 fieldIdents
@@ -2352,13 +2796,13 @@ module Util =
                     exprField :: exprFields
                 | _ -> exprFields
 
-            let attrs = [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
-            let generics = makeGenerics com ctx genArgs
-            let genParams = FSharp2Fable.Util.getGenParamTypes genArgs
+            let attrs = [ mkAttr "derive" [ rawIdent "Clone" ] ]
+            let generics = makeGenerics com ctx objectGenArgs
+            let genParams = FSharp2Fable.Util.getGenParamTypes objectGenArgs
 
             let structItems = [ mkStructItem attrs entName fields generics ]
 
-            let memberItems = transformClassMembers com ctx genArgs decl
+            let memberItems = transformClassMembers com ctx objectGenArgs decl (Some genArgs)
 
             let objExpr =
                 // match baseCall with
@@ -2584,6 +3028,12 @@ module Util =
                     if needGenArgs && (mi.IsModuleMember || not mi.IsInstanceMember) then
                         match typ with
                         | Fable.Tuple _ -> transformGenArgs com ctx [ typ ]
+                        // FSharpEvent`2 has two F# generic args but the Rust FSharpEvent_2
+                        // struct only takes the args type, so drop the delegate type
+                        | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`2") (_,
+                                                                                                 [ _delegateType
+                                                                                                   argsType ]) ->
+                            transformGenArgs com ctx [ argsType ]
                         | _ -> transformGenArgs com ctx typ.Generics
                     else
                         None
@@ -2595,9 +3045,10 @@ module Util =
                 mkCallExpr callee args
 
         | _ ->
+            let fableExpr = Fable.Call(calleeExpr, callInfo, typ, range)
+
             match ctx.TailCallOpportunity with
-            | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length callInfo.Args ->
-                optimizeTailCall com ctx range tc callInfo.Args
+            | Some tc when tc.IsRecursiveRef(fableExpr) -> optimizeTailCall com ctx range tc callInfo.Args
             | _ ->
                 match callInfo.ThisArg, calleeExpr, membOpt with
                 | Some thisArg, Fable.IdentExpr ident, Some memb when memb.IsExtension ->
@@ -2793,6 +3244,9 @@ module Util =
         let expr = transformLeaveContext com ctx None e
         mkExprStmt expr
 
+    let transformExprsAsStmts (com: IRustCompiler) ctx (exprs: Fable.Expr list) : Rust.Stmt list =
+        List.map (transformAsStmt com ctx) exprs
+
     // flatten nested Let binding expressions
     let rec flattenLet acc (expr: Fable.Expr) =
         match expr with
@@ -2815,7 +3269,7 @@ module Util =
     let prepareLambdaArgsAndCtx ctx args body =
         let ctx = { ctx with IsLambda = true }
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
-        let args = args |> discardUnitArg genArgs
+        let args = args |> FableTransforms.discardUnitArg genArgs
         genArgs, ctx, args
 
     let getLetCapturedNames bindings letBody =
@@ -2824,8 +3278,39 @@ module Util =
         let addCapturedNames expr =
             capturedNames.UnionWith(FableTransforms.getCapturedNames expr)
 
+        // A try/with/finally lowers to closures on this target, but the Fable AST
+        // has no Lambda there, so the shared capture walk does not see those
+        // bodies as closure contexts. Everything they reference is captured all
+        // the same: without this a `let mutable` assigned in a finally block was
+        // emitted as a bare MutCell, and the closure mutated a clone of it.
+        let addTryCatchCaptures expr =
+            expr
+            |> deepExists (fun e ->
+                match e with
+                | Fable.TryCatch(body, catch, finalizer, _) ->
+                    [ Some body; catch |> Option.map snd; finalizer ]
+                    |> List.choose id
+                    |> List.iter (fun part ->
+                        part
+                        |> deepExists (fun inner ->
+                            match inner with
+                            | Fable.IdentExpr ident ->
+                                capturedNames.Add ident.Name |> ignore
+                                false
+                            | _ -> false
+                        )
+                        |> ignore
+                    )
+
+                    false
+                | _ -> false
+            )
+            |> ignore
+
         bindings |> List.iter (snd >> addCapturedNames)
         addCapturedNames letBody
+        bindings |> List.iter (snd >> addTryCatchCaptures)
+        addTryCatchCaptures letBody
         capturedNames
 
     let getScopedIdentCtx com ctx (ident: Fable.Ident) isArm isRef isBox isFunc usages =
@@ -2954,13 +3439,13 @@ module Util =
             match body with
             | Fable.Sequential exprs ->
                 let exprs = flattenSequential body
-                List.map (transformAsStmt com ctx) exprs
+                transformExprsAsStmts com ctx exprs
             | _ -> [ transformAsStmt com ctx body ]
 
         letStmts @ bodyStmts |> mkStmtBlockExpr
 
     let transformSequential (com: IRustCompiler) ctx exprs =
-        exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
+        exprs |> transformExprsAsStmts com ctx |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
         // transform null checks for nullable value types
@@ -3028,7 +3513,7 @@ module Util =
         mkForLoopExpr None varPat rangeExpr bodyExpr // ?loc=range)
 
     let makeLocalLambda com ctx (args: Fable.Ident list) (body: Fable.Expr) =
-        let args = args |> discardUnitArg []
+        let args = args |> FableTransforms.discardUnitArg []
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let fnBody = transformExpr com ctx body
         mkClosureExpr false fnDecl fnBody
@@ -3089,9 +3574,10 @@ module Util =
         | _ -> false
 
     let transformCurriedApply (com: IRustCompiler) ctx r typ calleeExpr args =
+        let fableExpr = Fable.CurriedApply(calleeExpr, args, typ, r)
+
         match ctx.TailCallOpportunity with
-        | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length args ->
-            optimizeTailCall com ctx r tc args
+        | Some tc when tc.IsRecursiveRef(fableExpr) -> optimizeTailCall com ctx r tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
 
@@ -3138,7 +3624,7 @@ module Util =
             (mkInferTy ()) :: (transformGenTypes com ctx [ typ ]) |> mkTypesGenericArgs
 
         match fableExpr with
-        | Fable.IdentExpr ident when isDowncast ->
+        | MaybeCasted(Fable.IdentExpr ident) when isDowncast ->
             let downcastExpr = makeLibCall com ctx genArgsOpt "Native" "try_downcast" [ expr ]
             let pat = makeUnionCasePat (rawIdent "Some") [ makeFullNameIdentPat ident.Name ]
             mkLetExpr pat downcastExpr
@@ -3401,15 +3887,19 @@ module Util =
                 | _, Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
                 | Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            // Only a plain-ident scrutinee is convertible: transformSwitch can't recover the
-            // `Option` type from anything else, and would emit bogus `0_i32` patterns.
+            // Only a plain-ident scrutinee is convertible: transformSwitch recovers the
+            // union (or `Option`) type from the ident, and without one it falls back to
+            // `evalExpr.Type`, which is the tag's `int32`. `makeUnionCasePatOpt` then
+            // declines and the arm becomes a bare `1_i32` literal pattern matched
+            // against the union value itself, which does not compile. Anything else is
+            // left to the if/else decision-tree path, which tests with `if let`.
             | Fable.Test(Fable.IdentExpr _ as expr, Fable.OptionTest isSome, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
                 let right = makeIntConst (makeTest isSome 0 1)
                 Some(evalExpr, right)
-            | Fable.Test(expr, Fable.UnionCaseTest tag, r) ->
+            | Fable.Test(Fable.IdentExpr _ as expr, Fable.UnionCaseTest tag, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
@@ -3463,13 +3953,22 @@ module Util =
         | _ -> None
 
     let simplifyDecisionTree (treeExpr: Fable.Expr) =
+        let rec containsTypeTest expr =
+            match expr with
+            | Fable.Test(_, Fable.TypeTest _, _) -> true
+            | expr -> getSubExpressions expr |> List.exists containsTypeTest
+
         treeExpr
         |> visitFromInsideOut (
             function
             | Fable.IfThenElse(guardExpr1,
                                Fable.IfThenElse(guardExpr2, thenExpr, Fable.DecisionTreeSuccess(index2, [], _), _),
                                Fable.DecisionTreeSuccess(index1, [], t),
-                               r) when index1 = index2 ->
+                               r) when
+                index1 = index2
+                && not (containsTypeTest guardExpr1)
+                && not (containsTypeTest guardExpr2)
+                ->
                 Fable.IfThenElse(
                     makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
                     thenExpr,
@@ -3698,9 +4197,10 @@ module Util =
 
                 mkUnitExpr ()
 
-        | Fable.Quote _ ->
-            addError com [] None "Quotations are not yet supported for Rust target"
-            mkUnitExpr ()
+        | Fable.Quote(body, _isTyped, _r) ->
+            // Lower the quoted body to runtime calls that build the quotation AST,
+            // then transform those like any other expression (mirrors JS/Python/Beam).
+            QuotationEmitter.emitQuotedExpr com body |> transformExpr com ctx
 
     let rec tryFindEntryPoint (com: IRustCompiler) decl : string list option =
         match decl with
@@ -3776,26 +4276,72 @@ module Util =
         match entryPoint with
         | Some path ->
             // add some imports for main function
-            let asArr = getLibraryImportName com ctx "NativeArray" "array_from"
-            let asStr = getLibraryImportName com ctx "String" "fromString"
+            let ofArr = getLibraryImportName com ctx "NativeArray" "array_from"
+            let ofStr = getLibraryImportName com ctx "String" "fromString"
+            let asStr = getLibraryImportName com ctx "String" "string"
 
             // main entrypoint
             let mainName = String.concat "::" path
 
-            let strBody =
-                [
-                    $"let args = std::env::args().skip(1).map(%s{asStr}).collect()"
-                    $"%s{mainName}(%s{asArr}(args))"
-                ]
+            // main function
+            let mainFnItem =
+                let strBody =
+                    [
+                        $"let iter = std::env::args()"
+                        $"let args = iter.skip(1).map(%s{ofStr}).collect()"
+                        $"%s{mainName}(%s{ofArr}(args))"
+                    ]
 
-            let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
+                let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
-            let attrs = [ mkAttr "cfg" [ "not(feature = \"no_std\")" ] ]
-            let fnDecl = mkFnDecl [] VOID_RETURN_TY
-            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
-            let fnItem = mkFnItem attrs "main" fnKind
-            [ fnItem |> mkPublicItem ]
+                let attrs = [ mkAttr "cfg" [ "not(feature = \"no_std\")" ] ]
+                let fnDecl = mkFnDecl [] VOID_RETURN_TY
+                let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+                let fnItem = mkFnItem attrs "main" fnKind
+                fnItem |> mkPublicItem
 
+            // main function (no_std)
+            let mainFnItemNoStd =
+                let strBody =
+                    [
+                        $"let iter = fable_library_rust::Native_::get_args(argc, argv)"
+                        $"let args = iter.skip(1).map(%s{asStr}).collect()"
+                        $"%s{mainName}(%s{ofArr}(args)) as u32"
+                    ]
+
+                let lastStatementIndex = List.length strBody - 1
+
+                let fnBody =
+                    strBody
+                    |> List.mapi (fun index statement ->
+                        if index = lastStatementIndex then
+                            mkEmitExprStmt statement
+                        else
+                            mkEmitSemiStmt statement
+                    )
+                    |> mkBlock
+                    |> Some
+
+                let attrs =
+                    [ mkAttr "cfg" [ "feature = \"no_std\"" ]; mkAttr "r#unsafe" [ "no_mangle" ] ]
+
+                let argcTy = primitiveType "isize"
+                let argvTy = primitiveType "u8" |> mkPtrTy |> mkPtrTy
+                let retTy = primitiveType "u32" |> mkFnRetTy
+
+                let args =
+                    [
+                        mkTypedParam "argc" argcTy false false
+                        mkTypedParam "argv" argvTy false false
+                    ]
+
+                let fnHeader = mkFnHeader false false false (Some "C")
+                let fnDecl = mkFnDecl args retTy
+                let fnKind = mkFnKind fnHeader fnDecl NO_GENERICS fnBody
+                let fnItem = mkFnItem attrs "main" fnKind
+                fnItem |> mkPublicItem
+
+            [ mainFnItem; mainFnItemNoStd ]
         | None -> []
 
     let getEntityPhantomGenParams _com (ent: Fable.Entity) : (string * Fable.Type) list =
@@ -3982,9 +4528,9 @@ module Util =
             TailCallOpportunity = tco
         }
 
-    let isTailRecursive (nameOpt: string option) (body: Fable.Expr) =
+    let isTailRecursive com (nameOpt: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         match nameOpt with
-        | Some name -> FableTransforms.isTailRecursive name body
+        | Some name -> FableTransforms.isTailRecursive com name args body
         | None -> false, false
 
     let transformFunctionBody com ctx (args: Fable.Ident list) (body: Fable.Expr) =
@@ -4014,9 +4560,9 @@ module Util =
         | _ -> transformLeaveContext com ctx None body
 
     let transformFunc com ctx parameters returnType (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let isRecursive, isTailRec = isTailRecursive name body
+        let isRecursive, isTailRec = isTailRecursive com name args body
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
-        let args = args |> discardUnitArg genArgs
+        let args = args |> FableTransforms.discardUnitArg genArgs
 
         // let returnType =
         //     match body.Type with
@@ -4039,7 +4585,7 @@ module Util =
         (capturedIdentsOpt: Map<string, Fable.Ident> option)
         =
         let genArgs, ctx, args = prepareLambdaArgsAndCtx ctx args body
-        let isRecursive, isTailRec = isTailRecursive name body
+        let isRecursive, isTailRec = isTailRecursive com name args body
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
 
@@ -4484,7 +5030,7 @@ module Util =
         =
         let ctx = { ctx with IsAssocMember = true }
         let name = memb.CompiledName
-        let args = args |> discardUnitArg []
+        let args = args |> FableTransforms.discardUnitArg []
         let parameters = memb.CurriedParameterGroups |> List.concat
         let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
         let fnDecl = transformFunctionDecl com ctx args parameters returnType
@@ -4531,6 +5077,15 @@ module Util =
 
         let args = decl.Args
         let body = decl.Body
+        let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
+
+        let isFluentMember =
+            match memb.DeclaringEntity, returnType with
+            | Some declaringEntity, Fable.DeclaredType(returnEntity, _) ->
+                declaringEntity.FullName = returnEntity.FullName
+            | _ -> false
+
+        let ctx = { ctx with IsFluentMember = isFluentMember }
 
         let body =
             if memb.IsInstance && not (memb.IsConstructor) then
@@ -4546,7 +5101,7 @@ module Util =
             let parameters = memb.CurriedParameterGroups |> List.concat
             // let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
             let returnType = body.Type // |> FableTransforms.uncurryType
-            transformFunc com ctx parameters returnType (Some name) args body
+            transformFunc com ctx parameters returnType (Some memb.FullName) args body
 
         let fnBody =
             if isIdentAtTailPos (fun ident -> ident.IsThisArgument) body then
@@ -4653,7 +5208,11 @@ module Util =
         let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
-        let isPublic = ent.IsFSharpRecord
+        // F# exception fields (Data0, Data1, ...) are public on .NET, and an
+        // exception declared in one crate has to be constructible from another —
+        // MatchFailureException lives in the runtime library but is constructed
+        // by user code for any match F# cannot prove exhaustive.
+        let isPublic = ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
         let idents = getEntityFieldsAsIdents com ent
 
         let fields =
@@ -4882,6 +5441,10 @@ module Util =
 
             let fieldValues =
                 getEntityFieldsAsIdents com ent
+                // Skip the synthetic __base__ field. The message describes the
+                // exception's own data; formatting the base System.Exception
+                // with {:?} also walks its null innerException, which faults.
+                |> List.filter (fun ident -> ident.Name <> baseName)
                 |> List.map (fun ident ->
                     let info = Fable.FieldInfo.Create(ident.Name, ident.Type, ident.IsMutable)
                     Fable.Get(thisArg, info, ident.Type, None)
@@ -5250,13 +5813,80 @@ module Util =
             let ifcEnt = com.GetEntity(ifcEntRef)
             FSharp2Fable.Util.getEntityGenArgs ifcEnt
 
+    let specializeParameter (genMap: Map<string, Fable.Type>) (parameter: Fable.Parameter) =
+        { new Fable.Parameter with
+            member _.Attributes = parameter.Attributes
+            member _.Name = parameter.Name
+            member _.Type = parameter.Type |> resolveInlineType genMap
+            member _.IsIn = parameter.IsIn
+            member _.IsOut = parameter.IsOut
+            member _.IsNamed = parameter.IsNamed
+            member _.IsOptional = parameter.IsOptional
+            member _.DefaultValue = parameter.DefaultValue
+        }
+
+    let specializeInterfaceMember (genMap: Map<string, Fable.Type>) (memberValue: Fable.MemberFunctionOrValue) =
+        { new Fable.MemberFunctionOrValue with
+            member _.DisplayName = memberValue.DisplayName
+            member _.CompiledName = memberValue.CompiledName
+            member _.FullName = memberValue.FullName
+            member _.Attributes = memberValue.Attributes
+            member _.HasSpread = memberValue.HasSpread
+            member _.IsInline = memberValue.IsInline
+            member _.IsPublic = memberValue.IsPublic
+            member _.IsPrivate = memberValue.IsPrivate
+            member _.IsInternal = memberValue.IsInternal
+            member _.IsConstructor = memberValue.IsConstructor
+            member _.IsInstance = memberValue.IsInstance
+            member _.IsExtension = memberValue.IsExtension
+            member _.IsValue = memberValue.IsValue
+            member _.IsMutable = memberValue.IsMutable
+            member _.IsGetter = memberValue.IsGetter
+            member _.IsSetter = memberValue.IsSetter
+            member _.IsProperty = memberValue.IsProperty
+
+            member _.IsOverrideOrExplicitInterfaceImplementation =
+                memberValue.IsOverrideOrExplicitInterfaceImplementation
+
+            member _.IsDispatchSlot = memberValue.IsDispatchSlot
+
+            member _.GenericParameters =
+                memberValue.GenericParameters
+                |> List.filter (fun parameter -> not (Map.containsKey parameter.Name genMap))
+
+            member _.CurriedParameterGroups =
+                memberValue.CurriedParameterGroups
+                |> List.map (List.map (specializeParameter genMap))
+
+            member _.ReturnParameter = specializeParameter genMap memberValue.ReturnParameter
+            member _.DeclaringEntity = memberValue.DeclaringEntity
+            member _.ApparentEnclosingEntity = memberValue.ApparentEnclosingEntity
+            member _.ImplementedAbstractSignatures = memberValue.ImplementedAbstractSignatures
+            member _.XmlDoc = memberValue.XmlDoc
+        }
+
     let ignoredInterfaceNames = set [ Types.ienumerable; Types.ienumerator ]
 
-    let transformClassMembers (com: IRustCompiler) ctx genArgs (classDecl: Fable.ClassDecl) =
+    let transformClassMembers
+        (com: IRustCompiler)
+        ctx
+        genArgs
+        (classDecl: Fable.ClassDecl)
+        (objectExprInterfaceGenArgs: Fable.Type list option)
+        =
         let entRef = classDecl.Entity
         let ent = com.GetEntity(entRef)
 
         let isObjectExpr = classDecl.Name = "ObjectExpr"
+
+        let objectExprInterfaceGenMap =
+            match objectExprInterfaceGenArgs with
+            | Some interfaceGenArgs ->
+                let genericNames =
+                    ent.GenericParameters |> List.map (fun parameter -> parameter.Name)
+
+                List.zip genericNames interfaceGenArgs |> Map
+            | None -> Map.empty
 
         let entName =
             if isObjectExpr then
@@ -5266,13 +5896,32 @@ module Util =
 
         let genParams = FSharp2Fable.Util.getGenParamTypes genArgs
 
-        let ctx = { ctx with ScopedEntityGenArgs = getEntityGenParamNames ent }
+        let ctx =
+            // For object expressions the struct is parameterized by the actual
+            // instantiation gen args (from the enclosing scope), and member bodies
+            // reference those gen param names - not the interface's formal params.
+            // Using the interface's formal names here would fail to filter the type's
+            // gen params out of each member's own generics (emitting a spurious `<T>`).
+            let scopedGenArgs =
+                if isObjectExpr then
+                    genArgs |> FSharp2Fable.Util.getGenParamNames |> Set.ofList
+                else
+                    getEntityGenParamNames ent
+
+            { ctx with ScopedEntityGenArgs = scopedGenArgs }
 
         let isIgnoredMember (memb: Fable.MemberFunctionOrValue) = ent.IsFSharpExceptionDeclaration // to filter out compiler-generated exception equality
 
         let interfaceMembers, nonInterfaceMembers =
             classDecl.AttachedMembers
-            |> List.map (fun decl -> decl, getDeclMember com decl)
+            |> List.map (fun decl ->
+                let memberValue = getDeclMember com decl
+
+                if isObjectExpr then
+                    decl, specializeInterfaceMember objectExprInterfaceGenMap memberValue
+                else
+                    decl, memberValue
+            )
             |> List.partition (snd >> isInterfaceMember com)
 
         let nonInterfaceImpls =
@@ -5293,6 +5942,12 @@ module Util =
                     |> List.append (makeFSharpExceptionItems com ctx ent)
                     |> List.append (makePrimaryConstructorItems com ctx ent classDecl)
 
+            let memberItems =
+                if ent.IsFSharpRecord then
+                    makeRecordTypeInfoItem com ctx ent genArgs :: memberItems
+                else
+                    memberItems
+
             if List.isEmpty memberItems then
                 []
             else
@@ -5301,7 +5956,7 @@ module Util =
 
         let baseTypeOpt =
             if isObjectExpr then
-                Some(Fable.DeclaredType(entRef, genArgs))
+                Some(Fable.DeclaredType(entRef, objectExprInterfaceGenArgs |> Option.defaultValue genArgs))
             else
                 ent.BaseType
                 |> Option.map (fun t -> Fable.DeclaredType(t.Entity, t.GenericArgs))
@@ -5317,7 +5972,7 @@ module Util =
             let hasToString =
                 nonInterfaceMembers |> List.exists (fun (d, m) -> m.CompiledName = "ToString")
 
-            let hasDebug = not (List.isEmpty ent.GenericParameters)
+            let hasDebug = isObjectExpr || not (List.isEmpty ent.GenericParameters)
             makeDisplayTraitImpls com ctx entName genParams hasToString hasDebug
 
         let operatorTraitImpls =
@@ -5353,7 +6008,15 @@ module Util =
             |> List.collect (fun ifcEntRef ->
                 let ifcGenArgs =
                     if isObjectExpr then
-                        genArgs
+                        // The object expression's declared type gen args apply to its
+                        // primary interface only. Inherited interfaces (e.g. IDisposable
+                        // from IEnumerator<'T>) carry their own gen args, which may have a
+                        // different arity - so blindly reusing genArgs would emit e.g.
+                        // `IDisposable<i32>`. Look those up in the declared type's hierarchy.
+                        if ifcEntRef.FullName = entRef.FullName then
+                            objectExprInterfaceGenArgs |> Option.defaultValue genArgs
+                        else
+                            ifcEntRef |> findInterfaceGenArgs com ent
                     else
                         ifcEntRef |> findInterfaceGenArgs com ent
 
@@ -5396,7 +6059,7 @@ module Util =
                 |> entityItemWithVis com ctx ent
 
             let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
-            let memberItems = transformClassMembers com ctx genArgs decl
+            let memberItems = transformClassMembers com ctx genArgs decl None
             entityItem :: memberItems
 
     let getVis (com: IRustCompiler) ctx declaringEntity isInternal isPrivate =
@@ -5539,13 +6202,15 @@ module Util =
         | Fable.ClassDeclaration decl -> transformClassDecl com ctx decl
 
     let transformDeclarations (com: IRustCompiler) ctx decls =
+        let useItem = mkGlobUseItem [] [ "super" ]
+
         let items =
             decls |> mergeNamespaceDecls com ctx |> List.collect (transformDecl com ctx)
         // wrap the last file in a module to consistently handle namespaces
         if isLastFileInProject com then
             let modPath = fixFileExtension com com.CurrentFile
             let modName = getImportModuleName com modPath
-            let modItem = mkModItem [] modName items
+            let modItem = mkModItem [] modName (useItem :: items)
             let useItem = mkGlobUseItem [] [ modName ]
 
             [ modItem; useItem |> mkPublicItem ]
@@ -5806,18 +6471,25 @@ module Compiler =
                 ScopedSymbols = Map.empty
                 // HasMultipleUses = false
                 InferAnyType = false
+                SkipRecordTypeRegistration = false
                 IsAssocMember = false
+                IsFluentMember = false
                 IsLambda = false
                 IsParamByRefPreferred = false
                 RequiresSendSync = false
                 ModuleDepth = 0
             }
 
+        let entryPointItems = file.Declarations |> getEntryPointItems com ctx
+
         let topAttrs =
             [
                 if isLastFileInProject com then
                     // adds "no_std" to crate if feature is enabled
                     mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
+                    // Libraries retain Cargo's test-harness entry point.
+                    if not (List.isEmpty entryPointItems) then
+                        mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_main" ]
 
                     // TODO: make some of those conditional on compiler options
                     mkInnerAttr "allow" [ "dead_code" ]
@@ -5839,7 +6511,6 @@ module Compiler =
             // mkInnerAttr "feature" ["destructuring_assignment"]
             ]
 
-        let entryPointItems = file.Declarations |> getEntryPointItems com ctx
         let importItems = com.GetAllImports(ctx) |> transformImports com ctx
         let declItems = file.Declarations |> transformDeclarations com ctx
         let modItems = getModuleItems com ctx // global module imports

@@ -48,7 +48,7 @@ type Stack<'T when 'T: equality> private (initialContents: 'T[], initialCount) =
 
     new(initialCapacity: int)
         =
-        let arr = Array.zeroCreate<'T> (initialCapacity)
+        let arr = Array.zeroCreate<'T>(initialCapacity)
         Stack<'T>(arr, 0)
 
     new() = Stack<'T>(4)
@@ -177,7 +177,7 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
         if initialCapacity < 0 then
             failwith "capacity is less than 0"
 
-        Queue<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
+        Queue<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
 
     new() = Queue<'T>(4)
 

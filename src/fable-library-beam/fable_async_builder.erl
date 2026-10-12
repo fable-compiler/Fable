@@ -58,15 +58,22 @@ zero(_Unit) -> return(ok).
 
 %% Delay: defer generator execution (cold semantics)
 delay(Generator) ->
-    fun(Ctx) -> (Generator(ok))(Ctx) end.
+    fun(Ctx) ->
+        case fable_cancellation:is_cancellation_requested(maps:get(cancel_token, Ctx)) of
+            true -> (maps:get(on_cancel, Ctx))(fable_cancellation:exception());
+            false -> (Generator(ok))(Ctx)
+        end
+    end.
 
 %% Bind: monadic bind — run computation, pass result to binder
 bind(Computation, Binder) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
             on_success => fun(X) ->
-                try
-                    (Binder(X))(Ctx)
+                %% Only binder evaluation is guarded. Exceptions from the returned computation
+                %% may belong to downstream continuations whose handlers have already settled.
+                try Binder(X) of
+                    Bound -> Bound(Ctx)
                 catch
                     _:Err:St ->
                         fable_async:record_stacktrace(Err, St),
@@ -83,6 +90,8 @@ combine(Comp1, Comp2) ->
 
 %% TryWith: catch errors in computation, pass to handler
 %% Wrap raw errors (binaries from failwith) as exception maps so .Message works.
+%% invariant: only on_error enters the handler; on_cancel bypasses it, while a thrown
+%% OperationCanceledException remains catchable just like any explicitly thrown .NET exception.
 try_with(Computation, Handler) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
@@ -122,33 +131,53 @@ try_with(Computation, Handler) ->
 %% Compensation is generated as fun(UnitVar) -> ... end (arity 1), so call with ok.
 try_finally(Computation, Compensation) ->
     fun(Ctx) ->
+        %% invariant: settlement claims compensation before invoking it, so its exception cannot re-enter it.
+        %% decision: cancellation remains terminal when compensation throws, matching .NET Async.TryFinally.
+        Settled = atomics:new(1, []),
+        Finish = fun(Channel, Value) ->
+            case atomics:compare_exchange(Settled, 1, 0, 1) of
+                ok ->
+                    Result = try Compensation(ok), ok
+                    catch
+                        _:_ when Channel =:= on_cancel -> ok;
+                        _:Err:St ->
+                            fable_async:record_stacktrace(Err, St),
+                            {error, Err}
+                    end,
+                    case Result of
+                        ok -> (maps:get(Channel, Ctx))(Value);
+                        {error, Error} -> (maps:get(on_error, Ctx))(Error)
+                    end;
+                1 -> ok
+            end
+        end,
         Ctx2 = Ctx#{
             on_success => fun(X) ->
-                Compensation(ok),
-                (maps:get(on_success, Ctx))(X)
+                Finish(on_success, X)
             end,
             on_error => fun(E) ->
-                Compensation(ok),
-                (maps:get(on_error, Ctx))(E)
+                Finish(on_error, E)
             end,
             on_cancel => fun(E) ->
-                Compensation(ok),
-                (maps:get(on_cancel, Ctx))(E)
+                Finish(on_cancel, E)
             end
         },
         try
             Computation(Ctx2)
         catch
-            _:Err:St ->
-                fable_async:record_stacktrace(Err, St),
-                Compensation(ok),
-                (maps:get(on_error, Ctx))(Err)
+            Class:Err:St ->
+                case atomics:get(Settled, 1) of
+                    0 ->
+                        fable_async:record_stacktrace(Err, St),
+                        Finish(on_error, Err);
+                    1 -> erlang:raise(Class, Err, St)
+                end
         end
     end.
 
-%% Using: TryFinally with IDisposable (Dispose = no-op in Erlang for now)
+%% Using: install disposal before evaluating the binder, including a binder that throws.
 using(Resource, Binder) ->
-    try_finally(Binder(Resource), fun() -> ok end).
+    try_finally(delay(fun(_) -> Binder(Resource) end), fun(_) -> fable_utils:safe_dispose(Resource) end).
 
 %% While: recursive bind while guard is true
 while(Guard, Computation) ->

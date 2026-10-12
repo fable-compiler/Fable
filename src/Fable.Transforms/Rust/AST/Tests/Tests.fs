@@ -17,7 +17,7 @@ module Helpers =
     let fun_to_string (decl: FnDecl, header: FnHeader, name: Ident, generics: Generics) : string =
         State
             .new_()
-            .to_string (fun (s) ->
+            .to_string(fun (s) ->
                 s.head ("")
                 s.print_fn (decl, header, Some(name), generics)
                 s.s.end_ () // Close the head box.
@@ -25,7 +25,7 @@ module Helpers =
             )
 
     let variant_to_string (var: Variant) : string =
-        State.new_().to_string (fun (s) -> s.print_variant (var))
+        State.new_().to_string(fun (s) -> s.print_variant (var))
 
 [<Fact>]
 let test_fun_to_string () =

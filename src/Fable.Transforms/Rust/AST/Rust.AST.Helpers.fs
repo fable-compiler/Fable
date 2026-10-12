@@ -202,7 +202,7 @@ module Literals =
 
     let mkCharLit (value: char) : Lit =
         {
-            token = mkCharTokenLit ((string<char> value).escape_debug ())
+            token = mkCharTokenLit ((string<char> value).escape_debug())
             kind = LitKind.Char(value)
             span = DUMMY_SP
         }
@@ -337,7 +337,47 @@ module Literals =
             span = DUMMY_SP
         }
 
+    let private normalizeStringLiteral (value: Symbol) =
+        let mutable builder: ValueOption<System.Text.StringBuilder> = ValueNone
+        let mutable index = 0
+
+        while index < value.Length do
+            let current = value[index]
+
+            if
+                System.Char.IsHighSurrogate(current)
+                && index + 1 < value.Length
+                && System.Char.IsLowSurrogate(value[index + 1])
+            then
+                match builder with
+                | ValueSome builder -> builder.Append(value, index, 2) |> ignore
+                | ValueNone -> ()
+
+                index <- index + 2
+            elif System.Char.IsSurrogate(current) then
+                match builder with
+                | ValueSome builder -> builder.Append('\uFFFD') |> ignore
+                | ValueNone ->
+                    let newBuilder = System.Text.StringBuilder(value.Length)
+                    newBuilder.Append(value, 0, index) |> ignore
+                    newBuilder.Append('\uFFFD') |> ignore
+                    builder <- ValueSome newBuilder
+
+                index <- index + 1
+            else
+                match builder with
+                | ValueSome builder -> builder.Append(current) |> ignore
+                | ValueNone -> ()
+
+                index <- index + 1
+
+        match builder with
+        | ValueSome builder -> builder.ToString()
+        | ValueNone -> value
+
     let mkStrLit (value: Symbol) : Lit =
+        let value = normalizeStringLiteral value
+
         {
             token = mkStrTokenLit (value.escape_debug ())
             kind = LitKind.Str(value, StrStyle.Cooked)
@@ -560,10 +600,11 @@ module MacroArgs =
             |> Seq.mapi (fun i tok ->
                 let ttt = tok |> token.TokenTree.Token
                 let sep = kind |> mkTokenTree
-                // if i < count - 1 then
-                [ (ttt, token.Spacing.Joint); (sep, token.Spacing.Alone) ]
-            // else
-            //     [ (ttt, token.Spacing.Alone) ]
+
+                if i < count - 1 then
+                    [ (ttt, token.Spacing.Joint); (sep, token.Spacing.Alone) ]
+                else
+                    [ (ttt, token.Spacing.Alone) ]
             )
             |> Seq.concat
             |> mkVec
@@ -890,7 +931,7 @@ module Exprs =
                 value.StartsWith("\"", System.StringComparison.Ordinal)
                 && value.EndsWith("\"", System.StringComparison.Ordinal)
             then
-                "\"" + value[1 .. (value.Length - 2)].escape_debug () + "\""
+                "\"" + value[1 .. (value.Length - 2)].escape_debug() + "\""
             else
                 value
 
@@ -1081,6 +1122,24 @@ module Types =
         TyKind.ImplTrait(DUMMY_NODE_ID, mkVec bounds) |> mkTy
 
     let mkParenTy ty : Ty = TyKind.Paren(ty) |> mkTy
+
+    let mkPtrTy ty : Ty =
+        TyKind.Ptr(
+            {
+                ty = ty
+                mutbl = Mutability.Not
+            }
+        )
+        |> mkTy
+
+    let mkMutPtrTy ty : Ty =
+        TyKind.Ptr(
+            {
+                ty = ty
+                mutbl = Mutability.Mut
+            }
+        )
+        |> mkTy
 
     let mkRefTy (lifetimeOpt: Symbol option) ty : Ty =
         let opt_lifetime = lifetimeOpt |> Option.map mkLifetime

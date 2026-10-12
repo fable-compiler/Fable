@@ -46,7 +46,7 @@ type Stack<'T> private (initialContents, initialCount) =
     let mutable contents = initialContents
     let mutable count = initialCount
 
-    new(initialCapacity: int) = Stack<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
+    new(initialCapacity: int) = Stack<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
 
     new() = Stack<'T>(4)
 
@@ -174,7 +174,7 @@ type Queue<'T> private (initialContents, initialCount) =
         if initialCapacity < 0 then
             raise (System.ArgumentOutOfRangeException("capacity is less than 0"))
 
-        Queue<'T>(Array.zeroCreate<'T> (initialCapacity), 0)
+        Queue<'T>(Array.zeroCreate<'T>(initialCapacity), 0)
 
     new() = Queue<'T>(4)
 

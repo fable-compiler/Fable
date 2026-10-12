@@ -30,6 +30,12 @@ let log2 (a: string) (b: string) = String.Format("a = {0}, b = {1}", a, b)
 let logItem1 = log2 "item1"
 let logItem2 = log2 "item2"
 
+let ``punctuation-name`` () = 1
+let punctuation_name () = 2
+
+let ``abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh`` () =
+    3
+
 type PartialFunctions() =
     member _.logItem1 = log2 "item1"
     member _.logItem2 = log2 "item2"
@@ -357,7 +363,6 @@ let ``test Custom computation expressions work`` () =
     execMaybe 99 |> equal None
 
 // -- Self References in Constructors --
-// TODO: "as myself" self-reference in constructors generates {badkey,x} — class constructor codegen issue
 
 [<Fact>]
 let ``test Self references in constructors work`` () =
@@ -445,6 +450,15 @@ let ``test Conversion to Action works`` () =
     f3'.Invoke(10)
     equal 40 myField
 
+[<Fact>]
+let ``test module functions with punctuation remain distinct`` () =
+    (``punctuation-name`` (), punctuation_name ()) |> equal (1, 2)
+
+[<Fact>]
+let ``test escaped function names stay within the Erlang atom limit`` () =
+    ``abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh`` ()
+    |> equal 3
+
 // -- Object Expressions --
 
 [<Fact>]
@@ -489,15 +503,13 @@ let ``test Composition with recursive this works`` () =
     RecursiveType(fun f -> x <- f()) |> ignore
     equal 11 x
 
-// TODO: Re-enable when Beam target disambiguates local let bindings from same-named members
-// (MyComponent has `let work i = ...` and `member _.Work i = work i` which collide after sanitization)
-// [<Fact>]
-// let ``test References to enclosing type from object expression work`` () =
-//     MyComponent("TestA").works1().doWork() |> equal "TestA-1"
-//     MyComponent("TestB").works2().doWork() |> equal "TestB-2"
-//     MyComponent("TestC").works3().doWork() |> equal "TestC-3"
-//     MyComponent("TestD").works4().doWork() |> equal "TestD-4"
-//     MyComponent("TestE").works5().doWork() |> equal "TestE-5"
+[<Fact>]
+let ``test References to enclosing type from object expression work`` () =
+    MyComponent("TestA").works1().doWork() |> equal "TestA-1"
+    MyComponent("TestB").works2().doWork() |> equal "TestB-2"
+    MyComponent("TestC").works3().doWork() |> equal "TestC-3"
+    MyComponent("TestD").works4().doWork() |> equal "TestD-4"
+    MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
 [<Fact>]
 let ``test Inlined object expression doesn't change argument this context`` () =
@@ -735,6 +747,21 @@ let ``test try-with with unmatched exception type reraises`` () =
     caught |> equal "arg"
 
 [<Fact>]
+let ``test built-in exception type tests respect nominal hierarchy`` () =
+    let invalidOperation: exn = System.InvalidOperationException("invalid")
+    let argumentNull: exn = System.ArgumentNullException("value")
+    let divideByZero: exn = System.DivideByZeroException()
+    let aggregate: exn = System.AggregateException()
+
+    (invalidOperation :? System.InvalidOperationException) |> equal true
+    (invalidOperation :? System.ArgumentException) |> equal false
+    (box invalidOperation :? System.Exception) |> equal true
+    (argumentNull :? System.ArgumentException) |> equal true
+    (divideByZero :? System.ArithmeticException) |> equal true
+    (aggregate :? System.AggregateException) |> equal true
+    (aggregate :? System.ArgumentException) |> equal false
+
+[<Fact>]
 let ``test ArgumentException with message and inner exception works`` () =
     let inner = exn "the inner cause"
     let ex = System.ArgumentException("outer message", inner)
@@ -745,6 +772,68 @@ let ``test ArgumentException with message and inner exception works`` () =
 let ``test Exception InnerException is null when not provided`` () =
     let ex = System.ArgumentException("no inner")
     isNull (box ex.InnerException) |> equal true
+
+[<Fact>]
+let ``test AggregateException retains all supplied exceptions`` () =
+    let first = Exception("first")
+    let second = Exception("second")
+    let aggregate = AggregateException(first, second)
+
+    aggregate.Message |> equal "One or more errors occurred. (first) (second)"
+    aggregate.InnerException.Message |> equal "first"
+
+    aggregate.InnerExceptions
+    |> Seq.map (fun ex -> ex.Message)
+    |> Seq.toList
+    |> equal [ "first"; "second" ]
+
+[<Fact>]
+let ``test AggregateException practical constructors work`` () =
+    let first = Exception("first")
+    let second = Exception("second")
+    let empty = AggregateException()
+    let messageOnly = AggregateException("explicit")
+    let exceptions = AggregateException([| first; second |])
+    let messageAndExceptions = AggregateException("explicit", [| first; second |])
+
+    empty.Message |> equal "One or more errors occurred."
+    empty.InnerExceptions |> Seq.isEmpty |> equal true
+    messageOnly.Message |> equal "explicit"
+    messageOnly.InnerExceptions |> Seq.isEmpty |> equal true
+    exceptions.InnerException.Message |> equal "first"
+    messageAndExceptions.Message |> equal "explicit (first) (second)"
+
+[<Fact>]
+let ``test raised AggregateException retains its details when caught`` () =
+    let first = Exception("first")
+    let second = Exception("second")
+    let aggregate = AggregateException("explicit", [| first; second |])
+
+    let caughtMessage, caughtInnerMessages =
+        try
+            raise aggregate
+            failwith "unreachable"
+        with caught ->
+            let caught = unbox<AggregateException> caught
+
+            caught.Message,
+            (caught.InnerExceptions
+             |> Seq.map (fun ex -> ex.Message)
+             |> Seq.toList)
+
+    caughtMessage |> equal "explicit (first) (second)"
+    caughtInnerMessages |> equal [ "first"; "second" ]
+
+[<Fact>]
+let ``test ordinary Exception and ArgumentException retain inner exceptions`` () =
+    let inner = Exception("inner")
+    let plain = Exception("plain", inner)
+    let argument = ArgumentException("argument", inner)
+
+    plain.Message |> equal "plain"
+    plain.InnerException.Message |> equal "inner"
+    argument.Message |> equal "argument"
+    argument.InnerException.Message |> equal "inner"
 
 // -- General / Misc --
 

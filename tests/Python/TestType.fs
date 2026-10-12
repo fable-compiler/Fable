@@ -958,7 +958,12 @@ let ``test Type test with BigInt`` () =
         | _ -> false
 
     box 5I |> isBigInt |> equal true
+#if !FABLE_COMPILER_PYTHON
+    // Python represents both bigint and int32 as the built-in `int`, which is already
+    // arbitrary precision, so a boxed int32 cannot be told apart from a bigint at
+    // runtime. JS only avoids this because it has a native `bigint` primitive.
     box 50 |> isBigInt |> equal false
+#endif
 
 [<Fact>]
 let ``test Property names don't clash with built-in JS objects`` () = // See #168

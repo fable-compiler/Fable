@@ -421,11 +421,11 @@ type Printer with
         self.buf[self.right] <- entry
         self.scan_stack.push_front (self.right)
 
-    member self.scan_pop() : usize = self.scan_stack.pop_front().unwrap ()
+    member self.scan_pop() : usize = self.scan_stack.pop_front().unwrap()
 
-    member self.scan_top() : usize = self.scan_stack.front().unwrap ()
+    member self.scan_top() : usize = self.scan_stack.front().unwrap()
 
-    member self.scan_pop_bottom() : usize = self.scan_stack.pop_back().unwrap ()
+    member self.scan_pop_bottom() : usize = self.scan_stack.pop_back().unwrap()
 
     member self.advance_right() =
         self.right <- self.right + 1
@@ -501,7 +501,7 @@ type Printer with
     member self.get_top() : PrintStackElem =
         self.print_stack
             .last()
-            .unwrap_or (
+            .unwrap_or(
                 {
                     offset = 0
                     pbreak = PrintStackBreak.Broken(Breaks.Inconsistent)
@@ -531,7 +531,7 @@ type Printer with
 
     member self.print_end() =
         debug ("print End -> pop End")
-        self.print_stack.pop().unwrap () |> ignore
+        self.print_stack.pop().unwrap() |> ignore
 
     member self.print_break(b: BreakToken, l: isize) =
         let top = self.get_top ()
@@ -573,7 +573,7 @@ type Printer with
 
         // self.out.reserve(self.pending_indentation)
         // self.out.extend(std.iter.repeat(' ').take(self.pending_indentation))
-        self.out.push_str (" ".repeat (self.pending_indentation))
+        self.out.push_str (" ".repeat(self.pending_indentation))
 
         self.pending_indentation <- 0
         self.out.push_str (s)
@@ -637,7 +637,7 @@ type Printer with
     member self.hardbreak() = self.spaces (_SIZE_INFINITY)
 
     member self.is_beginning_of_line() : bool =
-        self.last_token().is_eof () || self.last_token().is_hardbreak_tok ()
+        self.last_token().is_eof() || self.last_token().is_hardbreak_tok()
 
     static member hardbreak_tok_offset(off: isize) : Token =
         Token.Break(

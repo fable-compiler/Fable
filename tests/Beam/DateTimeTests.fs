@@ -679,6 +679,51 @@ let ``test DateTime.TryParse works`` () =
     dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second |> equal 2130
 
 [<Fact>]
+let ``test DateTime.Parse with numeric zone offset works`` () =
+    let utc = DateTime.Parse("2026-08-03T14:30:15Z", CultureInfo.InvariantCulture)
+
+    let sameInstantAsUtc (s: string) =
+        DateTime.Parse(s, CultureInfo.InvariantCulture) = utc
+
+    // ±hh:mm, ±hhmm and ±hh are all accepted, and all denote the same instant
+    sameInstantAsUtc "2026-08-03T16:30:15+02:00" |> equal true
+    sameInstantAsUtc "2026-08-03T09:30:15-05:00" |> equal true
+    sameInstantAsUtc "2026-08-03T16:30:15+0200" |> equal true
+    sameInstantAsUtc "2026-08-03T16:30:15+02" |> equal true
+
+[<Fact>]
+let ``test DateTime.Parse with fractional seconds and zone offset works`` () =
+    let d = DateTime.Parse("2026-08-03T16:30:15.1234567+02:00", CultureInfo.InvariantCulture)
+    let utc = DateTime.Parse("2026-08-03T14:30:15Z", CultureInfo.InvariantCulture)
+    d.Ticks - utc.Ticks |> equal 1234567L
+    d.Millisecond |> equal 123
+
+[<Fact>]
+let ``test DateTime.TryParse with zone offset works`` () =
+    let f (s: string) =
+        let (isSuccess, _) = DateTime.TryParse(s, CultureInfo.InvariantCulture)
+        isSuccess
+
+    f "2026-08-03T16:30:15+02:00" |> equal true
+    f "2026-08-03T09:30:15-05:00" |> equal true
+    f "2026-08-03T16:30:15.1234567+02:00" |> equal true
+    // A bare timestamp still parses
+    f "2026-08-03T14:30:15" |> equal true
+    // Offsets beyond ±14:00 are not valid
+    f "2026-08-03T14:30:15+15:00" |> equal false
+
+[<Fact>]
+let ``test DateTime round-trips through the O format`` () =
+    let unspecified = DateTime(2026, 8, 3, 14, 30, 15, DateTimeKind.Unspecified)
+    DateTime.Parse(unspecified.ToString("O")) = unspecified |> equal true
+
+    let local = DateTime(2026, 8, 3, 14, 30, 15, DateTimeKind.Local)
+    DateTime.Parse(local.ToString("O")) = local |> equal true
+
+    let utc = DateTime(2026, 8, 3, 14, 30, 15, DateTimeKind.Utc)
+    DateTime.Parse(utc.ToString("O")).ToUniversalTime() = utc |> equal true
+
+[<Fact>]
 let ``test Parsing doesn't succeed for invalid dates`` () =
     let invalidAmericanDate = "13/1/2020"
     let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)

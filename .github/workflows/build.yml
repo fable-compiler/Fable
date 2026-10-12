@@ -22,12 +22,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Restore tools
         run: dotnet tool restore
@@ -43,12 +41,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Restore project
         run: dotnet restore Fable.sln
@@ -65,15 +61,13 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
 
       - name: Fable Tests - JavaScript (linux)
         if: matrix.platform == 'ubuntu-latest'
@@ -89,15 +83,13 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
 
       - name: Fable Tests - TypeScript
         run: ./build.sh test typescript
@@ -111,15 +103,13 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
 
       - name: Fable Tests
         run: ./build.sh test integration
@@ -130,15 +120,13 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
 
       - name: Fable Tests
         run: ./build.sh test standalone
@@ -149,21 +137,19 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest]
-        python-version: [3.12, 3.13, 3.14]
+        python-version: ["3.13", "3.14", "3.15"]
     runs-on: ${{ matrix.platform }}
     env:
       UV_LINK_MODE: copy
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -178,6 +164,15 @@ jobs:
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh fable-library --python
+
+      # PEP 561 requires the marker inside the package directory. CopyStage filters
+      # by extension, so it is easy to drop again; without it mypy refuses to read
+      # the core/*.pyi stubs at all.
+      - name: PEP 561 marker survives staging
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          test -f temp/fable-library-py/fable_library/py.typed \
+            || { echo "::error::fable_library/py.typed missing from staged package; stubs would be inert for mypy"; exit 1; }
 
       - name: Fable Library - Python (Windows)
         if: matrix.platform == 'windows-latest'
@@ -202,16 +197,16 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.13", "3.14", "3.15"]
     runs-on: ${{ matrix.platform }}
     env:
       UV_LINK_MODE: copy
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -230,24 +225,41 @@ jobs:
           uv run --frozen maturin develop --release
           uv run --frozen pytest tests
 
+  # Formatting gate for the fable-library-py Rust extension. Deliberately a
+  # separate job rather than a step in test-fable-library-py, so it runs once
+  # instead of once per cell of that job's 3x3 platform/Python matrix.
+  lint-fable-library-py:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        working-directory: ./src/fable-library-py
+        run: cargo fmt --check
+
   # Separate build job for Rust (will run in parallel)
   build-rust:
     timeout-minutes: 75
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test: ["default", "no_std", "threaded"]
+        features: [",", "lrc_ptr", "no_std", "reflection", "threaded"]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -258,20 +270,22 @@ jobs:
         run: ./build.sh fable-library --rust
 
       - name: Fable Tests - Rust
-        run: ./build.sh test rust --${{ matrix.test }}
+        run: ./build.sh test rust --features "${{ matrix.features }}"
 
   # Separate build job for Dart
   build-dart:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Without id-token, setup-dart skips the pub.dev token, so packages are
+    # fetched anonymously.
+    permissions:
+      contents: read
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Dart SDK
         uses: dart-lang/setup-dart@v1
@@ -285,12 +299,10 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Setup Erlang/OTP
         uses: erlef/setup-beam@v1
@@ -317,12 +329,10 @@ jobs:
           ]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+        uses: ./.github/actions/setup-dotnet
 
       - name: Restore tools
         run: dotnet tool restore

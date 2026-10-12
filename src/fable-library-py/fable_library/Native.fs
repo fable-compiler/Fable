@@ -6,6 +6,38 @@ module Native
 open Fable.Core
 open Fable.Core.PyInterop
 
+[<Import("ValueErrorBase", "fable_library.exception_bases")>]
+type ValueErrorBase(message: string, innerException: exn | null) =
+    inherit System.Exception(message, innerException)
+
+[<Import("IndexErrorBase", "fable_library.exception_bases")>]
+type IndexErrorBase(message: string) =
+    inherit System.Exception(message)
+
+[<Import("RuntimeErrorBase", "fable_library.exception_bases")>]
+type RuntimeErrorBase(message: string) =
+    inherit System.Exception(message)
+
+[<Import("ZeroDivisionErrorBase", "fable_library.exception_bases")>]
+type ZeroDivisionErrorBase(message: string) =
+    inherit System.Exception(message)
+
+[<Import("OverflowErrorBase", "fable_library.exception_bases")>]
+type OverflowErrorBase(message: string) =
+    inherit System.Exception(message)
+
+[<Import("NotImplementedErrorBase", "fable_library.exception_bases")>]
+type NotImplementedErrorBase(message: string) =
+    inherit System.Exception(message)
+
+[<Import("MemoryErrorBase", "fable_library.exception_bases")>]
+type MemoryErrorBase(message: string) =
+    inherit System.Exception(message)
+
+[<Import("TimeoutErrorBase", "fable_library.exception_bases")>]
+type TimeoutErrorBase(message: string) =
+    inherit System.Exception(message)
+
 [<Import("FSharpCons", ".array_")>]
 [<AllowNullLiteral>]
 type Cons<'T>(arrayType: string) =

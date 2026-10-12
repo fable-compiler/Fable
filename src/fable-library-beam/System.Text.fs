@@ -71,6 +71,10 @@ type StringBuilder(value: string, capacity: int) =
         buf.Clear()
         x
 
+    member x.get_Chars(index: int) : char =
+        let str = x.ToString()
+        str.[index]
+
     member x.Length =
         let mutable len = 0
 
@@ -89,12 +93,8 @@ type StringBuilder(value: string, capacity: int) =
         let str = x.ToString().Replace(oldValue, newValue)
         x.Clear().Append(str)
 
-    member x.get_Chars(index: int) : char =
-        let str = x.ToString()
-        str.[index]
-
     override _.ToString() = System.String.Concat(buf)
 
-    member x.ToString(firstIndex: int, length: int) =
+    member x.ToString(startIndex: int, length: int) =
         let str = x.ToString()
-        str.Substring(firstIndex, length)
+        str.Substring(startIndex, length)

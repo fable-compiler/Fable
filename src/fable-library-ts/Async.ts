@@ -104,6 +104,7 @@ export function awaitEvent<Del extends Function, T>(event: IEvent$2<Del, T>, can
       if (cancelAction != null) { cancelAction(); }
       ctx.onCancel(new OperationCanceledException());
     });
+    if (ctx.cancelToken.isCancelled) { return; }
     event.AddHandler(handler);
   });
 }
@@ -158,15 +159,18 @@ export function sequential<T>(computations: Iterable<Async<T>>) {
 
 export function sleep(millisecondsDueTime: number) {
   return protectedCont((ctx: IAsyncContext<void>) => {
-    let tokenId: number;
-    const timeoutId = setTimeout(() => {
-      ctx.cancelToken.removeListener(tokenId);
-      ctx.onSuccess(void 0);
-    }, millisecondsDueTime);
-    tokenId = ctx.cancelToken.addListener(() => {
+    let completed = false;
+    let tokenId: number | undefined;
+    const settle = (cancelled: boolean) => {
+      if (completed) { return; }
+      completed = true;
       clearTimeout(timeoutId);
-      ctx.onCancel(new OperationCanceledException());
-    });
+      if (tokenId !== undefined) { ctx.cancelToken.removeListener(tokenId); }
+      if (cancelled) { ctx.onCancel(new OperationCanceledException()); }
+      else { ctx.onSuccess(void 0); }
+    };
+    const timeoutId = setTimeout(() => settle(false), millisecondsDueTime);
+    tokenId = ctx.cancelToken.addListener(() => settle(true));
   });
 }
 

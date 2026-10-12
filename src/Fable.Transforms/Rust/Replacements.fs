@@ -53,6 +53,7 @@ let coreModFor =
     | BclDateTimeOffset -> "DateTimeOffset"
     | BclDateOnly -> "DateOnly"
     | BclTimeOnly -> "TimeOnly"
+    | BclRune -> "Rune"
     | BclTimer -> "Timer"
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
@@ -94,11 +95,7 @@ let makeStaticMemberCall com r t (i: CallInfo) moduleName memberName args =
 
 let makeStaticFieldCall com r t moduleName entityName memberName =
     let memberName = entityName + "::" + memberName
-
     Helper.LibCall(com, moduleName, memberName, t, [], ?isModuleMember = Some(false), ?loc = r)
-
-let makeLibCall com r t (i: CallInfo) moduleName memberName args =
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc = r)
 
 let makeLibModuleCall com r t (i: CallInfo) moduleName memberName (thisArg: Expr option) (args: Expr list) =
     let args, argTypes =
@@ -108,6 +105,24 @@ let makeLibModuleCall com r t (i: CallInfo) moduleName memberName (thisArg: Expr
 
     Helper.LibCall(com, moduleName, memberName, t, args, argTypes, i.GenericArgs, ?loc = r)
 
+let makeLibCall com r t (i: CallInfo) moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc = r)
+
+let libCallThis com r t (i: CallInfo) moduleName memberName thisArg args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+
+let libCallCons com r t (i: CallInfo) moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
+
+let libCallTyped com r t moduleName memberName args argTypes =
+    Helper.LibCall(com, moduleName, memberName, t, args, argTypes, ?loc = r)
+
+let libCall com r t moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, ?loc = r)
+
+let libValue com r t moduleName memberName args =
+    Helper.LibValue(com, moduleName, memberName, t) // TODO: range
+
 let makeGlobalIdent (ident: string, memb: string, typ: Type) =
     makeTypedIdentExpr typ (ident + "::" + memb)
 
@@ -116,7 +131,6 @@ let makeUniqueIdent com ctx t name =
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
-
     Helper.LibCall(com, "Decimal", "fromString", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
 
 let makeRef (value: Expr) =
@@ -133,7 +147,6 @@ let setRefCell com r (expr: Expr) (value: Expr) =
 
 let makeRefCell com r genArg args =
     let typ = makeFSharpCoreType [ genArg ] Types.refCell
-
     Helper.LibCall(com, "Native", "refCell", typ, args, isConstructor = true, ?loc = r)
 
 let makeRefCellFromValue com r (value: Expr) = makeRefCell com r value.Type [ value ]
@@ -189,11 +202,11 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
     | Boolean ->
         match sourceType with
         | Boolean -> args.Head
-        | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toBoolean", t, args, ?loc = r)
-        | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toBoolean", t, args, ?loc = r)
-        | Number(_kind, _) -> Helper.LibCall(com, "Convert", "toBoolean", t, args, ?loc = r)
-        | Char -> Helper.LibCall(com, "Convert", "toBoolean", t, args, ?loc = r)
-        | String -> Helper.LibCall(com, "Convert", "parseBoolean", t, args, ?loc = r)
+        | Number(Decimal, _) -> libCall com r t "Decimal" "toBoolean" args
+        | Number(BigInt, _) -> libCall com r t "BigInt" "toBoolean" args
+        | Number(_kind, _) -> libCall com r t "Convert" "toBoolean" args
+        | Char -> libCall com r t "Convert" "toBoolean" args
+        | String -> libCall com r t "Convert" "parseBoolean" args
         | _ ->
             addWarning com ctx.InlinePath r "Unsupported conversion"
             TypeCast(args.Head, t)
@@ -201,39 +214,39 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
     | Char ->
         match sourceType with
         | Char -> args.Head
-        | String -> Helper.LibCall(com, "Convert", "parseChar", t, args, ?loc = r)
-        | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toChar", t, args, ?loc = r)
-        | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toChar", t, args, ?loc = r)
+        | String -> libCall com r t "Convert" "parseChar" args
+        | Number(Decimal, _) -> libCall com r t "Decimal" "toChar" args
+        | Number(BigInt, _) -> libCall com r t "BigInt" "toChar" args
         | Number(_kind, _) ->
             let code = TypeCast(args.Head, UInt32.Number)
-            Helper.LibCall(com, "Char", "fromCharCode", t, [ code ])
+            libCall com r t "Char" "fromCharCode" [ code ]
         | _ ->
             addWarning com ctx.InlinePath r "Unsupported conversion"
             TypeCast(args.Head, t)
 
     | Number(Decimal, _) ->
         match sourceType with
-        | Array(Number(Int32, _), _) -> Helper.LibCall(com, "Decimal", "fromIntArray", t, args, ?loc = r)
-        | Boolean -> Helper.LibCall(com, "Decimal", "fromBoolean", t, args, ?loc = r)
-        | Char -> Helper.LibCall(com, "Decimal", "fromChar", t, args, ?loc = r)
-        | String -> Helper.LibCall(com, "Decimal", "fromString", t, args, ?loc = r)
-        | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toDecimal", t, args, ?loc = r)
+        | Array(Number(Int32, _), _) -> libCall com r t "Decimal" "fromIntArray" args
+        | Boolean -> libCall com r t "Decimal" "fromBoolean" args
+        | Char -> libCall com r t "Decimal" "fromChar" args
+        | String -> libCall com r t "Decimal" "fromString" args
+        | Number(BigInt, _) -> libCall com r t "BigInt" "toDecimal" args
         | Number(kind, _) ->
             let meth = "from" + kind.ToString()
-            Helper.LibCall(com, "Decimal", meth, t, args, ?loc = r)
+            libCall com r t "Decimal" meth args
         | _ ->
             addWarning com ctx.InlinePath r "Unsupported conversion"
             TypeCast(args.Head, t)
 
     | Number(BigInt, _) ->
         match sourceType with
-        | Array(Number(UInt8, _), _) -> Helper.LibCall(com, "BigInt", "fromByteArray", t, args, ?loc = r)
-        | Boolean -> Helper.LibCall(com, "BigInt", "fromBoolean", t, args, ?loc = r)
-        | Char -> Helper.LibCall(com, "BigInt", "fromChar", t, args, ?loc = r)
-        | String -> Helper.LibCall(com, "BigInt", "fromString", t, args, ?loc = r)
+        | Array(Number(UInt8, _), _) -> libCall com r t "BigInt" "fromByteArray" args
+        | Boolean -> libCall com r t "BigInt" "fromBoolean" args
+        | Char -> libCall com r t "BigInt" "fromChar" args
+        | String -> libCall com r t "BigInt" "fromString" args
         | Number(kind, _) ->
             let meth = "from" + kind.ToString()
-            Helper.LibCall(com, "BigInt", meth, t, args, ?loc = r)
+            libCall com r t "BigInt" meth args
         | _ ->
             addWarning com ctx.InlinePath r "Unsupported conversion"
             TypeCast(args.Head, t)
@@ -249,13 +262,13 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
             TypeCast(code, t)
         | String ->
             let meth = "to" + kind.ToString()
-            Helper.LibCall(com, "Convert", meth, t, args, ?loc = r)
+            libCall com r t "Convert" meth args
         | Number(Decimal, _) ->
             let meth = "to" + kind.ToString()
-            Helper.LibCall(com, "Decimal", meth, t, args, ?loc = r)
+            libCall com r t "Decimal" meth args
         | Number(BigInt, _) ->
             let meth = "to" + kind.ToString()
-            Helper.LibCall(com, "BigInt", meth, t, args, ?loc = r)
+            libCall com r t "BigInt" meth args
         | Number _ -> TypeCast(args.Head, t)
         | _ ->
             addWarning com ctx.InlinePath r "Unsupported conversion"
@@ -265,7 +278,7 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
         addWarning com ctx.InlinePath r "Unsupported conversion"
         TypeCast(args.Head, t)
 
-let toString com (ctx: Context) r (args: Expr list) =
+let rec toString com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
         "toString is called with empty args"
@@ -273,16 +286,30 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head :: tail ->
         match head.Type with
         | String -> head
-        | Char -> Helper.LibCall(com, "String", "ofChar", String, [ head ])
-        | Boolean -> Helper.LibCall(com, "String", "ofBoolean", String, [ head ])
-        | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toString", String, args)
-        | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
+        | Char -> libCall com r String "String" "ofChar" [ head ]
+        | Boolean -> libCall com r String "String" "ofBoolean" [ head ]
+        // Rust has no Display for tuples, and the orphan rule rules out adding
+        // one. Building the text here also matches .NET more closely than a
+        // derived Debug would: each element goes through its own ToString, so a
+        // string element is unquoted and a bool prints as True/False.
+        | Tuple(genArgs, _) when not (List.isEmpty genArgs) ->
+            let element i genArg =
+                toString com ctx r [ Get(head, TupleIndex i, genArg, r) ]
+
+            let separated =
+                genArgs
+                |> List.mapi element
+                |> List.reduce (fun acc part -> add (add acc (makeStrConst ", ")) part)
+
+            add (add (makeStrConst "(") separated) (makeStrConst ")")
+        | Number(BigInt, _) -> libCall com r String "BigInt" "toString" args
+        | Number(Decimal, _) -> libCall com r String "Decimal" "toString" args
         // | Array _ | List _ ->
-        //     Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
+        //     libCall com r String "Types" "seqToString" [ head ]
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
-        | _ -> Helper.LibCall(com, "String", "toString", String, [ head ])
+        | _ -> libCall com r String "String" "toString" [ head ]
 
 let toRoundInt com (ctx: Context) r t i (args: Expr list) =
     let sourceType = args.Head.Type
@@ -300,35 +327,35 @@ let toRadixInt com (ctx: Context) r t i (args: Expr list) =
     match t with
     | Number(kind, _) ->
         let meth = "to" + kind.ToString() + "_radix"
-        Helper.LibCall(com, "Convert", meth, t, args, ?loc = r)
+        libCall com r t "Convert" meth args
     | _ -> FableError $"Unexpected conversion %s{i.CompiledName}" |> raise
 
 let toArray com t (expr: Expr) =
     match expr.Type with
     | Array _ -> expr
-    | List _ -> Helper.LibCall(com, "List", "toArray", t, [ expr ])
-    | String -> Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
-    | IEnumerable -> Helper.LibCall(com, "Seq", "toArray", t, [ expr ])
+    | List _ -> libCall com None t "List" "toArray" [ expr ]
+    | String -> libCall com None t "String" "toCharArray" [ expr ]
+    | IEnumerable -> libCall com None t "Seq" "toArray" [ expr ]
     | _ -> TypeCast(expr, t)
 
 let toList com t (expr: Expr) =
     match expr.Type with
     | List _ -> expr
-    | Array _ -> Helper.LibCall(com, "List", "ofArray", t, [ expr ])
+    | Array _ -> libCall com None t "List" "ofArray" [ expr ]
     | String ->
-        let chars = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
-        Helper.LibCall(com, "List", "ofArray", t, [ chars ])
-    | IEnumerable -> Helper.LibCall(com, "List", "ofSeq", t, [ expr ])
+        let chars = libCall com None t "String" "toSeq" [ expr ]
+        libCall com None t "List" "ofSeq" [ chars ]
+    | IEnumerable -> libCall com None t "List" "ofSeq" [ expr ]
     | _ -> TypeCast(expr, t)
 
 let toSeq com t (expr: Expr) =
     match expr.Type with
     | IEnumerable -> expr
-    | List _ -> Helper.LibCall(com, "Seq", "ofList", t, [ expr ])
-    | Array _ -> Helper.LibCall(com, "Seq", "ofArray", t, [ expr ])
-    | String ->
-        let chars = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
-        Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])
+    | List _ -> libCall com None t "Seq" "ofList" [ expr ]
+    | Array _ -> libCall com None t "Seq" "ofArray" [ expr ]
+    | Builtin(FSharpMap _) -> libCall com None t "Map" "toEnumerable" [ expr ]
+    | Builtin(FSharpSet _) -> libCall com None t "Set" "toEnumerable" [ expr ]
+    | String -> libCall com None t "String" "toSeq" [ expr ]
     | _ -> TypeCast(expr, t)
 
 let emitRawString (s: string) = $"\"%s{s}\"" |> emitExpr None String []
@@ -347,7 +374,7 @@ let emitFormat (com: ICompiler) r t (args: Expr list) macro =
         | _ -> (emitRawString "{0}") :: args
 
     let unboxedArgs = args |> FSharp2Fable.Util.unboxBoxedArgs
-    Helper.LibCall(com, "String", macro, t, unboxedArgs)
+    libCall com r t "String" macro unboxedArgs
 
 let getMut expr =
     Helper.InstanceCall(expr, "get_mut", expr.Type, [])
@@ -388,8 +415,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | _ -> binOp BinaryMinus left right
         | Operators.multiply, [ left; right ] -> binOp BinaryMultiply left right
         | Operators.division, [ left; right ] -> binOp BinaryDivide left right
-        | Operators.divideByInt, [ left; right ] ->
-            Helper.LibCall(com, "Native", "divideByInt", t, [ left; right ], argTypes, ?loc = r)
+        | Operators.divideByInt, [ left; right ] -> libCallTyped com r t "Native" "divideByInt" [ left; right ] argTypes
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [ left; right ] ->
@@ -412,8 +438,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
 
     match argTypes with
     // | Number(BigInt as kind,_)::_ ->
-    //     Helper.LibCall(com, "BigInt", opName, t, args, argTypes, ?loc=r)
-    | Builtin(BclDateTime | BclDateTimeOffset | BclTimeOnly | BclTimeSpan) :: _ -> nativeOp opName argTypes args
+    //     libCallTyped com r t "BigInt" opName [ left; right ] argTypes
+    | Builtin(BclDateTime | BclDateTimeOffset | BclTimeOnly | BclTimeSpan | BclRune) :: _ ->
+        nativeOp opName argTypes args
     | Builtin(FSharpSet _) :: _ ->
         let methName =
             match opName with
@@ -421,10 +448,10 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | Operators.subtraction -> "difference"
             | _ -> opName
 
-        Helper.LibCall(com, "Set", methName, t, args, argTypes, ?loc = r)
+        libCallTyped com r t "Set" methName args argTypes
     // | Builtin (FSharpMap _)::_ ->
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
-    //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
+    //     libCallTyped com r t "Map" mangledName args argTypes
     | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
 
@@ -439,6 +466,7 @@ let isCompatibleWithNativeComparison =
     // | List _
     | Builtin(BclGuid) -> true
     | Builtin(BclTimeSpan) -> true
+    | Builtin(BclRune) -> true
     | _ -> false
 
 // Overview of hash rules:
@@ -452,11 +480,13 @@ let referenceHash (com: ICompiler) ctx r (arg: Expr) =
     | Char
     | String
     | Number _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
-    | _ -> Helper.LibCall(com, "Native", "referenceHash", Int32.Number, [ makeRef arg ], ?loc = r)
+    | _ -> libCall com r Int32.Number "Native" "referenceHash" [ makeRef arg ]
 
 let getHashCode (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
     | HasReferenceEquality com _ -> referenceHash com ctx r arg
+    | Builtin BclRune -> libCall com r Int32.Number "Rune" "getHashCode" [ arg ]
+    | Char -> libCall com r Int32.Number "Char" "GetHashCode" [ arg ]
     | _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
 
 let objectHash (com: ICompiler) ctx r (arg: Expr) =
@@ -467,14 +497,14 @@ let objectHash (com: ICompiler) ctx r (arg: Expr) =
 let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left, right with
     | Value(Null _, _), o
-    | o, Value(Null _, _) -> Helper.LibCall(com, "Native", "is_null", Boolean, [ makeRef o ], ?loc = r)
+    | o, Value(Null _, _) -> libCall com r Boolean "Native" "is_null" [ makeRef o ]
     | _ ->
         match left.Type with
         | Boolean
         | Char
         | String
         | Number _ -> makeEqOp r left right BinaryEqual
-        | _ -> Helper.LibCall(com, "Native", "referenceEquals", Boolean, [ makeRef left; makeRef right ], ?loc = r)
+        | _ -> libCall com r Boolean "Native" "referenceEquals" [ makeRef left; makeRef right ]
 
 let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let t = Boolean
@@ -485,13 +515,14 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | String
     | Number _
     | Builtin(FSharpChoice _ | FSharpResult _) -> makeEqOp r left right BinaryEqual
-    | Builtin kind -> Helper.LibCall(com, coreModFor kind, "equals", t, [ left; right ], ?loc = r)
+    | Builtin kind -> libCall com r t (coreModFor kind) "equals" [ left; right ]
     | Array(_, ResizeArray) -> referenceEquals com ctx r left right
-    | Array _ -> Helper.LibCall(com, "Array", "equals", t, [ left; right ], ?loc = r)
-    | List _ -> Helper.LibCall(com, "List", "equals", t, [ left; right ], ?loc = r)
-    | IEnumerable -> Helper.LibCall(com, "Seq", "equals", t, [ left; right ], ?loc = r)
-    // | MetaType ->
-    //     Helper.LibCall(com, "Reflection", "equals", t, [left; right], ?loc=r)
+    | Array _ -> libCall com r t "Array" "equals" [ left; right ]
+    | List _ -> libCall com r t "List" "equals" [ left; right ]
+    | IEnumerable -> libCall com r t "Seq" "equals" [ left; right ]
+    // System.Type is erased to a boxed reflection object (dyn Any, no PartialEq),
+    // so type-identity equality is compared on the carried TypeId at runtime.
+    | MetaType -> libCall com r t "Reflection" "typeEquals" [ left; right ]
     | HasReferenceEquality com _ -> referenceEquals com ctx r left right
     | Nullable _ ->
         // transforms null checks into option tests
@@ -500,7 +531,7 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         | Value(NewOption(None, _, _), _), expr -> Test(expr, OptionTest false, r)
         | _ -> makeEqOp r left right BinaryEqual
     | _ ->
-        // Helper.LibCall(com, "Native", "equals", t, [left; right], ?loc=r)
+        // libCall com r t "Native" "equals" [ left; right ]
         makeEqOp r left right BinaryEqual
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
@@ -512,12 +543,12 @@ let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _
-    | Builtin(FSharpChoice _ | FSharpResult _) -> Helper.LibCall(com, "Native", "compare", t, [ left; right ], ?loc = r)
-    | Builtin kind -> Helper.LibCall(com, coreModFor kind, "compareTo", t, [ left; right ], ?loc = r)
-    | Array _ -> Helper.LibCall(com, "Array", "compareTo", t, [ left; right ], ?loc = r)
-    | List _ -> Helper.LibCall(com, "List", "compareTo", t, [ left; right ], ?loc = r)
-    | IEnumerable -> Helper.LibCall(com, "Seq", "compareTo", t, [ left; right ], ?loc = r)
-    | _ -> Helper.LibCall(com, "Native", "compare", t, [ left; right ], ?loc = r)
+    | Builtin(FSharpChoice _ | FSharpResult _) -> libCall com r t "Native" "compare" [ left; right ]
+    | Builtin kind -> libCall com r t (coreModFor kind) "compareTo" [ left; right ]
+    | Array _ -> libCall com r t "Array" "compareTo" [ left; right ]
+    | List _ -> libCall com r t "List" "compareTo" [ left; right ]
+    | IEnumerable -> libCall com r t "Seq" "compareTo" [ left; right ]
+    | _ -> libCall com r t "Native" "compare" [ left; right ]
 
 /// Boolean comparison operators like <, >, <=, >=
 let booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -596,7 +627,7 @@ let makeSet (com: ICompiler) ctx r t args genArg =
         | [ ExprType(Array _) ] -> "ofArray"
         | _ -> "ofSeq"
 
-    Helper.LibCall(com, "Set", meth, t, args, ?loc = r)
+    libCall com r t "Set" meth args
 
 /// Adds comparer as last argument for map creator methods
 let makeMap (com: ICompiler) ctx r t args genArg =
@@ -608,7 +639,7 @@ let makeMap (com: ICompiler) ctx r t args genArg =
         | [ ExprType(Array _) ] -> "ofArray"
         | _ -> "ofSeq"
 
-    Helper.LibCall(com, "Map", Naming.lowerFirst meth, t, args, ?loc = r)
+    libCall com r t "Map" (Naming.lowerFirst meth) args
 
 // let makeDictionaryWithComparer com r t sourceSeq comparer =
 //     Helper.LibCall(com, "MutableMap", "Dictionary", t, [sourceSeq; comparer], isConstructor=true, ?loc=r)
@@ -632,30 +663,31 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Nullable(genArg, true) -> NewOption(None, genArg, false) |> makeValue None
     | Nullable(genArg, false) -> Null t |> makeValue None
     | Boolean -> makeBoolConst false
-    | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "zero", t, [])
-    | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "Zero", t)
+    | Number(BigInt, _) -> libCall com None t "BigInt" "zero" []
+    | Number(Decimal, _) -> libValue com None t "Decimal" "Zero" []
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> Null t |> makeValue None
     | Array(typ, _) -> makeArray typ []
     | List genArg -> NewList(None, genArg) |> makeValue None
-    | Builtin BclDateTime -> Helper.LibCall(com, "DateTime", "zero", t, [])
-    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "zero", t, [])
-    | Builtin BclDateOnly -> Helper.LibCall(com, "DateOnly", "zero", t, [])
-    | Builtin BclTimeOnly -> Helper.LibCall(com, "TimeOnly", "zero", t, [])
-    | Builtin BclTimeSpan -> Helper.LibValue(com, "TimeSpan", "zero", t)
+    | Builtin BclDateTime -> libCall com None t "DateTime" "zero" []
+    | Builtin BclDateTimeOffset -> libCall com None t "DateTimeOffset" "zero" []
+    | Builtin BclDateOnly -> libCall com None t "DateOnly" "zero" []
+    | Builtin BclTimeOnly -> libCall com None t "TimeOnly" "zero" []
+    | Builtin BclRune -> libCall com None t "Rune" "zero" []
+    | Builtin BclTimeSpan -> libValue com None t "TimeSpan" "zero" []
     | Builtin(FSharpSet genArg) -> makeSet com ctx None t [] genArg
-    | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
+    | Builtin BclGuid -> libValue com None t "Guid" "empty" []
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     // | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | IsReferenceType com _ -> Null t |> makeValue None
-    | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
+    | _ -> libCall com None t "Native" "getZero" []
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
-    | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "one", t, [])
-    | Number(Decimal, _) -> Helper.LibValue(com, "Decimal", "One", t)
+    | Number(BigInt, _) -> libCall com None t "BigInt" "one" []
+    | Number(Decimal, _) -> libValue com None t "Decimal" "One" []
     | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
     // | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
     | _ -> makeIntConst 1
@@ -722,16 +754,16 @@ let makeAddFunction (com: ICompiler) ctx t =
 //         | Some injectInfo -> injectArgInner args injectInfo
 
 let tryOp com r t op args =
-    Helper.LibCall(com, "Option", "tryOp", t, op :: args, ?loc = r)
+    libCall com r t "Option" "tryOp" (op :: args)
 
 let tryCoreOp com r t coreModule coreMember args =
-    let op = Helper.LibValue(com, coreModule, coreMember, Any)
+    let op = libValue com r Any coreModule coreMember []
     tryOp com r t op args
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
-    | "Fable.Core.Reflection", meth -> Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r) |> Some
+    | "Fable.Core.Reflection", meth -> libCall com r t "Reflection" meth args |> Some
     | "Fable.Core.Compiler", meth ->
         match meth with
         | "version" -> makeStrConst Literals.VERSION |> Some
@@ -772,8 +804,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Value", Some callee, _ -> getRefCell com r t callee |> Some
-    | "set_Value", Some callee, [ value ] -> setRefCell com r callee value |> Some
+    | "get_Value", Some c, _ -> getRefCell com r t c |> Some
+    | "set_Value", Some c, [ value ] -> setRefCell com r c value |> Some
     | _ -> None
 
 let getMemberName isStatic (i: CallInfo) =
@@ -809,9 +841,9 @@ let getModuleAndMemberName (i: CallInfo) (thisArg: Expr option) =
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
-    | Some callee ->
+    | Some c ->
         let memberName = getMemberName false i
-        makeInstanceCall r t i callee memberName args |> Some
+        makeInstanceCall r t i c memberName args |> Some
     | None ->
         let moduleName, memberName = getModuleAndMemberName i thisArg
         makeStaticLibCall com r t i moduleName memberName args |> Some
@@ -819,8 +851,7 @@ let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName, memberName = getModuleAndMemberName i thisArg
 
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc = r)
-    |> Some
+    makeLibCall com r t i moduleName memberName args |> Some
 
 // Maps a .NET standard numeric format specifier (e.g. "X4", "D5", "F2") to a
 // Rust format spec body { flags; width; precision; type } so it can be merged
@@ -987,7 +1018,7 @@ let makeRustFormatString interpolated (fmt: string) =
     rustFmt, argCount
 
 let makeRustFormatExpr com r t (fmt: string) args macro =
-    let macroExpr = Helper.LibValue(com, "String", macro, Any)
+    let macroExpr = libValue com r Any "String" macro []
     let rustFmt, argCount = makeRustFormatString false fmt
     let argCount = argCount + 1 + (List.length args) // +1 is for fmt
     let applied = Extended(Curry(macroExpr, argCount), r)
@@ -996,8 +1027,8 @@ let makeRustFormatExpr com r t (fmt: string) args macro =
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // | "get_Value", Some callee, _ ->
-    //     callee |> Some //TODO:
+    // | "get_Value", Some c, _ ->
+    //     c |> Some // TODO:
     | ("PrintFormatToString" | "PrintFormatToStringThen"), None, [ StringConst fmt ] ->
         "sprintf!" |> makeRustFormatExpr com r t fmt [] |> Some
     | ("PrintFormatToString" | "PrintFormatToStringThen"), None, [ MaybeCasted(template) ] -> template |> Some
@@ -1022,16 +1053,16 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         "failwithf!" |> makeRustFormatExpr com r t fmt [] |> Some
     | "PrintFormatToStringThenFail", None, _ -> "failwithf!" |> emitFormat com r t args |> Some
     | "PrintFormatToStringBuilder", None, [ sb; StringConst fmt ] ->
-        let cont = Helper.LibCall(com, "Util", "bprintf", t, [ sb ])
+        let cont = libCall com r t "Util" "bprintf" [ sb ]
         "kprintf!" |> makeRustFormatExpr com r t fmt [ cont ] |> Some
     | "PrintFormatToStringBuilder", None, [ sb; MaybeCasted(template) ] ->
-        let cont = Helper.LibCall(com, "Util", "bprintf", t, [ sb ])
+        let cont = libCall com r t "Util" "bprintf" [ sb ]
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | "PrintFormatToStringBuilderThen", None, [ cont; sb; StringConst fmt ] ->
-        let cont = Helper.LibCall(com, "Util", "kbprintf", t, [ cont; sb ])
+        let cont = libCall com r t "Util" "kbprintf" [ cont; sb ]
         "kprintf!" |> makeRustFormatExpr com r t fmt [ cont ] |> Some
     | "PrintFormatToStringBuilderThen", None, [ cont; sb; MaybeCasted(template) ] ->
-        let cont = Helper.LibCall(com, "Util", "kbprintf", t, [ cont; sb ])
+        let cont = libCall com r t "Util" "kbprintf" [ cont; sb ]
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | ".ctor", _, (StringConst fmt) :: (Value(NewArray(ArrayValues templateArgs, _, _), _)) :: _ ->
         let rustFmt, _argCount = makeRustFormatString true fmt
@@ -1055,9 +1086,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match opt with
             | Some value -> Some value
             | None -> Some defValue
-        | _ ->
-            Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
+        | _ -> makeLibCall com r t i "Option" "defaultArg" args |> Some
     | "DefaultAsyncBuilder", _ -> makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
     // Rust compiles KeyValuePair as a struct tuple, but the KeyValue active pattern expects a regular tuple.
@@ -1078,8 +1107,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [ xs ] -> toSeq com t xs |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] ->
-        Helper.LibCall(com, "HashMap", "new_from_tuple_array", t, [ toArray com t arg ])
-        |> Some
+        libCall com r t "HashMap" "new_from_tuple_array" [ toArray com t arg ] |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t args |> Some
     // Ranges
     | ("op_Range" | "op_RangeStep"), _ ->
@@ -1095,8 +1123,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             | Char -> "rangeChar", args
             | _ -> "rangeNumeric", addStep args
 
-        Helper.LibCall(com, "Range", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Range" meth args |> Some
     // Pipes and composition
     | "op_PipeRight", [ x; f ]
     | "op_PipeLeft", [ f; x ] -> curriedApply r t f [ x ] |> Some
@@ -1110,9 +1137,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // Printf.kbprintf
       _ -> fsFormat com ctx r t i thisArg args
     | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), _ -> fsharpModule com ctx r t i thisArg args
-    | "Lock", _ ->
-        Helper.LibCall(com, "Monitor", "lock", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+    | "Lock", _ -> libCallThis com r t i "Monitor" "lock" thisArg args |> Some
     | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
@@ -1135,12 +1160,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let argTypes = args |> List.map (fun a -> a.Type)
 
         match argTypes with
-        | Number(Decimal, _) :: _ ->
-            Helper.LibCall(com, "Decimal", "pown", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | Number(BigInt, _) :: _ ->
-            Helper.LibCall(com, "BigInt", "pow", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | Number(Decimal, _) :: _ -> libCallThis com r t i "Decimal" "pown" thisArg args |> Some
+        | Number(BigInt, _) :: _ -> libCallThis com r t i "BigInt" "pow" thisArg args |> Some
         | Number((Float32 | Float64), _) :: _ ->
             let meth =
                 if i.CompiledName = "PowInteger" then
@@ -1151,13 +1172,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             math r t args i.SignatureArgTypes meth |> Some
         | CustomOp com ctx r t "Pow" args e -> Some e
         | _ -> math r t args i.SignatureArgTypes "pow" |> Some
-    | ("Ceiling" | "Floor" as meth), _ ->
+    | ("Ceiling" | "Floor") as meth, _ ->
         let meth = Naming.lowerFirst meth
 
         match args with
-        | ExprType(Number(Decimal, _)) :: _ ->
-            Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | ExprType(Number(Decimal, _)) :: _ -> libCallThis com r t i "Decimal" meth thisArg args |> Some
         | _ ->
             let meth =
                 if meth = "ceiling" then
@@ -1169,12 +1188,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Log", [ arg ] -> math r t args i.SignatureArgTypes "ln" |> Some
     | "Abs", _ ->
         match args with
-        | ExprType(Number(Decimal, _)) :: _ ->
-            Helper.LibCall(com, "Decimal", "abs", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | ExprType(Number(BigInt, _)) :: _ ->
-            Helper.LibCall(com, "BigInt", "abs", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | ExprType(Number(Decimal, _)) :: _ -> libCallThis com r t i "Decimal" "abs" thisArg args |> Some
+        | ExprType(Number(BigInt, _)) :: _ -> libCallThis com r t i "BigInt" "abs" thisArg args |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | ("Acos" | "Asin" | "Atan" | "Atan2" | "Cos" | "Cosh" | "Exp" | "Log" | "Log2" | "Log10" | "Sin" | "Sinh" | "Sqrt" | "Tan" | "Tanh"),
       _ ->
@@ -1183,36 +1198,23 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "Round", _ ->
         match args with
-        | [ ExprType(Number(Decimal, _)) ] ->
-            Helper.LibCall(com, "Decimal", "round", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | [ ExprType(Number(Decimal, _)) ] -> libCallThis com r t i "Decimal" "round" thisArg args |> Some
         | [ ExprType(Number(Decimal, _)); ExprType(Number(Int32, _)) ] ->
-            Helper.LibCall(com, "Decimal", "roundTo", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | [ ExprType(Number(Decimal, _)); mode ] ->
-            Helper.LibCall(com, "Decimal", "roundMode", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ ExprType(Number(Decimal, _)); dp; mode ] ->
-            Helper.LibCall(com, "Decimal", "roundToMode", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
+            libCallThis com r t i "Decimal" "roundTo" thisArg args |> Some
+        | [ ExprType(Number(Decimal, _)); mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
+        | [ ExprType(Number(Decimal, _)); dp; mode ] -> makeLibCall com r t i "Decimal" "roundToMode" args |> Some
         | [ ExprTypeAs(Number(Float64, _), arg) ] ->
-            //TODO: other midpoint modes for Double
+            // TODO: other midpoint modes for Double
             makeInstanceCall r t i arg "round" [] |> Some
         | _ -> None
     | "Truncate", [ arg ] ->
         match args with
-        | ExprType(Number(Decimal, _)) :: _ ->
-            Helper.LibCall(com, "Decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | ExprType(Number(Decimal, _)) :: _ -> libCallThis com r t i "Decimal" "truncate" thisArg args |> Some
         | _ -> makeInstanceCall r t i arg "trunc" [] |> Some
     | "Sign", [ arg ] ->
         match args with
-        | ExprType(Number(Decimal, _)) :: _ ->
-            Helper.LibCall(com, "Decimal", "sign", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | ExprType(Number(BigInt, _)) :: _ ->
-            Helper.LibCall(com, "BigInt", "sign", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | ExprType(Number(Decimal, _)) :: _ -> libCallThis com r t i "Decimal" "sign" thisArg args |> Some
+        | ExprType(Number(BigInt, _)) :: _ -> libCallThis com r t i "BigInt" "sign" thisArg args |> Some
         | ExprType(Number((Float16 | Float32 | Float64), _)) :: _ ->
             compare com ctx r arg (getZero com ctx arg.Type) |> Some
         | _ ->
@@ -1220,12 +1222,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             TypeCast(sign, Int32.Number) |> Some
     | "DivRem", _ ->
         match args with
-        | [ x; y ] ->
-            Helper.LibCall(com, "Util", "divRem", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ x; y; rem ] ->
-            Helper.LibCall(com, "Util", "divRemOut", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
+        | [ x; y ] -> makeLibCall com r t i "Util" "divRem" args |> Some
+        | [ x; y; rem ] -> makeLibCall com r t i "Util" "divRemOut" args |> Some
         | _ -> None
     // Numbers
     | "Infinity", _ -> makeGlobalIdent ("f64", "INFINITY", t) |> Some
@@ -1245,9 +1243,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let v = sub (getRefCell com r t arg) (getOne com ctx t)
         setRefCell com r arg v |> Some
     // Concatenates two lists
-    | "op_Append", _ ->
-        Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+    | "op_Append", _ -> libCallThis com r t i "List" "append" thisArg args |> Some
     | "IsNull", [ arg ] -> nullCheck r true arg |> Some
     | "Hash", [ arg ] -> getHashCode com ctx r arg |> Some
     // Comparison
@@ -1255,26 +1251,20 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         applyCompareOp com ctx r t i.CompiledName left right |> Some
     | "Compare", [ left; right ] -> compare com ctx r left right |> Some
     | "Clamp", _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
-    | ("Min" | "Max" as meth), _ ->
+    | ("Min" | "Max") as meth, _ ->
         match args.Head.Type with
         | Boolean
         | Char
         | String
         | Number _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
-        | _ -> Helper.LibCall(com, "Native", Naming.lowerFirst meth, t, args, ?loc = r) |> Some
-    | ("MinMagnitude" | "MaxMagnitude" as meth), _ ->
+        | _ -> libCall com r t "Native" (Naming.lowerFirst meth) args |> Some
+    | ("MinMagnitude" | "MaxMagnitude") as meth, _ ->
         let meth = Naming.lowerFirst meth
 
         match args with
-        | ExprType(Number(Decimal, _)) :: _ ->
-            Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | ExprType(Number(BigInt, _)) :: _ ->
-            Helper.LibCall(com, "BigInt", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | ExprType(Number _) :: _ ->
-            Helper.LibCall(com, "Numeric", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | ExprType(Number(Decimal, _)) :: _ -> libCallThis com r t i "Decimal" meth thisArg args |> Some
+        | ExprType(Number(BigInt, _)) :: _ -> libCallThis com r t i "BigInt" meth thisArg args |> Some
+        | ExprType(Number _) :: _ -> libCallThis com r t i "Numeric" meth thisArg args |> Some
         | _ -> None
     | "Not", [ operand ] -> // TODO: Check custom operator?
         makeUnOp r t operand UnaryNot |> Some
@@ -1298,10 +1288,12 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetHashCode", Some arg, _ -> objectHash com ctx r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
-            "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
-            |> addWarning com ctx.InlinePath r
-
-        makeTypeInfo r arg.Type |> Some
+            // Dynamic type of a boxed value: resolve via the runtime reflection
+            // registry (populated by typeof<T>). Returns the concrete type's info
+            // when registered, else the value as an opaque placeholder.
+            libCall com r t "Reflection" "getTypeFromObj" [ arg ] |> Some
+        else
+            makeTypeInfo r arg.Type |> Some
     | _ -> None
 
 let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1322,42 +1314,36 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | _ -> meth
 
     match i.CompiledName, thisArg, args with
-    | ("IsBetween" as meth), None, _ ->
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("IsAscii" | "IsAsciiDigit" | "IsAsciiLetter" | "IsAsciiLetterLower" | "IsAsciiLetterUpper" | "IsAsciiLetterOrDigit" | "IsAsciiHexDigit" | "IsAsciiHexDigitLower" | "IsAsciiHexDigitUpper" as meth),
+    | ("IsBetween") as meth, None, _ -> makeLibCall com r t i "Char" meth args |> Some
+    | ("IsAscii" | "IsAsciiDigit" | "IsAsciiLetter" | "IsAsciiLetterLower" | "IsAsciiLetterUpper" | "IsAsciiLetterOrDigit" | "IsAsciiHexDigit" | "IsAsciiHexDigitLower" | "IsAsciiHexDigitUpper") as meth,
       None,
-      [ c ] ->
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsUpper" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace" as meth),
+      [ c ] -> makeLibCall com r t i "Char" meth args |> Some
+    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsUpper" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace") as meth,
       None,
       _ ->
         let meth = getMethodName meth args
 
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("GetNumericValue" | "GetUnicodeCategory" | "ConvertToUtf32" as meth), None, _ ->
+        makeLibCall com r t i "Char" meth args |> Some
+    | ("GetNumericValue" | "GetUnicodeCategory" | "ConvertToUtf32") as meth, None, _ ->
         let meth = getMethodName meth args
 
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Char" meth args |> Some
     | "ToString", None, [ ExprType(Char) ] -> toString com ctx r args |> Some
     | "ToString", Some c, [] -> toString com ctx r [ c ] |> Some
-    | ("ConvertFromUtf32" | "ToLower" | "ToLowerInvariant" | "ToUpper" | "ToUpperInvariant" as meth), None, [ c ] ->
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("TryParse" | "Parse" as meth), None, _ ->
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("IsSurrogate" | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogatePair" as meth), None, _ ->
+    | "ToString", Some c, [ _ ] -> toString com ctx r [ c ] |> Some
+    | ("ToLower" | "ToUpper") as meth, None, [ c; ExprType(DeclaredType(ent, _)) ] when ent.FullName = Types.cultureInfo ->
+        makeLibCall com r t i "Char" meth [ c ] |> Some
+    | ("ConvertFromUtf32" | "ToLower" | "ToLowerInvariant" | "ToUpper" | "ToUpperInvariant") as meth, None, [ c ] ->
+        makeLibCall com r t i "Char" meth args |> Some
+    | "GetTypeCode", Some c, [] -> makeLibCall com r t i "Char" "GetTypeCode" [ c ] |> Some
+    | ("TryParse" | "Parse") as meth, None, _ -> makeLibCall com r t i "Char" meth args |> Some
+    | ("IsSurrogate" | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogatePair") as meth, None, _ ->
         $"Rust chars are Unicode scalar values, so surrogate tests will be false."
         |> addWarning com ctx.InlinePath r
 
         let meth = getMethodName meth args
 
-        Helper.LibCall(com, "Char", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Char" meth args |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _, _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
@@ -1369,21 +1355,21 @@ let getEnumerator com r t i (expr: Expr) =
     // | IsEntity (Types.regexMatchCollection) _
     // | IsEntity (Types.regexGroupCollection) _
     // | IsEntity (Types.regexCaptureCollection) _
-    | Array _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ expr ], ?loc = r)
-    | List _ -> Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [ expr ], ?loc = r)
+    | Array _ -> libCall com r t "Seq" "Enumerable::ofArray" [ expr ]
+    | List _ -> libCall com r t "Seq" "Enumerable::ofList" [ expr ]
+    | String ->
+        let en = toSeq com Any expr
+        makeInstanceCall r t i en "GetEnumerator" []
     | IsEntity (Types.hashset) _
     | IsEntity (Types.iset) _ ->
-        let ar = Helper.LibCall(com, "HashSet", "entries", t, [ expr ])
-        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r)
+        let ar = libCall com r t "HashSet" "entries" [ expr ]
+        libCall com r t "Seq" "Enumerable::ofArray" [ ar ]
     | IsEntity (Types.dictionary) _
     | IsEntity (Types.idictionary) _
     | IsEntity (Types.ireadonlydictionary) _ ->
-        let ar = Helper.LibCall(com, "HashMap", "entries", t, [ expr ], [ expr.Type ])
-
-        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r)
-    | _ ->
-        // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq com Any expr], ?loc=r)
-        makeInstanceCall r t i expr "GetEnumerator" []
+        let ar = libCallTyped com r t "HashMap" "entries" [ expr ] [ expr.Type ]
+        libCall com r t "Seq" "Enumerable::ofArray" [ ar ]
+    | _ -> makeInstanceCall r t i expr "GetEnumerator" []
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let isIgnoreCase args =
@@ -1399,89 +1385,80 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
         match i.SignatureArgTypes with
-        | [ Char; Number(Int32, _) ] -> Helper.LibCall(com, "String", "fromChar", t, args, ?loc = r) |> Some
-        | [ MaybeNullable(Array(Char, _)) ] -> Helper.LibCall(com, "String", "fromChars", t, args, ?loc = r) |> Some
+        | [ Char; Number(Int32, _) ] -> libCall com r t "String" "fromChar" args |> Some
+        | [ MaybeNullable(Array(Char, _)) ] -> libCall com r t "String" "fromChars" args |> Some
         | [ MaybeNullable(Array(Char, _)); Number(Int32, _); Number(Int32, _) ] ->
-            Helper.LibCall(com, "String", "fromChars2", t, args, ?loc = r) |> Some
+            libCall com r t "String" "fromChars2" args |> Some
         | _ -> None
-    | "get_Length", Some c, _ -> Helper.LibCall(com, "String", "length", t, c :: args, ?loc = r) |> Some
-    | "get_Chars", Some c, _ -> Helper.LibCall(com, "String", "getCharAt", t, c :: args, ?loc = r) |> Some
+    | "get_Length", Some c, _ -> libCall com r t "String" "length" (c :: args) |> Some
+    | "get_Chars", Some c, _ -> libCall com r t "String" "getCharAt" (c :: args) |> Some
+    | "EnumerateRunes", Some c, _ -> libCall com r t "String" "enumerateRunes" [ c ] |> Some
     | "CompareOrdinal", None, _ ->
         match args with
-        | [ ExprType String; ExprType String ] ->
-            Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
+        | [ ExprType String; ExprType String ] -> libCall com r t "String" "compareOrdinal" args |> Some
         | [ ExprType String
             ExprType(Number(Int32, _))
             ExprType String
             ExprType(Number(Int32, _))
-            ExprType(Number(Int32, _)) ] -> Helper.LibCall(com, "String", "compareOrdinal2", t, args, ?loc = r) |> Some
+            ExprType(Number(Int32, _)) ] -> libCall com r t "String" "compareOrdinal2" args |> Some
         | _ -> None
     | "CompareTo", Some c, [ ExprTypeAs(String, arg) ] ->
         $"String.CompareTo will be compiled as String.CompareOrdinal"
         |> addWarning com ctx.InlinePath r
 
-        Helper.LibCall(com, "String", "compareOrdinal", t, [ c; arg ], ?loc = r) |> Some
+        libCall com r t "String" "compareOrdinal" [ c; arg ] |> Some
     | "Compare", None, _ ->
         $"String.Compare will be compiled as String.CompareOrdinal"
         |> addWarning com ctx.InlinePath r
 
         match args with
-        | [ ExprType String; ExprType String ] ->
-            Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
+        | [ ExprType String; ExprType String ] -> libCall com r t "String" "compareOrdinal" args |> Some
         | ExprType String :: ExprType String :: ExprType Boolean :: restArgs ->
-            Helper.LibCall(com, "String", "compareCase", t, args, ?loc = r) |> Some
-        | [ ExprType String; ExprType String; comparison ] ->
-            Helper.LibCall(com, "String", "compareWith", t, args, ?loc = r) |> Some
+            libCall com r t "String" "compareCase" args |> Some
+        | [ ExprType String; ExprType String; comparison ] -> libCall com r t "String" "compareWith" args |> Some
         | [ ExprType String
             ExprType(Number(Int32, _))
             ExprType String
             ExprType(Number(Int32, _))
-            ExprType(Number(Int32, _)) ] -> Helper.LibCall(com, "String", "compareOrdinal2", t, args, ?loc = r) |> Some
+            ExprType(Number(Int32, _)) ] -> libCall com r t "String" "compareOrdinal2" args |> Some
         | ExprType String :: ExprType(Number(Int32, _)) :: ExprType String :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
                                                                                                                             _)) :: ExprType Boolean :: restArgs ->
-            Helper.LibCall(com, "String", "compareCase2", t, args, ?loc = r) |> Some
+            libCall com r t "String" "compareCase2" args |> Some
         | ExprType String :: ExprType(Number(Int32, _)) :: ExprType String :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
                                                                                                                             _)) :: comparison :: restArgs ->
-            Helper.LibCall(com, "String", "compareWith2", t, args, ?loc = r) |> Some
+            libCall com r t "String" "compareWith2" args |> Some
         | _ -> None
     | "Concat", None, _ ->
         match args with
-        | [ ExprTypeAs(IEnumerable, arg) ] ->
-            Helper.LibCall(com, "String", "concat", t, [ toArray com t arg ], ?loc = r)
-            |> Some
+        | [ ExprTypeAs(IEnumerable, arg) ] -> libCall com r t "String" "concat" [ toArray com t arg ] |> Some
         | [ ExprType String; ExprType String ]
         | [ ExprType String; ExprType String; ExprType String ]
         | [ ExprType String; ExprType String; ExprType String; ExprType String ] ->
-            Helper.LibCall(com, "String", "concat", t, [ makeArray String args ], ?loc = r)
-            |> Some
-        | [ ExprType(Array(String, _)) ] -> Helper.LibCall(com, "String", "concat", t, args, ?loc = r) |> Some
+            libCall com r t "String" "concat" [ makeArray String args ] |> Some
+        | [ ExprType(Array(String, _)) ] -> libCall com r t "String" "concat" args |> Some
         | _ -> None
     | "Contains", Some c, _ ->
         match args with
-        | [ ExprType Char ] -> Helper.LibCall(com, "String", "containsChar", t, c :: args, ?loc = r) |> Some
-        | [ ExprType Char; _comparison ] ->
-            Helper.LibCall(com, "String", "containsChar2", t, c :: args, ?loc = r) |> Some
-        | [ ExprType String ] -> Helper.LibCall(com, "String", "contains", t, c :: args, ?loc = r) |> Some
-        | [ ExprType String; _comparison ] -> Helper.LibCall(com, "String", "contains2", t, c :: args, ?loc = r) |> Some
+        | [ ExprType Char ] -> libCall com r t "String" "containsChar" (c :: args) |> Some
+        | [ ExprType Char; _comparison ] -> libCall com r t "String" "containsChar2" (c :: args) |> Some
+        | [ ExprType String ] -> libCall com r t "String" "contains" (c :: args) |> Some
+        | [ ExprType String; _comparison ] -> libCall com r t "String" "contains2" (c :: args) |> Some
         | _ -> None
     | "EndsWith", Some c, _ ->
         match args with
-        | [ ExprType Char ] -> Helper.LibCall(com, "String", "endsWithChar", t, c :: args, ?loc = r) |> Some
-        | [ ExprType String ] -> Helper.LibCall(com, "String", "endsWith", t, c :: args, ?loc = r) |> Some
-        | [ ExprType String; _comparison ] -> Helper.LibCall(com, "String", "endsWith2", t, c :: args, ?loc = r) |> Some
-        | [ pattern; ignoreCase; _culture ] ->
-            Helper.LibCall(com, "String", "endsWith3", t, [ c; pattern; ignoreCase ], ?loc = r)
-            |> Some
+        | [ ExprType Char ] -> libCall com r t "String" "endsWithChar" (c :: args) |> Some
+        | [ ExprType String ] -> libCall com r t "String" "endsWith" (c :: args) |> Some
+        | [ ExprType String; _comparison ] -> libCall com r t "String" "endsWith2" (c :: args) |> Some
+        | [ pattern; ignoreCase; _culture ] -> libCall com r t "String" "endsWith3" [ c; pattern; ignoreCase ] |> Some
         | _ -> None
     | "Equals", _, _ ->
         match thisArg, args with
         | Some x, [ ExprTypeAs(String, y) ]
         | None, [ ExprTypeAs(String, x); ExprTypeAs(String, y) ] ->
-            Helper.LibCall(com, "String", "equalsOrdinal", t, [ x; y ], ?loc = r) |> Some
+            libCall com r t "String" "equalsOrdinal" [ x; y ] |> Some
         | Some x, [ ExprTypeAs(String, y); comparison ]
         | None, [ ExprTypeAs(String, x); ExprTypeAs(String, y); comparison ] ->
-            Helper.LibCall(com, "String", "equals2", t, [ x; y; comparison ], ?loc = r)
-            |> Some
+            libCall com r t "String" "equals2" [ x; y; comparison ] |> Some
         | _ -> None
     | "Format", None, _ ->
         match args with
@@ -1511,18 +1488,18 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | Some suffix ->
             let methName = (Naming.lowerFirst i.CompiledName) + suffix
 
-            Helper.LibCall(com, "String", methName, t, c :: args, ?loc = r) |> Some
+            libCall com r t "String" methName (c :: args) |> Some
         | _ -> None
-    | "Insert", Some c, _ -> Helper.LibCall(com, "String", "insert", t, c :: args, ?loc = r) |> Some
-    | "IsNullOrEmpty", None, _ -> Helper.LibCall(com, "String", "isNullOrEmpty", t, args, ?loc = r) |> Some
-    | "IsNullOrWhiteSpace", None, _ -> Helper.LibCall(com, "String", "isNullOrWhitespace", t, args, ?loc = r) |> Some
+    | "Insert", Some c, _ -> libCall com r t "String" "insert" (c :: args) |> Some
+    | "IsNullOrEmpty", None, _ -> libCall com r t "String" "isNullOrEmpty" args |> Some
+    | "IsNullOrWhiteSpace", None, _ -> libCall com r t "String" "isNullOrWhitespace" args |> Some
     | "Join", None, _ ->
         let args =
             match args with
             | [ ExprTypeAs(String, sep); ExprTypeAs(IEnumerable, arg) ] -> [ sep; toArray com t arg ]
             | [ ExprTypeAs(String, sep); ExprTypeAs(Array(String, _), arg) ] -> [ sep; arg ]
             | [ ExprTypeAs(Char, sep); ExprTypeAs(Array(String, _), arg) ] ->
-                let sep = Helper.LibCall(com, "String", "ofChar", String, [ sep ])
+                let sep = libCall com r String "String" "ofChar" [ sep ]
 
                 [ sep; arg ]
             | [ ExprTypeAs(String, sep)
@@ -1530,23 +1507,23 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 ExprTypeAs(Number(Int32, _), idx)
                 ExprTypeAs(Number(Int32, _), cnt) ] ->
                 let arg =
-                    Helper.LibCall(com, "Array", "getSubArray", Array(String, MutableArray), [ arg; idx; cnt ])
+                    libCall com r (Array(String, MutableArray)) "Array" "getSubArray" [ arg; idx; cnt ]
 
                 [ sep; arg ]
             | [ ExprTypeAs(Char, sep)
                 ExprTypeAs(Array(String, _), arg)
                 ExprTypeAs(Number(Int32, _), idx)
                 ExprTypeAs(Number(Int32, _), cnt) ] ->
-                let sep = Helper.LibCall(com, "String", "ofChar", String, [ sep ])
+                let sep = libCall com r String "String" "ofChar" [ sep ]
 
                 let arg =
-                    Helper.LibCall(com, "Array", "getSubArray", Array(String, MutableArray), [ arg; idx; cnt ])
+                    libCall com r (Array(String, MutableArray)) "Array" "getSubArray" [ arg; idx; cnt ]
 
                 [ sep; arg ]
             | _ -> []
 
         if not (List.isEmpty args) then
-            Helper.LibCall(com, "String", "join", t, args, ?loc = r) |> Some
+            libCall com r t "String" "join" args |> Some
         else
             None
     | ("PadLeft" | "PadRight"), Some c, _ ->
@@ -1556,94 +1533,69 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ ExprTypeAs(Number(Int32, _), arg) ] ->
             let ch = makeTypeConst None Char ' '
 
-            Helper.LibCall(com, "String", methName, t, [ c; arg; ch ], ?loc = r) |> Some
-        | [ ExprType(Number(Int32, _)); ExprType Char ] ->
-            Helper.LibCall(com, "String", methName, t, c :: args, ?loc = r) |> Some
+            libCall com r t "String" methName [ c; arg; ch ] |> Some
+        | [ ExprType(Number(Int32, _)); ExprType Char ] -> libCall com r t "String" methName (c :: args) |> Some
         | _ -> None
     | "Remove", Some c, _ ->
         match args with
-        | [ ExprType(Number(Int32, _)) ] -> Helper.LibCall(com, "String", "remove", t, c :: args, ?loc = r) |> Some
+        | [ ExprType(Number(Int32, _)) ] -> makeLibCall com r t i "String" "remove" (c :: args) |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] ->
-            Helper.LibCall(com, "String", "remove2", t, c :: args, ?loc = r) |> Some
+            makeLibCall com r t i "String" "remove2" (c :: args) |> Some
         | _ -> None
     | "Replace", Some c, _ ->
         match args with
-        | [ ExprType String; ExprType String ] ->
-            Helper.LibCall(com, "String", "replace", t, c :: args, ?loc = r) |> Some
-        | [ ExprType Char; ExprType Char ] ->
-            Helper.LibCall(com, "String", "replaceChar", t, c :: args, ?loc = r) |> Some
+        | [ ExprType String; ExprType String ] -> libCall com r t "String" "replace" (c :: args) |> Some
+        | [ ExprType Char; ExprType Char ] -> libCall com r t "String" "replaceChar" (c :: args) |> Some
         | _ -> None
     | "Split", Some c, _ ->
         match args with
         | [] ->
-            Helper.LibCall(com, "String", "split", t, [ c; makeStrConst ""; makeIntConst -1; makeIntConst 0 ], ?loc = r)
+            libCall com r t "String" "split" [ c; makeStrConst ""; makeIntConst -1; makeIntConst 0 ]
             |> Some
 
         | [ ExprTypeAs(String, arg1) ] ->
-            Helper.LibCall(com, "String", "split", t, [ c; arg1; makeIntConst -1; makeIntConst 0 ], ?loc = r)
+            libCall com r t "String" "split" [ c; arg1; makeIntConst -1; makeIntConst 0 ]
             |> Some
         | [ ExprTypeAs(String, arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
-            Helper.LibCall(com, "String", "split", t, [ c; arg1; makeIntConst -1; arg2 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "split" [ c; arg1; makeIntConst -1; arg2 ] |> Some
         | [ ExprTypeAs(String, arg1)
             ExprTypeAs(Number(Int32, _), arg2)
             ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
-            Helper.LibCall(com, "String", "split", t, [ c; arg1; arg2; arg3 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "split" [ c; arg1; arg2; arg3 ] |> Some
 
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _) ] ->
-            Helper.LibCall(com, "String", "split", t, [ c; arg1; makeIntConst -1; makeIntConst 0 ], ?loc = r)
+            libCall com r t "String" "split" [ c; arg1; makeIntConst -1; makeIntConst 0 ]
             |> Some
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
-            Helper.LibCall(com, "String", "split", t, [ c; arg1; makeIntConst -1; arg2 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "split" [ c; arg1; makeIntConst -1; arg2 ] |> Some
         | [ ExprTypeAs(Array(String, _), arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
-            Helper.LibCall(com, "String", "splitStrings", t, [ c; arg1; arg2 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "splitStrings" [ c; arg1; arg2 ] |> Some
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _)
             ExprTypeAs(Number(Int32, _), arg2)
             ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
-            Helper.LibCall(com, "String", "split", t, [ c; arg1; arg2; arg3 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "split" [ c; arg1; arg2; arg3 ] |> Some
 
         | [ ExprTypeAs(Char, arg1) ] ->
-            Helper.LibCall(
-                com,
-                "String",
-                "splitChars",
-                t,
-                [ c; makeArray Char [ arg1 ]; makeIntConst -1; makeIntConst 0 ],
-                ?loc = r
-            )
+            libCall com r t "String" "splitChars" [ c; makeArray Char [ arg1 ]; makeIntConst -1; makeIntConst 0 ]
             |> Some
         | [ ExprTypeAs(Char, arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
-            Helper.LibCall(
-                com,
-                "String",
-                "splitChars",
-                t,
-                [ c; makeArray Char [ arg1 ]; makeIntConst -1; arg2 ],
-                ?loc = r
-            )
+            libCall com r t "String" "splitChars" [ c; makeArray Char [ arg1 ]; makeIntConst -1; arg2 ]
             |> Some
         | [ ExprTypeAs(Char, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
-            Helper.LibCall(com, "String", "splitChars", t, [ c; makeArray Char [ arg1 ]; arg2; arg3 ], ?loc = r)
+            libCall com r t "String" "splitChars" [ c; makeArray Char [ arg1 ]; arg2; arg3 ]
             |> Some
 
         | [ ExprTypeAs(Array(Char, _), arg1) ] ->
-            Helper.LibCall(com, "String", "splitChars", t, [ c; arg1; makeIntConst -1; makeIntConst 0 ], ?loc = r)
+            libCall com r t "String" "splitChars" [ c; arg1; makeIntConst -1; makeIntConst 0 ]
             |> Some
         | [ ExprTypeAs(Array(Char, _), arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
-            Helper.LibCall(com, "String", "splitChars", t, [ c; arg1; makeIntConst -1; arg2 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "splitChars" [ c; arg1; makeIntConst -1; arg2 ] |> Some
         | [ ExprTypeAs(Array(Char, _), arg1); ExprTypeAs(Number(Int32, _), arg2) ] ->
-            Helper.LibCall(com, "String", "splitChars", t, [ c; arg1; arg2; makeIntConst 0 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "splitChars" [ c; arg1; arg2; makeIntConst 0 ] |> Some
         | [ ExprTypeAs(Array(Char, _), arg1)
             ExprTypeAs(Number(Int32, _), arg2)
             ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
-            Helper.LibCall(com, "String", "splitChars", t, [ c; arg1; arg2; arg3 ], ?loc = r)
-            |> Some
+            libCall com r t "String" "splitChars" [ c; arg1; arg2; arg3 ] |> Some
 
         // Remaining gap: the count-bearing string[] overload Split(string[], int, options)
         // for multi-element / non-literal arrays. splitStrings has no count parameter, and a
@@ -1652,50 +1604,39 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ -> None
     | "StartsWith", Some c, _ ->
         match args with
-        | [ ExprType Char ] -> Helper.LibCall(com, "String", "startsWithChar", t, c :: args, ?loc = r) |> Some
-        | [ ExprType String ] -> Helper.LibCall(com, "String", "startsWith", t, c :: args, ?loc = r) |> Some
-        | [ ExprType String; _comparison ] ->
-            Helper.LibCall(com, "String", "startsWith2", t, c :: args, ?loc = r) |> Some
-        | [ pattern; ignoreCase; _culture ] ->
-            Helper.LibCall(com, "String", "startsWith3", t, [ c; pattern; ignoreCase ], ?loc = r)
-            |> Some
+        | [ ExprType Char ] -> libCall com r t "String" "startsWithChar" (c :: args) |> Some
+        | [ ExprType String ] -> libCall com r t "String" "startsWith" (c :: args) |> Some
+        | [ ExprType String; _comparison ] -> libCall com r t "String" "startsWith2" (c :: args) |> Some
+        | [ pattern; ignoreCase; _culture ] -> libCall com r t "String" "startsWith3" [ c; pattern; ignoreCase ] |> Some
         | _ -> None
     | "Substring", Some c, _ ->
         match args with
-        | [ ExprType(Number(Int32, _)) ] -> Helper.LibCall(com, "String", "substring", t, c :: args, ?loc = r) |> Some
+        | [ ExprType(Number(Int32, _)) ] -> makeLibCall com r t i "String" "substring" (c :: args) |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] ->
-            Helper.LibCall(com, "String", "substring2", t, c :: args, ?loc = r) |> Some
+            makeLibCall com r t i "String" "substring2" (c :: args) |> Some
         | _ -> None
     | "ToCharArray", Some c, _ ->
         match args with
-        | [] -> Helper.LibCall(com, "String", "toCharArray", t, c :: args, ?loc = r) |> Some
+        | [] -> makeLibCall com r t i "String" "toCharArray" (c :: args) |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] ->
-            Helper.LibCall(com, "String", "toCharArray2", t, c :: args, ?loc = r) |> Some
+            makeLibCall com r t i "String" "toCharArray2" (c :: args) |> Some
         | _ -> None
-    | ("ToLower" | "ToLowerInvariant"), Some c, args ->
-        Helper.LibCall(com, "String", "toLower", t, c :: args, ?loc = r) |> Some
-    | ("ToUpper" | "ToUpperInvariant"), Some c, args ->
-        Helper.LibCall(com, "String", "toUpper", t, c :: args, ?loc = r) |> Some
+    | ("ToLower" | "ToLowerInvariant"), Some c, args -> libCall com r t "String" "toLower" (c :: args) |> Some
+    | ("ToUpper" | "ToUpperInvariant"), Some c, args -> libCall com r t "String" "toUpper" (c :: args) |> Some
     | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
         let methName = Naming.lowerFirst i.CompiledName
 
         match args with
-        | [] -> Helper.LibCall(com, "String", methName, t, c :: args, ?loc = r) |> Some
-        | [ ExprType Char ] -> Helper.LibCall(com, "String", methName + "Char", t, c :: args, ?loc = r) |> Some
-        | [ ExprType(Array(Char, _)) ] ->
-            Helper.LibCall(com, "String", methName + "Chars", t, c :: args, ?loc = r)
-            |> Some
+        | [] -> libCall com r t "String" methName (c :: args) |> Some
+        | [ ExprType Char ] -> libCall com r t "String" (methName + "Char") (c :: args) |> Some
+        | [ ExprType(Array(Char, _)) ] -> libCall com r t "String" (methName + "Chars") (c :: args) |> Some
         | _ -> None
     | _ -> None
 
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Concat", [ sep; arg ] ->
-        Helper.LibCall(com, "String", "join", t, [ sep; toArray com t arg ], ?loc = r)
-        |> Some
-    | meth, args ->
-        Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "Concat", [ sep; arg ] -> libCall com r t "String" "join" [ sep; toArray com t arg ] |> Some
+    | meth, args -> makeLibCall com r t i "String" (Naming.lowerFirst meth) args |> Some
 
 let stringBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1704,14 +1645,14 @@ let stringBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Ex
         | (ExprType String :: _) ->
             let s = "sprintf!" |> emitFormat com None String args
 
-            Helper.LibCall(com, "Util", "sb_Append", t, [ sb; s ], ?loc = r) |> Some
+            libCall com r t "Util" "sb_Append" [ sb; s ] |> Some
         | (cultureInfo :: restArgs) ->
             $"StringBuilder.AppendFormat(): Format provider argument is ignored"
             |> addWarning com ctx.InlinePath r
 
             let s = "sprintf!" |> emitFormat com None String restArgs
 
-            Helper.LibCall(com, "Util", "sb_Append", t, [ sb; s ], ?loc = r) |> Some
+            libCall com r t "Util" "sb_Append" [ sb; s ] |> Some
         | _ -> None
     | _ -> bclType com ctx r t i thisArg args
 
@@ -1736,7 +1677,7 @@ let formattableString
 
         let tag =
             if not hasFormat then
-                Helper.LibValue(com, "String", "fmt", Any) |> Some
+                libValue com r Any "String" "fmt" [] |> Some
             else
                 let fmtArg =
                     matches
@@ -1744,7 +1685,7 @@ let formattableString
                     |> Array.toList
                     |> makeArray String
 
-                Helper.LibCall(com, "String", "fmtWith", Any, [ fmtArg ]) |> Some
+                libCall com r Any "String" "fmtWith" [ fmtArg ] |> Some
 
         let holes =
             matches
@@ -1758,7 +1699,7 @@ let formattableString
         let template = makeStringTemplate tag str holes args |> makeValue r
         // Use a type cast to keep the FormattableString type
         TypeCast(template, t) |> Some
-    | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [ x ], ?loc = r) |> Some
+    | "get_Format", Some x, _ -> libCall com r t "String" "getFormat" [ x ] |> Some
     | "get_ArgumentCount", Some x, _ -> getFieldWith r t (getField x "args") "length" |> Some
     | "GetArgument", Some x, [ idx ] -> getExpr r t (getField x "args") idx |> Some
     | "GetArguments", Some x, [] -> getFieldWith r t x "args" |> Some
@@ -1767,58 +1708,45 @@ let formattableString
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     // | "ToArray", [arg] ->
-    //     Helper.LibCall(com, "Array", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "ToList", [ arg ] ->
-        Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    //     makeLibCall com r t i "Array" "ofSeq" args |> Some
+    | "ToList", [ arg ] -> makeLibCall com r t i "List" "ofSeq" args |> Some
     | "CreateEvent", [ addHandler; removeHandler; createHandler ] ->
-        Helper.LibCall(com, "Event", "createEvent", t, [ addHandler; removeHandler ], i.SignatureArgTypes, ?loc = r)
+        makeLibCall com r t i "Event" "createEvent" [ addHandler; removeHandler ]
         |> Some
-    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy") as meth, args ->
         let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+        makeLibCall com r t i "Seq" meth args |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+        libCallThis com r t i "Seq" meth thisArg args |> Some
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, [] -> Helper.LibCall(com, "NativeArray", "new_empty", t, args, ?loc = r) |> Some
-    | ".ctor", _, [ ExprType(Number(Int32, _)) ] ->
-        Helper.LibCall(com, "NativeArray", "new_with_capacity", t, args, ?loc = r)
-        |> Some
-    | ".ctor", _, [ ExprType(IEnumerable) ] ->
-        Helper.LibCall(com, "NativeArray", "new_from_enumerable", t, args, ?loc = r)
-        |> Some
+    | ".ctor", _, [] -> libCall com r t "NativeArray" "new_empty" args |> Some
+    | ".ctor", _, [ ExprType(Number(Int32, _)) ] -> libCall com r t "NativeArray" "new_with_capacity" args |> Some
+    | ".ctor", _, [ ExprType(IEnumerable) ] -> libCall com r t "NativeArray" "new_from_enumerable" args |> Some
     | ".ctor", _, [ arg ] -> toArray com t arg |> Some
-    | "get_Capacity", Some ar, _ -> Helper.LibCall(com, "NativeArray", "get_Capacity", t, [ ar ], ?loc = r) |> Some
-    | "get_Count", Some ar, _ -> Helper.LibCall(com, "NativeArray", "get_Count", t, [ ar ], ?loc = r) |> Some
+    | "get_Capacity", Some ar, _ -> libCall com r t "NativeArray" "get_Capacity" [ ar ] |> Some
+    | "get_Count", Some ar, _ -> libCall com r t "NativeArray" "get_Count" [ ar ] |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
-    | "GetEnumerator", Some(MaybeCasted(ar)), _ ->
-        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
+    | "GetEnumerator", Some(MaybeCasted(ar)), _ -> libCall com r t "Seq" "Enumerable::ofArray" [ ar ] |> Some
     | ("Add" | "AddRange" | "Clear" | "Contains" | "ConvertAll" | "Exists" | "GetRange" | "Slice" | "ForEach" | "FindAll" | "Find" | "FindLast" | "FindIndex" | "FindLastIndex" | "Insert" | "InsertRange" | "Remove" | "RemoveAt" | "RemoveAll" | "RemoveRange" | "ToArray" | "TrimExcess" | "TrueForAll") as meth,
       Some ar,
       args ->
         // methods without overrides
         let meth = Naming.lowerFirst meth
-        Helper.LibCall(com, "NativeArray", meth, t, (ar :: args), ?loc = r) |> Some
+        libCall com r t "NativeArray" meth (ar :: args) |> Some
     | ("BinarySearch" | "CopyTo" | "IndexOf" | "LastIndexOf" | "Reverse") as meth, Some ar, args ->
         // methods with some overrides
         let meth = meth |> toLowerFirstWithArgsCountSuffix (ar :: args)
-        Helper.LibCall(com, "NativeArray", meth, t, (ar :: args), ?loc = r) |> Some
-    | "Sort", Some ar, [] -> Helper.LibCall(com, "NativeArray", "sort", t, (ar :: args), ?loc = r) |> Some
-    | "Sort", Some ar, [ ExprType(DelegateType _) ] ->
-        Helper.LibCall(com, "NativeArray", "sortBy", t, (ar :: args), ?loc = r) |> Some
-    | "Sort", Some ar, [ comparer ] ->
-        Helper.LibCall(com, "NativeArray", "sortWith", t, (ar :: args), ?loc = r)
-        |> Some
-    | "Sort", Some ar, [ index; count; comparer ] ->
-        Helper.LibCall(com, "NativeArray", "sortWith2", t, (ar :: args), ?loc = r)
-        |> Some
+        libCall com r t "NativeArray" meth (ar :: args) |> Some
+    | "Sort", Some ar, [] -> libCall com r t "NativeArray" "sort" (ar :: args) |> Some
+    | "Sort", Some ar, [ ExprType(DelegateType _) ] -> libCall com r t "NativeArray" "sortBy" (ar :: args) |> Some
+    | "Sort", Some ar, [ comparer ] -> libCall com r t "NativeArray" "sortWith" (ar :: args) |> Some
+    | "Sort", Some ar, [ index; count; comparer ] -> libCall com r t "NativeArray" "sortWith2" (ar :: args) |> Some
     | _ -> None
 
 let collectionExtensions
@@ -1831,12 +1759,8 @@ let collectionExtensions
     (args: Expr list)
     =
     match i.CompiledName, thisArg, args with
-    | "AddRange", None, [ ar; arg ] ->
-        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], ?loc = r)
-        |> Some
-    | "InsertRange", None, [ ar; idx; arg ] ->
-        Helper.LibCall(com, "Array", "insertRangeInPlace", t, [ idx; arg; ar ], ?loc = r)
-        |> Some
+    | "AddRange", None, [ ar; arg ] -> libCall com r t "Array" "addRangeInPlace" [ arg; ar ] |> Some
+    | "InsertRange", None, [ ar; idx; arg ] -> libCall com r t "Array" "insertRangeInPlace" [ idx; arg; ar ] |> Some
     | _ -> None
 
 let readOnlySpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1883,50 +1807,40 @@ let createArray (com: ICompiler) ctx r t i count value =
         |> addErrorAndReturnNull com ctx.InlinePath r
 
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
-    Helper.LibCall(com, "Array", "copyTo", t, args, i.SignatureArgTypes, ?loc = r)
-    |> Some
+    makeLibCall com r t i "Array" "copyTo" args |> Some
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some ar, _ -> Helper.LibCall(com, "NativeArray", "get_Count", t, [ ar ], ?loc = r) |> Some
+    | "get_Length", Some ar, _ -> libCall com r t "NativeArray" "get_Count" [ ar ] |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
-    | "Clone", Some ar, _ -> Helper.LibCall(com, "NativeArray", "toArray", t, [ ar ], ?loc = r) |> Some
+    | "Clone", Some ar, _ -> libCall com r t "NativeArray" "toArray" [ ar ] |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
     | "Copy", None, [ source; target; count ] ->
         copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
-    | "GetEnumerator", Some ar, _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
+    | "GetEnumerator", Some ar, _ -> libCall com r t "Seq" "Enumerable::ofArray" [ ar ] |> Some
     | ("ConvertAll" | "Exists" | "GetRange" | "ForEach" | "FindAll" | "Find" | "FindLast" | "FindIndex" | "FindLastIndex" | "TrueForAll") as meth,
       None,
       args ->
         // methods without overrides
         let meth = Naming.lowerFirst meth
-        Helper.LibCall(com, "NativeArray", meth, t, args, ?loc = r) |> Some
+        libCall com r t "NativeArray" meth args |> Some
     | ("BinarySearch" | "CopyTo" | "IndexOf" | "LastIndexOf" | "Reverse") as meth, None, args ->
         // methods with some overrides
         let meth = meth |> toLowerFirstWithArgsCountSuffix args
-        Helper.LibCall(com, "NativeArray", meth, t, args, ?loc = r) |> Some
-    | "Sort", None, [ ar ] -> Helper.LibCall(com, "NativeArray", "sort", t, args, ?loc = r) |> Some
-    | "Sort", None, [ ar; ExprType(DelegateType _) as comparer ] ->
-        Helper.LibCall(com, "NativeArray", "sortBy", t, args, ?loc = r) |> Some
-    | "Sort", None, [ ar; comparer ] -> Helper.LibCall(com, "NativeArray", "sortWith", t, args, ?loc = r) |> Some
+        libCall com r t "NativeArray" meth args |> Some
+    | "Sort", None, [ ar ] -> libCall com r t "NativeArray" "sort" args |> Some
+    | "Sort", None, [ ar; ExprType(DelegateType _) as comparer ] -> libCall com r t "NativeArray" "sortBy" args |> Some
+    | "Sort", None, [ ar; comparer ] -> libCall com r t "NativeArray" "sortWith" args |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "ToSeq", [ ar ] ->
-        Helper.LibCall(com, "Seq", "ofArray", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "OfSeq", [ ar ] ->
-        Helper.LibCall(com, "Seq", "toArray", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "OfList", [ ar ] ->
-        Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "ToList", args ->
-        Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("Length" | "Count"), [ ar ] -> Helper.LibCall(com, "NativeArray", "get_Count", t, [ ar ], ?loc = r) |> Some
+    | "ToSeq", [ ar ] -> makeLibCall com r t i "Seq" "ofArray" args |> Some
+    | "OfSeq", [ ar ] -> makeLibCall com r t i "Seq" "toArray" args |> Some
+    | "OfList", [ ar ] -> makeLibCall com r t i "List" "toArray" args |> Some
+    | "ToList", args -> makeLibCall com r t i "List" "ofArray" args |> Some
+    | ("Length" | "Count"), [ ar ] -> libCall com r t "NativeArray" "get_Count" [ ar ] |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -1935,21 +1849,19 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Empty", [] -> createArray com ctx r t i (makeIntConst 0) None |> Some
     | "Singleton", [ value ] -> createArray com ctx r t i (makeIntConst 1) (Some value) |> Some
     | "IsEmpty", [ ar ] -> makeInstanceCall r t i ar "is_empty" [] |> Some
-    | "Copy", [ ar ] -> Helper.LibCall(com, "NativeArray", "toArray", t, args, ?loc = r) |> Some
+    | "Copy", [ ar ] -> libCall com r t "NativeArray" "toArray" args |> Some
     | "CopyTo", args -> copyToArray com r t i args
-    | ("Concat" | "Transpose" as meth), [ arg ] ->
-        Helper.LibCall(com, "Array", Naming.lowerFirst meth, t, [ toArray com t arg ], i.SignatureArgTypes, ?loc = r)
+    | ("Concat" | "Transpose") as meth, [ arg ] ->
+        makeLibCall com r t i "Array" (Naming.lowerFirst meth) [ toArray com t arg ]
         |> Some
-    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy") as meth, args ->
         let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Array" meth args |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "Array", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Array" meth args |> Some
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1966,14 +1878,13 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
             | [ ExprType Unit ] -> [ x ]
             | args -> args @ [ x ]
 
-        Helper.LibCall(com, "List", methName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "List" methName args |> Some
     | "get_IsEmpty", Some c, _ -> Test(c, ListTest false, r) |> Some
     | "get_Empty", None, _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | "Cons", None, [ h; t ] -> NewList(Some(h, t), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     // | ("GetHashCode" | "Equals" | "CompareTo"), Some c, _ ->
     //     makeInstanceCall r t i c i.CompiledName args |> Some
-    | "GetEnumerator", Some c, _ -> Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [ c ], ?loc = r) |> Some
+    | "GetEnumerator", Some c, _ -> libCall com r t "Seq" "Enumerable::ofList" [ c ] |> Some
     | _ -> None
 
 let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1986,25 +1897,19 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | "ToSeq", [ arg ] ->
-        Helper.LibCall(com, "Seq", "ofList", t, args, i.SignatureArgTypes, ?loc = r)
+    | "ToSeq", [ arg ] -> makeLibCall com r t i "Seq" "ofList" args |> Some
+    | "OfSeq", [ arg ] -> makeLibCall com r t i "List" "ofSeq" args |> Some
+    | ("Concat" | "Transpose") as meth, [ arg ] ->
+        makeLibCall com r t i "List" (Naming.lowerFirst meth) [ toList com t arg ]
         |> Some
-    | "OfSeq", [ arg ] ->
-        Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("Concat" | "Transpose" as meth), [ arg ] ->
-        Helper.LibCall(com, "List", Naming.lowerFirst meth, t, [ toList com t arg ], i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy") as meth, args ->
         let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "List" meth args |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "List", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "List" meth args |> Some
 
 let discardUnitArgs args =
     match args with
@@ -2023,43 +1928,36 @@ let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
                     "IsProperSubsetOf", "isProperSubset"
                     "IsProperSupersetOf", "isProperSuperset"
                     "CopyTo", "copyToArray" ] meth,
-      Some callee -> Helper.LibCall(com, "Set", meth, t, callee :: args, ?loc = r) |> Some
-    | meth, _ ->
+      Some c -> libCall com r t "Set" meth (c :: args) |> Some
+    | meth, Some c ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
-        let args =
-            match thisArg with
-            | Some callee -> args @ [ callee ]
-            | _ -> args
-
-        Helper.LibCall(com, "Set", meth, t, args, ?loc = r) |> Some
+        libCall com r t "Set" meth (args @ [ c ]) |> Some
+    | meth, None ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        libCall com r t "Set" meth args |> Some
 
 let setModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
 
-    Helper.LibCall(com, "Set", meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    makeLibCall com r t i "Set" meth args |> Some
 
 let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let args = discardUnitArgs args
 
     match i.CompiledName, thisArg with
     | ".ctor", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeMap com ctx r t args |> Some
-    | ReplaceName [ "CopyTo", "copyToArray" ] meth, Some callee ->
-        Helper.LibCall(com, "Map", meth, t, callee :: args, ?loc = r) |> Some
-    | meth, _ ->
+    | ReplaceName [ "CopyTo", "copyToArray" ] meth, Some c -> libCall com r t "Map" meth (c :: args) |> Some
+    | meth, Some c ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
-        let args =
-            match thisArg with
-            | Some callee -> args @ [ callee ]
-            | _ -> args
-
-        Helper.LibCall(com, "Map", meth, t, args, ?loc = r) |> Some
+        libCall com r t "Map" meth (args @ [ c ]) |> Some
+    | meth, None ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        libCall com r t "Map" meth args |> Some
 
 let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
 
-    Helper.LibCall(com, "Map", meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    makeLibCall com r t i "Map" meth args |> Some
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2080,15 +1978,13 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
     | "ToArray"
     | "ToList"
     | "ToOption"
-    | "ToValueOption" as meth ->
-        Helper.LibCall(com, "Result", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "ToValueOption" as meth -> makeLibCall com r t i "Result" (Naming.lowerFirst meth) args |> Some
     | _ -> None
 
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> NewOption(List.tryHead args, t.Generics.Head, false) |> makeValue r |> Some
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "getValue", t, [ c ], ?loc = r) |> Some
+    | "get_Value", Some c -> libCall com r t "Option" "getValue" [ c ] |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
@@ -2108,21 +2004,18 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "GetValue", [ c ] -> Get(c, OptionValue, t, r) |> Some
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
-    | "OfObj", [ arg ] -> Helper.LibCall(com, "Native", "ofObj", t, args, ?loc = r) |> Some
-    | "ToObj", [ arg ] -> Helper.LibCall(com, "Native", "toObj", t, args, ?loc = r) |> Some
-    // | "ToArray", [ arg ] -> Helper.LibCall(com, "Array", "ofOption", t, args, ?loc = r) |> Some
-    // | "ToList", [ arg ] -> Helper.LibCall(com, "List", "ofOption", t, args, ?loc = r) |> Some
-    | meth, args ->
-        Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "OfObj", [ arg ] -> libCall com r t "Native" "ofObj" args |> Some
+    | "ToObj", [ arg ] -> libCall com r t "Native" "toObj" args |> Some
+    // | "ToArray", [ arg ] -> libCall com r t "Array" "ofOption" args |> Some
+    // | "ToList", [ arg ] -> libCall com r t "List" "ofOption" args |> Some
+    | meth, args -> makeLibCall com r t i "Option" (Naming.lowerFirst meth) args |> Some
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ("Parse" | "TryParse" as method), args ->
         let meth = Naming.lowerFirst method + "Boolean"
 
-        Helper.LibCall(com, "Convert", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Convert" meth args |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
@@ -2147,16 +2040,16 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 [ str; makeIntConst style ] @ outValue
 
-        Helper.LibCall(com, moduleName, memberName, t, args, ?loc = r)
+        libCall com r t moduleName memberName args
 
     let isFloat =
         match i.SignatureArgTypes with
         | Number((Float16 | Float32 | Float64), _) :: _ -> true
         | _ -> false
 
-    match i.CompiledName, args with
-    | "IsNaN", [ arg ] when isFloat -> makeInstanceCall r t i arg "is_nan" [] |> Some
-    | "Log2", [ arg ] ->
+    match i.CompiledName, thisArg, args with
+    | "IsNaN", _, [ arg ] when isFloat -> makeInstanceCall r t i arg "is_nan" [] |> Some
+    | "Log2", _, [ arg ] ->
         let log =
             if isFloat then
                 makeInstanceCall r t i arg "log2" []
@@ -2164,17 +2057,17 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 makeInstanceCall r UInt32.Number i arg "ilog2" []
 
         TypeCast(log, t) |> Some
-    | "IsPositiveInfinity", [ arg ] when isFloat ->
+    | "IsPositiveInfinity", _, [ arg ] when isFloat ->
         let op1 = makeInstanceCall r t i arg "is_sign_positive" []
         let op2 = makeInstanceCall r t i arg "is_infinite" []
         Operation(Logical(LogicalAnd, op1, op2), Tags.empty, t, None) |> Some
-    | "IsNegativeInfinity", [ arg ] when isFloat ->
+    | "IsNegativeInfinity", _, [ arg ] when isFloat ->
         let op1 = makeInstanceCall r t i arg "is_sign_negative" []
         let op2 = makeInstanceCall r t i arg "is_infinite" []
         Operation(Logical(LogicalAnd, op1, op2), Tags.empty, t, None) |> Some
-    | "IsInfinity", [ arg ] when isFloat -> makeInstanceCall r t i arg "is_infinite" [] |> Some
-    | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _ -> operators com ctx r t i thisArg args
-    | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
+    | "IsInfinity", _, [ arg ] when isFloat -> makeInstanceCall r t i arg "is_infinite" [] |> Some
+    | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _, _ -> operators com ctx r t i thisArg args
+    | ("Parse" | "TryParse") as meth, _, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
 
@@ -2194,7 +2087,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> addWarning com ctx.InlinePath r
 
         parseCall meth str args style |> Some
-    | ("Parse" | "TryParse") as meth, str :: _ ->
+    | ("Parse" | "TryParse") as meth, _, str :: _ ->
         let acceptedArgs =
             if meth = "Parse" then
                 1
@@ -2208,78 +2101,92 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style |> Some
-    | "Pow", (thisArg :: restArgs) -> makeInstanceCall r t i thisArg "powf" restArgs |> Some
+    | "Pow", _, (arg :: restArgs) -> makeInstanceCall r t i arg "powf" restArgs |> Some
     // | "ToString", [StringConst fmt] ->
     //     let rustFmt = fmt // TODO: replace format specifiers with proper Rust format
     //     let format = makeStrConst ("{0:" + rustFmt + "}")
-    //     "sprintf!" |> emitFormat com r t [format; thisArg.Value] |> Some
-    | "ToString", _ -> toString com ctx r [ thisArg.Value ] |> Some
-    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
+    //     "sprintf!" |> emitFormat com r t [format; thisArg] |> Some
+    | "ToString", Some c, _ -> toString com ctx r [ c ] |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg, _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
+/// Drops culture and style arguments from a call.
+///
+/// Rust's formatting and parsing are invariant, which is exactly what
+/// InvariantCulture asks for, so the overloads that take a provider are
+/// equivalent to the ones that do not. Passing the argument on was not: the
+/// runtime functions have no parameter for it, so `Decimal.Parse(s, style,
+/// culture)` reached a one-argument function and `d.ToString(culture)` put a
+/// provider where a format string belongs.
+///
+/// Filtering by argument type rather than by position leaves the arity of every
+/// other overload alone.
+let dropCultureArgs (args: Expr list) =
+    let isCultureOrStyle (e: Expr) =
+        match e.Type with
+        | DeclaredType(ent, _) ->
+            match ent.FullName with
+            | Types.cultureInfo
+            | "System.IFormatProvider" -> true
+            | _ -> false
+        | Number(_, NumberInfo.IsEnum ent) ->
+            match ent.FullName with
+            | "System.Globalization.NumberStyles"
+            | "System.Globalization.DateTimeStyles" -> true
+            | _ -> false
+        | _ -> false
+
+    args |> List.filter (isCultureOrStyle >> not)
+
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
-    | (".ctor" | "MakeDecimal"), ([ low; mid; high; isNegative; scale ] as args) ->
-        Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ".ctor", [ Value(NewArray(ArrayValues([ low; mid; high; signExp ] as args), _, _), _) ] ->
-        Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ".ctor", [ arg ] -> convertTo com ctx r t args |> Some
-    | "GetBits", _ ->
-        Helper.LibCall(com, "Decimal", "getBits", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Parse", _ ->
-        Helper.LibCall(com, "Decimal", "parse", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "TryParse", _ ->
-        Helper.LibCall(com, "Decimal", "tryParse", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | Patterns.SetContains Operators.compareSet, [ left; right ] ->
+    let args = dropCultureArgs args
+
+    match i.CompiledName, thisArg, args with
+    | (".ctor" | "MakeDecimal"), _, ([ low; mid; high; isNegative; scale ] as args) ->
+        makeLibCall com r t i "Decimal" "fromParts" args |> Some
+    | ".ctor", _, [ Value(NewArray(ArrayValues([ low; mid; high; signExp ] as args), _, _), _) ] ->
+        makeLibCall com r t i "Decimal" "fromInts" args |> Some
+    | ".ctor", _, [ arg ] -> convertTo com ctx r t args |> Some
+    | "GetBits", _, _ -> makeLibCall com r t i "Decimal" "getBits" args |> Some
+    | "Parse", _, _ -> makeLibCall com r t i "Decimal" "parse" args |> Some
+    | "TryParse", _, _ -> makeLibCall com r t i "Decimal" "tryParse" args |> Some
+    | Patterns.SetContains Operators.compareSet, _, [ left; right ] ->
         applyCompareOp com ctx r t i.CompiledName left right |> Some
-    | Patterns.SetContains Operators.standardSet, _ -> applyOp com ctx r t i.CompiledName args |> Some
-    | "op_Explicit", _ -> convertTo com ctx r t args |> Some
-    | ("Ceiling" | "Floor" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth),
+    | Patterns.SetContains Operators.standardSet, _, _ -> applyOp com ctx r t i.CompiledName args |> Some
+    | "op_Explicit", _, _ -> convertTo com ctx r t args |> Some
+    | ("Abs" | "Sign" | "Ceiling" | "Floor" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate") as meth,
+      _,
       _ ->
         let meth = Naming.lowerFirst meth
-
-        Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _ ->
-        Helper.LibValue(com, "Decimal", Naming.removeGetSetPrefix i.CompiledName, t)
-        |> Some
-    | ("IsInteger" | "IsEvenInteger" | "IsOddInteger" | "IsCanonical" | "IsNegative" | "IsPositive"), _ ->
-        Helper.LibCall(com, "Decimal", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "get_Scale", [] ->
-        match thisArg with
-        | Some c ->
-            Helper.LibCall(com, "Decimal", "scale", t, [ c ], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | None -> None
-    | "Round", _ ->
+        makeLibCall com r t i "Decimal" meth args |> Some
+    | ("CopySign" | "FromOACurrency" | "GetTypeCode" | "ToOACurrency") as meth, _, _ ->
+        makeLibCall com r t i "Decimal" (Naming.lowerFirst meth) args |> Some
+    | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _, _ ->
+        libValue com r t "Decimal" (Naming.removeGetSetPrefix i.CompiledName) [] |> Some
+    | ("IsInteger" | "IsEvenInteger" | "IsOddInteger" | "IsCanonical" | "IsNegative" | "IsPositive"), _, _ ->
+        makeLibCall com r t i "Decimal" (Naming.lowerFirst i.CompiledName) args |> Some
+    | "get_Scale", Some c, [] -> makeLibCall com r t i "Decimal" "scale" [ c ] |> Some
+    | "get_Scale", None, [] -> None
+    | "Round", _, _ ->
         match args with
-        | [ x ] ->
-            Helper.LibCall(com, "Decimal", "round", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ x; ExprTypeAs(Number(Int32, _), dp) ] ->
-            Helper.LibCall(com, "Decimal", "roundTo", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ x; mode ] ->
-            Helper.LibCall(com, "Decimal", "roundMode", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ x; dp; mode ] ->
-            Helper.LibCall(com, "Decimal", "roundToMode", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
+        | [ x ] -> makeLibCall com r t i "Decimal" "round" args |> Some
+        | [ x; ExprTypeAs(Number(Int32, _), dp) ] -> makeLibCall com r t i "Decimal" "roundTo" args |> Some
+        | [ x; mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
+        | [ x; dp; mode ] -> makeLibCall com r t i "Decimal" "roundToMode" args |> Some
         | _ -> None
     // | "ToString", [StringConst fmt] ->
     //     let rustFmt = fmt // TODO: replace format specifiers with proper Rust format
     //     let format = makeStrConst ("{0:" + rustFmt + "}")
-    //     "sprintf!" |> emitFormat com r t [format; thisArg.Value] |> Some
-    | "ToString", _ ->
-        Helper.LibCall(com, "Decimal", "toString", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
+    //     "sprintf!" |> emitFormat com r t [format; thisArg] |> Some
+    | "ToString", Some c, [] ->
+        // For d.ToString(provider) the provider is the only argument, so dropping
+        // it leaves nothing for toString's decimal parameter; the receiver takes
+        // its place.
+        let args = [ c ]
+
+        makeLibCall com r t i "Decimal" "toString" args |> Some
+    | "ToString", _, _ -> makeLibCall com r t i "Decimal" "toString" args |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg, _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
 let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2288,31 +2195,17 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | Patterns.SetContains Operators.compareSet, _, [ left; right ] ->
         applyCompareOp com ctx r t i.CompiledName left right |> Some
     | Patterns.SetContains Operators.standardSet, _, _ -> applyOp com ctx r t i.CompiledName args |> Some
-    | "DivRem", None, [ x; y ] ->
-        Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "DivRem", None, [ x; y; rem ] ->
-        Helper.LibCall(com, "BigInt", "divRemOut", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "DivRem", None, [ x; y ] -> makeLibCall com r t i "BigInt" "divRem" args |> Some
+    | "DivRem", None, [ x; y; rem ] -> makeLibCall com r t i "BigInt" "divRemOut" args |> Some
     | "op_Explicit", None, _ -> convertTo com ctx r t args |> Some
-    | "Log", None, [ arg1; arg2 ] ->
-        Helper.LibCall(com, "BigInt", "log", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
-    | "Log", None, [ arg ] ->
-        Helper.LibCall(com, "BigInt", "ln", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
-    | "Log2", None, [ arg ] ->
-        Helper.LibCall(com, "BigInt", "ilog2", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+    | "Log", None, [ arg1; arg2 ] -> makeLibCall com r t i "BigInt" "log" args |> Some
+    | "Log", None, [ arg ] -> makeLibCall com r t i "BigInt" "ln" args |> Some
+    | "Log2", None, [ arg ] -> makeLibCall com r t i "BigInt" "ilog2" args |> Some
     | meth, None, _ when meth.StartsWith("get_", StringComparison.Ordinal) ->
         let meth = meth |> Naming.removeGetSetPrefix |> Naming.lowerFirst
-        Helper.LibCall(com, "BigInt", meth, t, []) |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | meth, Some c, _ ->
-        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, c :: args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        libCall com r t "BigInt" meth [] |> Some
+    | meth, None, _ -> makeLibCall com r t i "BigInt" (Naming.lowerFirst meth) args |> Some
+    | meth, Some c, _ -> makeLibCall com r t i "BigInt" (Naming.lowerFirst meth) (c :: args) |> Some
 
 // Compile static strings to their constant values
 // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
@@ -2337,7 +2230,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         else
             applyOp com ctx r t operation args |> Some
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args |> Some
-    | "GenericZero", _ -> Helper.LibCall(com, "Native", "defaultOf", t, []) |> Some
+    | "GenericZero", _ -> libCall com r t "Native" "defaultOf" [] |> Some
     // | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | ("SByteWithMeasure" | "Int16WithMeasure" | "Int32WithMeasure" | "Int64WithMeasure" | "Float32WithMeasure" | "FloatWithMeasure" | "DecimalWithMeasure"),
@@ -2375,22 +2268,16 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Erased operators
-    | "CheckThis", _, [ arg ]
-    | "UnboxFast", _, [ arg ]
-    | "UnboxGeneric", _, [ arg ] -> Some arg
+    | "CheckThis", _, [ arg ] -> Some arg
+    | "UnboxFast", _, [ arg ] -> Some arg
+    | "UnboxGeneric", _, [ arg ] -> TypeCast(arg, t) |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
-    | "GetString", _, [ ar; idx ] -> Helper.LibCall(com, "String", "getCharAt", t, args, ?loc = r) |> Some
-    | "GetStringSlice", None, [ ar; lower; upper ] ->
-        Helper.LibCall(com, "String", "getSlice", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "GetString", _, [ ar; idx ] -> libCall com r t "String" "getCharAt" args |> Some
+    | "GetStringSlice", None, [ ar; lower; upper ] -> makeLibCall com r t i "String" "getSlice" args |> Some
     | "GetArray", _, [ ar; idx ] -> getExpr r t ar idx |> Some
     | "SetArray", _, [ ar; idx; value ] -> setExpr r ar idx value |> Some
-    | "GetArraySlice", None, [ ar; lower; upper ] ->
-        Helper.LibCall(com, "Array", "getSlice", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "SetArraySlice", None, args ->
-        Helper.LibCall(com, "Array", "setSlice", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "GetArraySlice", None, [ ar; lower; upper ] -> makeLibCall com r t i "Array" "getSlice" args |> Some
+    | "SetArraySlice", None, args -> makeLibCall com r t i "Array" "setSlice" args |> Some
     | ("TypeTestGeneric" | "TypeTestFast"), None, [ expr ] ->
         Test(expr, TypeTest((genArg com ctx r 0 i.GenericArgs)), r) |> Some
     // | "CreateInstance", None, _ ->
@@ -2404,23 +2291,17 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // Type: PowDouble : float -> int -> float
     // Usage: PowDouble x n
     | "PowDouble", None, (thisArg :: restArgs) -> makeInstanceCall r t i thisArg "powf" restArgs |> Some
-    | "PowDecimal", None, _ ->
-        Helper.LibCall(com, "Decimal", "pown", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "PowDecimal", None, _ -> makeLibCall com r t i "Decimal" "pown" args |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
     // Type: RangeChar : char -> char -> char seq
     // Usage: RangeChar start stop
-    | "RangeChar", None, _ ->
-        Helper.LibCall(com, "Range", "rangeChar", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "RangeChar", None, _ -> makeLibCall com r t i "Range" "rangeChar" args |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
     // Type: RangeDouble: float -> float -> float -> float seq
     // Usage: RangeDouble start step stop
     | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeInt64" | "RangeUInt64" | "RangeSingle" | "RangeDouble"),
       None,
-      args ->
-        Helper.LibCall(com, "Range", "rangeNumeric", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+      args -> makeLibCall com r t i "Range" "rangeNumeric" args |> Some
     | _ -> None
 
 let runtimeHelpers (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
@@ -2442,7 +2323,7 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
         match args, t with
         | [ arg ], DeclaredType(_, genArgs) -> uncurryExprAtRuntime com (List.length genArgs - 1) arg |> Some
         | _ -> emitExpr r t args "$0" |> Some
-    | "Invoke", Some callee -> Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | "Invoke", Some c -> Helper.Application(c, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
@@ -2456,23 +2337,20 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.CompiledName, thisArg with
     | ".ctor", None ->
         match i.SignatureArgTypes with
-        | [] -> Helper.LibCall(com, "HashMap", "new_empty", t, args) |> Some
-        | [ Number _ ] -> Helper.LibCall(com, "HashMap", "new_with_capacity", t, args) |> Some
-        | [ IEqualityComparer ] -> Helper.LibCall(com, "HashMap", "new_with_comparer", t, args) |> Some
-        | [ Number _; IEqualityComparer ] ->
-            Helper.LibCall(com, "HashMap", "new_with_capacity_comparer", t, args) |> Some
-        | [ IEnumerable ] -> Helper.LibCall(com, "HashMap", "new_from_enumerable", t, args) |> Some
-        | [ IEnumerable; IEqualityComparer ] ->
-            Helper.LibCall(com, "HashMap", "new_from_enumerable_comparer", t, args) |> Some
-        | [ IDictionary ] -> Helper.LibCall(com, "HashMap", "new_from_dictionary", t, args) |> Some
-        | [ IDictionary; IEqualityComparer ] ->
-            Helper.LibCall(com, "HashMap", "new_from_dictionary_comparer", t, args) |> Some
+        | [] -> libCall com r t "HashMap" "new_empty" args |> Some
+        | [ Number _ ] -> libCall com r t "HashMap" "new_with_capacity" args |> Some
+        | [ IEqualityComparer ] -> libCall com r t "HashMap" "new_with_comparer" args |> Some
+        | [ Number _; IEqualityComparer ] -> libCall com r t "HashMap" "new_with_capacity_comparer" args |> Some
+        | [ IEnumerable ] -> libCall com r t "HashMap" "new_from_enumerable" args |> Some
+        | [ IEnumerable; IEqualityComparer ] -> libCall com r t "HashMap" "new_from_enumerable_comparer" args |> Some
+        | [ IDictionary ] -> libCall com r t "HashMap" "new_from_dictionary" args |> Some
+        | [ IDictionary; IEqualityComparer ] -> libCall com r t "HashMap" "new_from_dictionary_comparer" args |> Some
         | _ -> None
     | "GetEnumerator", Some c ->
-        let ar = Helper.LibCall(com, "HashMap", "entries", t, [ c ], [ c.Type ])
-        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
-    | "get_Item", Some c -> makeLibModuleCall com r t i "HashMap" "get" thisArg args |> Some
-    | "set_Item", Some c -> makeLibModuleCall com r t i "HashMap" "set" thisArg args |> Some
+        let ar = libCall com r t "HashMap" "entries" [ c ]
+        libCall com r t "Seq" "Enumerable::ofArray" [ ar ] |> Some
+    | "get_Item", Some c -> makeLibModuleCall com r t i "HashMap" "get" (Some c) args |> Some
+    | "set_Item", Some c -> makeLibModuleCall com r t i "HashMap" "set" (Some c) args |> Some
     | meth, _ ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         makeLibModuleCall com r t i "HashMap" meth thisArg args |> Some
@@ -2481,18 +2359,16 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     match i.CompiledName, thisArg with
     | ".ctor", None ->
         match i.SignatureArgTypes with
-        | [] -> Helper.LibCall(com, "HashSet", "new_empty", t, args) |> Some
-        | [ Number _ ] -> Helper.LibCall(com, "HashSet", "new_with_capacity", t, args) |> Some
-        | [ IEqualityComparer ] -> Helper.LibCall(com, "HashSet", "new_with_comparer", t, args) |> Some
-        | [ Number _; IEqualityComparer ] ->
-            Helper.LibCall(com, "HashSet", "new_with_capacity_comparer", t, args) |> Some
-        | [ IEnumerable ] -> Helper.LibCall(com, "HashSet", "new_from_enumerable", t, args) |> Some
-        | [ IEnumerable; IEqualityComparer ] ->
-            Helper.LibCall(com, "HashSet", "new_from_enumerable_comparer", t, args) |> Some
+        | [] -> libCall com r t "HashSet" "new_empty" args |> Some
+        | [ Number _ ] -> libCall com r t "HashSet" "new_with_capacity" args |> Some
+        | [ IEqualityComparer ] -> libCall com r t "HashSet" "new_with_comparer" args |> Some
+        | [ Number _; IEqualityComparer ] -> libCall com r t "HashSet" "new_with_capacity_comparer" args |> Some
+        | [ IEnumerable ] -> libCall com r t "HashSet" "new_from_enumerable" args |> Some
+        | [ IEnumerable; IEqualityComparer ] -> libCall com r t "HashSet" "new_from_enumerable_comparer" args |> Some
         | _ -> None
     | "GetEnumerator", Some c ->
-        let ar = Helper.LibCall(com, "HashSet", "entries", t, [ c ])
-        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
+        let ar = libCall com r t "HashSet" "entries" [ c ]
+        libCall com r t "Seq" "Enumerable::ofArray" [ ar ] |> Some
     | "CopyTo", Some c ->
         let meth = i.CompiledName |> toLowerFirstWithArgsCountSuffix (c :: args)
         makeLibModuleCall com r t i "HashSet" meth thisArg args |> Some
@@ -2506,8 +2382,8 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let collections (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
-    | Some callee ->
-        match callee.Type with
+    | Some c ->
+        match c.Type with
         | IsEntity (Types.keyCollection) _
         | IsEntity (Types.valueCollection) _
         | IsEntity (Types.icollectionGeneric) _
@@ -2540,9 +2416,9 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "HasFlag", Some this, [ arg ] ->
+    | "HasFlag", Some c, [ arg ] ->
         // x.HasFlags(y) => (int x) &&& (int y) <> 0
-        makeBinOp r (Int32.Number) this arg BinaryAndBitwise
+        makeBinOp r (Int32.Number) c arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
     | Patterns.DicContains (dict [ "Parse", "parseEnum"
@@ -2562,7 +2438,7 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 [ genArg com ctx r 0 i.GenericArgs |> makeTypeInfo None; value; refValue ]
             | _ -> args
 
-        Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r) |> Some
+        libCall com r t "Reflection" meth args |> Some
     | _ -> None
 
 let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2575,8 +2451,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | Number(kind, _) -> "getBytes" + kind.ToString()
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
 
-        let expr =
-            Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
+        let expr = makeLibCall com r t i "BitConverter" memberName args
 
         if com.Options.TypedArrays then
             expr |> Some
@@ -2585,28 +2460,24 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
     | "ToString" ->
         let memberName = "toString" + args.Length.ToString()
 
-        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "BitConverter" memberName args |> Some
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
 
-        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "BitConverter" memberName args |> Some
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" as meth),
+    | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64") as meth,
       [ ExprType(String); ExprType(Number(Int32, _)) ] -> toRadixInt com ctx r t i args |> Some
     | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"), [ arg ] ->
         toRoundInt com ctx r t i args |> Some
     | ("ToSingle" | "ToDouble" | "ToDecimal"), [ arg ] -> convertTo com ctx r t args |> Some
     | "ToChar", [ arg ] -> convertTo com ctx r t args |> Some
     | "ToString", [ arg ] -> toString com ctx r args |> Some
-    | "ToString", [ arg; ExprType(Number(Int32, _)) ] ->
-        Helper.LibCall(com, "Convert", "toStringRadix", t, args, ?loc = r) |> Some
+    | "ToString", [ arg; ExprType(Number(Int32, _)) ] -> libCall com r t "Convert" "toStringRadix" args |> Some
     | ("ToHexString" | "ToHexStringLower" | "FromHexString" | "ToBase64String" | "FromBase64String"), [ arg ] ->
-        Helper.LibCall(com, "Convert", (Naming.lowerFirst i.CompiledName), t, args, ?loc = r)
-        |> Some
+        libCall com r t "Convert" (Naming.lowerFirst i.CompiledName) args |> Some
     | _ -> None
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2642,12 +2513,12 @@ let makeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (a
     let args = ignoreFormatProvider i.CompiledName args
 
     match thisArg with
-    | Some callee -> makeInstanceCall r t i callee memberName args
+    | Some c -> makeInstanceCall r t i c memberName args
     | None -> makeStaticMemberCall com r t i moduleName memberName args
 
 let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
         match args with
         | [] -> "new_empty" |> Some
         | [ ExprType(Number(Int64, _)) ] -> "new_ticks" |> Some
@@ -2706,21 +2577,20 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             ExprType(Number(Int32, _)) ] -> "new_ymdhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "DateTime" meth args)
-    | "Compare"
-    | "CompareTo"
-    | "Equals"
-    | "GetHashCode" -> valueTypes com ctx r t i thisArg args
-    | "Add" ->
-        Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r)
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg -> valueTypes com ctx r t i thisArg args
+    | "Add", Some c ->
+        Operation(Binary(BinaryOperator.BinaryPlus, c, args.Head), Tags.empty, t, r)
         |> Some
-    | "Subtract" ->
-        Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
+    | "Add", None -> None
+    | "Subtract", Some c ->
+        Operation(Binary(BinaryOperator.BinaryMinus, c, args.Head), Tags.empty, t, r)
         |> Some
-    | meth -> makeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
+    | "Subtract", None -> None
+    | meth, thisArg -> makeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
 
 let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
         match args with
         | [] -> "new_empty" |> Some
         | ExprType(Number(Int64, _)) :: _ -> "new_ticks" |> Some
@@ -2753,35 +2623,32 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
             _offset ] -> "new_ymdhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "DateTimeOffset" meth args)
-    | "Compare"
-    | "CompareTo"
-    | "Equals"
-    | "GetHashCode" -> valueTypes com ctx r t i thisArg args
-    | "Add" ->
-        Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r)
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg -> valueTypes com ctx r t i thisArg args
+    | "Add", Some c ->
+        Operation(Binary(BinaryOperator.BinaryPlus, c, args.Head), Tags.empty, t, r)
         |> Some
-    | "Subtract" ->
-        Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
+    | "Add", None -> None
+    | "Subtract", Some c ->
+        Operation(Binary(BinaryOperator.BinaryMinus, c, args.Head), Tags.empty, t, r)
         |> Some
-    | meth -> makeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args |> Some
+    | "Subtract", None -> None
+    | meth, thisArg -> makeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args |> Some
 
 let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
         match args with
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] -> "new_ymd" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "DateOnly" meth args)
-    | "Compare"
-    | "CompareTo"
-    | "Equals"
-    | "GetHashCode" -> valueTypes com ctx r t i thisArg args
-    | "ToDateTime" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "toDateTime2" args |> Some
-    | meth -> makeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg -> valueTypes com ctx r t i thisArg args
+    | "ToDateTime", Some c when args.Length = 2 -> makeInstanceCall r t i c "toDateTime2" args |> Some
+    | "ToDateTime", None when args.Length = 2 -> None
+    | meth, thisArg -> makeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
         match args with
         | [ ExprType(Number(Int64, _)) ] -> "new_ticks" |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] -> "new_hm" |> Some
@@ -2797,17 +2664,63 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             ExprType(Number(Int32, _)) ] -> "new_hms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "TimeOnly" meth args)
-    | "Compare"
-    | "CompareTo"
-    | "Equals"
-    | "GetHashCode" -> valueTypes com ctx r t i thisArg args
-    | "Add" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "add2" args |> Some
-    | meth -> makeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg -> valueTypes com ctx r t i thisArg args
+    | "Add", Some c when args.Length = 2 -> makeInstanceCall r t i c "add2" args |> Some
+    | "Add", None when args.Length = 2 -> None
+    | meth, thisArg -> makeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
+
+let runes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", None, [ ExprType(Char) ] -> Some args.Head
+    | ".ctor", None, [ ExprType(Number(Int32, _)) ] -> makeLibCall com r t i "Rune" "newInt" args |> Some
+    | ".ctor", None, [ ExprType(Number(UInt32, _)) ] -> makeLibCall com r t i "Rune" "newUInt" args |> Some
+    | ".ctor", None, [ ExprType(Char); ExprType(Char) ] -> makeLibCall com r t i "Rune" "newPair" args |> Some
+    | ("ReplacementChar" | "get_ReplacementChar"), None, [] -> makeLibCall com r t i "Rune" "replacementChar" [] |> Some
+    | "op_Explicit", None, [ ExprType(Char) ] -> Some args.Head
+    | "op_Explicit", None, [ ExprType(Number(Int32, _)) ] -> makeLibCall com r t i "Rune" "newInt" args |> Some
+    | "op_Explicit", None, [ ExprType(Number(UInt32, _)) ] -> makeLibCall com r t i "Rune" "newUInt" args |> Some
+    | "TryCreate", None, [ ExprType(Char); _ ] -> makeLibCall com r t i "Rune" "tryCreateChar" args |> Some
+    | "TryCreate", None, [ ExprType(Char); ExprType(Char); _ ] ->
+        makeLibCall com r t i "Rune" "tryCreatePair" args |> Some
+    | "TryCreate", None, [ ExprType(Number(Int32, _)); _ ] -> makeLibCall com r t i "Rune" "tryCreateInt" args |> Some
+    | "TryCreate", None, [ ExprType(Number(UInt32, _)); _ ] -> makeLibCall com r t i "Rune" "tryCreateUInt" args |> Some
+    | "get_Value", Some c, [] -> makeLibCall com r t i "Rune" "value" [ c ] |> Some
+    | "get_Utf8SequenceLength", Some c, [] -> makeLibCall com r t i "Rune" "utf8SequenceLength" [ c ] |> Some
+    | "get_Utf16SequenceLength", Some c, [] -> makeLibCall com r t i "Rune" "utf16SequenceLength" [ c ] |> Some
+    | "get_IsAscii", Some c, [] -> makeLibCall com r t i "Rune" "isAscii" [ c ] |> Some
+    | "get_IsBmp", Some c, [] -> makeLibCall com r t i "Rune" "isBmp" [ c ] |> Some
+    | "get_Plane", Some c, [] -> makeLibCall com r t i "Rune" "plane" [ c ] |> Some
+    | "GetNumericValue", None, [ arg ] -> makeLibCall com r t i "Rune" "getNumericValue" [ arg ] |> Some
+    | "GetUnicodeCategory", None, [ arg ] -> makeLibCall com r t i "Rune" "getUnicodeCategory" [ arg ] |> Some
+    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsUpper" | "IsWhiteSpace"),
+      None,
+      [ arg ] ->
+        let meth = Naming.lowerFirst i.CompiledName
+        makeLibCall com r t i "Rune" meth args |> Some
+    | "IsValid", None, [ ExprType(Number(Int32, _)) ] -> makeLibCall com r t i "Rune" "isValidInt" args |> Some
+    | "IsValid", None, [ ExprType(Number(UInt32, _)) ] -> makeLibCall com r t i "Rune" "isValidUInt" args |> Some
+    | "ToLower", None, [ runeArg; ExprType(DeclaredType(ent, _)) ] when ent.FullName = Types.cultureInfo ->
+        makeLibCall com r t i "Rune" "toLowerInvariant" [ runeArg ] |> Some
+    | "ToLowerInvariant", None, [ arg ] -> makeLibCall com r t i "Rune" "toLowerInvariant" [ arg ] |> Some
+    | "ToUpper", None, [ runeArg; ExprType(DeclaredType(ent, _)) ] when ent.FullName = Types.cultureInfo ->
+        makeLibCall com r t i "Rune" "toUpperInvariant" [ runeArg ] |> Some
+    | "ToUpperInvariant", None, [ arg ] -> makeLibCall com r t i "Rune" "toUpperInvariant" [ arg ] |> Some
+    | "GetRuneAt", None, _ -> makeLibCall com r t i "Rune" "getRuneAt" args |> Some
+    | "TryGetRuneAt", None, _ -> makeLibCall com r t i "Rune" "tryGetRuneAt" args |> Some
+    | "Parse", None, [ arg ] -> makeLibCall com r t i "Rune" "parse" args |> Some
+    | "TryParse", None, _ -> makeLibCall com r t i "Rune" "tryParse" args |> Some
+    | "ToString", Some c, _ -> makeLibCall com r t i "Rune" "toString" [ c ] |> Some
+    | "CompareTo", Some c, _ -> makeLibCall com r t i "Rune" "compareTo" (c :: args) |> Some
+    | "Compare", None, _ -> makeLibCall com r t i "Rune" "compareTo" args |> Some
+    | "Equals", Some c, _ -> makeLibCall com r t i "Rune" "equals" (c :: args) |> Some
+    | "Equals", None, _ -> makeLibCall com r t i "Rune" "equals" args |> Some
+    | "GetHashCode", Some c, _ -> makeLibCall com r t i "Rune" "getHashCode" [ c ] |> Some
+    | _ -> None
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
         match args with
         | [ ExprType(Number(Int64, _)) ] -> "new_ticks" |> Some
         | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] -> "new_hms" |> Some
@@ -2828,29 +2741,25 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             ExprType(Number(Int32, _)) ] -> "new_dhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "TimeSpan" meth args)
-    | "Compare"
-    | "CompareTo"
-    | "Equals"
-    | "GetHashCode" -> valueTypes com ctx r t i thisArg args
+    | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg -> valueTypes com ctx r t i thisArg args
     // | "Zero" etc. -> // for static fields, see tryField
-    | "Add" ->
-        Operation(Binary(BinaryOperator.BinaryPlus, thisArg.Value, args.Head), Tags.empty, t, r)
+    | "Add", Some c ->
+        Operation(Binary(BinaryOperator.BinaryPlus, c, args.Head), Tags.empty, t, r)
         |> Some
-    | "Subtract" ->
-        Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
+    | "Add", None -> None
+    | "Subtract", Some c ->
+        Operation(Binary(BinaryOperator.BinaryMinus, c, args.Head), Tags.empty, t, r)
         |> Some
-    | "Multiply" ->
-        Operation(Binary(BinaryOperator.BinaryMultiply, thisArg.Value, args.Head), Tags.empty, t, r)
+    | "Subtract", None -> None
+    | "Multiply", Some c ->
+        Operation(Binary(BinaryOperator.BinaryMultiply, c, args.Head), Tags.empty, t, r)
         |> Some
-    | "Divide" ->
-        Operation(Binary(BinaryOperator.BinaryDivide, thisArg.Value, args.Head), Tags.empty, t, r)
+    | "Multiply", None -> None
+    | "Divide", Some c ->
+        Operation(Binary(BinaryOperator.BinaryDivide, c, args.Head), Tags.empty, t, r)
         |> Some
-    | "FromDays"
-    | "FromHours"
-    | "FromMinutes"
-    | "FromSeconds"
-    | "FromMilliseconds"
-    | "FromMicroseconds" as meth ->
+    | ("FromDays" | "FromHours" | "FromMinutes" | "FromSeconds" | "FromMilliseconds" | "FromMicroseconds") as meth,
+      thisArg ->
         match args with
         | [ ExprType(Number(Float64, _)) ] ->
             // overloads that take a float
@@ -2860,29 +2769,53 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             let argCount = List.length args
             let meth = meth + (string<int> argCount)
             makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
-    | meth -> makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+    | meth, thisArg -> makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ ->
-        Helper.LibCall(com, "Timer", "default", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
-        |> Some
+    | ".ctor", _, _ -> libCallCons com r t i "Timer" "default" args |> Some
     | Naming.StartsWith "get_" meth, Some x, _ -> getFieldWith r t x meth |> Some
     | Naming.StartsWith "set_" meth, Some x, [ value ] -> setExpr r x (makeStrConst meth) value |> Some
-    | meth, Some callee, args -> makeInstanceCall r t i callee meth args |> Some
+    | meth, Some c, args -> makeInstanceCall r t i c meth args |> Some
     | _ -> None
 
 let systemEnv
     (com: ICompiler)
     (ctx: Context)
-    (_: SourceLocation option)
-    (_: Type)
+    (r: SourceLocation option)
+    (t: Type)
     (i: CallInfo)
     (_: Expr option)
-    (_: Expr list)
+    (args: Expr list)
     =
     match i.CompiledName with
     | "get_NewLine" -> Some(makeStrConst "\n")
+    | "GetEnvironmentVariable" -> makeLibCall com r t i "Environment" "getEnvironmentVariable" args |> Some
+    | "get_CurrentDirectory" -> libCall com r t "Environment" "getCurrentDirectory" [] |> Some
+    | _ -> None
+
+let paths (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Combine" ->
+        match args with
+        | [ _; _ ] -> makeLibCall com r t i "Path" "combine2" args |> Some
+        | [ _; _; _ ] -> makeLibCall com r t i "Path" "combine3" args |> Some
+        | _ -> None
+    | "GetDirectoryName" -> makeLibCall com r t i "Path" "getDirectoryName" args |> Some
+    | "GetFileName" -> makeLibCall com r t i "Path" "getFileName" args |> Some
+    | "GetFileNameWithoutExtension" -> makeLibCall com r t i "Path" "getFileNameWithoutExtension" args |> Some
+    | "GetExtension" -> makeLibCall com r t i "Path" "getExtension" args |> Some
+    | "HasExtension" -> makeLibCall com r t i "Path" "hasExtension" args |> Some
+    | "GetTempPath" -> libCall com r t "Path" "getTempPath" [] |> Some
+    | "GetRandomFileName" -> libCall com r t "Path" "getRandomFileName" [] |> Some
+    | _ -> None
+
+let files (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Exists" -> makeLibCall com r t i "File" "exists" args |> Some
+    | "WriteAllText" -> makeLibCall com r t i "File" "writeAllText" args |> Some
+    | "ReadAllText" -> makeLibCall com r t i "File" "readAllText" args |> Some
+    | "Delete" -> makeLibCall com r t i "File" "delete" args |> Some
     | _ -> None
 
 // Initial support, making at least InvariantCulture compile-able
@@ -2907,65 +2840,57 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
         match args with
-        | [] -> Helper.LibCall(com, "Random", "new", t, [], [], ?loc = r) |> Some
-        | args ->
-            Helper.LibCall(com, "Random", "new_seeded", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
-    | meth, Some thisArg ->
+        | [] -> libCall com r t "Random" "new" [] |> Some
+        | args -> makeLibCall com r t i "Random" "new_seeded" args |> Some
+    | meth, Some c ->
         let meth =
             if meth = "Next" then
                 $"next{List.length args}"
             else
                 meth |> Naming.lowerFirst
 
-        Helper.InstanceCall(thisArg, meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "get_None" // TODO: implement as non-cancellable token
-    | ".ctor" ->
-        Helper.LibCall(com, "Async", "createCancellationToken", t, args, i.SignatureArgTypes)
-        |> Some
-    | "get_Token" -> thisArg
-    | "Cancel"
-    | "CancelAfter"
-    | "get_IsCancellationRequested"
-    | "ThrowIfCancellationRequested" ->
+    match i.CompiledName, thisArg with
+    // TODO: implement get_None as a non-cancellable token
+    | ("get_None" | ".ctor"), _ -> makeLibCall com r t i "Async" "createCancellationToken" args |> Some
+    | "get_Token", thisArg -> thisArg
+    | ("Cancel" | "CancelAfter" | "get_IsCancellationRequested" | "ThrowIfCancellationRequested"), thisArg ->
         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
         makeLibModuleCall com r t i "Async" meth thisArg args |> Some
     // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
-    | "Dispose" -> Null Type.Unit |> makeValue r |> Some
-    | "Register" -> makeInstanceCall r t i thisArg.Value "register" args |> Some
+    | "Dispose", _ -> Null Type.Unit |> makeValue r |> Some
+    | "Register", Some c -> makeInstanceCall r t i c "register" args |> Some
     | _ -> None
 
 let monitor (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Enter" -> Helper.LibCall(com, "Monitor", "enter", t, args, ?loc = r) |> Some
-    | "Exit" -> Helper.LibCall(com, "Monitor", "exit", t, args, ?loc = r) |> Some
+    | "Enter" -> libCall com r t "Monitor" "enter" args |> Some
+    | "Exit" -> libCall com r t "Monitor" "exit" args |> Some
     | _ -> None
 
 let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, i.GenericArgs with
-    | ".ctor", None, [ tType ] -> Helper.LibCall(com, "Task", "new", tType, args, ?loc = r) |> Some
-    | "FromResult", None, [ tType ] -> Helper.LibCall(com, "Task", "from_result", tType, args, ?loc = r) |> Some
-    | "get_Result", Some callee, _ -> makeInstanceCall r t i callee "get_result" args |> Some
+    | ".ctor", None, [ tType ] -> libCall com r tType "Task" "new" args |> Some
+    | "FromResult", None, [ tType ] -> libCall com r tType "Task" "from_result" args |> Some
+    | "get_Result", Some c, _ -> makeInstanceCall r t i c "get_result" args |> Some
     | _ -> None
 
 let threads com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, i.GenericArgs, args with
-    | ".ctor", None, [], _ -> Helper.LibCall(com, "Thread", "new", t, args, ?loc = r) |> Some
-    | "Sleep", None, _, [ ExprType(Number(Int32, _)) ] ->
-        Helper.LibCall(com, "Thread", "sleep", t, args, ?loc = r) |> Some
-    | "Start", Some callee, [], [] -> makeInstanceCall r t i callee "start" args |> Some
-    | "Join", Some callee, [], [] -> makeInstanceCall r t i callee "join" args |> Some
+    | ".ctor", None, [], _ -> libCall com r t "Thread" "new" args |> Some
+    | "Sleep", None, _, [ ExprType(Number(Int32, _)) ] -> libCall com r t "Thread" "sleep" args |> Some
+    | "Start", Some c, [], [] -> makeInstanceCall r t i c "start" args |> Some
+    | "Join", Some c, [], [] -> makeInstanceCall r t i c "join" args |> Some
     | _ -> None
 
 let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "CreateInstance", None, ([ _type ] | [ _type; (ExprType(Array(Any, _))) ]) ->
-        Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc = r) |> Some
+    | "CreateInstance", None, [ _type ]
+    | "CreateInstance", None, [ _type; (ExprType(Array(Any, _))) ] ->
+        libCall com r t "Reflection" "createInstance" args |> Some
     | _ -> None
 
 // alternative member suffix for languages that don't support member overloads
@@ -3009,7 +2934,7 @@ let bclNativeImpl com ctx r t i moduleName memberName (thisArg: Expr option) (ar
     let memberName = memberName + suffix
 
     match thisArg with
-    | Some callee -> makeInstanceCall r t i callee memberName args
+    | Some c -> makeInstanceCall r t i c memberName args
     | None -> makeStaticMemberCall com r t i moduleName memberName args
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3027,10 +2952,8 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ("get_Unicode" | "get_UTF8"), _, _ ->
-        Helper.LibCall(com, "Encoding", i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("GetBytes" | "GetByteCount"), Some callee, ExprType(Array(Char, _)) :: _ ->
+    | ("get_Unicode" | "get_UTF8"), _, _ -> makeLibCall com r t i "Encoding" i.CompiledName args |> Some
+    | ("GetBytes" | "GetByteCount"), Some c, ExprType(Array(Char, _)) :: _ ->
         let meth = Naming.lowerFirst i.CompiledName + "FromChars"
 
         let meth =
@@ -3039,9 +2962,9 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 meth
 
-        makeInstanceCall r t i callee meth args |> Some
+        makeInstanceCall r t i c meth args |> Some
     | ("GetBytes" | "GetByteCount" | "GetChars" | "GetCharCount" | "GetMaxByteCount" | "GetMaxCharCount" | "GetString"),
-      Some callee,
+      Some c,
       _ ->
         let meth = Naming.lowerFirst i.CompiledName
 
@@ -3051,104 +2974,91 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 meth
 
-        makeInstanceCall r t i callee meth args |> Some
+        makeInstanceCall r t i c meth args |> Some
     | _ -> None
 
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | meth, Some callee ->
+    | meth, Some c ->
         // // Enumerators are mangled, use the fully qualified name
         // let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
         // let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
         // let methName = entityName + "." + i.CompiledName
-        makeInstanceCall r t i callee meth args |> Some
+        makeInstanceCall r t i c meth args |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
     match i.CompiledName, thisArg with
     // This property only belongs to Key and Value Collections
-    | "get_Count", Some callee -> Helper.LibCall(com, "Seq", "length", t, [ callee ], ?loc = r) |> Some
-    | "GetEnumerator", Some callee -> getEnumerator com r t i callee |> Some
+    | "get_Count", Some c -> libCall com r t "Seq" "length" [ c ] |> Some
+    | "GetEnumerator", Some c -> getEnumerator com r t i c |> Some
     | _ -> None
 
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
-        |> Some
-    | "get_Publish", Some callee -> getFieldWith r t callee "Publish" |> Some
-    | meth, Some callee -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None ->
-        Helper.LibCall(com, "Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        let constructor =
+            if i.DeclaringEntityFullName.EndsWith("`2", StringComparison.Ordinal) then
+                "default2"
+            else
+                "default"
+
+        libCallCons com r t i "Event" constructor args |> Some
+    | "get_Publish", Some c -> getFieldWith r t c "Publish" |> Some
+    | meth, Some c -> makeInstanceCall r t i c meth args |> Some
+    | meth, None -> makeLibCall com r t i "Event" (Naming.lowerFirst meth) args |> Some
 
 let observable (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    Helper.LibCall(com, "Observable", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
+    makeLibCall com r t i "Observable" (Naming.lowerFirst i.CompiledName) args
     |> Some
 
 let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | None ->
         match i.CompiledName with
-        | ".ctor" ->
-            Helper.LibCall(
-                com,
-                "MailboxProcessor",
-                "default",
-                t,
-                args,
-                i.SignatureArgTypes,
-                isConstructor = true,
-                ?loc = r
-            )
-            |> Some
-        | "Start" ->
-            Helper.LibCall(com, "MailboxProcessor", "start", t, args, i.SignatureArgTypes, ?loc = r)
-            |> Some
+        | ".ctor" -> libCallCons com r t i "MailboxProcessor" "default" args |> Some
+        | "Start" -> makeLibCall com r t i "MailboxProcessor" "start" args |> Some
         | _ -> None
-    | Some callee ->
+    | Some c ->
         match i.CompiledName with
         // `reply` belongs to AsyncReplyChannel
-        | "Start"
-        | "Receive"
-        | "PostAndAsyncReply"
-        | "Post" ->
-            let memb =
-                if i.CompiledName = "Start" then
-                    "startInstance"
-                else
-                    Naming.lowerFirst i.CompiledName
-
-            Helper.LibCall(com, "MailboxProcessor", memb, t, args, i.SignatureArgTypes, thisArg = callee, ?loc = r)
-            |> Some
-        | "Reply" -> makeInstanceCall r t i callee "reply" args |> Some
+        | "Start" -> libCallThis com r t i "MailboxProcessor" "startInstance" thisArg args |> Some
+        | ("Receive" | "PostAndAsyncReply" | "Post") as meth ->
+            let meth = Naming.lowerFirst i.CompiledName
+            libCallThis com r t i "MailboxProcessor" meth thisArg args |> Some
+        | "Reply" -> makeInstanceCall r t i c "reply" args |> Some
         | _ -> None
+
+let tryGetAsyncDelayBinder =
+    function
+    | MaybeCasted(Call(Import({ Selector = "AsyncBuilder_::delay" }, _, _), callInfo, _, _)) ->
+        match callInfo.Args with
+        | [ binder ] -> Some binder
+        | _ -> None
+    | _ -> None
 
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "Singleton", _, _ -> Value(UnitConstant, r) |> Some
-    //makeImportLib com t "singleton" "AsyncBuilder" |> Some
-    // For Using we need to cast the argument to IDisposable
-    | "Using", Some callee, [ arg; f ] -> makeInstanceCall r t i callee "Using" [ arg; f ] |> Some
-    | "Delay", _, _ ->
-        Helper.LibCall(com, "AsyncBuilder", "delay", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Bind", _, _ ->
-        Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Return", _, _ ->
-        Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "ReturnFrom", _, _ ->
-        Helper.LibCall(com, "AsyncBuilder", "return_from", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Zero", _, _ ->
-        Helper.LibCall(com, "AsyncBuilder", "zero", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "Bind", _, _ -> makeLibCall com r t i "AsyncBuilder" "bind" args |> Some
+    | "Combine", _, _ -> makeLibCall com r t i "AsyncBuilder" "combine" args |> Some
+    | "Delay", _, _ -> makeLibCall com r t i "AsyncBuilder" "delay" args |> Some
+    | "For", _, _ -> makeLibCall com r t i "AsyncBuilder" "for_loop" args |> Some
+    | "Return", _, _ -> makeLibCall com r t i "AsyncBuilder" "r_return" args |> Some
+    | "ReturnFrom", _, _ -> makeLibCall com r t i "AsyncBuilder" "return_from" args |> Some
+    | "TryFinally", _, _ -> makeLibCall com r t i "AsyncBuilder" "try_finally" args |> Some
+    | "TryWith", _, _ -> makeLibCall com r t i "AsyncBuilder" "try_with" args |> Some
+    | "Using", _, _ -> makeLibCall com r t i "AsyncBuilder" "using" args |> Some
+    | "While", _, [ guard; body ] ->
+        match tryGetAsyncDelayBinder body with
+        | Some body -> makeLibCall com r t i "AsyncBuilder" "while_loop" [ guard; body ] |> Some
+        | None ->
+            "Async builder While expects a delayed body."
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
+    | "Zero", _, _ -> makeLibCall com r t i "AsyncBuilder" "zero" args |> Some
+    | meth, Some c, _ -> makeInstanceCall r t i c meth args |> Some
+    | meth, None, _ -> makeLibCall com r t i "AsyncBuilder" (Naming.lowerFirst meth) args |> Some
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -3156,66 +3066,48 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "Start" ->
         "Async.Start will behave as StartImmediate" |> addWarning com ctx.InlinePath r
 
-        Helper.LibCall(com, "Async", "start", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        makeLibCall com r t i "Async" "start" args |> Some
     // Make sure cancellationToken is called as a function and not a getter
-    | "get_CancellationToken" -> Helper.LibCall(com, "Async", "cancellationToken", t, [], ?loc = r) |> Some
+    | "get_CancellationToken" -> libCall com r t "Async" "cancellationToken" [] |> Some
     // `catch` cannot be used as a function name in JS
-    | "Catch" ->
-        Helper.LibCall(com, "Async", "catchAsync", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "Catch" -> makeLibCall com r t i "Async" "catchAsync" args |> Some
     // Fable.Core extensions
-    | meth ->
-        Helper.LibCall(com, "Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | meth -> makeLibCall com r t i "Async" (Naming.lowerFirst meth) args |> Some
+
+let tryGetTaskDelayBinder =
+    function
+    | MaybeCasted(Call(Import({ Selector = "TaskBuilder_::delay" }, _, _), callInfo, _, _)) ->
+        match callInfo.Args with
+        | [ binder ] -> Some binder
+        | _ -> None
+    | _ -> None
 
 let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // | "Run", _, _ -> Helper.LibCall(com, "Task", "run", t, args, ?loc=r) |> Some
-    // | "Singleton", _, _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
     | ".ctor", None, _ -> makeImportLib com t "new" "TaskBuilder" |> Some
-    | "Run", Some callee, _ -> makeInstanceCall r t i callee "run" args |> Some
-    | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-
-let taskBuilderB (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | "Bind", _, _ ->
-        Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Return", _, _ ->
-        Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Delay", _, _ ->
-        Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Zero", _, _ ->
-        Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | _ -> None
-
-let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | "TaskBuilderBase.Bind", _, _ ->
-        Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "TaskBuilderBase.Zero", _, _ ->
-        Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-
-let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | "task", _, _ -> Helper.LibCall(com, "TaskBuilder", "new", t, [], ?loc = r) |> Some
-    | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "task", _, _ -> libCall com r t "TaskBuilder" "new" [] |> Some
+    | "Run", Some c, _ -> makeInstanceCall r t i c "run" args |> Some
+    | ("Bind" | "TaskBuilderBase.Bind"), _, _ -> makeLibCall com r t i "TaskBuilder" "bind" args |> Some
+    | ("Combine" | "TaskBuilderBase.Combine"), _, _ -> makeLibCall com r t i "TaskBuilder" "combine" args |> Some
+    | ("Delay" | "TaskBuilderBase.Delay"), _, _ -> makeLibCall com r t i "TaskBuilder" "delay" args |> Some
+    | ("For" | "TaskBuilderBase.For"), _, _ -> makeLibCall com r t i "TaskBuilder" "for_loop" args |> Some
+    | ("Return" | "TaskBuilderBase.Return"), _, _ -> makeLibCall com r t i "TaskBuilder" "r_return" args |> Some
+    | ("ReturnFrom" | "TaskBuilderBase.ReturnFrom"), _, _ ->
+        makeLibCall com r t i "TaskBuilder" "return_from" args |> Some
+    | ("TryFinally" | "TaskBuilderBase.TryFinally"), _, _ ->
+        makeLibCall com r t i "TaskBuilder" "try_finally" args |> Some
+    | ("TryWith" | "TaskBuilderBase.TryWith"), _, _ -> makeLibCall com r t i "TaskBuilder" "try_with" args |> Some
+    | ("Using" | "TaskBuilderBase.Using"), _, _ -> makeLibCall com r t i "TaskBuilder" "using" args |> Some
+    | ("While" | "TaskBuilderBase.While"), _, [ guard; body ] ->
+        match tryGetTaskDelayBinder body with
+        | Some body -> makeLibCall com r t i "TaskBuilder" "while_loop" [ guard; body ] |> Some
+        | None ->
+            "Task builder While expects a delayed body."
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
+    | ("Zero" | "TaskBuilderBase.Zero"), _, _ -> makeLibCall com r t i "TaskBuilder" "zero" args |> Some
+    | meth, Some c, _ -> makeInstanceCall r t i c meth args |> Some
+    | meth, None, _ -> makeLibCall com r t i "TaskBuilder" (Naming.lowerFirst meth) args |> Some
 
 let guids
     (com: ICompiler)
@@ -3229,7 +3121,7 @@ let guids
     match i.CompiledName, thisArg, args with
     | ".ctor", None, _ ->
         match args with
-        | [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc = r) |> Some
+        | [] -> libCall com r t "Guid" "empty" [] |> Some
         | [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "parse" None args |> Some
         | [ ExprType(Array(Number(UInt8, _), _)) ] ->
             makeMemberCall com ctx r t i "Guid" "new_from_array" thisArg args |> Some
@@ -3256,35 +3148,25 @@ let uris
     (thisArg: Expr option)
     (args: Expr list)
     =
-    match i.CompiledName with
-    | ".ctor" ->
-        Helper.LibCall(com, "Uri", "Uri.create", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "TryCreate" ->
-        Helper.LibCall(com, "Uri", "Uri.tryCreate", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "UnescapeDataString" ->
-        Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes)
-        |> Some
-    | "EscapeDataString" ->
-        Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes)
-        |> Some
-    | "EscapeUriString" ->
-        Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes)
-        |> Some
-    | "get_IsAbsoluteUri"
-    | "get_Scheme"
-    | "get_Host"
-    | "get_AbsolutePath"
-    | "get_AbsoluteUri"
-    | "get_PathAndQuery"
-    | "get_Query"
-    | "get_Fragment"
-    | "get_OriginalString" ->
-        Naming.removeGetSetPrefix i.CompiledName
-        |> Naming.lowerFirst
-        |> getFieldWith r t thisArg.Value
-        |> Some
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        match args with
+        | [ ExprType String ] -> makeLibCall com r t i "Uri" "create" args |> Some
+        | [ ExprType String; _ ] -> makeLibCall com r t i "Uri" "createWithKind" args |> Some
+        | [ _; ExprType String ] -> makeLibCall com r t i "Uri" "createFromString" args |> Some
+        | [ _; _ ] -> makeLibCall com r t i "Uri" "createFromUri" args |> Some
+        | _ -> None
+    | "TryCreate", _ ->
+        match args with
+        | (ExprType String) :: _ -> makeLibCall com r t i "Uri" "tryCreateWithKind" args |> Some
+        | _ :: (ExprType String) :: _ -> makeLibCall com r t i "Uri" "tryCreateFromString" args |> Some
+        | _ -> makeLibCall com r t i "Uri" "tryCreateFromUri" args |> Some
+    | "ToString", Some c -> toString com ctx r [ c ] |> Some
+    | "UnescapeDataString", _ -> makeLibCall com r t i "Uri" "unescapeDataString" args |> Some
+    | "EscapeDataString", _ -> makeLibCall com r t i "Uri" "escapeDataString" args |> Some
+    | "EscapeUriString", _ -> makeLibCall com r t i "Uri" "escapeUriString" args |> Some
+    | ("get_IsAbsoluteUri" | "get_Scheme" | "get_Host" | "get_Port" | "get_IsDefaultPort" | "get_AbsolutePath" | "get_AbsoluteUri" | "get_PathAndQuery" | "get_Query" | "get_Fragment" | "get_OriginalString"),
+      thisArg -> makeMemberCall com ctx r t i "Uri" i.CompiledName thisArg args |> Some
     | _ -> None
 
 let laziness (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3296,9 +3178,9 @@ let laziness (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 // // | "CreateFromValue", _, _ ->
 // //     Helper.LibCall(com, "Native", "lazyFromValue", t, args, i.SignatureArgTypes, ?loc = r)
 // //     |> Some
-// | ("Force" | "get_Value"), Some callee, _ -> makeInstanceCall r t i callee "force" [] |> Some
-// // | "get_IsValueCreated", Some callee, _ ->
-// //     Naming.removeGetSetPrefix i.CompiledName |> getFieldWith r t callee |> Some
+// | ("Force" | "get_Value"), Some c, _ -> makeInstanceCall r t i c "force" [] |> Some
+// // | "get_IsValueCreated", Some c, _ ->
+// //     Naming.removeGetSetPrefix i.CompiledName |> getFieldWith r t c |> Some
 // | _ -> None
 
 let controlExtensions
@@ -3321,7 +3203,7 @@ let controlExtensions
             |> Option.defaultValue (args, i.SignatureArgTypes)
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
 
-        Helper.LibCall(com, "Observable", meth, t, args, argTypes)
+        libCallTyped com None t "Observable" meth args argTypes
     )
 
 let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3426,16 +3308,12 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
     match resolved, thisArg with
     | Some _, _ -> resolved
-    | None, Some thisArg ->
+    | None, Some c ->
         match i.CompiledName with
-        | "GetTypeInfo" -> Some thisArg
+        | "GetTypeInfo" -> Some c
         | "get_GenericTypeArguments"
-        | "GetGenericArguments" ->
-            Helper.LibCall(com, "Reflection", "getGenerics", t, [ thisArg ], ?loc = r)
-            |> Some
-        | "MakeGenericType" ->
-            Helper.LibCall(com, "Reflection", "makeGenericType", t, thisArg :: args, ?loc = r)
-            |> Some
+        | "GetGenericArguments" -> libCall com r t "Reflection" "getGenerics" [ c ] |> Some
+        | "MakeGenericType" -> libCall com r t "Reflection" "makeGenericType" (c :: args) |> Some
         | "get_FullName"
         | "get_Namespace"
         | "get_IsArray"
@@ -3450,7 +3328,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "IsInstanceOfType" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
 
-            Helper.LibCall(com, "Reflection", meth, t, thisArg :: args, ?loc = r) |> Some
+            libCall com r t "Reflection" meth (c :: args) |> Some
         | _ -> None
     | None, None -> None
 
@@ -3460,46 +3338,61 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
         Helper.LibCall(com, "Reflection", "tuple_type", t, args, i.SignatureArgTypes, hasSpread = true, ?loc = r)
         |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
-    | "GetRecordFields" ->
-        Helper.LibCall(com, "Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "GetRecordFields" -> makeLibCall com r t i "Reflection" "getRecordElements" args |> Some
     | "GetUnionCases"
     | "GetTupleElements"
     | "GetFunctionElements"
     | "IsUnion"
     | "IsRecord"
     | "IsTuple"
-    | "IsFunction" ->
-        Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "IsFunction" -> makeLibCall com r t i "Reflection" (Naming.lowerFirst methName) args |> Some
     | "IsExceptionRepresentation"
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
 let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
+    | "GetRecordFields" ->
+        let args, argTypes =
+            match args with
+            | record :: rest ->
+                let rec getConcreteType (expr: Expr) =
+                    match expr with
+                    | TypeCast(inner, _) -> getConcreteType inner
+                    | _ -> expr.Type
+
+                let typeInfo = Fable.Value(Fable.TypeInfo(getConcreteType record, []), None)
+
+                let argTypes =
+                    match i.SignatureArgTypes with
+                    | first :: restTypes -> first :: Fable.MetaType :: restTypes
+                    | [] -> []
+
+                record :: typeInfo :: rest, argTypes
+            | _ -> args, i.SignatureArgTypes
+
+        libCallTyped com r t "Reflection" "getRecordFields" args argTypes |> Some
     | "GetUnionFields"
-    | "GetRecordFields"
     | "GetRecordField"
     | "GetTupleFields"
     | "GetTupleField"
     | "MakeUnion"
     | "MakeRecord"
-    | "MakeTuple" ->
-        Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "MakeTuple" -> makeLibCall com r t i "Reflection" (Naming.lowerFirst methName) args |> Some
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
 let tryField com t ownerTyp fieldName =
     match ownerTyp, fieldName with
-    | Number(Decimal, _), _ -> Helper.LibValue(com, "Decimal", fieldName, t) |> Some
+    | Number(Decimal, _), _ -> libValue com None t "Decimal" fieldName [] |> Some
     | String, "Empty" -> makeStrConst "" |> Some
-    | Builtin BclGuid, "Empty" -> Helper.LibValue(com, "Guid", "empty", t) |> Some
+    | Builtin BclGuid, "Empty" -> libValue com None t "Guid" "empty" [] |> Some
     | Builtin BclTimeSpan, _ ->
         let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
 
-        Helper.LibValue(com, "TimeSpan", meth, t) |> Some
+        libValue com None t "TimeSpan" meth [] |> Some
+    | Builtin BclRune, "ReplacementChar"
+    | Builtin BclRune, "get_ReplacementChar" -> libValue com None t "Rune" "replacementChar" [] |> Some
     | Builtin BclDateTime, _ ->
         let meth = fieldName |> Naming.lowerFirst
         makeStaticFieldCall com None t "DateTime" "DateTime" meth |> Some
@@ -3511,7 +3404,7 @@ let tryField com t ownerTyp fieldName =
         let meth = fieldName |> Naming.lowerFirst
 
         match ent.FullName with
-        | "System.BitConverter" -> Helper.LibCall(com, "BitConverter", meth, t, []) |> Some
+        | "System.BitConverter" -> libCall com None t "BitConverter" meth [] |> Some
         | _ -> None
     | _ -> None
 
@@ -3614,11 +3507,14 @@ let private replacedModules =
             Types.datetimeOffset, dateTimeOffsets
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
+            Types.rune, runes
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.Environment", systemEnv
-            "System.Globalization.CultureInfo", globalization
-            "System.Random", random
+            "System.IO.File", files
+            "System.IO.Path", paths
+            Types.cultureInfo, globalization
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
             "System.Threading.Monitor", monitor
@@ -3648,10 +3544,11 @@ let private replacedModules =
             "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
             "Microsoft.FSharp.Control.FSharpAsync", asyncs
             "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
-            "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilderM
+            "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilder", taskBuilder
-            "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilderB
-            "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilderHP
+            "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
             Types.guid, guids
             "System.Uri", uris
             "System.Lazy`1", laziness
@@ -3695,28 +3592,48 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             fsharpType com methName r t info args
         else
             fsharpValue com methName r t info args
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+        // UnionCaseInfo from a NewUnionCase quotation deconstruction is a Rust-native
+        // FSharpUnionCaseInfo carrier; route member access to the quotation runtime.
+        match thisArg, info.CompiledName with
+        | Some c, "get_Name" -> libCall com r t "quotation" "unionCaseName" [ c ] |> Some
+        | Some c, "get_Tag" -> libCall com r t "quotation" "unionCaseTag" [ c ] |> Some
+        | _ -> None
     | "System.Reflection.PropertyInfo"
     | "System.Reflection.ParameterInfo"
     | "System.Reflection.MethodBase"
     | "System.Reflection.MethodInfo"
     | "System.Reflection.MemberInfo" ->
+        // Name/DeclaringType are inherited from MemberInfo, so `mi.Name` / `mi.DeclaringType`
+        // on a Call quotation binding arrive here even though the binding's type is MethodInfo.
+        // Detect that carrier via the thisArg's Fable type and route to the quotation runtime:
+        // get_Name -> a dedicated accessor (not the generic reflection name<T>()); DeclaringType
+        // -> the declaring-type fullname boxed as System.Type, so mi.DeclaringType.FullName works.
+        let isMethodInfoCarrier (c: Expr) =
+            match c.Type with
+            | DeclaredType(e, _) -> e.FullName = "System.Reflection.MethodInfo"
+            | _ -> false
+
         match thisArg, info.CompiledName with
+        | Some c, "get_Name" when isMethodInfoCarrier c -> libCall com r t "quotation" "methodName" [ c ] |> Some
+        | Some c, "get_DeclaringType" when isMethodInfoCarrier c ->
+            libCall com r t "quotation" "methodDeclaringType" [ c ] |> Some
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
         | Some c, "get_ReturnType" -> makeStrConst "returnType" |> getExpr r t c |> Some
         | Some c, "GetParameters" -> makeStrConst "parameters" |> getExpr r t c |> Some
         | Some c, ("get_PropertyType" | "get_ParameterType") -> makeIntConst 1 |> getExpr r t c |> Some
-        | Some c, "GetFields" ->
-            Helper.LibCall(com, "Reflection", "getUnionCaseFields", t, [ c ], ?loc = r)
-            |> Some
-        | Some c, "GetValue" -> Helper.LibCall(com, "Reflection", "getValue", t, c :: args, ?loc = r) |> Some
+        | Some c, "GetFields" -> libCall com r t "Reflection" "getUnionCaseFields" [ c ] |> Some
+        | Some c, "GetValue" -> libCall com r t "Reflection" "getValue" (c :: args) |> Some
         | Some c, "get_Name" ->
             match c with
             | Value(TypeInfo(exprType, _), loc) ->
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
-            | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
+            // Runtime PropertyInfo (e.g. a record field info): read its carried name.
+            // Distinct from the generic type-name helper `name<T>()` to avoid a clash.
+            | c -> libCall com r t "Reflection" "propertyName" [ c ] |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
@@ -3756,7 +3673,8 @@ let tryType typ =
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dateTimeOffsets, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclRune -> Some(Types.rune, runes, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])

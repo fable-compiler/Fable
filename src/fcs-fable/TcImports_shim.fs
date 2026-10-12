@@ -49,16 +49,26 @@ module TcImports =
             |> GetResourceNameAndSignatureDataFuncs
             |> List.map snd
 
+        /// FCS keys a CCU on its signature-data resource name, not always the IL manifest name
+        let sigDataCcuName ilModule =
+            ilModule.Resources.AsList()
+            |> GetResourceNameAndSignatureDataFuncs
+            |> List.tryHead
+            |> Option.map fst
+
         let optDataReaders ilModule =
             ilModule.Resources.AsList()
             |> GetResourceNameAndOptimizationDataFuncs
             |> List.map snd
 
+        /// No file system here: an assembly's file name is the name it was requested under
+        let moduleFileName (ccuName: string) =
+            if ccuName.EndsWith(".dll", System.StringComparison.OrdinalIgnoreCase)
+            then ccuName
+            else ccuName + ".dll"
+
         let LoadMod (ccuName: string) =
-            let fileName =
-                if ccuName.EndsWith(".dll", System.StringComparison.OrdinalIgnoreCase)
-                then ccuName
-                else ccuName + ".dll"
+            let fileName = moduleFileName ccuName
             let bytes = readAllBytes fileName
             let opts: ILReaderOptions =
                   { metadataOnly = MetadataOnlyFlag.Yes
@@ -95,7 +105,7 @@ module TcImports =
             let ilModule = memoize_mod.Apply ccuName
             let ilShortAssemName = ilModule.ManifestOfAssembly.Name
             let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
-            let fileName = ilModule.Name //TODO: try with ".sigdata" extension
+            let fileName = moduleFileName ccuName //TODO: try with ".sigdata" extension
             match sigDataReaders ilModule with
             | [] -> None
             | (readerA, readerB)::_ -> Some (GetSignatureData (fileName, ilScopeRef, Some ilModule, readerA, readerB))
@@ -104,7 +114,7 @@ module TcImports =
             let ilModule = memoize_mod.Apply ccuName
             let ilShortAssemName = ilModule.ManifestOfAssembly.Name
             let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
-            let fileName = ilModule.Name //TODO: try with ".optdata" extension
+            let fileName = moduleFileName ccuName //TODO: try with ".optdata" extension
             match optDataReaders ilModule with
             | [] -> None
             | (readerA, readerB)::_ -> Some (GetOptimizationData (fileName, ilScopeRef, Some ilModule, readerA, readerB))
@@ -145,7 +155,7 @@ module TcImports =
             let ilModule = memoize_mod.Apply ccuName
             let ilShortAssemName = ilModule.ManifestOfAssembly.Name
             let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
-            let fileName = ilModule.Name
+            let fileName = moduleFileName ccuName
             let invalidateCcu = new Event<_>()
             let ccu = Import.ImportILAssembly(
                         tcImports.GetImportMap, m, auxModuleLoader, tcConfig.xmlDocInfoLoader, ilScopeRef,
@@ -158,7 +168,7 @@ module TcImports =
             let ilModule = memoize_mod.Apply ccuName
             let ilShortAssemName = ilModule.ManifestOfAssembly.Name
             let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
-            let fileName = ilModule.Name
+            let fileName = moduleFileName ccuName
             let GetRawTypeForwarders ilModule =
                 match ilModule.Manifest with 
                 | Some manifest -> manifest.ExportedTypes
@@ -195,7 +205,8 @@ module TcImports =
                     let findCcuInfo name = tcImports.FindCcu (m, name)
                     Some (data.OptionalFixup findCcuInfo) )
 
-            let ccu = CcuThunk.Create(ilShortAssemName, ccuData)
+            let pickledCcuName = sigDataCcuName ilModule |> Option.defaultValue ilShortAssemName
+            let ccu = CcuThunk.Create(pickledCcuName, ccuData)
             let ccuInfo = mkCcuInfo ilScopeRef ilModule ccu
             let ccuOptInfo = { ccuInfo with FSharpOptimizationData = optdata }
             ccuOptInfo, sigdata

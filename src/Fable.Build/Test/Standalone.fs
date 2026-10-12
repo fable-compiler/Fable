@@ -43,6 +43,12 @@ let handleStandaloneFast () =
 
     Command.Run("node", testArgs, workingDirectory = standaloneBuildDest)
 
+/// The worker is only reachable through the bundles in dist, so they have to be built first
+let private handleWorker (args: string list) =
+    Build.Standalone.handle args
+    Command.Run("node", "test/worker/run.mjs", workingDirectory = Workspace.ProjectDir.fable_standalone)
+
 let handle (args: string list) =
     BuildFableLibraryJavaScript().Run()
     handleStandaloneFast ()
+    handleWorker args

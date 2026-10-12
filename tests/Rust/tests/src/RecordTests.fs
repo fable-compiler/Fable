@@ -2,6 +2,21 @@ module Fable.Tests.RecordTests
 
 open Util.Testing
 
+type Camera() = class end
+
+type Scene = {
+    Camera: Camera
+}
+
+let getCamera (scene: Scene) =
+    scene.Camera
+
+[<Fact>]
+let ``Class-valued record fields compile`` () =
+    let scene = { Camera = Camera() }
+    let _camera = getCamera scene
+    ()
+
 type MyRecord = {
     a: int
     b: string
@@ -111,13 +126,21 @@ let processStructByValue (s: StructRecord) =
 
 [<Fact>]
 let ``Struct record works`` () =
-    let r1 = { i=1; s="hello" }
-    let r2 = { i=1; s="world" }
+    let r1 = { i = 1; s = "hello" }
+    let r2 = { i = 1; s = "world" }
     let (sres1, ires1) = r1 |> processStructByValue
     let (sres2, ires2) = r1 |> processStructByValue
     let (sres3, ires3) = r2 |> processStructByValue //cannot actually test this, but since this is the only reference, the output should not .clone()
     ires2 |> equal 2
     sres3.s |> equal "world"
+
+[<Fact>]
+let ``Struct record temp locals work`` () =
+    let r1 = { i = 1; s = "hello" }
+    let r2 = { i = 2; s = "world" }
+    let r3 = { r1 with i = r2.i ; s = r2.s }
+    r3.i |> equal 2
+    r3.s |> equal "world"
 
 type MutableRecord = {
     mutable MutValue: int

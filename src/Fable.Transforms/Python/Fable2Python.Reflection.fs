@@ -38,13 +38,29 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
             else
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                let name =
+                // The runtime attribute/slot name is snake_cased (Python convention), but reflection
+                // must report the pristine F# field name so `PropertyInfo.Name` matches .NET and the
+                // other backends. When the two differ we emit a 3rd tuple element carrying the slot
+                // name; value access (get_value/make_record in fable-library-py) reads that for the
+                // actual attribute. This mirrors the Beam target's `name`/`erl_name` split.
+                let slotName =
                     if Util.shouldUseRecordFieldNaming ent then
                         fi.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                     else
                         fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                Some(Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts)
+                let fieldTuple =
+                    if slotName = fi.Name then
+                        Expression.tuple [ Expression.stringConstant fi.Name; typeInfo ]
+                    else
+                        Expression.tuple
+                            [
+                                Expression.stringConstant fi.Name
+                                typeInfo
+                                Expression.stringConstant slotName
+                            ]
+
+                Some(fieldTuple, stmts)
         )
         |> Seq.toList
         |> Helpers.unzipArgs
@@ -88,30 +104,9 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
 
     let py, stmts = pyConstructor com ctx ent
 
-    // Generate case constructors list for make_union
-    // Use full case class names (UnionName_CaseName) to match the generated classes,
-    // except for library types (Result, Choice) which use simple names
-    let usesSimpleNames = Util.usesSimpleCaseNames ent.FullName
-
-    // Get the entity declaration name (with module scope) for consistent naming
-    let entityDeclName = FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
-
     let caseConstructors =
         ent.UnionCases
-        |> Seq.map (fun uci ->
-            let caseName =
-                match uci.CompiledName with
-                | Some cname -> cname
-                | None -> uci.Name
-
-            let caseClassName =
-                if usesSimpleNames then
-                    caseName
-                else
-                    $"%s{entityDeclName}_%s{caseName}"
-
-            com.GetIdentifierAsExpr(ctx, caseClassName)
-        )
+        |> Seq.map (Util.getUnionCaseRef com ctx ent.Ref ent)
         |> Seq.toList
         |> Expression.list
 
@@ -221,6 +216,7 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
             | Replacements.Util.BclDateTimeOffset
             | Replacements.Util.BclDateOnly
             | Replacements.Util.BclTimeOnly
+            | Replacements.Util.BclRune
             | Replacements.Util.BclTimer -> genericEntity fullName [], []
             | Replacements.Util.BclHashSet gen
             | Replacements.Util.FSharpSet gen ->
@@ -262,21 +258,49 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
 
             let generics, stmts =
                 generics |> List.map (transformTypeInfo com ctx r genMap) |> Helpers.unzipArgs
-            // Check if the entity is actually declared in Python code
-            if
-                ent.IsInterface
-                || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                || FSharp2Fable.Util.isReplacementCandidate entRef
-            then
-                genericEntity ent.FullName generics, stmts
-            else
-                let reflectionMethodExpr =
-                    FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
 
-                let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
+            let erasedFieldType =
+                if ent.IsFSharpUnion && FSharp2Fable.Util.hasAttribute Atts.erase ent then
+                    match ent.UnionCases with
+                    | [ uci ] when List.isSingle uci.UnionCaseFields -> Some uci.UnionCaseFields.Head.FieldType
+                    | _ -> None
+                else
+                    None
 
-                Expression.call (callee, generics), stmts @ stmts'
+            match erasedFieldType with
+            | Some fieldType ->
+                let fieldGenMap =
+                    Seq.zip (ent.GenericParameters |> Seq.map (fun p -> p.Name)) generics |> Map
+
+                let expr, stmts' = transformTypeInfo com ctx r fieldGenMap fieldType
+                expr, stmts @ stmts'
+            | None ->
+                // Check if the entity is actually declared in Python code
+                if
+                    ent.IsInterface
+                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
+                    || FSharp2Fable.Util.isReplacementCandidate entRef
+                then
+                    genericEntity ent.FullName generics, stmts
+                else
+                    let reflectionMethodExpr =
+                        FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
+
+                    let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
+
+                    Expression.call (callee, generics), stmts @ stmts'
+
+let private getReflectionBaseType (com: IPythonCompiler) (ent: Fable.Entity) =
+    ent.BaseType
+    |> Option.bind (fun baseType ->
+        let baseEnt = com.GetEntity(baseType.Entity)
+
+        // decision: native exception bridges add Python ancestry without changing .NET reflection ancestry.
+        match (com :> Compiler), baseEnt.Attributes with
+        | FSharp2Fable.Util.ImportAtt(_, "fable_library.exception_bases") -> baseEnt.BaseType
+        | _ -> Some baseType
+    )
 
 let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
     if ent.IsFSharpRecord then
@@ -297,7 +321,7 @@ let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
                     yield Expression.name (name.Name |> Naming.toPythonNaming), stmts
                 | Some(cons, stmts) -> yield cons, stmts
                 | None -> ()
-                match ent.BaseType with
+                match getReflectionBaseType com ent with
                 | Some d ->
                     let genMap =
                         Seq.zip ent.GenericParameters generics
@@ -352,14 +376,18 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
         | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "core" "int8") expr
         | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "core" "int16") expr
         | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "core" "uint16") expr
-        | _, Fable.Type.Number(Int32, _) -> pyInstanceof (libValue com ctx "core" "int32") expr
+        // Int32 is a plain Python `int`. Exact-type matching is required: `bool`
+        // subclasses `int`, so `isinstance` would report `box true :? int` as true.
+        | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
         | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "core" "uint32") expr
         | _, Fable.Type.Number(NativeInt, _)
         | _, Fable.Type.Number(UNativeInt, _) -> pyInstanceof (Expression.name "int") expr
         | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "core" "int64") expr
         | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "core" "uint64") expr
         | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "core" "float32") expr
-        | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "core" "float64") expr
+        // Float64 is a plain Python `float`. Exact-type matching keeps it distinct
+        // from the Float32 wrapper, which is not a `float` subclass.
+        | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
         | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
         | _ -> pyInstanceof (Expression.name "int") expr
 

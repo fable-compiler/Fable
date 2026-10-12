@@ -27,12 +27,37 @@ let handle (args: string list) =
     let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
     let astOnly = args |> List.contains "--ast-only"
-    let noStd = args |> List.contains "--no_std"
-    let threaded = args |> List.contains "--threaded"
     let noDotnet = args |> List.contains "--no-dotnet"
 
+    let requestedFeatures =
+        match args |> List.tryFindIndex ((=) "--features") with
+        | Some index ->
+            args
+            |> List.tryItem (index + 1)
+            |> Option.defaultValue ","
+            |> fun features ->
+                features.Split([| ',' |], System.StringSplitOptions.RemoveEmptyEntries)
+                |> Array.map (fun feature -> feature.Trim())
+                |> Array.filter (fun feature -> feature <> "")
+                |> Array.toList
+        | None -> []
+
+    let legacyFeatures =
+        [ "--no_std", "no_std"; "--threaded", "threaded" ]
+        |> List.choose (fun (flag, feature) ->
+            if args |> List.contains flag then
+                Some feature
+            else
+                None
+        )
+
+    let features = requestedFeatures @ legacyFeatures |> List.distinct
+
+    let noStd = features |> List.contains "no_std"
+    let threaded = features |> List.contains "threaded"
+
     if noStd && threaded then
-        failwith "Cannot use --no-std and --threaded at the same time"
+        failwith "Cannot use no_std and threaded features together"
 
     BuildFableLibraryRust().Run(forceFableLibrary)
 
@@ -58,13 +83,19 @@ let handle (args: string list) =
             Shell.copyFile destination file
         )
 
+        let cargoFeatures = features |> String.concat ","
+
         let cargoTestArgs =
-            if noStd then
-                "cargo test --features no_std -- --test-threads=1"
-            elif threaded then
-                "cargo test --features threaded"
+            let cargoTest =
+                if List.isEmpty features then
+                    "cargo test"
+                else
+                    $"cargo test --features {cargoFeatures}"
+
+            if threaded then
+                cargoTest
             else
-                "cargo test -- --test-threads=1"
+                $"{cargoTest} -- --test-threads=1"
 
         let fableArgs =
             CmdLine.concat

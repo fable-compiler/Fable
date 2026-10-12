@@ -147,6 +147,24 @@ let ``Match with condition works`` () =
     b1 |> matchStringWhenStringNotHello |> equal "hello"
     b2 |> matchStringWhenStringNotHello |> equal "not hello"
 
+[<Struct>]
+type NestedMatchUnion =
+    | NestedA of int
+    | NestedB of int
+
+let private nestedUnionCaseAccess (u: NestedMatchUnion) =
+    match u with
+    | NestedA _ -> 0
+    | NestedB _ ->
+        match u with
+        | NestedA value -> value
+        | _ -> -1
+
+[<Fact>]
+let ``Nested union match keeps case-specific field access`` () =
+    nestedUnionCaseAccess (NestedA 7) |> equal 0
+    nestedUnionCaseAccess (NestedB 11) |> equal -1
+
 [<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.PointerType.Arc)>]
 type ArcUnion =
     | ArcS of string
@@ -457,5 +475,12 @@ let ``Compiler does not complain if the same type appears twice in nested U9`` (
     let x : U9<T1,T2,T3,int,T5,T6,T7,T8,
                 U9<T1 more, T2 more, T3 more, int, T5 more, T6 more, T7 more, T8 more, T9 more>> = !^42
     x |> equal (U9.Case4 42)
+
+[<Fact>]
+let ``Implicit conversion to erased unions works`` () =
+    let s: U2<int, string> = "foo"
+    s |> equal (U2.Case2 "foo")
+    let b: U3<int, string, bool> = true
+    b |> equal (U3.Case3 true)
 
 #endif

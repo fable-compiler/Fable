@@ -294,6 +294,7 @@ type BuiltinType =
     | BclDateTimeOffset
     | BclDateOnly
     | BclTimeOnly
+    | BclRune
     | BclTimer
     | BclHashSet of Type
     | BclDictionary of key: Type * value: Type
@@ -313,7 +314,8 @@ let (|BuiltinDefinition|_|) =
     | Types.datetimeOffset -> ValueSome BclDateTimeOffset
     | Types.dateOnly -> ValueSome BclDateOnly
     | Types.timeOnly -> ValueSome BclTimeOnly
-    | "System.Timers.Timer" -> ValueSome BclTimer
+    | Types.rune -> ValueSome BclRune
+    | Types.timer -> ValueSome BclTimer
     | Types.fsharpSet -> ValueSome(FSharpSet(Any))
     | Types.fsharpMap -> ValueSome(FSharpMap(Any, Any))
     | Types.hashset -> ValueSome(BclHashSet(Any))
@@ -592,6 +594,210 @@ let rec namesof com ctx acc e =
 
 let curriedApply r t applied args = CurriedApply(applied, args, t, r)
 
+/// Builds Option/ValueOption replacements that apply a function argument directly as AST
+/// (not via a lib call), so a lambda literal beta-reduces away instead of allocating a closure.
+module Options =
+    let innerType t =
+        match t with
+        | Option(genArg, _) -> genArg
+        | t -> t
+
+    /// Binds `value` to a fresh ident evaluated eagerly, once, before `body` (which may
+    /// reference it only conditionally) - required if `value` can be side-effecting.
+    let bindOnce (com: ICompiler) ctx name (value: Expr) (body: Expr -> Expr) =
+        let ident = makeUniqueIdent com ctx value.Type name
+        Let(ident, value, body (IdentExpr ident))
+
+    /// `let o = opt in if o is Some then someExpr(o, value(o)) else noneExpr`, binding `opt`
+    /// once (it's used by both the test and the unwrap, and may be side-effecting).
+    let matchOption (com: ICompiler) ctx r (opt: Expr) (someExpr: Expr -> Expr -> Expr) (noneExpr: Expr) =
+        bindOnce
+            com
+            ctx
+            "option"
+            opt
+            (fun optExpr ->
+                let unwrapped = Get(optExpr, OptionValue, innerType opt.Type, r)
+                IfThenElse(Test(optExpr, OptionTest true, r), someExpr optExpr unwrapped, noneExpr, r)
+            )
+
+    /// `Option.iter`/`ValueOption.iter`.
+    let iterate (com: ICompiler) ctx r (t: Type) (action: Expr) (opt: Expr) =
+        bindOnce
+            com
+            ctx
+            "action"
+            action
+            (fun actionExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> curriedApply r t actionExpr [ unwrapped ])
+                    (Value(UnitConstant, None))
+            )
+
+    /// `Option.map`/`ValueOption.map`.
+    let map (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped ->
+                        NewOption(curriedApply r retType mappingExpr [ unwrapped ] |> Some, retType, isStruct)
+                        |> makeValue r
+                    )
+                    (NewOption(None, retType, isStruct) |> makeValue r)
+            )
+
+    /// `Option.map2`/`ValueOption.map2`.
+    let map2 (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+                let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+                let opt1Expr = IdentExpr opt1Ident
+                let opt2Expr = IdentExpr opt2Ident
+                let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+                let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+                let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+
+                let someExpr =
+                    NewOption(curriedApply r retType mappingExpr [ unwrapped1; unwrapped2 ] |> Some, retType, isStruct)
+                    |> makeValue r
+
+                let inner = IfThenElse(Test(opt2Expr, OptionTest true, r), someExpr, noneExpr, r)
+                let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner, noneExpr, r)
+                Let(opt1Ident, opt1, Let(opt2Ident, opt2, outer))
+            )
+
+    /// `Option.map3`/`ValueOption.map3`.
+    let map3 (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) (opt3: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+                let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+                let opt3Ident = makeUniqueIdent com ctx opt3.Type "option3"
+                let opt1Expr = IdentExpr opt1Ident
+                let opt2Expr = IdentExpr opt2Ident
+                let opt3Expr = IdentExpr opt3Ident
+                let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+                let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+                let unwrapped3 = Get(opt3Expr, OptionValue, innerType opt3.Type, r)
+                let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+
+                let someExpr =
+                    NewOption(
+                        curriedApply r retType mappingExpr [ unwrapped1; unwrapped2; unwrapped3 ]
+                        |> Some,
+                        retType,
+                        isStruct
+                    )
+                    |> makeValue r
+
+                let inner2 = IfThenElse(Test(opt3Expr, OptionTest true, r), someExpr, noneExpr, r)
+                let inner1 = IfThenElse(Test(opt2Expr, OptionTest true, r), inner2, noneExpr, r)
+                let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner1, noneExpr, r)
+                Let(opt1Ident, opt1, Let(opt2Ident, opt2, Let(opt3Ident, opt3, outer)))
+            )
+
+    /// `Option.bind`/`ValueOption.bind`.
+    let bind (com: ICompiler) ctx r (t: Type) isStruct (binder: Expr) (opt: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "binder"
+            binder
+            (fun binderExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> curriedApply r t binderExpr [ unwrapped ])
+                    (NewOption(None, retType, isStruct) |> makeValue r)
+            )
+
+    /// `Option.filter`/`ValueOption.filter`.
+    let filter (com: ICompiler) ctx r isStruct (predicate: Expr) (opt: Expr) =
+        let valueType = innerType opt.Type
+        let noneExpr = NewOption(None, valueType, isStruct) |> makeValue r
+
+        bindOnce
+            com
+            ctx
+            "predicate"
+            predicate
+            (fun predicateExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun optExpr unwrapped ->
+                        IfThenElse(curriedApply r Boolean predicateExpr [ unwrapped ], optExpr, noneExpr, r)
+                    )
+                    noneExpr
+            )
+
+    /// `Option.defaultWith`/`ValueOption.defaultWith`.
+    let defaultWith (com: ICompiler) ctx r (t: Type) (defThunk: Expr) (opt: Expr) =
+        bindOnce
+            com
+            ctx
+            "defThunk"
+            defThunk
+            (fun defThunkExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> unwrapped)
+                    (curriedApply r t defThunkExpr [ Value(UnitConstant, None) ])
+            )
+
+    /// `Option.orElseWith`/`ValueOption.orElseWith`.
+    let orElseWith (com: ICompiler) ctx r (t: Type) (ifNoneThunk: Expr) (opt: Expr) =
+        bindOnce
+            com
+            ctx
+            "ifNoneThunk"
+            ifNoneThunk
+            (fun ifNoneThunkExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun optExpr _ -> optExpr)
+                    (curriedApply r t ifNoneThunkExpr [ Value(UnitConstant, None) ])
+            )
+
 let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
     let argType, retType =
         match t with
@@ -776,6 +982,16 @@ let (|IsByRefType|_|) (com: Compiler) =
         | true, (genArg :: _) -> ValueSome genArg
         | _ -> ValueNone
     | _ -> ValueNone
+
+/// F# types the locals it generates for copy-and-update expressions (`inputRecord`, `copyOfStruct`)
+/// as byrefs, but Fable binds the struct value itself to them.
+let getIdentValueType (com: Compiler) (ident: Ident) (typ: Type) =
+    if ident.IsCompilerGenerated then
+        match typ with
+        | IsByRefType com innerType -> innerType
+        | typ -> typ
+    else
+        typ
 
 [<return: Struct>]
 let (|IsInRefType|_|) (com: Compiler) =
@@ -1082,7 +1298,8 @@ let (|RegexFlags|_|) e =
 [<return: Struct>]
 let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: CallInfo) args error =
     function
-    | "op_ErasedCast" ->
+    | "op_ErasedCast"
+    | "op_Implicit" ->
         match List.tryHead args with
         | Some x -> ValueSome x
         | None -> ValueNone
@@ -1633,6 +1850,51 @@ module Quotations =
             Helper.LibCall(com, libModule, "isFieldGet", t, [ expr ], ?loc = r) |> Some
         | _ -> None
 
+    /// DerivedPatterns are the ones F# defines on top of Patterns. AndAlso and
+    /// OrElse matter because `&&` and `||` desugar to IfThenElse, so without them
+    /// a consumer has to re-derive that shape by hand; SpecificCall is how
+    /// operators are matched by identity rather than by compiled name.
+    let quotationDerivedPatterns
+        (libModule: string)
+        (com: ICompiler)
+        (ctx: Context)
+        r
+        (t: Type)
+        (i: CallInfo)
+        (_thisArg: Expr option)
+        (args: Expr list)
+        =
+        match i.CompiledName, args with
+        | ("AndAlsoPattern" | "|AndAlso|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isAndAlso", t, [ expr ], ?loc = r) |> Some
+        | ("OrElsePattern" | "|OrElse|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isOrElse", t, [ expr ], ?loc = r) |> Some
+        // SpecificCall is curried in FSharp.Core: applying it to the template
+        // returns the function that then tests the expression. Rather than have
+        // each runtime return a closure -- which the Rust backend uncurries back
+        // into a two-argument function -- the runtimes take both arguments and
+        // the partial application is built here.
+        | ("SpecificCallPattern" | "|SpecificCall|_|"), [ template ] ->
+            let exprType, resultType =
+                match t with
+                | LambdaType(argType, returnType) -> argType, returnType
+                | _ -> Any, Any
+
+            let exprIdent = makeUniqueIdent com ctx exprType "expr"
+
+            let body =
+                Helper.LibCall(
+                    com,
+                    libModule,
+                    "isSpecificCall",
+                    resultType,
+                    [ template; IdentExpr exprIdent ],
+                    ?loc = r
+                )
+
+            Lambda(exprIdent, body, None) |> Some
+        | _ -> None
+
     let tryQuotationCall
         (libModule: string)
         (com: ICompiler)
@@ -1649,6 +1911,7 @@ module Quotations =
         | Types.fsharpExprGeneric -> quotationExprs libModule com ctx r t info thisArg args
         | Types.fsharpVar -> quotationVars libModule com ctx r t info thisArg args
         | Types.patternsModule -> quotationPatterns libModule com ctx r t info thisArg args
+        | Types.derivedPatternsModule -> quotationDerivedPatterns libModule com ctx r t info thisArg args
         | "Microsoft.FSharp.Linq.RuntimeHelpers.LeafExpressionConverter" ->
             match info.CompiledName, args with
             | "EvaluateQuotation", [ expr ] -> Helper.LibCall(com, libModule, "evaluate", t, [ expr ], ?loc = r) |> Some

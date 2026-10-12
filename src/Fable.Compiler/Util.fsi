@@ -173,11 +173,13 @@ type PrecompiledInfoImpl =
 
     static member GetInlineExprsPath: fableModulesDir: string * index: int -> string
 
+    static member GetBrowserInlineExprsPath: fableModulesDir: string * index: int -> string
+
     static member Load: fableModulesDir: string -> PrecompiledInfoImpl
 
     static member Save:
         files: Map<string, PrecompiledFileJson> *
-        inlineExprs: (string * 'a) array *
+        inlineExprs: (string * Fable.InlineExpr) array *
         compilerOptions: Fable.CompilerOptions *
         fableModulesDir: string *
         fableLibDir: string ->

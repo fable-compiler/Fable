@@ -1,0 +1,13 @@
+
+import { task } from "./fable_modules/fable-library-js.5.15.0/TaskBuilder.js";
+import { fromResult } from "./fable_modules/fable-library-js.5.15.0/Task.js";
+import { Exception } from "./fable_modules/fable-library-js.5.15.0/Util.js";
+import { FSharpResult$2 } from "./fable_modules/fable-library-js.5.15.0/Result.js";
+
+export function run(shouldThrow) {
+    const builder$0040 = task();
+    return builder$0040.Run(builder$0040.Delay(() => builder$0040.Bind(fromResult(42), (_arg) => builder$0040.TryWith(builder$0040.Delay(() => builder$0040.Combine(shouldThrow ? (((() => {
+        throw new Exception("boom");
+    })(), builder$0040.Zero())) : builder$0040.Zero(), builder$0040.Delay(() => builder$0040.Return(new FSharpResult$2(/* Ok */ 0, [_arg]))))), (_arg_1) => builder$0040.Return(new FSharpResult$2(/* Error */ 1, [_arg_1]))))));
+}
+

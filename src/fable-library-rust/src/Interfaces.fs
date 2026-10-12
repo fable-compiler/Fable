@@ -3,6 +3,14 @@ namespace System
 type IDisposable =
     abstract Dispose: unit -> unit
 
+type IObserver<'T> =
+    abstract OnNext: 'T -> unit
+    abstract OnError: exn -> unit
+    abstract OnCompleted: unit -> unit
+
+type IObservable<'T> =
+    abstract Subscribe: IObserver<'T> -> IDisposable
+
 type IEquatable<'T> =
     abstract Equals: 'T -> bool
 
@@ -79,3 +87,19 @@ type IDictionary<'K, 'V> =
     abstract ContainsKey: 'K -> bool
     abstract TryGetValue: 'K * byref<'V> -> bool
     abstract Remove: 'K -> bool
+
+
+namespace Microsoft.FSharp.Control
+
+type IDelegateEvent<'Delegate> =
+    abstract AddHandler: 'Delegate -> unit
+    abstract RemoveHandler: 'Delegate -> unit
+
+// NOTE: the second type parameter is named 'T (not 'Args) on purpose: when the
+// Rust backend flattens the inherited System.IObservable<_>.Subscribe method into
+// this trait it keeps IObservable's original parameter name ('T) verbatim instead
+// of substituting the actual argument, so the names must line up or the generated
+// trait references an undeclared `T`.
+type IEvent<'Delegate, 'T> =
+    inherit IDelegateEvent<'Delegate>
+    inherit System.IObservable<'T>
