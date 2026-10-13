@@ -3630,8 +3630,10 @@ module Util =
             mkLetExpr pat downcastExpr
         | _ -> makeLibCall com ctx genArgsOpt "Native" "type_test" [ expr ]
 
-    let makeUnionCasePatOpt (com: IRustCompiler) ctx typ nameOpt caseIndex =
+    let rec makeUnionCasePatOpt (com: IRustCompiler) ctx typ nameOpt caseIndex =
         match typ with
+        | Replacements.Util.IsInRefType com typ -> makeUnionCasePatOpt com ctx typ nameOpt caseIndex
+
         | Fable.Option(genArg, _) ->
             // let genArgsOpt = transformGenArgs com ctx [genArg]
             let unionCaseFullName = [ "Some"; "None" ] |> List.item caseIndex |> rawIdent
@@ -3652,6 +3654,7 @@ module Util =
 
             let pat = makeUnionCasePat unionCaseName fields
             Some(pat)
+
         | Fable.DeclaredType(entRef, genArgs) ->
             let ent = com.GetEntity(entRef)
 
@@ -3714,8 +3717,9 @@ module Util =
             mkIfThenElseExpr guardExpr thenExpr elseExpr
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase : Rust.Expr =
-        let namesForIndex evalType evalName caseIndex = //todo refactor with below
+        let rec namesForIndex evalType evalName caseIndex = //todo refactor with below
             match evalType with
+            | Replacements.Util.IsInRefType com typ -> namesForIndex typ evalName caseIndex
             | Fable.Option(genArg, _) ->
                 match evalName with
                 | Some idName ->
