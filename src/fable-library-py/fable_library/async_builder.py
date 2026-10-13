@@ -344,7 +344,13 @@ class AsyncBuilder:
 
     def TryFinally[T](self, computation: Async[T], compensation: Callable[[], None]) -> Async[T]:
         def cont(ctx: IAsyncContext[T]) -> None:
+            settled = False
+
             def on_success(x: T) -> None:
+                nonlocal settled
+                if settled:
+                    return
+                settled = True
                 try:
                     compensation()
                 except Exception as error:
@@ -353,6 +359,11 @@ class AsyncBuilder:
                 ctx.on_success(x)
 
             def on_error(x: Exception) -> None:
+                nonlocal settled
+                # invariant: downstream continuation exceptions never rerun compensation
+                if settled:
+                    raise x
+                settled = True
                 try:
                     compensation()
                 except Exception as error:
@@ -361,6 +372,10 @@ class AsyncBuilder:
                 ctx.on_error(x)
 
             def on_cancel(x: OperationCanceledError) -> None:
+                nonlocal settled
+                if settled:
+                    return
+                settled = True
                 # decision: ignores compensation failures during cancellation, matching .NET Async.TryFinally
                 try:
                     compensation()
@@ -369,9 +384,11 @@ class AsyncBuilder:
                 ctx.on_cancel(x)
 
             ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, on_cancel)
-            computation(ctx_)
+            # invariant: cleanup continuations are installed before the cancellation checkpoint
+            # decision: protect the body with the same trampoline to retain bounded stack growth
+            protected_cont(computation)(ctx_)
 
-        return protected_cont(cont)
+        return cont
 
     def TryWith[T](self, computation: Async[T], catch_handler: Callable[[Exception], Async[T]]) -> Async[T]:
         def fn(ctx: IAsyncContext[T]):
@@ -397,7 +414,8 @@ class AsyncBuilder:
         def compensation() -> None:
             return resource.Dispose()
 
-        return self.TryFinally(binder(resource), compensation)
+        # decision: defer the resource binder until cleanup is installed and cancellation is checked
+        return self.TryFinally(self.Delay(lambda: binder(resource)), compensation)
 
     @overload
     def While(self, guard: Callable[[], bool], computation: Async[Literal[None]]) -> Async[None]: ...
