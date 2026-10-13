@@ -56,6 +56,15 @@ from .protocols import (
 from .types import UNIT, Unit
 
 
+def erase_unit_callable[**P, R](callback: Callable[P, R], /) -> Callable[..., R]:
+    """Adapt a callback annotation across an F# generic-to-unit boundary.
+
+    decision: erase parameter arity for the type checker while retaining the callback's return type
+    invariant: the callback's identity and erased-unit invocation are unchanged at runtime
+    """
+    return callback
+
+
 class nullable:
     """Returns a tuple of None values with the specified types.
 
@@ -963,6 +972,7 @@ __all__ = [
     "Unit",
     "array_hash",
     "copy_to_array",
+    "erase_unit_callable",
     "escape_data_string",
     "escape_uri_string",
     "create_random",

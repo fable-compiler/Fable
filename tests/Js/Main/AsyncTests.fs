@@ -154,6 +154,9 @@ let asyncMap f a = async {
     return f a
 }
 
+let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (OperationCanceledException -> unit) -> unit) : Async<'T> =
+    Async.FromContinuations(fun (ok, error, cancelled) -> callback ok error cancelled)
+
 let tests =
   testList "Async" [
     testCase "TryFinally installs cleanup before pre-cancellation" <| FinalizerRegressions.preCancelled
@@ -161,6 +164,19 @@ let tests =
     testCase "Resource cleanup runs once on success and failure" <| FinalizerRegressions.normalAndFailure
     testCase "TryFinally propagates downstream continuation errors once" <| FinalizerRegressions.downstreamExceptions
     testCaseAsync "TryFinally preserves bounded trampoline execution" <| FinalizerRegressions.trampoline
+
+    testCase "Generic FromContinuations accepts erased unit callbacks" <| fun () ->
+        let calls = ResizeArray<string>()
+        let start work = Async.StartWithContinuations(work, (fun _ -> calls.Add "success"), (fun e -> calls.Add e.Message), (fun e -> calls.Add e.Message))
+        let unitWork: Async<unit> = fromGenericCallback (fun ok _ _ -> ok ())
+        start unitWork
+        let valueWork = fromGenericCallback (fun ok _ _ -> ok 42)
+        Async.StartWithContinuations(valueWork, (fun value -> equal 42 value; calls.Add "value"), raise, raise)
+        let errorWork: Async<unit> = fromGenericCallback (fun _ error _ -> error (exn "error"))
+        start errorWork
+        let cancelWork: Async<unit> = fromGenericCallback (fun _ _ cancelled -> cancelled (OperationCanceledException("cancel")))
+        start cancelWork
+        equal [|"success"; "value"; "error"; "cancel"|] (calls.ToArray())
 
     testCase "FromContinuations unit and generic values" <| fun () ->
         let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
