@@ -302,3 +302,93 @@ def test_try_finally_propagates_downstream_errors_once(channel: str) -> None:
         assert calls == [channel]
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("channel", ["success", "error", "cancel"])
+def test_generic_from_continuations_propagates_terminal_exceptions(channel: str) -> None:
+    from fable_library.async_ import from_continuations
+    from fable_library.async_builder import Continuations, OperationCanceledError
+
+    async def run() -> None:
+        calls: list[str] = []
+        defect = ValueError("downstream")
+        trampoline = Trampoline()
+        token = CancellationToken()
+
+        def terminal(value: object) -> None:
+            calls.append(channel)
+            raise defect
+
+        def callback(conts: Continuations[int]) -> None:
+            ok, error, cancelled = conts
+            if channel == "success":
+                ok(42)
+            elif channel == "error":
+                error(ValueError("body"))
+            else:
+                cancelled(OperationCanceledError())
+
+        ctx = IAsyncContext.create(trampoline, token, terminal, terminal, terminal)
+        with pytest.raises(ValueError) as caught:
+            from_continuations(callback)(ctx)
+        assert caught.value is defect
+        assert calls == [channel]
+        assert ctx.trampoline is trampoline
+
+    asyncio.run(run())
+
+
+def test_generic_from_continuations_rejects_duplicate_completion() -> None:
+    from fable_library.async_ import from_continuations
+    from fable_library.async_builder import Continuations
+
+    calls: list[int] = []
+
+    def callback(conts: Continuations[int]) -> None:
+        conts[0](42)
+        conts[0](43)
+
+    with pytest.raises(RuntimeError, match="invoked more than once"):
+        start_with_continuations(from_continuations(callback), calls.append)
+    assert calls == [42]
+
+
+def test_generic_from_continuations_claims_concurrent_completion_once() -> None:
+    from fable_library.async_ import from_continuations
+    from fable_library.async_builder import Continuations
+
+    callbacks: Continuations[int] | None = None
+    calls: list[str] = []
+    rejected: list[Exception] = []
+    barrier = Barrier(2)
+
+    def callback(conts: Continuations[int]) -> None:
+        nonlocal callbacks
+        callbacks = conts
+
+    start_with_continuations(
+        from_continuations(callback),
+        lambda _: calls.append("success"),
+        lambda _: calls.append("error"),
+    )
+    assert callbacks is not None
+    ok, error, _ = callbacks
+
+    def complete(success: bool) -> None:
+        barrier.wait(5)
+        try:
+            if success:
+                ok(42)
+            else:
+                error(ValueError("body"))
+        except RuntimeError as duplicate:
+            rejected.append(duplicate)
+
+    threads = [Thread(target=complete, args=(success,)) for success in (True, False)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(5)
+    assert all(not thread.is_alive() for thread in threads)
+    assert len(calls) == 1
+    assert len(rejected) == 1

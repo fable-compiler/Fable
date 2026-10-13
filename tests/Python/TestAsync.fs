@@ -1074,3 +1074,29 @@ let ``test TryFinally preserves bounded trampoline execution`` () =
 [<Fact>]
 let ``test TryFinally propagates downstream continuation errors once`` () =
     FinalizerRegressions.downstreamExceptions ()
+
+let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (OperationCanceledException -> unit) -> unit) : Async<'T> =
+    Async.FromContinuations(fun (ok, error, cancelled) -> callback ok error cancelled)
+
+[<Fact>]
+let ``test generic FromContinuations accepts erased unit callbacks`` () =
+    let calls = ResizeArray<string>()
+    let start work = Async.StartWithContinuations(work, (fun _ -> calls.Add "success"), (fun e -> calls.Add e.Message), (fun e -> calls.Add e.Message))
+    let unitWork: Async<unit> = fromGenericCallback (fun ok _ _ -> ok ())
+    start unitWork
+    let valueWork = fromGenericCallback (fun ok _ _ -> ok 42)
+    Async.StartWithContinuations(valueWork, (fun value -> equal 42 value; calls.Add "value"), raise, raise)
+    let errorWork: Async<unit> = fromGenericCallback (fun _ error _ -> error (exn "error"))
+    start errorWork
+    let cancelWork: Async<unit> = fromGenericCallback (fun _ _ cancelled -> cancelled (OperationCanceledException("cancel")))
+    start cancelWork
+    equal [|"success"; "value"; "error"; "cancel"|] (calls.ToArray())
+
+let private invokeGenericCallback (callback: ('T -> unit) -> 'Result) (value: 'T) : 'Result =
+    callback (fun received -> equal value received)
+
+[<Fact>]
+let ``test generic unit callback adaptation preserves return types`` () =
+    equal 42 (invokeGenericCallback (fun ok -> ok (); 42) ())
+    equal "unit" (invokeGenericCallback (fun ok -> ok (); "unit") ())
+    equal "value" (invokeGenericCallback (fun ok -> ok 7; "value") 7)

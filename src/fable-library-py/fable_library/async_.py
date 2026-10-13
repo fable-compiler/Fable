@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import RLock, Timer
 from typing import (
     Any,
+    cast,
 )
 
 from .array_ import Array
@@ -228,16 +229,44 @@ def catch_async[T](work: Async[T]) -> Async[FSharpChoice_2[T, Exception]]:
     return protected_cont(cont)
 
 
-def from_continuations[T](
-    f: Callable[
-        [Continuations[T]],
-        None,
-    ],
-) -> Callable[[IAsyncContext[T]], None]:
+def from_continuations[T](f: Callable[[Continuations[T]], None]) -> Async[T]:
     def cont(ctx: IAsyncContext[T]) -> None:
-        f((ctx.on_success, ctx.on_error, ctx.on_cancel))
+        settled = False
+        gate = RLock()
 
-    return protected_cont(cont)
+        def claim() -> None:
+            nonlocal settled
+            # invariant: settlement is claimed under the gate and user continuations run outside it
+            with gate:
+                if settled:
+                    raise RuntimeError("A continuation was invoked more than once")
+                settled = True
+
+        # decision: the default represents only an erased F# unit; Python cannot express that specialization of T
+        def success(value: T = cast(T, None)) -> None:
+            claim()
+            ctx.on_success(value)
+
+        def error(value: Exception) -> None:
+            claim()
+            ctx.on_error(value)
+
+        def cancelled(value: OperationCanceledError) -> None:
+            claim()
+            ctx.on_cancel(value)
+
+        def on_exception(value: Exception) -> None:
+            # invariant: an exception after settlement belongs to continuation code and propagates unchanged
+            with gate:
+                completed = settled
+            if completed:
+                raise value
+            error(value)
+
+        guarded = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, success, on_exception, cancelled)
+        protected_cont(lambda _: f((success, error, cancelled)))(guarded)
+
+    return cont
 
 
 def from_continuations_unit(

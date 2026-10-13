@@ -854,13 +854,16 @@ let transformCallArgs
     let hasSpread =
         paramsInfo |> Option.map (fun i -> i.HasSpread) |> Option.defaultValue false
 
-    // Helper to transform an arg and wrap with widen() if needed
-    let transformArgWithWiden (sigType: Fable.Type option) (argExpr: Fable.Expr) =
+    // Adapt callback annotations at generic representation boundaries.
+    let transformArgWithAdapters (sigType: Fable.Type option) (argExpr: Fable.Expr) =
         let expr, stmts = com.TransformAsExpr(ctx, argExpr)
 
         if needsOptionWidenForArg sigType argExpr then
             let widen = com.TransformImport(ctx, "widen", getLibPath com "option")
             Expression.call (widen, [ expr ]), stmts
+        elif needsUnitCallableEraseForArg sigType argExpr then
+            let erase = com.TransformImport(ctx, "erase_unit_callable", getLibPath com "util")
+            Expression.call (erase, [ expr ]), stmts
         else
             expr, stmts
 
@@ -884,11 +887,11 @@ let transformCallArgs
                 let expr, stmts' = com.TransformAsExpr(ctx, last)
                 rest @ [ Expression.starred expr ], stmts @ stmts'
         | args ->
-            // Transform args with widen() where needed based on signature types
+            // Use declaration signature types to identify specialization boundaries.
             args
             |> List.mapi (fun i e ->
                 let sigType = List.tryItem i callInfo.SignatureArgTypes
-                transformArgWithWiden sigType e
+                transformArgWithAdapters sigType e
             )
             |> Helpers.unzipArgs
 

@@ -319,6 +319,27 @@ module Util =
             | _ -> false
         | _ -> false
 
+    /// Detect an erased unit callable inside a callback parameter specialized from a generic input.
+    let needsUnitCallableEraseForArg (expectedType: Fable.Type option) (argExpr: Fable.Expr) =
+        let rec mismatches expected actual =
+            match FableTransforms.uncurryType expected, FableTransforms.uncurryType actual with
+            | Fable.DelegateType([ Fable.GenericParam _ ], _), Fable.DelegateType([ Fable.Unit ], _) -> true
+            | Fable.DelegateType(expectedArgs, _), Fable.DelegateType(actualArgs, _)
+            | Fable.Tuple(expectedArgs, _), Fable.Tuple(actualArgs, _) ->
+                List.sameLength expectedArgs actualArgs
+                && List.exists2 mismatches expectedArgs actualArgs
+            | _ -> false
+
+        // decision: adapt only generic-to-unit callable parameters; ordinary unit and non-unit annotations stay precise
+        expectedType
+        |> Option.exists (fun expected ->
+            match FableTransforms.uncurryType expected, FableTransforms.uncurryType argExpr.Type with
+            | Fable.DelegateType(expectedArgs, _), Fable.DelegateType(actualArgs, _) ->
+                List.sameLength expectedArgs actualArgs
+                && List.exists2 mismatches expectedArgs actualArgs
+            | _ -> false
+        )
+
     /// Wraps None values in cast(type, None) for type safety.
     /// Skips if type annotation is also None (unit type).
     let wrapNoneInCast (com: IPythonCompiler) ctx (value: Expression) (typeAnnotation: Expression) : Expression =
