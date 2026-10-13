@@ -12,6 +12,26 @@ type Point2D =
     | Planar2D of float * float
     | Infinity
 
+[<Struct>]
+type Shape =
+    | Square of side: int
+    | Circle of radius: float
+
+    member this.Area =
+        match this with
+        | Square side -> float (side * side)
+        | Circle radius -> System.Math.PI * radius * radius
+
+[<Struct>]
+type Shape2 =
+    | Square of float
+    | Circle of float
+
+    member this.Area =
+        match this with
+        | Square side -> side * side
+        | Circle radius -> System.Math.PI * radius * radius
+
 [<Fact>]
 let ``Struct unions work`` () =
     let distance p =
@@ -21,6 +41,22 @@ let ``Struct unions work`` () =
     let p = Planar2D (3, 4)
     let res = distance p
     res |> equal 5.
+
+[<Fact>]
+let ``Struct unions with fields work`` () =
+    let radius = 3.0
+    let circle = Shape.Circle radius
+    let square = Shape.Square(int (2.0 * radius))
+    circle.Area |> equal (System.Math.PI * radius * radius)
+    square.Area |> equal (4.0 * radius * radius)
+
+[<Fact>]
+let ``Struct unions without fields work`` () =
+    let radius = 3.0
+    let circle = Shape2.Circle radius
+    let square = Shape2.Square(2.0 * radius)
+    circle.Area |> equal (System.Math.PI * radius * radius)
+    square.Area |> equal (4.0 * radius * radius)
 
 [<Fact>]
 let ``Union case matching works`` () =
