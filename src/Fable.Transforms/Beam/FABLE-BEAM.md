@@ -186,7 +186,7 @@ also sets `standard_io` and `standard_error` to Unicode.
 | `list<'T>` | list | Native linked list |
 | `array<'T>` | process-dictionary reference to a list | Mutable and process-local |
 | `byte[]` | `{byte_array, Size, AtomicsRef}` | O(1) reads and writes through `atomics` |
-| `seq<'T>` | Fable sequence runtime | Compiled `Seq.fs`/`Seq2.fs` preserve lazy paths |
+| `seq<'T>` | Fable sequence runtime | Lazy factory wrappers are immutable maps; cursor state is local to each enumeration |
 | `Map<'K,'V>` | map | Native key ordering applies |
 | `Set<'T>` | ordset | Sorted native list |
 | `option<'T>` | erased value or `undefined` | Ambiguous nested/generic cases use `{some, Value}` |
@@ -342,6 +342,13 @@ process-dictionary-backed values:
 - non-byte list/map collection updates replace the stored collection;
 - mutable local keys are erased when their scope exits where code generation can
   prove the lifetime.
+
+Lazy sequence factory wrappers are immutable maps and can cross processes when
+their factories, sources, and captured values are process-portable. Enumeration
+stays lazy: each factory call creates cursor state in the enumerating process.
+Active enumerators with process-dictionary-backed state must remain in that
+process. Captured mutable state, `Seq.cache`, and non-byte array or mutable
+collection sources retain their process-local restrictions.
 
 Module-level mutables use module-qualified process-dictionary keys and initialize
 through the generated module's `main/0`. Immutable module values that read a mutable
