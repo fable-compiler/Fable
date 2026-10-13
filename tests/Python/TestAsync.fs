@@ -3,6 +3,103 @@ module Fable.Tests.Async
 open System
 open Util.Testing
 
+module private FinalizerRegressions =
+    open System
+    open System.Threading
+
+    let private check expected actual =
+        if expected <> actual then failwithf "Expected %A, got %A" expected actual
+
+    let private observe (token: CancellationToken) work =
+        let terminal = ResizeArray<string>()
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun e -> terminal.Add e.Message), (fun _ -> terminal.Add "cancel"), token)
+        terminal
+
+    let preCancelled () =
+        for throws in [false; true] do
+            use source = new CancellationTokenSource()
+            source.Cancel()
+            let mutable cleanups = 0
+            let mutable entered = false
+            let work = async.TryFinally(async { entered <- true }, fun () ->
+                cleanups <- cleanups + 1
+                if throws then failwith "cleanup")
+            let terminal = observe source.Token work
+            check false entered
+            check 1 cleanups
+            check [|"cancel"|] (terminal.ToArray())
+
+    let cancelledAcquisition () =
+        for acquisition in [0; 1; 2] do
+            use source = new CancellationTokenSource()
+            let mutable disposals = 0
+            let mutable entered = false
+            let resource = { new IDisposable with member _.Dispose() = disposals <- disposals + 1 }
+            let acquire = Async.FromContinuations(fun (ok, _, _) ->
+                source.Cancel()
+                ok resource)
+            let work =
+                if acquisition = 1 then async {
+                    use! owned = acquire
+                    entered <- true
+                }
+                elif acquisition = 0 then async {
+                    let! acquired = acquire
+                    use owned = acquired
+                    entered <- true
+                }
+                else async {
+                    use owned =
+                        source.Cancel()
+                        resource
+                    entered <- true
+                }
+            let terminal = observe source.Token work
+            check false entered
+            check 1 disposals
+            check [|"cancel"|] (terminal.ToArray())
+
+    let normalAndFailure () =
+        for fails in [false; true] do
+            let mutable disposals = 0
+            let resource = { new IDisposable with member _.Dispose() = disposals <- disposals + 1 }
+            let work = async {
+                use owned = resource
+                if fails then failwith "body"
+                return 42
+            }
+            let terminal = observe CancellationToken.None work
+            check 1 disposals
+            check [|if fails then "body" else "success"|] (terminal.ToArray())
+
+    let trampoline () = async {
+        let mutable cleanups = 0
+        for _ in 1 .. 10000 do
+            do! async.TryFinally(async { return () }, fun () -> cleanups <- cleanups + 1)
+        check 10000 cleanups
+    }
+
+    let downstreamExceptions () =
+        for channel in ["success"; "error"; "cancel"] do
+            let mutable cleanups = 0
+            let calls = ResizeArray<string>()
+            let body: Async<unit> = Async.FromContinuations(fun (ok, error, cancelled) ->
+                match channel with
+                | "success" -> ok ()
+                | "error" -> error (Exception "body")
+                | _ -> cancelled (OperationCanceledException()))
+            let terminal name = calls.Add name; failwith "downstream"
+            let caught =
+                try
+                    Async.StartWithContinuations(
+                        async.TryFinally(body, fun () -> cleanups <- cleanups + 1),
+                        (fun () -> terminal "success"), (fun _ -> terminal "error"), (fun _ -> terminal "cancel"))
+                    "no exception"
+                with e -> e.Message
+            check "downstream" caught
+            check 1 cleanups
+            check [|channel|] (calls.ToArray())
+
 #if FABLE_COMPILER
 module private Runtime =
     open Fable.Core.PyInterop
@@ -957,3 +1054,23 @@ let ``test cancelling the mailbox token cancels a body waiting in Receive`` () =
                 |> ignore)
         equal "cancelled" outcome
     } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test TryFinally installs cleanup before pre-cancellation`` () =
+    FinalizerRegressions.preCancelled ()
+
+[<Fact>]
+let ``test cancelled acquisition disposes use and use bang resources`` () =
+    FinalizerRegressions.cancelledAcquisition ()
+
+[<Fact>]
+let ``test resource cleanup runs once on success and failure`` () =
+    FinalizerRegressions.normalAndFailure ()
+
+[<Fact>]
+let ``test TryFinally preserves bounded trampoline execution`` () =
+    FinalizerRegressions.trampoline () |> Async.RunSynchronously
+
+[<Fact>]
+let ``test TryFinally propagates downstream continuation errors once`` () =
+    FinalizerRegressions.downstreamExceptions ()

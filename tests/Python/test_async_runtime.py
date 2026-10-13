@@ -263,3 +263,42 @@ def test_sleep_cancelled_while_its_loop_is_stopped_settles_once():
         assert not token.listeners
     finally:
         loop.close()
+
+
+@pytest.mark.parametrize("channel", ["success", "error", "cancel"])
+def test_try_finally_propagates_downstream_errors_once(channel: str) -> None:
+    from fable_library.async_builder import OperationCanceledError, singleton
+
+    async def run() -> None:
+        cleanups = 0
+        calls: list[str] = []
+        trampoline = Trampoline()
+        token = CancellationToken()
+        defect = ValueError("downstream")
+
+        def cleanup() -> None:
+            nonlocal cleanups
+            cleanups += 1
+
+        def terminal(value: object) -> None:
+            calls.append(channel)
+            raise defect
+
+        def body(ctx: IAsyncContext[int]) -> None:
+            assert ctx.trampoline is trampoline
+            assert ctx.cancel_token is token
+            if channel == "success":
+                ctx.on_success(42)
+            elif channel == "error":
+                ctx.on_error(ValueError("body"))
+            else:
+                ctx.on_cancel(OperationCanceledError())
+
+        ctx = IAsyncContext.create(trampoline, token, terminal, terminal, terminal)
+        with pytest.raises(ValueError) as caught:
+            singleton.TryFinally(body, cleanup)(ctx)
+        assert caught.value is defect
+        assert cleanups == 1
+        assert calls == [channel]
+
+    asyncio.run(run())

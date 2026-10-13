@@ -200,9 +200,14 @@ export class AsyncBuilder {
   }
 
   public TryFinally<T>(computation: Async<T>, compensation: () => void) {
-    return protectedCont((ctx: IAsyncContext<T>) => {
-      computation({
+    // invariant: cleanup continuations are installed before the cancellation checkpoint
+    // decision: protect the body with the shared trampoline so pre-cancellation still runs compensation
+    return (ctx: IAsyncContext<T>) => {
+      let settled = false;
+      protectedCont(computation)({
         onSuccess: (x: T) => {
+          if (settled) { return; }
+          settled = true;
           try { compensation(); } catch (error) {
             ctx.onError(ensureErrorOrException(error));
             return;
@@ -210,6 +215,9 @@ export class AsyncBuilder {
           ctx.onSuccess(x);
         },
         onError: (x: any) => {
+          // invariant: downstream continuation exceptions never rerun compensation
+          if (settled) { throw x; }
+          settled = true;
           try { compensation(); } catch (error) {
             ctx.onError(ensureErrorOrException(error));
             return;
@@ -217,6 +225,8 @@ export class AsyncBuilder {
           ctx.onError(x);
         },
         onCancel: (x: any) => {
+          if (settled) { return; }
+          settled = true;
           // decision: cancellation remains terminal when compensation throws, matching .NET Async.TryFinally
           try { compensation(); } catch { /* Cancellation takes precedence. */ }
           ctx.onCancel(x);
@@ -224,7 +234,7 @@ export class AsyncBuilder {
         cancelToken: ctx.cancelToken,
         trampoline: ctx.trampoline,
       });
-    });
+    };
   }
 
   public TryWith<T>(computation: Async<T>, catchHandler: (e: any) => Async<T>) {
@@ -250,7 +260,8 @@ export class AsyncBuilder {
   }
 
   public Using<T extends IDisposable, U>(resource: T, binder: (x: T) => Async<U>) {
-    return this.TryFinally(binder(resource), () => resource.Dispose());
+    // decision: defer the resource binder until cleanup is installed and cancellation is checked
+    return this.TryFinally(this.Delay(() => binder(resource)), () => resource.Dispose());
   }
 
   public While(guard: () => boolean, computation: Async<void>): Async<void> {
