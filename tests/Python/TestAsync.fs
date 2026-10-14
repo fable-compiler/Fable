@@ -29,6 +29,16 @@ module private FinalizerRegressions =
             check 1 cleanups
             check [|"cancel"|] (terminal.ToArray())
 
+    let nestedPreCancelled () =
+        use source = new CancellationTokenSource()
+        source.Cancel()
+        let cleanups = ResizeArray<string>()
+        let inner = async.TryFinally(async.Return 42, fun () -> cleanups.Add "inner")
+        let outer = async.TryFinally(inner, fun () -> cleanups.Add "outer")
+        let terminal = observe source.Token outer
+        check [|"outer"|] (cleanups.ToArray())
+        check [|"cancel"|] (terminal.ToArray())
+
     let cancelledAcquisition () =
         for acquisition in [0; 1; 2] do
             use source = new CancellationTokenSource()
@@ -1058,6 +1068,10 @@ let ``test cancelling the mailbox token cancels a body waiting in Receive`` () =
 [<Fact>]
 let ``test TryFinally installs cleanup before pre-cancellation`` () =
     FinalizerRegressions.preCancelled ()
+
+[<Fact>]
+let ``test pre-cancelled nested TryFinally only runs outer cleanup`` () =
+    FinalizerRegressions.nestedPreCancelled ()
 
 [<Fact>]
 let ``test cancelled acquisition disposes use and use bang resources`` () =
