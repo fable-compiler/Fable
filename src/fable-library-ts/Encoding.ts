@@ -89,6 +89,25 @@ function utf8_decode(bytes: ArrayLike<uint8>) {
   return chars.join("");
 }
 
+function toUint8Array(bytes: ArrayLike<uint8>, index?: number, count?: number) {
+  if (ArrayBuffer.isView(bytes)) {
+    const buffer = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (index != null && count != null) {
+      return buffer.subarray(index, index + count);
+    } else if (index != null) {
+      return buffer.subarray(index);
+    }
+    return buffer;
+  } else {
+    if (index != null && count != null) {
+      return Uint8Array.from(Array.prototype.slice.call(bytes, index, index + count));
+    } else if (index != null) {
+      return Uint8Array.from(Array.prototype.slice.call(bytes, index));
+    }
+    return Uint8Array.from(bytes);
+  }
+}
+
 class UTF16LE {
 
   public getBytes(str: string | string[], index?: number, count?: number) {
@@ -110,13 +129,7 @@ class UTF16LE {
   }
 
   public getString(bytes: ArrayLike<uint8>, index?: number, count?: number) {
-    const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
-    let buffer = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
-    if (index != null && count != null) {
-      buffer = buffer.subarray(index, index + count);
-    } else if (index != null) {
-      buffer = buffer.subarray(index);
-    }
+    const buffer = toUint8Array(bytes, index, count);
     // Allow to compile for Browser environment without @types/node being installed
     // See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;
@@ -154,13 +167,7 @@ class UTF8 {
   }
 
   public getString(bytes: ArrayLike<uint8>, index?: number, count?: number) {
-    const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
-    let buffer = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
-    if (index != null && count != null) {
-      buffer = buffer.subarray(index, index + count);
-    } else if (index != null) {
-      buffer = buffer.subarray(index);
-    }
+    const buffer = toUint8Array(bytes, index, count);
     // Allow to compile for Browser environment without @types/node being installed
     // See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;

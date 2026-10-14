@@ -26,6 +26,13 @@ let parse f (a: string) =
 #endif
 
 
+let private toPlainArray (bytes: byte[]) : byte[] =
+#if FABLE_COMPILER
+    ResizeArray bytes |> unbox
+#else
+    bytes
+#endif
+
 let private adaptExponentValue (value: string) =
     value.ToLowerInvariant().Replace("e+00", "e+").Replace("e+0", "e+")
 
@@ -2406,6 +2413,11 @@ let tests =
         System.Text.Encoding.Unicode.GetString(bytes, 8, 6)
         |> equal "\u03B2\uD8FF\uDCFF"
 
+    testCase "Encoding.Unicode.GetString for range works with non-typed array" <| fun () ->
+        let bytes = toPlainArray [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+        System.Text.Encoding.Unicode.GetString(bytes, 8, 6)
+        |> equal "\u03B2\uD8FF\uDCFF"
+
     testCase "Encoding.UTF8.GetBytes works" <| fun () ->
         System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
         |> equal [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
@@ -2421,6 +2433,11 @@ let tests =
 
     testCase "Encoding.UTF8.GetString for range works" <| fun () ->
         let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+        System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
+        |> equal "\u03B2\uD8FF\uDCFF"
+
+    testCase "Encoding.UTF8.GetString for range works with non-typed array" <| fun () ->
+        let bytes = toPlainArray [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
         System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
         |> equal "\u03B2\uD8FF\uDCFF"
 
