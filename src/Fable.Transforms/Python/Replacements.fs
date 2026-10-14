@@ -782,6 +782,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
+    | "System.Threading.Tasks.TaskCanceledException" ->
+        makeImportLib com Any "TaskCanceledError" "async_builder" |> Some
     // | "System.Collections.Generic.KeyNotFoundException" ->
     //     makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic" |> Some
     | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
@@ -2844,6 +2846,9 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
         match i.DeclaringEntityFullName with
+        | "System.Threading.Tasks.TaskCanceledException" ->
+            Helper.LibCall(com, "async_builder", "TaskCanceledError", t, args, isConstructor = true, ?loc = r)
+            |> Some
         // | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
         | _ ->
@@ -3675,6 +3680,9 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "AwaitTask" ->
+        Helper.LibCall(com, "async_", "await_task_with_cancellation", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "FromContinuations" when
         (match t with
          | Fable.DeclaredType(_, [ Fable.Unit ]) -> true

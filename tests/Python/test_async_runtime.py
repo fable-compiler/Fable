@@ -2,8 +2,15 @@ import asyncio
 from threading import Barrier, Condition, Event, Thread
 
 import pytest
-from fable_library.async_ import await_event, sleep, start_with_continuations
-from fable_library.async_builder import CancellationCallbackError, CancellationToken, IAsyncContext, Trampoline
+from fable_library.async_ import await_event, await_task_with_cancellation, sleep, start_with_continuations
+from fable_library.async_builder import (
+    CancellationCallbackError,
+    CancellationToken,
+    IAsyncContext,
+    OperationCanceledError,
+    TaskCanceledError,
+    Trampoline,
+)
 from fable_library.event import Event as FableEvent
 
 
@@ -163,6 +170,46 @@ def test_sleep_on_cancelled_token_settles_once():
         CancellationToken(True),
     )
     assert calls == ["cancel"]
+
+
+@pytest.mark.parametrize("already_cancelled", [False, True])
+def test_await_task_cancellation_uses_error_continuation(already_cancelled: bool) -> None:
+    async def run() -> None:
+        loop = asyncio.get_running_loop()
+        unhandled: list[object] = []
+        loop.set_exception_handler(lambda _, context: unhandled.append(context.get("exception")))
+        task: asyncio.Future[int] = loop.create_future()
+        token = CancellationToken()
+        calls: list[str] = []
+        errors: list[Exception] = []
+        if already_cancelled:
+            task.cancel()
+
+        def on_error(error: Exception) -> None:
+            calls.append("error")
+            errors.append(error)
+
+        start_with_continuations(
+            await_task_with_cancellation(task),
+            lambda _: calls.append("success"),
+            on_error,
+            lambda _: calls.append("cancel"),
+            token,
+        )
+        await asyncio.sleep(0)
+        if not already_cancelled:
+            task.cancel()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert calls == ["error"]
+        assert len(errors) == 1
+        assert isinstance(errors[0], TaskCanceledError)
+        assert isinstance(errors[0], OperationCanceledError)
+        assert errors[0].inner_exception is None
+        assert not token.is_cancelled
+        assert not unhandled
+
+    asyncio.run(run())
 
 
 class _DeferringTrampoline(Trampoline):
