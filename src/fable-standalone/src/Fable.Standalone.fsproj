@@ -10,8 +10,8 @@
     <ProjectReference Include="../../fcs-fable/fcs-fable.fsproj" />
     <ProjectReference Include="../../Fable.Transforms/Rust/AST/Rust.AST.fsproj" />
     <!-- Reads the inline expressions `fable precompile` writes for the browser -->
-    <PackageReference Include="Thoth.Json.Core.Auto" Version="0.1.1" />
-    <PackageReference Include="Thoth.Json.JavaScript" Version="0.5.0" />
+    <PackageReference Include="Thoth.Json.Core.Auto" Version="0.2.0" />
+    <PackageReference Include="Thoth.Json.JavaScript" Version="0.6.0" />
   </ItemGroup>
 
   <ItemGroup>

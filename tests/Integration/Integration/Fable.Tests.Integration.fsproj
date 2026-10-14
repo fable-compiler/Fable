@@ -6,7 +6,7 @@
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="11.1.0" />
+    <PackageReference Include="Expecto" Version="11.1.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Fable.Cli\Fable.Cli.fsproj" />

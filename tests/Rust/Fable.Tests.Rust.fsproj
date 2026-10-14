@@ -12,7 +12,7 @@
     <LangVersion>Preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <!-- Keep the existing VSTest-based dotnet test commands on .NET 10. -->
     <PackageReference Include="xunit.v3.mtp-off" Version="4.0.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1">
