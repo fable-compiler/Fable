@@ -16,6 +16,7 @@ from .async_builder import (
     Continuations,
     IAsyncContext,
     OperationCanceledError,
+    TaskCanceledError,
     Trampoline,
     empty_continuation,
     protected_bind,
@@ -281,6 +282,17 @@ def await_task[T](task: Awaitable[T]) -> Async[T]:
     return from_continuations(callback)
 
 
+def await_task_with_cancellation[T](task: Awaitable[T]) -> Async[T]:
+    async def observe() -> T:
+        try:
+            return await task
+        except asyncio.CancelledError as error:
+            # decision: cancelled tasks are ordinary AwaitTask failures, matching .NET TaskCanceledException
+            raise TaskCanceledError() from error
+
+    return await_task(observe())
+
+
 def run_in_loop(computation: Callable[..., None]) -> Any:
     """Run a computation on the event loop.
 
@@ -461,6 +473,7 @@ def run_synchronously[T](
 __all__ = [
     "await_event",
     "await_task",
+    "await_task_with_cancellation",
     "cancel",
     "cancel_after",
     "cancellation_token",

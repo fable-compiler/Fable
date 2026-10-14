@@ -20,6 +20,12 @@ class OperationCanceledError(Exception):
         super().__init__(msg or "The operation was canceled")
 
 
+class TaskCanceledError(OperationCanceledError):
+    def __init__(self, msg: str | None = None, inner_exception: Exception | None = None) -> None:
+        Exception.__init__(self, "A task was canceled." if msg is None else msg)
+        self.inner_exception: Exception | None = inner_exception
+
+
 type Continuations[T] = tuple[
     Callable[[T], None],
     Callable[[Exception], None],

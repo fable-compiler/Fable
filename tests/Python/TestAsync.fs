@@ -345,26 +345,34 @@ let ``test Interaction between Async and Task works`` () =
         equal true res
     } |> Async.RunSynchronously
 
-#if FABLE_COMPILER
 [<Fact>]
 let ``test Tasks can be cancelled`` () =
     async {
-        let mutable res = 0
-        let tcs = new System.Threading.CancellationTokenSource(50)
-        let work =
-            let work = async {
-                do! Async.Sleep 75
-                res <- -1
-            }
-            Async.StartAsTask(work, cancellationToken=tcs.Token) |> Async.AwaitTask
-        // behavior change: a cancelled task is now triggering the exception continuation instead of
-        // the cancellation continuation, see: https://github.com/Microsoft/visualfsharp/issues/1416
-        // also, System.OperationCanceledException will be changed to TaskCanceledException (not yet)
-        Async.StartWithContinuations(work, ignore, ignore, (fun _ -> res <- 1))
-        do! Async.Sleep 100
-        equal 1 res
-    } |> Async.StartImmediate
-#endif
+        use source = new System.Threading.CancellationTokenSource()
+        let entered = System.Threading.Tasks.TaskCompletionSource<int>()
+        let work = async {
+            entered.SetResult 1
+            do! Async.Sleep Int32.MaxValue
+            failwith "Cancelled task resumed"
+        }
+        let task = Async.StartAsTask(work, cancellationToken=source.Token)
+        let! _ = Async.AwaitTask entered.Task
+        source.Cancel()
+        let! result = Async.Catch(Async.AwaitTask task)
+        match result with
+        | Choice2Of2 (:? System.Threading.Tasks.TaskCanceledException) -> ()
+        | _ -> failwith "Expected TaskCanceledException through the error continuation"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test TaskCanceledException preserves message and inner exception`` () =
+    let inner = Exception("inner")
+    let error: exn = System.Threading.Tasks.TaskCanceledException("task failure", inner)
+    match error with
+    | :? System.Threading.Tasks.TaskCanceledException ->
+        equal "task failure" error.Message
+        equal true (obj.ReferenceEquals(inner, error.InnerException))
+    | _ -> failwith "Expected TaskCanceledException"
 
 [<Fact>]
 let ``test Deep recursion with async doesn't cause stack overflow`` () =
