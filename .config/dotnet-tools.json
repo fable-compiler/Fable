@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "fantomas": {
-      "version": "8.0.7",
+      "version": "8.0.8",
       "commands": [
         "fantomas"
       ],
@@ -17,14 +17,14 @@
       "rollForward": false
     },
     "fsharp-analyzers": {
-      "version": "0.39.2",
+      "version": "0.40.0",
       "commands": [
         "fsharp-analyzers"
       ],
       "rollForward": false
     },
     "easybuild.shipit": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "commands": [
         "shipit"
       ],
