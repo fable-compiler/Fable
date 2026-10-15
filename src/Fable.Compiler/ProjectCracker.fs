@@ -6,6 +6,7 @@ open System
 open System.Xml.Linq
 open System.Text.RegularExpressions
 open System.Collections.Generic
+open System.Threading.Tasks
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
 open Fable
@@ -113,6 +114,7 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
         getFableModulesFromProject (projDir, cliArgs.OutDir, cliArgs.NoCache, cliArgs.NoGitignore, evaluateOnly)
 
     let builtDlls = HashSet()
+    let pendingDllBuilds = Dictionary<string, Task<string>>()
 
     let cacheInfo =
         if cliArgs.NoCache then
@@ -138,7 +140,10 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
     member _.EvaluateOnly: bool = evaluateOnly
 
     member _.BuildDll(normalizedDllPath: string) =
-        if not (builtDlls.Contains(normalizedDllPath)) then
+        if
+            not (builtDlls.Contains(normalizedDllPath))
+            && not (pendingDllBuilds.ContainsKey(normalizedDllPath))
+        then
             let projDir =
                 normalizedDllPath.Split('/')
                 |> Array.rev
@@ -151,11 +156,20 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
                 |> Array.rev
                 |> String.concat "/"
 
-            let stdout =
-                Process.runSyncWithOutput projDir "dotnet" [ "build"; "-c"; cliArgs.Configuration ]
+            pendingDllBuilds[normalizedDllPath] <-
+                Task.Run(fun () ->
+                    Process.runSyncWithOutput projDir "dotnet" [ "build"; "-c"; cliArgs.Configuration; "--no-restore" ]
+                )
 
-            Log.always stdout
+    member _.WaitForBuiltDlls() =
+        for KeyValue(normalizedDllPath, build) in pendingDllBuilds |> Seq.toArray do
+            try
+                build.GetAwaiter().GetResult() |> Log.always
+            with e ->
+                let projName = IO.Path.GetFileNameWithoutExtension(normalizedDllPath)
+                Log.always ("Couldn't build " + projName + ": " + e.Message)
 
+            pendingDllBuilds.Remove(normalizedDllPath) |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
     member _.ResetFableModulesDir() =
@@ -566,15 +580,12 @@ let crackMainProject (resolver: ProjectCrackerResolver) (opts: CrackerOptions) :
 
 /// For project references of main project, ignore dll and package references
 let crackReferenceProject
-    (resolver: ProjectCrackerResolver)
     (opts: CrackerOptions)
     dllRefs
     (projFile: string)
+    (projectOptionsResponse: ProjectOptionsResponse)
     : CrackedFsproj
     =
-    let projectOptionsResponse =
-        resolver.GetProjectOptionsFromProjectFile(false, opts, projFile)
-
     let sourceFiles, otherOpts =
         Array.foldBack (extractUsefulOptionsAndSources false) projectOptionsResponse.ProjectOptions ([], [])
 
@@ -600,27 +611,60 @@ let getCrackedProjectsFromMainFsproj
     : CrackedFsproj list * CrackedFsproj
     =
     let mainProj = crackMainProject resolver opts
+    let crackedRefs = Dictionary<string, CrackedFsproj>()
 
-    let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
-        let crackedFsproj =
-            match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
-            | None -> crackReferenceProject resolver opts mainProj.DllReferences projFile
-            | Some crackedFsproj -> crackedFsproj
+    let rec crackLevel (projFiles: string list) =
+        let pending =
+            projFiles |> List.distinct |> List.filter (crackedRefs.ContainsKey >> not)
+
+        if not (List.isEmpty pending) then
+            let responses =
+                pending
+                |> List.chunkBySize Environment.ProcessorCount
+                |> List.collect (fun chunk ->
+                    chunk
+                    |> List.map (fun projFile ->
+                        Task.Factory.StartNew(
+                            (fun () -> resolver.GetProjectOptionsFromProjectFile(false, opts, projFile)),
+                            TaskCreationOptions.LongRunning
+                        )
+                    )
+                    |> List.map _.GetAwaiter().GetResult()
+                )
+
+            List.zip pending responses
+            |> List.collect (fun (projFile, response) ->
+                let crackedFsproj =
+                    crackReferenceProject opts mainProj.DllReferences projFile response
+
+                crackedRefs[projFile] <- crackedFsproj
+                crackedFsproj.ProjectReferences
+            )
+            |> crackLevel
+
+    crackLevel mainProj.ProjectReferences
+
+    let rec addProjects (acc: CrackedFsproj list) (projFile: string) =
+        let crackedFsproj = crackedRefs[projFile]
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
-        List.fold crackProjects (crackedFsproj :: acc) crackedFsproj.ProjectReferences
+        List.fold addProjects (crackedFsproj :: acc) crackedFsproj.ProjectReferences
 
     let refProjs =
-        List.fold crackProjects [] mainProj.ProjectReferences
+        List.fold addProjects [] mainProj.ProjectReferences
         |> List.distinctBy (fun x -> x.ProjectFile)
 
     refProjs, mainProj
 
 let getCrackedProjects (resolver: ProjectCrackerResolver) (opts: CrackerOptions) =
-    match (Path.GetExtension opts.ProjFile).ToLower() with
-    | ".fsx" -> [], getProjectOptionsFromScript opts
-    | ".fsproj" -> getCrackedProjectsFromMainFsproj resolver opts
-    | s -> failwith $"Unsupported project type: %s{s}"
+    let crackedProjects =
+        match (Path.GetExtension opts.ProjFile).ToLower() with
+        | ".fsx" -> [], getProjectOptionsFromScript opts
+        | ".fsproj" -> getCrackedProjectsFromMainFsproj resolver opts
+        | s -> failwith $"Unsupported project type: %s{s}"
+
+    opts.WaitForBuiltDlls()
+    crackedProjects
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to

@@ -2,6 +2,7 @@ namespace Fable.Compiler
 
 open System
 open System.Reflection
+open System.Collections.Concurrent
 open System.IO
 open System.Diagnostics
 open System.Text.Json
@@ -101,28 +102,21 @@ module private MSBuildCrackerResolver =
     let private dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) : Async<string> =
         dotnet_msbuild_with_defines cwd fsproj args List.empty
 
-    let mkOptionsFromDesignTimeBuildAux (fsproj: FileInfo) (options: CrackerOptions) : Async<ProjectOptionsResponse> =
+    let private queryTargetFramework (fsproj: FileInfo) (options: CrackerOptions) (configurationProperty: string) =
         async {
-            let configurationProperty =
-                if String.IsNullOrWhiteSpace options.Configuration then
-                    ""
-                else
-                    $"/p:Configuration=%s{options.Configuration}"
-
             let! targetFrameworkJson =
                 dotnet_msbuild
                     options.RootDir
                     fsproj.FullName
                     $"%s{configurationProperty} --getProperty:TargetFrameworks --getProperty:TargetFramework"
 
-            let targetFramework =
-                let properties =
-                    try
-                        JsonDocument.Parse targetFrameworkJson
-                        |> fun json -> json.RootElement.GetProperty "Properties"
-                    with ex ->
-                        failwith
-                            $"""Failed to parse MSBuild output
+            let properties =
+                try
+                    JsonDocument.Parse targetFrameworkJson
+                    |> fun json -> json.RootElement.GetProperty "Properties"
+                with ex ->
+                    failwith
+                        $"""Failed to parse MSBuild output
 JSON:
 %s{targetFrameworkJson}
 
@@ -130,14 +124,34 @@ Exception:
 %O{ex}
 """
 
-                let tf, tfs =
-                    properties.GetProperty("TargetFramework").GetString(),
-                    properties.GetProperty("TargetFrameworks").GetString()
+            let tf, tfs =
+                properties.GetProperty("TargetFramework").GetString(),
+                properties.GetProperty("TargetFrameworks").GetString()
 
-                if not (String.IsNullOrWhiteSpace tf) then
-                    tf
+            if not (String.IsNullOrWhiteSpace tf) then
+                return tf
+            else
+                return tfs.Split ';' |> Array.head
+        }
+
+    let mkOptionsFromDesignTimeBuildAux
+        (referenceTargetFrameworks: ConcurrentDictionary<string, string>)
+        (isMain: bool)
+        (fsproj: FileInfo)
+        (options: CrackerOptions)
+        : Async<ProjectOptionsResponse>
+        =
+        async {
+            let configurationProperty =
+                if String.IsNullOrWhiteSpace options.Configuration then
+                    ""
                 else
-                    tfs.Split ';' |> Array.head
+                    $"/p:Configuration=%s{options.Configuration}"
+
+            let! targetFramework =
+                match referenceTargetFrameworks.TryGetValue fsproj.FullName with
+                | true, targetFramework -> async.Return targetFramework
+                | _ -> queryTargetFramework fsproj options configurationProperty
 
 
             // When CoreCompile does not need a rebuild, MSBuild will skip that target and thus will not populate the FscCommandLineArgs items.
@@ -152,13 +166,6 @@ Exception:
                     "/p:DesignTimeBuild=True"
                     "/p:SkipCompilerExecution=True"
                     "/p:ProvideCommandLineArgs=True"
-                    // See https://github.com/NuGet/Home/issues/13046
-                    "/p:RestoreUseStaticGraphEvaluation=False"
-                    // Avoid restoring with an existing lock file
-                    "/p:RestoreLockedMode=false"
-                    "/p:RestorePackagesWithLockFile=false"
-                    // We trick NuGet into believing there is no lock file create, if it does exist it will try and create it.
-                    " /p:NuGetLockFilePath=Fable.lock"
                     // Avoid skipping the CoreCompile target via this property.
                     $"/p:NonExistentFile=\"%s{nonExistentFile}\""
                 ]
@@ -167,14 +174,31 @@ Exception:
             let targets =
                 "ResolveAssemblyReferencesDesignTime,ResolveProjectReferencesDesignTime,ResolvePackageDependenciesDesignTime,FindReferenceAssembliesForReferences,_GenerateCompileDependencyCache,_ComputeNonExistentFileProperty,BeforeBuild,BeforeCompile,CoreCompile"
 
+            // MSBuild ignores the -p properties during restore when -restoreProperty is given, so the restore covers every TargetFramework
             let restoreArg =
-                if options.NoRestore then
+                if options.NoRestore || not isMain then
                     ""
                 else
-                    "/restore"
+                    let restoreProperties =
+                        [
+                            if not (String.IsNullOrWhiteSpace options.Configuration) then
+                                $"Configuration=%s{options.Configuration}"
+                            // See https://github.com/NuGet/Home/issues/13046
+                            "RestoreUseStaticGraphEvaluation=False"
+                            // Avoid restoring with an existing lock file
+                            "RestoreLockedMode=false"
+                            "RestorePackagesWithLockFile=false"
+                            // We trick NuGet into believing there is no lock file create, if it does exist it will try and create it.
+                            "NuGetLockFilePath=Fable.lock"
+                            for constant in options.FableOptions.Define do
+                                $"%s{constant}=True"
+                        ]
+                        |> String.concat ";"
+
+                    $"/restore -restoreProperty:%s{restoreProperties}"
 
             let arguments =
-                $"%s{restoreArg} /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
+                $"%s{restoreArg} /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getItem:_MSBuildProjectReferenceExistent --getProperty:OutputType -warnAsMessage:NU1608"
 
             let! json =
                 dotnet_msbuild_with_defines options.RootDir fsproj.FullName arguments options.FableOptions.Define
@@ -217,6 +241,17 @@ Exception:
                     )
                     |> Seq.toArray
 
+                match items.TryGetProperty "_MSBuildProjectReferenceExistent" with
+                | true, existentReferences ->
+                    for reference in existentReferences.EnumerateArray() do
+                        match reference.TryGetProperty "TargetFrameworks" with
+                        | true, targetFrameworks when not (String.IsNullOrWhiteSpace(targetFrameworks.GetString())) ->
+                            let referencePath = FileInfo(reference.GetProperty("FullPath").GetString()).FullName
+
+                            referenceTargetFrameworks[referencePath] <- targetFrameworks.GetString().Split(';').[0]
+                        | _ -> ()
+                | _ -> ()
+
                 let outputType = properties.GetProperty("OutputType").GetString()
 
                 return
@@ -229,6 +264,7 @@ Exception:
         }
 
 type MSBuildCrackerResolver() =
+    let referenceTargetFrameworks = ConcurrentDictionary<string, string>()
 
     interface ProjectCrackerResolver with
         member _.GetProjectOptionsFromProjectFile(isMain, options: CrackerOptions, projectFile) =
@@ -239,7 +275,7 @@ type MSBuildCrackerResolver() =
 
             // Bad I know...
             let result =
-                MSBuildCrackerResolver.mkOptionsFromDesignTimeBuildAux fsproj options
+                MSBuildCrackerResolver.mkOptionsFromDesignTimeBuildAux referenceTargetFrameworks isMain fsproj options
                 |> Async.RunSynchronously
 
             result
