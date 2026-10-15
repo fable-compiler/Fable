@@ -576,8 +576,17 @@ let private transformUnionCaseTest
     =
     trampoline {
         let! unionExpr = transformExpr com ctx [] unionExpr
+        let unionPattern = getUnionPattern fsType unionCase
 
-        match getUnionPattern fsType unionCase with
+        do
+            match unionPattern, FsUnionCase.CaseTest unionCase with
+            | TypeScriptTaggedUnion _, _
+            | _, None -> ()
+            | _, Some _ ->
+                $"CaseTest attribute on '%s{unionCase.Name}' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+                |> addWarning com ctx.InlinePath r
+
+        match unionPattern with
         | ErasedUnionCase -> return "Cannot test erased union cases" |> addErrorAndReturnNull com ctx.InlinePath r
 
         | ErasedUnion(tdef, genArgs, rule) ->
@@ -627,9 +636,23 @@ let private transformUnionCaseTest
                     "CompileValue attribute is not supported in TypeScript"
                     |> addErrorAndReturnNull com ctx.InlinePath r
             | _ ->
-                let getTag = Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r)
+                let makeTagTest unionExpr =
+                    let getTag = Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r)
+                    makeEqOp r getTag value BinaryEqual
 
-                return makeEqOp r getTag value BinaryEqual
+                match FsUnionCase.CaseTest unionCase with
+                | Some macro ->
+                    // The union value is tested twice, so bind it first if it is not a plain value
+                    let makeTest unionExpr =
+                        let caseTest = emitExpr r Fable.Boolean [ unionExpr ] macro
+                        makeLogOp r (makeTagTest unionExpr) caseTest LogicalAnd
+
+                    if canHaveSideEffects com unionExpr then
+                        let ident = getIdentUniqueName com ctx "unionValue" |> makeTypedIdent unionExpr.Type
+                        return Fable.Let(ident, unionExpr, makeTest (Fable.IdentExpr ident))
+                    else
+                        return makeTest unionExpr
+                | None -> return makeTagTest unionExpr
 
         | OptionUnion _ ->
             let kind =
