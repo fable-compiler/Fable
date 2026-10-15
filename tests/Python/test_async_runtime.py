@@ -462,6 +462,22 @@ def test_unit_from_continuations_propagates_terminal_exceptions(channel: str) ->
     assert calls == [channel]
 
 
+@pytest.mark.parametrize("explicit_unit", [False, True])
+def test_unit_from_continuations_accepts_erased_and_explicit_unit(explicit_unit: bool) -> None:
+    from fable_library.async_ import from_continuations_unit
+
+    calls: list[object] = []
+
+    def callback(conts: tuple[Callable[..., None], object, object]) -> None:
+        if explicit_unit:
+            conts[0](None)
+        else:
+            conts[0]()
+
+    start_with_continuations(from_continuations_unit(callback), calls.append, lambda e: calls.append(("error", e)))
+    assert calls == [None]
+
+
 def test_unit_from_continuations_rejects_duplicate_completion() -> None:
     from fable_library.async_ import from_continuations_unit
 
@@ -552,6 +568,35 @@ def test_post_and_async_reply_delivers_once_when_reply_races_with_start() -> Non
         assert all(not thread.is_alive() for thread in threads)
         assert failures == []
         assert calls == [42]
+        start_with_continuations(work, calls.append, lambda e: failures.append(e), lambda e: failures.append(e))
+        assert failures == []
+        assert calls == [42, 42]
+
+
+@pytest.mark.parametrize("value", [None, 42])
+@pytest.mark.parametrize("reply_before_start", [False, True])
+def test_post_and_async_reply_can_be_reused(value: int | None, reply_before_start: bool) -> None:
+    from fable_library.mailbox_processor import AsyncReplyChannel, MailboxProcessor
+
+    channels: list[AsyncReplyChannel[int | None]] = []
+    calls: list[object] = []
+    mailbox: MailboxProcessor[AsyncReplyChannel[int | None]] = MailboxProcessor(lambda _: lambda _: None)
+
+    def build(channel: AsyncReplyChannel[int | None]) -> AsyncReplyChannel[int | None]:
+        channels.append(channel)
+        return channel
+
+    work = mailbox.post_and_async_reply(build)
+    if reply_before_start:
+        channels[0].reply(value)
+    start_with_continuations(work, calls.append, lambda e: calls.append(("error", e)))
+    if not reply_before_start:
+        channels[0].reply(value)
+    assert calls == [value]
+
+    start_with_continuations(work, calls.append, lambda e: calls.append(("error", e)))
+    assert calls == [value, value]
+    assert len(channels) == 1
 
 
 def test_post_and_async_reply_ignores_a_second_reply() -> None:

@@ -1093,6 +1093,16 @@ let ``test TryFinally propagates downstream continuation errors once`` () =
 let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (OperationCanceledException -> unit) -> unit) : Async<'T> =
     Async.FromContinuations(fun (ok, error, cancelled) -> callback ok error cancelled)
 
+let private forwardGenericValue (continuation: 'T -> unit) (value: 'T) =
+    continuation value
+
+[<Fact>]
+let ``test unit FromContinuations accepts a forwarded generic value`` () =
+    let work: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> forwardGenericValue ok ())
+    let mutable completed = false
+    Async.StartWithContinuations(work, (fun () -> completed <- true), raise, raise)
+    equal true completed
+
 [<Fact>]
 let ``test generic FromContinuations accepts erased unit callbacks`` () =
     let calls = ResizeArray<string>()
