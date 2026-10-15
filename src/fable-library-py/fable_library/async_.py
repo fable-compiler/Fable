@@ -275,7 +275,12 @@ def from_continuations_unit(
 ) -> Async[None]:
     def callback(conts: Continuations[None]) -> None:
         success, error, cancelled = conts
-        f((lambda: success(None), error, cancelled))
+
+        # Generic callers pass None explicitly; specialized F# unit callers erase it.
+        def unit_success(value: None = None) -> None:
+            success(value)
+
+        f((unit_success, error, cancelled))
 
     return from_continuations(callback)
 

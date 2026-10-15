@@ -73,20 +73,20 @@ class MailboxProcessor[Msg]:
         # Track whether `reply` was actually called, since the reply value itself
         # may legitimately be `None` (e.g. `AsyncReplyChannel[None]` for unit).
         replied = False
-        delivered = False
         gate = Lock()
         continuation: Continuations[Any] | None = (
             None  # This is the continuation for the `done` callback of the awaiting poster.
         )
 
         def check_completion() -> None:
-            nonlocal delivered
+            nonlocal continuation
             # reply may run on another thread before the poster's continuation is installed
             with gate:
-                if delivered or not replied or continuation is None:
+                if not replied or continuation is None:
                     return
-                delivered = True
                 deliver = continuation[0]
+                # Consume this waiter once, retaining the reply for later executions.
+                continuation = None
             deliver(result)
 
         def reply_callback(res: Reply):
