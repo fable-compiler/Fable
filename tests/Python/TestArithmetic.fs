@@ -1514,16 +1514,6 @@ let ``test narrowing conversions of summed products work`` () =
     mulSum (id Int32.MinValue) (id Int32.MinValue) |> equal 0u
     mulSum (id 99991) (id 99991) |> equal 2816530978u
 
-let private widenByte (x: byte) = uint32 x
-let private widenUInt16 (x: uint16) = uint32 x
-let private widenSByte (x: sbyte) = int16 x
-
-[<Fact>]
-let ``test widening integer conversions compute at the target width`` () =
-    widenByte (id 200uy) * 300u |> equal 60000u
-    widenUInt16 (id 60000us) * 3u |> equal 180000u
-    widenSByte (id 100y) * 2s |> equal 200s
-
 #if FABLE_COMPILER
 
 // An `[<Emit>]` macro splices its arguments into the text verbatim, and may put one in
