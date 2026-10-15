@@ -1,5 +1,6 @@
 ---
 last_commit_released: a8661874d60694f0faad235adb7f760fed6f72a5
+pre_release: beta
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/

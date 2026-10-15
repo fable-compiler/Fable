@@ -167,6 +167,32 @@ if (!(collisionErrors ?? []).some((e) => !e.IsWarning && e.Message.includes("sha
 }
 console.log("  BEAM example hashing and state-key diagnostics checked")
 
+// Tooltips: FCS tagged text already carries its own spaces and punctuation, so the joined text must
+// not gain any, and the tags and the XML doc must come through separately.
+const greetLine = `let greet (name: string) = sprintf "Hello %s" name`
+const runLine = `let run () = greet "world"`
+post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine].join("\n") }], []])
+await answer("ParsedCode")
+
+const signatureOf = (tooltips) => (tooltips[0]?.Signature ?? []).map((t) => t.Text).join("")
+
+post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000001", "Program.fs", 3, 29, greetLine])
+const [, , sprintfTooltip] = await answer("FoundTooltip")
+const sprintfSignature = signatureOf(sprintfTooltip)
+if (!sprintfSignature.includes("Printf.StringFormat<")) failures.push(`tooltip has stray spaces: ${sprintfSignature}`)
+console.log(`  tooltip: ${sprintfSignature}`)
+
+post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000002", "Program.fs", 4, 15, runLine])
+const [, , greetTooltip] = await answer("FoundTooltip")
+const signature = greetTooltip[0]?.Signature ?? []
+const greetSignature = signatureOf(greetTooltip)
+if (!greetSignature.startsWith("val greet:")) failures.push(`unexpected tooltip signature: ${greetSignature}`)
+if (!signature.some((t) => t.Tag === "keyword") || !signature.some((t) => t.Tag === "punctuation")) {
+    failures.push(`tooltip lost its tags: ${JSON.stringify(signature.slice(0, 4))}`)
+}
+if (!greetTooltip[0]?.XmlDoc?.includes("<summary>")) failures.push(`tooltip lost the XML doc: ${JSON.stringify(greetTooltip[0]?.XmlDoc)}`)
+console.log(`  tooltip: ${greetSignature} (${signature.length} tagged parts, ${greetTooltip[0]?.XmlDoc?.length ?? 0} doc lines)`)
+
 if (failures.length) {
     console.error("\nFAILED")
     for (const f of failures) console.error(`  - ${f}`)

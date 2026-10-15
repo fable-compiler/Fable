@@ -431,12 +431,12 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             return! loop box state
 
         | Some fable, GetTooltip(id, line, col, lineText) ->
-            let tooltipLines =
+            let tooltips =
                 match FILE_NAME |> state.CurrentResults.TryFind with
                 | None -> [||]
-                | Some res -> fable.Manager.GetToolTipText(res, int line, int col, lineText)
+                | Some res -> fable.Manager.GetToolTips(res, int line, int col, lineText)
 
-            FoundTooltip(id, tooltipLines) |> state.Worker.Post
+            FoundTooltip(id, tooltips) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetCompletions(id, line, col, lineText) ->
@@ -462,12 +462,12 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             return! loop box state
 
         | Some fable, GetTooltipForFile(id, file, line, col, lineText) ->
-            let tooltipLines =
+            let tooltips =
                 match file |> state.CurrentResults.TryFind with
                 | None -> [||]
-                | Some res -> fable.Manager.GetToolTipText(res, int line, int col, lineText)
+                | Some res -> fable.Manager.GetToolTips(res, int line, int col, lineText)
 
-            FoundTooltip(id, tooltipLines) |> state.Worker.Post
+            FoundTooltip(id, tooltips) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetCompletionsForFile(id, file, line, col, lineText) ->
