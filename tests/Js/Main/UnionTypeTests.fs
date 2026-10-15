@@ -18,7 +18,6 @@ type TestUnion =
    | Case2 of string * string
    | Case3 of string * string * string
 
-
 type TestUnion2 =
     | Tag of string
     | NewTag of string
@@ -64,9 +63,9 @@ type Wrapper(s: string) =
 
 [<RequireQualifiedAccess>]
 type MyUnion =
-| Case1
-| Case2
-| Case3
+    | Case1
+    | Case2
+    | Case3
 
 type R = {
     Name: string
@@ -105,6 +104,114 @@ type LangCode =
     | ``pt-Br``
 
 type S = S of string
+
+type Id = Id of string
+
+type UnionWithIdField = WithId of Id: Id
+
+type NamedFieldUnion =
+    | NamedCase of name: string * optional: string
+
+[<Fable.Core.AttachMembers>]
+[<RequireQualifiedAccess>]
+type Example =
+    | First
+    | Second
+    | Other of string
+
+    static member All = [| Example.First; Example.Second |]
+    static member Head = Some Example.First
+    static member Nested = [ [| Example.First |] ]
+    static member Pair = (Example.First, Example.Second)
+    static member Factory: unit -> Example = fun () -> Example.First
+
+[<Struct>]
+type StructPoint2D =
+    | Planar2D of float * float
+    | Infinity
+
+[<Struct>]
+type StructShape =
+    | Square of side: int
+    | Circle of radius: float
+
+    member this.Area =
+        match this with
+        | Square side -> float (side * side)
+        | Circle radius -> System.Math.PI * radius * radius
+
+[<Struct>]
+type StructShape2 =
+    | Square of float
+    | Circle of float
+
+    member this.Area =
+        match this with
+        | Square side -> side * side
+        | Circle radius -> System.Math.PI * radius * radius
+
+[<Struct>]
+type NestedMatchUnion =
+    | NestedA of int
+    | NestedB of int
+
+let private nestedUnionCaseAccess (u: NestedMatchUnion) =
+    match u with
+    | NestedA _ -> 0
+    | NestedB _ ->
+        match u with
+        | NestedA value -> value
+        | _ -> -1
+
+type IntUnion =
+    | IntCase1 of int
+    | IntCase2 of int
+    | IntCase3 of int
+
+let unionFnAlways1 = function
+    | IntCase1 x -> x
+    | _ -> -1
+
+let unionFnRetNum = function
+    | IntCase1 a -> a
+    | IntCase2 b -> b
+    | IntCase3 c -> c
+
+type WrappedUnion =
+    | AString of string
+
+type DeepRecord = { Value: string }
+
+type DeepWrappedUnion =
+    | DeepWrappedA of string * DeepRecord
+    | DeepWrappedB of string
+    | DeepWrappedC of int
+    | DeepWrappedD of DeepRecord
+    | DeepWrappedE of int * int
+    | DeepWrappedF of WrappedUnion
+    | DeepWrappedG of {| X: DeepRecord; Y: int|}
+
+let matchStrings = function
+    | DeepWrappedA (s, d) -> d.Value + s
+    | DeepWrappedB s -> s
+    | DeepWrappedC c -> "nothing"
+    | DeepWrappedD d -> d.Value
+    | DeepWrappedE(a, b) -> "nothing2"
+    | DeepWrappedF (AString s) -> s
+    | DeepWrappedG x -> x.X.Value
+
+let matchNumbers = function
+    | DeepWrappedA (s, d) -> 0
+    | DeepWrappedB s -> 0
+    | DeepWrappedC c -> c
+    | DeepWrappedD d -> 0
+    | DeepWrappedE(a, b) -> a + b
+    | DeepWrappedF _ -> 0
+    | DeepWrappedG x -> x.Y
+
+let matchStringWhenStringNotHello = function
+    | DeepWrappedB s when s <> "hello" -> "not hello"
+    | _ -> "hello"
 
 let tests =
   testList "Unions" [
@@ -229,18 +336,25 @@ let tests =
         |> equal 2
 
     testCase "Equality works in filter" <| fun () ->
-        let original = [| { Name = "1"; Case = MyUnion.Case1 } ; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
+        let original = [| { Name = "1"; Case = MyUnion.Case1 }; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
         original
         |> Array.filter (fun r -> r.Case = MyUnion.Case1)
         |> Array.length
         |> equal 2
 
     testCase "Pattern matching works in filter" <| fun () ->
-        let original = [| { Name = "1"; Case = MyUnion.Case1 } ; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
+        let original = [| { Name = "1"; Case = MyUnion.Case1 }; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]
         original
         |> Array.filter (fun r -> match r.Case with MyUnion.Case1 -> true | _ -> false)
         |> Array.length
         |> equal 2
+
+    testCase "Union field can have the same name as its type" <| fun () ->
+        let value = WithId(Id "foo")
+        match value with
+        | WithId id ->
+            match id with
+            | Id value -> value |> equal "foo"
 
     #if FABLE_COMPILER
     testCase "Case testing with generic erased unions works" <| fun () ->
@@ -299,7 +413,6 @@ let tests =
     testCase "Verify that union cases can have `-` in their names" <| fun () ->
         // See https://github.com/fable-compiler/Fable/issues/4071
         let x = LangCode.``pt-Br``
-
         equal x LangCode.``pt-Br``
 
     testCase "sprintf formats strings cases correctly" <| fun () ->
@@ -312,4 +425,116 @@ let tests =
         obj.ReferenceEquals(TestUnion.Case0, TestUnion.Case0) |> equal true
         obj.ReferenceEquals(TestUnion.Case1 "a", TestUnion.Case1 "a") |> equal false
         obj.ReferenceEquals(T1, T1) |> equal true
+
+    testCase "Named union case fields work when a field is called name" <| fun () ->
+        let value = NamedCase("v1", "v2")
+        match value with
+        | NamedCase(name, optional) ->
+            name |> equal "v1"
+            optional |> equal "v2"
+
+    testCase "Static union member returning the union type works" <| fun () ->
+        Example.All |> Array.length |> equal 2
+        Example.All.[0] |> equal Example.First
+        Example.All.[1] |> equal Example.Second
+
+    testCase "Static union member with nested self-reference works" <| fun () ->
+        Example.Head |> equal (Some Example.First)
+        Example.Nested |> List.head |> Array.head |> equal Example.First
+        Example.Pair |> fst |> equal Example.First
+        Example.Pair |> snd |> equal Example.Second
+        Example.Factory() |> equal Example.First
+
+    testCase "Struct unions work" <| fun () ->
+        let distance p =
+            match p with
+            | Planar2D (x, y) -> sqrt (x * x + y * y)
+            | Infinity -> infinity
+        let p = Planar2D (3, 4)
+        let res = distance p
+        res |> equal 5.
+
+    testCase "Struct unions with fields work" <| fun () ->
+        let radius = 3.0
+        let circle = StructShape.Circle radius
+        let square = StructShape.Square(int (2.0 * radius))
+        circle.Area |> equal (System.Math.PI * radius * radius)
+        square.Area |> equal (4.0 * radius * radius)
+
+    testCase "Struct unions without fields work" <| fun () ->
+        let radius = 3.0
+        let circle = StructShape2.Circle radius
+        let square = StructShape2.Square(2.0 * radius)
+        circle.Area |> equal (System.Math.PI * radius * radius)
+        square.Area |> equal (4.0 * radius * radius)
+
+    testCase "Nested union match keeps case-specific field access" <| fun () ->
+        nestedUnionCaseAccess (NestedA 7) |> equal 0
+        nestedUnionCaseAccess (NestedB 11) |> equal -1
+
+    testCase "Union case matching works" <| fun () ->
+        let x = IntCase1 5
+        let res =
+            match x with
+            | IntCase1 a -> a
+            | IntCase2 b -> b
+            | IntCase3 c -> c
+        res |> equal 5
+
+    // testCase "Union case equality works" <| fun () ->
+    //     IntCase1 5 = IntCase1 5 |> equal true
+    //     IntCase1 5 = IntCase2 5 |> equal false
+    //     IntCase3 2 = IntCase3 3 |> equal false
+    //     IntCase2 1 = IntCase2 1 |> equal true
+    //     IntCase3 1 = IntCase3 1 |> equal true
+
+    testCase "Union fn call works" <| fun () ->
+        let x = IntCase1 3
+        let res = unionFnAlways1 x
+        let res2 = unionFnAlways1 x //deliberately force clone/borrow break
+        let res3 = unionFnRetNum x
+        let res4 = unionFnRetNum (IntCase2 24)
+        res |> equal 3
+        res2 |> equal 3
+        res3 |> equal 3
+        res4 |> equal 24
+
+    testCase "Union with wrapped type works" <| fun () ->
+        let a = AString "hello"
+        let b = match a with AString s -> s + " world"
+        b |> equal "hello world"
+
+    testCase "Deep union with wrapped type works" <| fun () ->
+        let a = DeepWrappedA (" world", {Value = "hello"})
+        let b = DeepWrappedB "world"
+        let c = DeepWrappedC 42
+        let d = DeepWrappedD { Value = "hello" }
+        let f = DeepWrappedF (AString "doublewrapped")
+        let g = DeepWrappedG {| X = { Value = "G" }; Y = 365 |}
+        a |> matchStrings |> equal "hello world"
+        b |> matchStrings |> equal "world"
+        c |> matchStrings |> equal "nothing"
+        d |> matchStrings |> equal "hello"
+        f |> matchStrings |> equal "doublewrapped"
+        g |> matchStrings |> equal "G"
+
+    testCase "Deep union with tuped prim type works" <| fun () ->
+        let e = DeepWrappedE (3, 2)
+        let c = DeepWrappedC 42 //todo to string!
+        let g = DeepWrappedG {| X = { Value = "G" }; Y = 365 |}
+        e |> matchNumbers |> equal 5
+        c |> matchNumbers |> equal 42
+        g |> matchNumbers |> equal 365
+
+    testCase "Multi-case Union with wrapped type works" <| fun () ->
+        let b = DeepWrappedB "hello"
+        let res = match b with DeepWrappedB s -> s + " world" | _ -> ""
+        res |> equal "hello world"
+
+    testCase "Match with condition works" <| fun () ->
+        let b1 = DeepWrappedB "hello"
+        let b2 = DeepWrappedB "not"
+        b1 |> matchStringWhenStringNotHello |> equal "hello"
+        b2 |> matchStringWhenStringNotHello |> equal "not hello"
+
   ]
