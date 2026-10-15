@@ -1,9 +1,10 @@
 import asyncio
+from collections.abc import Callable
 from threading import Barrier, Condition, Event, Thread
 
 import pytest
 from fable_library.async_ import await_event, sleep, start_with_continuations
-from fable_library.async_builder import CancellationCallbackError, CancellationToken, IAsyncContext, Trampoline
+from fable_library.async_builder import Async, CancellationCallbackError, CancellationToken, IAsyncContext, Trampoline
 from fable_library.event import Event as FableEvent
 
 
@@ -345,3 +346,179 @@ def test_generic_from_continuations_claims_concurrent_completion_once() -> None:
     assert all(not thread.is_alive() for thread in threads)
     assert len(calls) == 1
     assert len(rejected) == 1
+
+
+@pytest.mark.parametrize("combinator", ["try_with", "bind"])
+def test_completed_continuation_exceptions_are_not_redirected(combinator: str) -> None:
+    from fable_library.async_builder import singleton
+
+    calls: list[str] = []
+    defect = ValueError("downstream")
+
+    if combinator == "try_with":
+        work = singleton.TryWith(singleton.Return(1), lambda _: singleton.Return(99))
+    else:
+        work = singleton.Bind(singleton.Return(1), lambda x: singleton.Return(x + 1))
+
+    def success(value: int) -> None:
+        calls.append(f"success:{value}")
+        raise defect
+
+    with pytest.raises(ValueError) as caught:
+        start_with_continuations(work, success, lambda _: calls.append("error"), lambda _: calls.append("cancel"))
+    assert caught.value is defect
+    assert len(calls) == 1
+
+
+def test_workflow_errors_still_reach_the_handler_before_completion() -> None:
+    from fable_library.async_builder import singleton
+
+    def failing_binder(_: int) -> Async[str]:
+        raise ValueError("binder")
+
+    def handler(error: Exception) -> Async[str]:
+        return singleton.Return(f"handled:{error}")
+
+    results: list[object] = []
+    work = singleton.TryWith(singleton.Bind(singleton.Return(1), failing_binder), handler)
+    start_with_continuations(work, results.append, lambda e: results.append(("error", e)))
+    assert results == ["handled:binder"]
+
+
+@pytest.mark.parametrize("channel", ["success", "error", "cancel"])
+def test_unit_from_continuations_propagates_terminal_exceptions(channel: str) -> None:
+    from fable_library.async_ import from_continuations_unit
+    from fable_library.async_builder import OperationCanceledError
+
+    calls: list[str] = []
+    defect = ValueError("downstream")
+
+    def terminal(value: object = None) -> None:
+        calls.append(channel)
+        raise defect
+
+    def callback(
+        conts: tuple[Callable[[], None], Callable[[Exception], None], Callable[[OperationCanceledError], None]],
+    ) -> None:
+        ok, error, cancelled = conts
+        if channel == "success":
+            ok()
+        elif channel == "error":
+            error(ValueError("body"))
+        else:
+            cancelled(OperationCanceledError())
+
+    with pytest.raises(ValueError) as caught:
+        start_with_continuations(from_continuations_unit(callback), terminal, terminal, terminal)
+    assert caught.value is defect
+    assert calls == [channel]
+
+
+def test_unit_from_continuations_rejects_duplicate_completion() -> None:
+    from fable_library.async_ import from_continuations_unit
+
+    calls: list[object] = []
+
+    def callback(conts: tuple[Callable[[], None], object, object]) -> None:
+        conts[0]()
+        conts[0]()
+
+    with pytest.raises(RuntimeError, match="invoked more than once"):
+        start_with_continuations(from_continuations_unit(callback), calls.append)
+    assert calls == [None]
+
+
+def test_try_finally_claims_concurrent_completion_once() -> None:
+    from fable_library.async_builder import OperationCanceledError, singleton
+
+    captured: list[IAsyncContext[int]] = []
+    calls: list[str] = []
+    cleanups: list[int] = []
+    barrier = Barrier(2)
+
+    def body(ctx: IAsyncContext[int]) -> None:
+        captured.append(ctx)
+
+    start_with_continuations(
+        singleton.TryFinally(body, lambda: cleanups.append(1)),
+        lambda _: calls.append("success"),
+        lambda _: calls.append("error"),
+        lambda _: calls.append("cancel"),
+    )
+    assert len(captured) == 1
+    ctx = captured[0]
+
+    def complete(success: bool) -> None:
+        barrier.wait(5)
+        if success:
+            ctx.on_success(42)
+        else:
+            ctx.on_cancel(OperationCanceledError())
+
+    threads = [Thread(target=complete, args=(success,)) for success in (True, False)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(5)
+    assert all(not thread.is_alive() for thread in threads)
+    assert len(cleanups) == 1
+    assert len(calls) == 1
+
+
+def test_post_and_async_reply_delivers_once_when_reply_races_with_start() -> None:
+    from fable_library.mailbox_processor import AsyncReplyChannel, MailboxProcessor
+
+    for _ in range(20):
+        channels: list[AsyncReplyChannel[int]] = []
+        calls: list[object] = []
+        failures: list[BaseException] = []
+        barrier = Barrier(2)
+        mailbox: MailboxProcessor[AsyncReplyChannel[int]] = MailboxProcessor(lambda _: lambda _: None)
+
+        def build(channel: AsyncReplyChannel[int]) -> AsyncReplyChannel[int]:
+            channels.append(channel)
+            return channel
+
+        work = mailbox.post_and_async_reply(build)
+        assert len(channels) == 1
+
+        def start() -> None:
+            barrier.wait(5)
+            try:
+                start_with_continuations(work, calls.append, lambda e: failures.append(e), lambda e: failures.append(e))
+            except BaseException as error:
+                failures.append(error)
+
+        def reply() -> None:
+            barrier.wait(5)
+            try:
+                channels[0].reply(42)
+            except BaseException as error:
+                failures.append(error)
+
+        threads = [Thread(target=start), Thread(target=reply)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+        assert all(not thread.is_alive() for thread in threads)
+        assert failures == []
+        assert calls == [42]
+
+
+def test_post_and_async_reply_ignores_a_second_reply() -> None:
+    from fable_library.mailbox_processor import AsyncReplyChannel, MailboxProcessor
+
+    channels: list[AsyncReplyChannel[int]] = []
+    calls: list[object] = []
+    mailbox: MailboxProcessor[AsyncReplyChannel[int]] = MailboxProcessor(lambda _: lambda _: None)
+
+    def build(channel: AsyncReplyChannel[int]) -> AsyncReplyChannel[int]:
+        channels.append(channel)
+        return channel
+
+    work = mailbox.post_and_async_reply(build)
+    start_with_continuations(work, calls.append, lambda e: calls.append(("error", e)))
+    channels[0].reply(1)
+    channels[0].reply(2)
+    assert calls == [1]

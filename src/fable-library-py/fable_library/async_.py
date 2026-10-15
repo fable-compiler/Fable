@@ -33,7 +33,7 @@ from .choice import (
 )
 from .event import IEvent_2
 from .protocols import IEnumerable_1
-from .system import TimeoutException__ctor
+from .system import InvalidOperationException__ctor_Z721C83C5, TimeoutException__ctor
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
@@ -235,13 +235,12 @@ def from_continuations[T](f: Callable[[Continuations[T]], None]) -> Async[T]:
 
         def claim() -> None:
             nonlocal settled
-            # invariant: settlement is claimed under the gate and user continuations run outside it
             with gate:
                 if settled:
-                    raise RuntimeError("A continuation was invoked more than once")
+                    raise InvalidOperationException__ctor_Z721C83C5("A continuation was invoked more than once")
                 settled = True
 
-        # decision: the default represents only an erased F# unit; Python cannot express that specialization of T
+        # Compiled F# calls the success continuation with no argument when T is unit
         def success(value: T = cast(T, None)) -> None:
             claim()
             ctx.on_success(value)
@@ -255,7 +254,6 @@ def from_continuations[T](f: Callable[[Continuations[T]], None]) -> Async[T]:
             ctx.on_cancel(value)
 
         def on_exception(value: Exception) -> None:
-            # invariant: an exception after settlement belongs to continuation code and propagates unchanged
             with gate:
                 completed = settled
             if completed:
@@ -274,13 +272,11 @@ def from_continuations_unit(
         None,
     ],
 ) -> Async[None]:
-    def cont(ctx: IAsyncContext[None]) -> None:
-        def success(value: None = None) -> None:
-            ctx.on_success(value)
+    def callback(conts: Continuations[None]) -> None:
+        success, error, cancelled = conts
+        f((lambda: success(None), error, cancelled))
 
-        f((success, ctx.on_error, ctx.on_cancel))
-
-    return protected_cont(cont)
+    return from_continuations(callback)
 
 
 def await_task[T](task: Awaitable[T]) -> Async[T]:
@@ -344,12 +340,19 @@ def start_with_continuations[T](
     token is used."""
     trampoline = Trampoline()
 
+    def done[U](cont: Callable[[U], None]) -> Callable[[U], None]:
+        def terminal(value: U) -> None:
+            trampoline.completed = True
+            cont(value)
+
+        return terminal
+
     ctx = IAsyncContext.create(
         trampoline,
         cancellation_token or default_cancellation_token,
-        continuation or empty_continuation,
-        exception_continuation or empty_continuation,
-        cancellation_continuation or empty_continuation,
+        done(continuation or empty_continuation),
+        done(exception_continuation or empty_continuation),
+        done(cancellation_continuation or empty_continuation),
     )
 
     def runner() -> None:

@@ -757,11 +757,24 @@ let transformObjectExpr
     Expression.call (Expression.name name), thisCaptureStmts @ [ stmt ] @ stmts
 
 
-let transformCallArgs
+let transformArgWithAdapters (com: IPythonCompiler) ctx (sigType: Fable.Type option) (argExpr: Fable.Expr) =
+    let expr, stmts = com.TransformAsExpr(ctx, argExpr)
+
+    if needsOptionWidenForArg sigType argExpr then
+        let widen = com.TransformImport(ctx, "widen", getLibPath com "option")
+        Expression.call (widen, [ expr ]), stmts
+    elif needsUnitCallableEraseForArg sigType argExpr then
+        let erase = com.TransformImport(ctx, "erase_unit_callable", getLibPath com "util")
+        Expression.call (erase, [ expr ]), stmts
+    else
+        expr, stmts
+
+let transformCallArgsWith
     (com: IPythonCompiler)
     ctx
     (callInfo: Fable.CallInfo)
     (isBaseConstructorCall: bool)
+    (fallbackSigTypes: Fable.Type list)
     : Expression list * Keyword list * Statement list
     =
 
@@ -854,18 +867,15 @@ let transformCallArgs
     let hasSpread =
         paramsInfo |> Option.map (fun i -> i.HasSpread) |> Option.defaultValue false
 
-    // Adapt callback annotations at generic representation boundaries.
-    let transformArgWithAdapters (sigType: Fable.Type option) (argExpr: Fable.Expr) =
-        let expr, stmts = com.TransformAsExpr(ctx, argExpr)
+    let transformArgs args =
+        args
+        |> List.mapi (fun i e ->
+            let sigType =
+                List.tryItem i callInfo.SignatureArgTypes
+                |> Option.orElse (List.tryItem i fallbackSigTypes)
 
-        if needsOptionWidenForArg sigType argExpr then
-            let widen = com.TransformImport(ctx, "widen", getLibPath com "option")
-            Expression.call (widen, [ expr ]), stmts
-        elif needsUnitCallableEraseForArg sigType argExpr then
-            let erase = com.TransformImport(ctx, "erase_unit_callable", getLibPath com "util")
-            Expression.call (erase, [ expr ]), stmts
-        else
-            expr, stmts
+            transformArgWithAdapters com ctx sigType e
+        )
 
     let args, stmts' =
         match args with
@@ -874,30 +884,29 @@ let transformCallArgs
             match List.rev args with
             | [] -> [], []
             | Replacements.Util.ArrayOrListLiteral(spreadArgs, _) :: rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                let rest = List.rev rest |> transformArgs
 
                 rest @ List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs
                 |> Helpers.unzipArgs
             | last :: rest ->
-                let rest, stmts =
-                    List.rev rest
-                    |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                    |> Helpers.unzipArgs
+                let rest, stmts = List.rev rest |> transformArgs |> Helpers.unzipArgs
 
                 let expr, stmts' = com.TransformAsExpr(ctx, last)
                 rest @ [ Expression.starred expr ], stmts @ stmts'
-        | args ->
-            // Use declaration signature types to identify specialization boundaries.
-            args
-            |> List.mapi (fun i e ->
-                let sigType = List.tryItem i callInfo.SignatureArgTypes
-                transformArgWithAdapters sigType e
-            )
-            |> Helpers.unzipArgs
+        | args -> args |> transformArgs |> Helpers.unzipArgs
 
     match objArg with
     | None -> args, [], stmts @ stmts'
     | Some objArg -> args, objArg, stmts @ stmts'
+
+let transformCallArgs
+    (com: IPythonCompiler)
+    ctx
+    (callInfo: Fable.CallInfo)
+    (isBaseConstructorCall: bool)
+    : Expression list * Keyword list * Statement list
+    =
+    transformCallArgsWith com ctx callInfo isBaseConstructorCall []
 
 let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
     // printfn "resolveExpr: %A" (pyExpr, strategy)
@@ -1284,7 +1293,8 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
 
         let callee', stmts = com.TransformAsExpr(ctx, callee)
 
-        let args, kw, stmts' = transformCallArgs com ctx callInfo false
+        let args, kw, stmts' =
+            transformCallArgsWith com ctx callInfo false (calleeSignatureArgTypes ctx callee callInfo)
 
         match callee, callInfo.ThisArg with
         | Fable.Get(expr, Fable.FieldGet { Name = "Dispose" }, _, _), _ ->
@@ -1307,9 +1317,17 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
             Expression.call (callee', args, kw, ?loc = range), stmts @ stmts'
         | _, None -> callFunction range callee' args kw, stmts @ stmts'
 
-let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
-    ((applied, stmts), args)
-    ||> List.fold (fun (applied, stmts) arg ->
+let transformCurriedApply (com: IPythonCompiler) ctx range (callee: Fable.Expr) args =
+    let rec expectedArgTypes typ args =
+        match typ, args with
+        | Fable.LambdaType(argType, returnType), _ :: rest -> Some argType :: expectedArgTypes returnType rest
+        | _, _ :: rest -> None :: expectedArgTypes typ rest
+        | _, [] -> []
+
+    let applied, stmts = com.TransformAsExpr(ctx, callee)
+
+    ((applied, stmts), List.zip (expectedArgTypes callee.Type args) args)
+    ||> List.fold (fun (applied, stmts) (sigType, arg) ->
         let args, argStmts =
             match arg with
             // TODO: If arg type is unit but it's an expression with potential
@@ -1319,7 +1337,7 @@ let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts))
             | Fable.Value(Fable.UnitConstant, _) -> [], []
             | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
             | arg ->
-                let argExpr, transformStmts = com.TransformAsExpr(ctx, arg)
+                let argExpr, transformStmts = transformArgWithAdapters com ctx sigType arg
                 // When a Call or CurriedApply result is passed as an argument,
                 // check if we need to erase Option[T] to T | None
                 let argExpr =
@@ -2832,6 +2850,8 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
         iife com ctx expr
 
     | Fable.LetRec(bindings, body) ->
+        let ctx = withDeclaredFunctionTypes ctx bindings
+
         if ctx.HoistVars(List.map fst bindings) then
             Expression.withStmts {
                 let values, stmts =
@@ -3033,10 +3053,13 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
 
     | Fable.Let(ident, value, body) ->
         let binding = transformBindingAsStatements com ctx ident value
+        let ctx = withDeclaredFunctionTypes ctx [ ident, value ]
 
         List.append binding (transformAsStatements com ctx returnStrategy body)
 
     | Fable.LetRec(bindings, body) ->
+        let ctx = withDeclaredFunctionTypes ctx bindings
+
         let bindings =
             bindings
             |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
@@ -5469,6 +5492,7 @@ let transformFile (com: IPythonCompiler) (file: Fable.File) =
             ScopedTypeParams = Set.empty
             TypeParamsScope = 0
             NarrowedTypes = Map.empty
+            DeclaredFunctionTypes = Map.empty
             EnclosingUnionBaseClass = None
             InEmitMacroArgument = false
         }

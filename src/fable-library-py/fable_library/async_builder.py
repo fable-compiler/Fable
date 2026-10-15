@@ -227,7 +227,7 @@ class ScheduledItem:
 
 
 class Trampoline:
-    __slots__ = "call_count", "lock", "running"
+    __slots__ = "call_count", "completed", "lock", "running"
 
     MaxTrampolineCallCount = 75  # Max recursion depth: 1000
 
@@ -235,6 +235,8 @@ class Trampoline:
         self.call_count: int = 0
         self.lock = Lock()
         self.running = False
+        # After a terminal continuation runs, exceptions reaching protected_cont come from continuation code
+        self.completed = False
 
     def increment_and_check(self):
         with self.lock:
@@ -250,13 +252,17 @@ class Trampoline:
         return loop.call_later(due_time, action)
 
     def run(self, action: Callable[[], None]):
-        loop = asyncio.get_running_loop()
-
-        if self.increment_and_check():
-            self.call_count = 0
-            loop.call_soon(action)
-        else:
+        if not self.increment_and_check():
             action()
+            return
+
+        self.call_count = 0
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            action()
+            return
+        loop.call_soon(action)
 
 
 def protected_cont[T](f: Async[T]) -> Async[T]:
@@ -269,7 +275,8 @@ def protected_cont[T](f: Async[T]) -> Async[T]:
             try:
                 return f(ctx)
             except Exception as err:
-                # print("Exception: ", err)
+                if ctx.trampoline.completed:
+                    raise
                 ctx.on_error(err)
 
         ctx.trampoline.run(fn)
@@ -284,10 +291,11 @@ def protected_bind[T, U](
     def cont(ctx: IAsyncContext[U]) -> None:
         def on_success(x: T) -> None:
             try:
-                binder(x)(ctx)
+                bound = binder(x)
             except Exception as err:
-                # print("Exception: ", err)
                 ctx.on_error(err)
+                return
+            bound(ctx)
 
         ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, ctx.on_error, ctx.on_cancel)
         return computation(ctx_)
@@ -345,12 +353,20 @@ class AsyncBuilder:
     def TryFinally[T](self, computation: Async[T], compensation: Callable[[], None]) -> Async[T]:
         def cont(ctx: IAsyncContext[T]) -> None:
             settled = False
+            gate = Lock()
+
+            def claim() -> bool:
+                nonlocal settled
+                # on_cancel may run on another thread while on_success runs on the loop
+                with gate:
+                    if settled:
+                        return False
+                    settled = True
+                    return True
 
             def on_success(x: T) -> None:
-                nonlocal settled
-                if settled:
+                if not claim():
                     return
-                settled = True
                 try:
                     compensation()
                 except Exception as error:
@@ -359,11 +375,8 @@ class AsyncBuilder:
                 ctx.on_success(x)
 
             def on_error(x: Exception) -> None:
-                nonlocal settled
-                # invariant: downstream continuation exceptions never rerun compensation
-                if settled:
+                if not claim():
                     raise x
-                settled = True
                 try:
                     compensation()
                 except Exception as error:
@@ -372,10 +385,8 @@ class AsyncBuilder:
                 ctx.on_error(x)
 
             def on_cancel(x: OperationCanceledError) -> None:
-                nonlocal settled
-                if settled:
+                if not claim():
                     return
-                settled = True
                 # decision: ignores compensation failures during cancellation, matching .NET Async.TryFinally
                 try:
                     compensation()
@@ -384,8 +395,7 @@ class AsyncBuilder:
                 ctx.on_cancel(x)
 
             ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, on_cancel)
-            # invariant: cleanup continuations are installed before the cancellation checkpoint
-            # decision: protect the body with the same trampoline to retain bounded stack growth
+            # The cancellation check in protected_cont must see the cleanup continuations
             protected_cont(computation)(ctx_)
 
         return cont
@@ -394,9 +404,11 @@ class AsyncBuilder:
         def fn(ctx: IAsyncContext[T]):
             def on_error(err: Exception) -> None:
                 try:
-                    catch_handler(err)(ctx)
+                    handled = catch_handler(err)
                 except Exception as ex2:
                     ctx.on_error(ex2)
+                    return
+                handled(ctx)
 
             ctx_ = IAsyncContext.create(
                 on_success=ctx.on_success,
@@ -414,7 +426,7 @@ class AsyncBuilder:
         def compensation() -> None:
             return resource.Dispose()
 
-        # decision: defer the resource binder until cleanup is installed and cancellation is checked
+        # Without Delay the binder runs before TryFinally installs Dispose
         return self.TryFinally(self.Delay(lambda: binder(resource)), compensation)
 
     @overload

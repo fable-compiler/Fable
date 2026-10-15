@@ -200,8 +200,7 @@ export class AsyncBuilder {
   }
 
   public TryFinally<T>(computation: Async<T>, compensation: () => void) {
-    // invariant: cleanup continuations are installed before the cancellation checkpoint
-    // decision: protect the body with the shared trampoline so pre-cancellation still runs compensation
+    // The cancellation check in protectedCont must see the cleanup continuations
     return (ctx: IAsyncContext<T>) => {
       let settled = false;
       protectedCont(computation)({
@@ -215,7 +214,6 @@ export class AsyncBuilder {
           ctx.onSuccess(x);
         },
         onError: (x: any) => {
-          // invariant: downstream continuation exceptions never rerun compensation
           if (settled) { throw x; }
           settled = true;
           try { compensation(); } catch (error) {
@@ -260,7 +258,7 @@ export class AsyncBuilder {
   }
 
   public Using<T extends IDisposable, U>(resource: T, binder: (x: T) => Async<U>) {
-    // decision: defer the resource binder until cleanup is installed and cancellation is checked
+    // Without Delay the binder runs before TryFinally installs Dispose
     return this.TryFinally(this.Delay(() => binder(resource)), () => resource.Dispose());
   }
 

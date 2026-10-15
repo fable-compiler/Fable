@@ -4,7 +4,7 @@ import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
-import { TimeoutException_$ctor } from "./System.ts";
+import { InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
 import { Exception } from "./Util.ts";
 
 function emptyContinuation<T>(_x: T) {
@@ -128,8 +128,23 @@ export function catchAsync<T>(work: Async<T>) {
 }
 
 export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
-  return protectedCont((ctx: IAsyncContext<T>) =>
-    f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
+  return (ctx: IAsyncContext<T>) => {
+    let settled = false;
+    const claim = () => {
+      if (settled) { throw InvalidOperationException_$ctor_Z721C83C5("A continuation was invoked more than once"); }
+      settled = true;
+    };
+    const success = (x: T) => { claim(); ctx.onSuccess(x); };
+    const error = (x: Exception) => { claim(); ctx.onError(x); };
+    const cancelled = (x: OperationCanceledException) => { claim(); ctx.onCancel(x); };
+    protectedCont<T>(() => f([success, error, cancelled]))({
+      onSuccess: success,
+      onError: (x: Exception) => { if (settled) { throw x; } error(x); },
+      onCancel: cancelled,
+      cancelToken: ctx.cancelToken,
+      trampoline: ctx.trampoline,
+    });
+  };
 }
 
 export function ignore<T>(computation: Async<T>) {
