@@ -383,6 +383,9 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
             | Decimal -> Helper.LibCall(com, "Decimal", "to_int", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
+        elif typeFrom <> typeTo then
+            // invariant: widening changes the runtime wrapper so arithmetic uses the target width.
+            emitCast typeTo args.Head
         else
             TypeCast(args.Head, targetType)
     | _ ->
