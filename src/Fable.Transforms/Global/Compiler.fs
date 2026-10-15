@@ -87,6 +87,7 @@ type Compiler =
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
+    abstract AddSignatureDependency: file: string -> unit
 
     abstract AddLog:
         msg: string * severity: Severity * ?range: SourceLocation * ?fileName: string * ?tag: string -> unit

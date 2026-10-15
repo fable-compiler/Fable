@@ -220,6 +220,7 @@ module private Util =
                             Logs = com.Logs
                             InlineExprs = Array.empty<string * InlineExpr>
                             WatchDependencies = com.WatchDependencies
+                            SignatureDependencies = com.SignatureDependencies
                         |}
             with e ->
                 return
@@ -375,11 +376,11 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
-        let watchDependencies =
+        let watchDependencies, signatureDependencies =
             if cliArgs.IsWatch then
-                Some(HashSet())
+                Some(HashSet()), Some(HashSet())
             else
-                None
+                None, None
 
         CompilerImpl(
             currentFile,
@@ -388,7 +389,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             fableLibDir,
             crackerResponse.OutputType,
             ?outDir = cliArgs.OutDir,
-            ?watchDependencies = watchDependencies
+            ?watchDependencies = watchDependencies,
+            ?signatureDependencies = signatureDependencies
         )
 
     member _.MapSourceFiles(f) =
@@ -440,6 +442,7 @@ type FableCompileResult =
             Logs: LogEntry[]
             InlineExprs: (string * InlineExpr)[]
             WatchDependencies: string[]
+            SignatureDependencies: string[]
         |},
         {|
             File: string
@@ -457,6 +460,7 @@ type FableCompilerMsg =
         pathResolver: PathResolver *
         isSilent: bool *
         isTriggeredByDependency: (string -> bool) *
+        getSignatureDependents: (string list * string list -> string[]) *
         ReplyChannel
     | FSharpFileTypeChecked of FSharpImplementationFileContents
     | FSharpCompilationFinished of FSharpCheckProjectResults
@@ -469,8 +473,14 @@ type FableCompilerState =
         PathResolver: PathResolver
         IsSilent: bool
         TriggeredByDependency: string -> bool
+        SourceFiles: Fable.Compiler.File[]
+        GetSignatureDependents: string list * string list -> string[]
+        /// Files whose public signature changed in this cycle, and the subset whose literal values changed
+        SignatureChanges: string list
+        LiteralChanges: string list
         FilesToCompile: string[]
         FilesToCompileSet: Set<string>
+        FilesCompiledInCycle: Set<string>
         FilesCheckedButNotCompiled: Set<string>
         FableFilesToCompileExpectedCount: int
         FableFilesCompiledCount: int
@@ -484,15 +494,29 @@ type FableCompilerState =
     }
 
     static member Create
-        (fableProj, filesToCompile: string[], ?pathResolver, ?isSilent, ?triggeredByDependency, ?replyChannel)
+        (
+            fableProj,
+            filesToCompile: string[],
+            ?sourceFiles,
+            ?pathResolver,
+            ?isSilent,
+            ?triggeredByDependency,
+            ?getSignatureDependents,
+            ?replyChannel
+        )
         =
         {
             FableProj = fableProj
             PathResolver = defaultArg pathResolver PathResolver.Dummy
             IsSilent = defaultArg isSilent false
             TriggeredByDependency = defaultArg triggeredByDependency (fun _ -> false)
+            SourceFiles = defaultArg sourceFiles [||]
+            GetSignatureDependents = defaultArg getSignatureDependents (fun _ -> [||])
+            SignatureChanges = []
+            LiteralChanges = []
             FilesToCompile = filesToCompile
             FilesToCompileSet = set filesToCompile
+            FilesCompiledInCycle = set filesToCompile
             FilesCheckedButNotCompiled = Set.empty
             FableFilesToCompileExpectedCount = filesToCompile |> Array.filter isImplementationFile |> Array.length
             FableFilesCompiledCount = 0
@@ -516,6 +540,54 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                 }
 
             let startInThreadPool toMsg work = postTo toMsg work |> Async.Start
+
+            let subscriber =
+                if projCracked.CliArgs.NoParallelTypeCheck then
+                    None
+                else
+                    Some(FSharpFileTypeChecked >> agent.Post)
+
+            let typeCheck (sourceFiles: Fable.Compiler.File[]) (lastFile: string) =
+                startInThreadPool
+                    FSharpCompilationFinished
+                    (fun () ->
+                        let filePaths, sourceReader = Fable.Compiler.File.MakeSourceReader sourceFiles
+
+                        checker.ParseAndCheckProject(
+                            projCracked.ProjectFile,
+                            filePaths,
+                            sourceReader,
+                            lastFile,
+                            ?subscriber = subscriber
+                        )
+                    )
+
+            let updateProject (state: FableCompilerState) (files: FSharpImplementationFileContents list) =
+                let fableProj = state.FableProj.Update(files)
+
+                let signatureChanges, literalChanges =
+                    ((state.SignatureChanges, state.LiteralChanges), files)
+                    ||> List.fold (fun (signatureChanges, literalChanges) file ->
+                        let fileName = Path.normalizePathAndEnsureFsExtension file.FileName
+
+                        match
+                            Map.tryFind fileName state.FableProj.ImplementationFiles,
+                            Map.tryFind fileName fableProj.ImplementationFiles
+                        with
+                        | Some before, Some after when FileSignature.Changed(before.Signature, after.Signature) ->
+                            fileName :: signatureChanges,
+                            (if FileSignature.LiteralsChanged(before.Signature, after.Signature) then
+                                 fileName :: literalChanges
+                             else
+                                 literalChanges)
+                        | _ -> signatureChanges, literalChanges
+                    )
+
+                { state with
+                    FableProj = fableProj
+                    SignatureChanges = signatureChanges
+                    LiteralChanges = literalChanges
+                }
 
             let fableCompile state fileName =
                 let fableProj = state.FableProj
@@ -562,37 +634,21 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                        pathResolver,
                                        isSilent,
                                        isTriggeredByDependency,
+                                       getSignatureDependents,
                                        replyChannel) ->
                         let state =
                             FableCompilerState.Create(
                                 state.FableProj,
                                 filesToCompile,
+                                sourceFiles,
                                 pathResolver,
                                 isSilent,
                                 isTriggeredByDependency,
+                                getSignatureDependents,
                                 replyChannel
                             )
 
-                        startInThreadPool
-                            FSharpCompilationFinished
-                            (fun () ->
-                                let filePaths, sourceReader = Fable.Compiler.File.MakeSourceReader sourceFiles
-
-                                let subscriber =
-                                    if projCracked.CliArgs.NoParallelTypeCheck then
-                                        None
-                                    else
-                                        Some(FSharpFileTypeChecked >> agent.Post)
-
-                                checker.ParseAndCheckProject(
-                                    projCracked.ProjectFile,
-                                    filePaths,
-                                    sourceReader,
-                                    Array.last filesToCompile,
-                                    ?subscriber = subscriber
-                                )
-                            )
-
+                        typeCheck sourceFiles (Array.last filesToCompile)
                         return! loop state
 
                     | FSharpFileTypeChecked file ->
@@ -613,7 +669,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                             if not (state.FilesToCompileSet.Contains(fileName)) then
                                 state
                             else
-                                let state = { state with FableProj = state.FableProj.Update([ file ]) }
+                                let state = updateProject state [ file ]
 
                                 // For Rust the last file has to compile after every other
                                 // one: it re-exports the namespaces the other files
@@ -644,7 +700,10 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
                         let state =
                             { state with
-                                FSharpLogs = CodeServices.getFSharpDiagnostics results.Diagnostics
+                                FSharpLogs =
+                                    Array.append
+                                        state.FSharpLogs
+                                        (CodeServices.getFSharpDiagnostics results.Diagnostics)
                                 HasFSharpCompilationFinished = true
                             }
 
@@ -656,7 +715,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                     else
                                         results.AssemblyContents.ImplementationFiles
 
-                                let state = { state with FableProj = state.FableProj.Update(implFiles) }
+                                let state = updateProject state (List.ofSeq implFiles)
 
                                 let filesToCompile =
                                     state.FilesToCompile
@@ -669,8 +728,37 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                             else
                                 state
 
-                        FableCompiler.CheckIfCompilationIsFinished(state)
-                        return! loop state
+                        let dependents =
+                            if List.isEmpty state.SignatureChanges then
+                                [||]
+                            else
+                                state.GetSignatureDependents(state.SignatureChanges, state.LiteralChanges)
+                                |> Array.filter (fun file -> not (state.FilesCompiledInCycle.Contains file))
+
+                        if Array.isEmpty dependents then
+                            FableCompiler.CheckIfCompilationIsFinished(state)
+                            return! loop state
+                        else
+                            Log.verbose (
+                                lazy
+                                    $"""Signature changed in {String.concat ", " (state.SignatureChanges |> List.map File.relPathToCurDir)}, recompiling {dependents.Length} dependent files"""
+                            )
+
+                            let state =
+                                { state with
+                                    SignatureChanges = []
+                                    LiteralChanges = []
+                                    FilesToCompile = dependents
+                                    FilesToCompileSet = set dependents
+                                    FilesCompiledInCycle = Set.union state.FilesCompiledInCycle (set dependents)
+                                    FableFilesToCompileExpectedCount =
+                                        state.FableFilesToCompileExpectedCount
+                                        + (dependents |> Array.filter isImplementationFile |> Array.length)
+                                    HasFSharpCompilationFinished = false
+                                }
+
+                            typeCheck state.SourceFiles (Array.last dependents)
+                            return! loop state
 
                     | FableFileCompiled(fileName, result) ->
                         let state =
@@ -747,7 +835,9 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
     member _.GetFableProject() =
         agent.PostAndAsyncReply(GetFableProject)
 
-    member _.StartCompilation(sourceFiles, filesToCompile, pathResolver, isSilent, isTriggeredByDependency) =
+    member _.StartCompilation
+        (sourceFiles, filesToCompile, pathResolver, isSilent, isTriggeredByDependency, getSignatureDependents)
+        =
         async {
             if Array.isEmpty filesToCompile then
                 return [||], []
@@ -765,6 +855,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                 pathResolver,
                                 isSilent,
                                 isTriggeredByDependency,
+                                getSignatureDependents,
                                 channel
                             )
                         )
@@ -865,6 +956,7 @@ type State =
         CliArgs: CliArgs
         ProjectCrackedAndFableCompiler: (ProjectCracked * FableCompiler) option
         WatchDependencies: Map<string, string[]>
+        SignatureDependencies: Map<string, string[]>
         PendingFiles: string[]
         DeduplicateDic: ConcurrentDictionary<string, string>
         Watcher: Watcher option
@@ -900,6 +992,7 @@ type State =
             CliArgs = cliArgs
             ProjectCrackedAndFableCompiler = None
             WatchDependencies = Map.empty
+            SignatureDependencies = Map.empty
             Watcher = watchDelay |> Option.map Watcher.Create
             DeduplicateDic = ConcurrentDictionary()
             PendingFiles = [||]
@@ -1449,23 +1542,49 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                 | None -> FableCompiler.Init(projCracked)
                 | Some fableCompiler -> async.Return fableCompiler
 
+            // Literal values are inlined by the F# compiler, so a changed literal file is followed by every later file
+            let getSignatureDependents (changedFiles: string list, literalFiles: string list) =
+                let changedFiles = set changedFiles
+
+                let firstLiteralFile =
+                    literalFiles
+                    |> List.choose (fun file -> Array.tryFindIndex ((=) file) projCracked.SourceFilePaths)
+                    |> List.sort
+                    |> List.tryHead
+
+                projCracked.SourceFilePaths
+                |> Array.indexed
+                |> Array.filter (fun (index, path) ->
+                    (match Map.tryFind path state.SignatureDependencies with
+                     | Some dependencies -> dependencies |> Array.exists changedFiles.Contains
+                     | None -> false)
+                    || (
+                        match firstLiteralFile with
+                        | Some literalIndex -> index > literalIndex
+                        | None -> false
+                    )
+                )
+                |> Array.map snd
+
             let! fsharpLogs, fableResults =
                 fableCompiler.StartCompilation(
                     projCracked.SourceFiles, // Make sure to pass the up-to-date source files (with cleared hashes for changed files)
                     filesToCompile,
                     state.GetPathResolver(?precompiledInfo = projCracked.PrecompiledInfo),
                     state.SilentCompilation,
-                    fun f -> state.TriggeredByDependency(f, changes)
+                    (fun f -> state.TriggeredByDependency(f, changes)),
+                    getSignatureDependents
                 )
 
-            let logs, watchDependencies =
-                ((fsharpLogs, state.WatchDependencies), fableResults)
-                ||> List.fold (fun (logs, deps) ->
+            let logs, watchDependencies, signatureDependencies =
+                ((fsharpLogs, state.WatchDependencies, state.SignatureDependencies), fableResults)
+                ||> List.fold (fun (logs, deps, sigDeps) ->
                     function
                     | Ok res ->
                         let logs = Array.append logs res.Logs
                         let deps = Map.add res.File res.WatchDependencies deps
-                        logs, deps
+                        let sigDeps = Map.add res.File res.SignatureDependencies sigDeps
+                        logs, deps, sigDeps
                     | Error e ->
                         let log =
                             match e.Exception with
@@ -1475,13 +1594,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                                 LogEntry.MakeError(msg, fileName = e.File, tag = "EXCEPTION")
 
-                        Array.append logs [| log |], deps
+                        Array.append logs [| log |], deps, sigDeps
                 )
 
             let state =
                 { state with
                     PendingFiles = [||]
                     WatchDependencies = watchDependencies
+                    SignatureDependencies = signatureDependencies
                     SilentCompilation = false
                 }
 
