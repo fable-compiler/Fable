@@ -54,3 +54,11 @@ def frequency() -> int:
 
 def get_timestamp() -> int64:
     return int64(time.perf_counter_ns())
+
+
+__all__ = [
+    "StopWatch",
+    "TimerError",
+    "frequency",
+    "get_timestamp",
+]

@@ -217,3 +217,25 @@ def create_event[T](
     remove_handler: Callable[[DotNetDelegate[T]], None],
 ) -> IEvent[T]:
     return AnonymousEvent[T](add_handler, remove_handler)
+
+
+__all__ = [
+    "AnonymousEvent",
+    "Delegate",
+    "DotNetDelegate",
+    "Event",
+    "EventDelegate",
+    "IDelegateEvent",
+    "IEvent",
+    "IEvent_2",
+    "add",
+    "choose",
+    "create_event",
+    "filter",
+    "map",
+    "merge",
+    "pairwise",
+    "partition",
+    "scan",
+    "split",
+]
