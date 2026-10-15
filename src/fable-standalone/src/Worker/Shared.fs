@@ -72,7 +72,7 @@ type WorkerAnswer =
     | CompilationFinished of code: string * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilationsFinished of code: string[] * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
-    | FoundTooltip of id: Guid * lines: string[]
+    | FoundTooltip of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
     | FoundDeclarationLocation of id: Guid (* line1, col1, line2, col2 *) * (int * int * int * int) option
 

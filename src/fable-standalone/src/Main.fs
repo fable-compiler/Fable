@@ -262,31 +262,88 @@ let parseAndCheckFileInProject
 
     ParseAndCheckResults(project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
-let tooltipToString (el: ToolTipElement) : string[] =
-    let dataToString (data: ToolTipElementData) =
-        let toString (tts: FSharp.Compiler.Text.TaggedText[]) =
-            tts |> Array.map (fun x -> x.Text) |> String.concat " "
+type private FcsTextTag = FSharp.Compiler.Text.TextTag
 
-        [|
-            match data.ParamName with
-            | Some x -> yield x + ": "
-            | None -> ()
-            yield data.MainDescription |> toString
-            match data.XmlDoc with
-            | FSharp.Compiler.Symbols.FSharpXmlDoc.FromXmlText xmlDoc ->
-                yield! xmlDoc.UnprocessedLines
-                yield! xmlDoc.GetElaboratedXmlLines()
-            | _ -> ()
-            yield! data.TypeMapping |> List.map toString
-            match data.Remarks with
-            | Some x -> yield x |> toString
-            | None -> ()
-        |]
+let private toTextTag (tag: FcsTextTag) =
+    match tag with
+    | FcsTextTag.ActivePatternCase -> TextTag.ActivePatternCase
+    | FcsTextTag.ActivePatternResult -> TextTag.ActivePatternResult
+    | FcsTextTag.Alias -> TextTag.Alias
+    | FcsTextTag.Class -> TextTag.Class
+    | FcsTextTag.Union -> TextTag.Union
+    | FcsTextTag.UnionCase -> TextTag.UnionCase
+    | FcsTextTag.Delegate -> TextTag.Delegate
+    | FcsTextTag.Enum -> TextTag.Enum
+    | FcsTextTag.Event -> TextTag.Event
+    | FcsTextTag.Field -> TextTag.Field
+    | FcsTextTag.Interface -> TextTag.Interface
+    | FcsTextTag.Keyword -> TextTag.Keyword
+    | FcsTextTag.LineBreak -> TextTag.LineBreak
+    | FcsTextTag.Local -> TextTag.Local
+    | FcsTextTag.Record -> TextTag.Record
+    | FcsTextTag.RecordField -> TextTag.RecordField
+    | FcsTextTag.Method -> TextTag.Method
+    | FcsTextTag.Member -> TextTag.Member
+    | FcsTextTag.ModuleBinding -> TextTag.ModuleBinding
+    | FcsTextTag.Function -> TextTag.Function
+    | FcsTextTag.Module -> TextTag.Module
+    | FcsTextTag.Namespace -> TextTag.Namespace
+    | FcsTextTag.NumericLiteral -> TextTag.NumericLiteral
+    | FcsTextTag.Operator -> TextTag.Operator
+    | FcsTextTag.Parameter -> TextTag.Parameter
+    | FcsTextTag.Property -> TextTag.Property
+    | FcsTextTag.Space -> TextTag.Space
+    | FcsTextTag.StringLiteral -> TextTag.StringLiteral
+    | FcsTextTag.Struct -> TextTag.Struct
+    | FcsTextTag.TypeParameter -> TextTag.TypeParameter
+    | FcsTextTag.Text -> TextTag.Text
+    | FcsTextTag.Punctuation -> TextTag.Punctuation
+    | FcsTextTag.UnknownType -> TextTag.UnknownType
+    | FcsTextTag.UnknownEntity -> TextTag.UnknownEntity
+
+let private toTaggedText (tts: FSharp.Compiler.Text.TaggedText[]) : TaggedText[] =
+    tts
+    |> Array.map (fun x ->
+        {
+            Tag = toTextTag x.Tag
+            Text = x.Text
+        }
+    )
+
+let private xmlDocLines (xmlDoc: FSharpXmlDoc) =
+    match xmlDoc with
+    | FSharpXmlDoc.FromXmlText xmlDoc -> xmlDoc.GetElaboratedXmlLines()
+    | _ -> [||]
+
+let toToolTips (el: ToolTipElement) : Fable.Standalone.ToolTip[] =
+    let toToolTip (data: ToolTipElementData) : Fable.Standalone.ToolTip =
+        {
+            ParamName = data.ParamName
+            Signature = toTaggedText data.MainDescription
+            XmlDoc = xmlDocLines data.XmlDoc
+            TypeMapping = data.TypeMapping |> List.map toTaggedText |> List.toArray
+            Remarks = data.Remarks |> Option.map toTaggedText |> Option.defaultValue [||]
+        }
 
     match el with
     | ToolTipElement.None -> [||]
-    | ToolTipElement.Group(els) -> Seq.map dataToString els |> Array.concat
-    | ToolTipElement.CompositionError err -> [| err |]
+    | ToolTipElement.Group(els) -> els |> List.map toToolTip |> List.toArray
+    | ToolTipElement.CompositionError err ->
+        [|
+            {
+                ParamName = None
+                Signature =
+                    [|
+                        {
+                            Tag = TextTag.Text
+                            Text = err
+                        }
+                    |]
+                XmlDoc = [||]
+                TypeMapping = [||]
+                Remarks = [||]
+            }
+        |]
 
 /// Get tool tip at the specified location
 let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
@@ -316,7 +373,7 @@ let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents (col - 1, lineText) with
-        | None -> [| "Cannot find ident for tooltip" |]
+        | None -> [||]
         | Some(col, identIsland) ->
             let (ToolTipText els) =
                 checkFile.GetToolTip(
@@ -327,7 +384,7 @@ let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
                     FSharp.Compiler.Tokenization.FSharpTokenTag.IDENT
                 )
 
-            Seq.map tooltipToString els |> Array.concat
+            List.map toToolTips els |> Array.concat
     | None -> [||]
 
 let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
@@ -535,7 +592,7 @@ let init () =
             let res = results :?> ParseAndCheckResults
             getDeclarationLocation res line col lineText
 
-        member _.GetToolTipText(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
+        member _.GetToolTips(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getToolTipAtLocation res line col lineText
 

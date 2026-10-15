@@ -43,6 +43,61 @@ type Completion =
         Glyph: Glyph
     }
 
+/// Mirrors FCS `FSharp.Compiler.Text.TextTag`
+[<StringEnum; RequireQualifiedAccess>]
+type TextTag =
+    | ActivePatternCase
+    | ActivePatternResult
+    | Alias
+    | Class
+    | Union
+    | UnionCase
+    | Delegate
+    | Enum
+    | Event
+    | Field
+    | Interface
+    | Keyword
+    | LineBreak
+    | Local
+    | Record
+    | RecordField
+    | Method
+    | Member
+    | ModuleBinding
+    | Function
+    | Module
+    | Namespace
+    | NumericLiteral
+    | Operator
+    | Parameter
+    | Property
+    | Space
+    | StringLiteral
+    | Struct
+    | TypeParameter
+    | Text
+    | Punctuation
+    | UnknownType
+    | UnknownEntity
+
+type TaggedText =
+    {
+        Tag: TextTag
+        Text: string
+    }
+
+/// One signature with its documentation. Overloads come as separate tooltips.
+type ToolTip =
+    {
+        ParamName: string option
+        Signature: TaggedText[]
+        /// XML doc lines, with the implicit `<summary>` already inserted
+        XmlDoc: string[]
+        TypeMapping: TaggedText[][]
+        Remarks: TaggedText[]
+    }
+
 type SourceMapping = int * int * int * int * string option
 
 type IChecker = interface end
@@ -106,7 +161,7 @@ type IFableManager =
     abstract GetDeclarationLocation:
         parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Range option
 
-    abstract GetToolTipText: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> string[]
+    abstract GetToolTips: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> ToolTip[]
 
     abstract GetCompletionsAtLocation:
         parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Completion[]
