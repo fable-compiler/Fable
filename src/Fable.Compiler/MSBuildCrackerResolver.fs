@@ -101,7 +101,12 @@ module private MSBuildCrackerResolver =
     let private dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) : Async<string> =
         dotnet_msbuild_with_defines cwd fsproj args List.empty
 
-    let mkOptionsFromDesignTimeBuildAux (fsproj: FileInfo) (options: CrackerOptions) : Async<ProjectOptionsResponse> =
+    let mkOptionsFromDesignTimeBuildAux
+        (isMain: bool)
+        (fsproj: FileInfo)
+        (options: CrackerOptions)
+        : Async<ProjectOptionsResponse>
+        =
         async {
             let configurationProperty =
                 if String.IsNullOrWhiteSpace options.Configuration then
@@ -152,13 +157,6 @@ Exception:
                     "/p:DesignTimeBuild=True"
                     "/p:SkipCompilerExecution=True"
                     "/p:ProvideCommandLineArgs=True"
-                    // See https://github.com/NuGet/Home/issues/13046
-                    "/p:RestoreUseStaticGraphEvaluation=False"
-                    // Avoid restoring with an existing lock file
-                    "/p:RestoreLockedMode=false"
-                    "/p:RestorePackagesWithLockFile=false"
-                    // We trick NuGet into believing there is no lock file create, if it does exist it will try and create it.
-                    " /p:NuGetLockFilePath=Fable.lock"
                     // Avoid skipping the CoreCompile target via this property.
                     $"/p:NonExistentFile=\"%s{nonExistentFile}\""
                 ]
@@ -167,11 +165,28 @@ Exception:
             let targets =
                 "ResolveAssemblyReferencesDesignTime,ResolveProjectReferencesDesignTime,ResolvePackageDependenciesDesignTime,FindReferenceAssembliesForReferences,_GenerateCompileDependencyCache,_ComputeNonExistentFileProperty,BeforeBuild,BeforeCompile,CoreCompile"
 
+            // MSBuild ignores the -p properties during restore when -restoreProperty is given, so the restore covers every TargetFramework
             let restoreArg =
-                if options.NoRestore then
+                if options.NoRestore || not isMain then
                     ""
                 else
-                    "/restore"
+                    let restoreProperties =
+                        [
+                            if not (String.IsNullOrWhiteSpace options.Configuration) then
+                                $"Configuration=%s{options.Configuration}"
+                            // See https://github.com/NuGet/Home/issues/13046
+                            "RestoreUseStaticGraphEvaluation=False"
+                            // Avoid restoring with an existing lock file
+                            "RestoreLockedMode=false"
+                            "RestorePackagesWithLockFile=false"
+                            // We trick NuGet into believing there is no lock file create, if it does exist it will try and create it.
+                            "NuGetLockFilePath=Fable.lock"
+                            for constant in options.FableOptions.Define do
+                                $"%s{constant}=True"
+                        ]
+                        |> String.concat ";"
+
+                    $"/restore -restoreProperty:%s{restoreProperties}"
 
             let arguments =
                 $"%s{restoreArg} /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
@@ -239,7 +254,7 @@ type MSBuildCrackerResolver() =
 
             // Bad I know...
             let result =
-                MSBuildCrackerResolver.mkOptionsFromDesignTimeBuildAux fsproj options
+                MSBuildCrackerResolver.mkOptionsFromDesignTimeBuildAux isMain fsproj options
                 |> Async.RunSynchronously
 
             result

@@ -48,6 +48,7 @@ type CrackerOptions =
     member SourceMapsRoot: string option
     member EvaluateOnly: bool
     member BuildDll: normalizedDllPath: string -> unit
+    member WaitForBuiltDlls: unit -> unit
 
 type CrackerResponse =
     {
