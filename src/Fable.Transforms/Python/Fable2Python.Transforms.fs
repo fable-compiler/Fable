@@ -1718,7 +1718,12 @@ let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Ex
 let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
     match value with
     | Function(args, body) ->
-        let name = Some var.Name
+        // decision: mutable callbacks keep their Callable annotation instead of inheriting a def's parameter names
+        let name =
+            if var.IsMutable then
+                None
+            else
+                Some var.Name
 
         let args', body', returnType, typeParams =
             Annotation.transformFunctionWithAnnotations com ctx name args body
