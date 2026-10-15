@@ -319,6 +319,51 @@ module Util =
             | _ -> false
         | _ -> false
 
+    let needsUnitCallableEraseForArg (expectedType: Fable.Type option) (argExpr: Fable.Expr) =
+        let rec mismatches expected actual =
+            match FableTransforms.uncurryType expected, FableTransforms.uncurryType actual with
+            | Fable.DelegateType([ Fable.GenericParam _ ], _), Fable.DelegateType([ Fable.Unit ], _) -> true
+            | Fable.DelegateType(expectedArgs, _), Fable.DelegateType(actualArgs, _)
+            | Fable.Tuple(expectedArgs, _), Fable.Tuple(actualArgs, _) ->
+                List.sameLength expectedArgs actualArgs
+                && List.exists2 mismatches expectedArgs actualArgs
+            | _ -> false
+
+        expectedType
+        |> Option.exists (fun expected ->
+            match FableTransforms.uncurryType expected, FableTransforms.uncurryType argExpr.Type with
+            | Fable.DelegateType(expectedArgs, _), Fable.DelegateType(actualArgs, _) ->
+                List.sameLength expectedArgs actualArgs
+                && List.exists2 mismatches expectedArgs actualArgs
+            | _ -> false
+        )
+
+    // Identifiers at call sites carry the instantiated type, not the declared generic one
+    let withDeclaredFunctionTypes (ctx: Context) (bindings: (Fable.Ident * Fable.Expr) list) =
+        let declared =
+            (ctx.DeclaredFunctionTypes, bindings)
+            ||> List.fold (fun declared (ident, value) ->
+                match value with
+                | Fable.Lambda _
+                | Fable.Delegate _ -> Map.add ident.Name ident.Type declared
+                | _ -> Map.remove ident.Name declared
+            )
+
+        { ctx with DeclaredFunctionTypes = declared }
+
+    // uncurryApplications emits an empty SignatureArgTypes for local function calls
+    let calleeSignatureArgTypes (ctx: Context) (callee: Fable.Expr) (callInfo: Fable.CallInfo) =
+        let calleeType =
+            match callee with
+            | Fable.IdentExpr ident ->
+                Map.tryFind ident.Name ctx.DeclaredFunctionTypes
+                |> Option.defaultValue callee.Type
+            | _ -> callee.Type
+
+        match callInfo.SignatureArgTypes, FableTransforms.uncurryType calleeType with
+        | [], Fable.DelegateType(argTypes, _) when List.sameLength argTypes callInfo.Args -> argTypes
+        | _ -> []
+
     /// Wraps None values in cast(type, None) for type safety.
     /// Skips if type annotation is also None (unit type).
     let wrapNoneInCast (com: IPythonCompiler) ctx (value: Expression) (typeAnnotation: Expression) : Expression =

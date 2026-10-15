@@ -1,7 +1,115 @@
 module Fable.Tests.Async
 
 open System
+open Util
 open Util.Testing
+
+module private FinalizerRegressions =
+    open System
+    open System.Threading
+
+    let private check expected actual =
+        if expected <> actual then failwithf "Expected %A, got %A" expected actual
+
+    let private observe (token: CancellationToken) work =
+        let terminal = ResizeArray<string>()
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun e -> terminal.Add e.Message), (fun _ -> terminal.Add "cancel"), token)
+        terminal
+
+    let preCancelled () =
+        for throws in [false; true] do
+            use source = new CancellationTokenSource()
+            source.Cancel()
+            let mutable cleanups = 0
+            let mutable entered = false
+            let work = async.TryFinally(async { entered <- true }, fun () ->
+                cleanups <- cleanups + 1
+                if throws then failwith "cleanup")
+            let terminal = observe source.Token work
+            check false entered
+            check 1 cleanups
+            check [|"cancel"|] (terminal.ToArray())
+
+    let nestedPreCancelled () =
+        use source = new CancellationTokenSource()
+        source.Cancel()
+        let cleanups = ResizeArray<string>()
+        let inner = async.TryFinally(async.Return 42, fun () -> cleanups.Add "inner")
+        let outer = async.TryFinally(inner, fun () -> cleanups.Add "outer")
+        let terminal = observe source.Token outer
+        check [|"outer"|] (cleanups.ToArray())
+        check [|"cancel"|] (terminal.ToArray())
+
+    let cancelledAcquisition () =
+        for acquisition in [0; 1; 2] do
+            use source = new CancellationTokenSource()
+            let mutable disposals = 0
+            let mutable entered = false
+            let resource = { new IDisposable with member _.Dispose() = disposals <- disposals + 1 }
+            let acquire = Async.FromContinuations(fun (ok, _, _) ->
+                source.Cancel()
+                ok resource)
+            let work =
+                if acquisition = 1 then async {
+                    use! owned = acquire
+                    entered <- true
+                }
+                elif acquisition = 0 then async {
+                    let! acquired = acquire
+                    use owned = acquired
+                    entered <- true
+                }
+                else async {
+                    use owned =
+                        source.Cancel()
+                        resource
+                    entered <- true
+                }
+            let terminal = observe source.Token work
+            check false entered
+            check 1 disposals
+            check [|"cancel"|] (terminal.ToArray())
+
+    let normalAndFailure () =
+        for fails in [false; true] do
+            let mutable disposals = 0
+            let resource = { new IDisposable with member _.Dispose() = disposals <- disposals + 1 }
+            let work = async {
+                use owned = resource
+                if fails then failwith "body"
+                return 42
+            }
+            let terminal = observe CancellationToken.None work
+            check 1 disposals
+            check [|if fails then "body" else "success"|] (terminal.ToArray())
+
+    let trampoline () = async {
+        let mutable cleanups = 0
+        for _ in 1 .. 10000 do
+            do! async.TryFinally(async { return () }, fun () -> cleanups <- cleanups + 1)
+        check 10000 cleanups
+    }
+
+    let downstreamExceptions () =
+        for channel in ["success"; "error"; "cancel"] do
+            let mutable cleanups = 0
+            let calls = ResizeArray<string>()
+            let body: Async<unit> = Async.FromContinuations(fun (ok, error, cancelled) ->
+                match channel with
+                | "success" -> ok ()
+                | "error" -> error (Exception "body")
+                | _ -> cancelled (OperationCanceledException()))
+            let terminal name = calls.Add name; failwith "downstream"
+            let caught =
+                try
+                    Async.StartWithContinuations(
+                        async.TryFinally(body, fun () -> cleanups <- cleanups + 1),
+                        (fun () -> terminal "success"), (fun _ -> terminal "error"), (fun _ -> terminal "cancel"))
+                    "no exception"
+                with e -> e.Message
+            check "downstream" caught
+            check 1 cleanups
+            check [|channel|] (calls.ToArray())
 
 #if FABLE_COMPILER
 module private Runtime =
@@ -957,3 +1065,126 @@ let ``test cancelling the mailbox token cancels a body waiting in Receive`` () =
                 |> ignore)
         equal "cancelled" outcome
     } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test TryFinally installs cleanup before pre-cancellation`` () =
+    FinalizerRegressions.preCancelled ()
+
+[<Fact>]
+let ``test pre-cancelled nested TryFinally only runs outer cleanup`` () =
+    FinalizerRegressions.nestedPreCancelled ()
+
+[<Fact>]
+let ``test cancelled acquisition disposes use and use bang resources`` () =
+    FinalizerRegressions.cancelledAcquisition ()
+
+[<Fact>]
+let ``test resource cleanup runs once on success and failure`` () =
+    FinalizerRegressions.normalAndFailure ()
+
+[<Fact>]
+let ``test TryFinally preserves bounded trampoline execution`` () =
+    FinalizerRegressions.trampoline () |> Async.RunSynchronously
+
+[<Fact>]
+let ``test TryFinally propagates downstream continuation errors once`` () =
+    FinalizerRegressions.downstreamExceptions ()
+
+let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (OperationCanceledException -> unit) -> unit) : Async<'T> =
+    Async.FromContinuations(fun (ok, error, cancelled) -> callback ok error cancelled)
+
+[<Fact>]
+let ``test generic FromContinuations accepts erased unit callbacks`` () =
+    let calls = ResizeArray<string>()
+    let start work = Async.StartWithContinuations(work, (fun _ -> calls.Add "success"), (fun e -> calls.Add e.Message), (fun e -> calls.Add e.Message))
+    let unitWork: Async<unit> = fromGenericCallback (fun ok _ _ -> ok ())
+    start unitWork
+    let valueWork = fromGenericCallback (fun ok _ _ -> ok 42)
+    Async.StartWithContinuations(valueWork, (fun value -> equal 42 value; calls.Add "value"), raise, raise)
+    let errorWork: Async<unit> = fromGenericCallback (fun _ error _ -> error (exn "error"))
+    start errorWork
+    let cancelWork: Async<unit> = fromGenericCallback (fun _ _ cancelled -> cancelled (OperationCanceledException("cancel")))
+    start cancelWork
+    equal [|"success"; "value"; "error"; "cancel"|] (calls.ToArray())
+
+let private invokeGenericCallback (callback: ('T -> unit) -> 'Result) (value: 'T) : 'Result =
+    callback (fun received -> equal value received)
+
+[<Fact>]
+let ``test generic unit callback adaptation preserves return types`` () =
+    equal 42 (invokeGenericCallback (fun ok -> ok (); 42) ())
+    equal "unit" (invokeGenericCallback (fun ok -> ok (); "unit") ())
+    equal "value" (invokeGenericCallback (fun ok -> ok 7; "value") 7)
+
+type private CallbackRunner =
+    static member Run(callback: ('T -> unit) -> 'Result, value: 'T, [<ParamArray>] extra: int[]) : 'Result =
+        callback (fun received -> equal value received)
+
+[<Fact>]
+let ``test generic unit callback adaptation covers local functions and param arrays`` () =
+    let run (callback: ('T -> unit) -> 'Result) (value: 'T) : 'Result =
+        callback (fun received -> equal value received)
+    equal 42 (run (fun ok -> ok (); 42) ())
+    equal "value" (run (fun ok -> ok 7; "value") 7)
+    equal 42 (CallbackRunner.Run((fun ok -> ok (); 42), (), 1, 2))
+    equal "value" (CallbackRunner.Run((fun ok -> ok 7; "value"), 7))
+
+[<Fact>]
+let ``test Async try with does not run with branch when body succeeds`` () =
+    let work = async {
+        try
+            return 1
+        with _ ->
+            return 99 }
+    let mutable result = 0
+    Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
+    equal 1 result
+
+[<Fact>]
+let ``test Exception thrown by the continuation is not redirected to the with branch`` () =
+    let work = async {
+        try
+            return 1
+        with _ ->
+            return 99 }
+    let mutable calls = 0
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(
+            work,
+            (fun _ -> calls <- calls + 1; failwith "boom from continuation"),
+            ignore,
+            ignore))
+    equal 1 calls
+
+[<Fact>]
+let ``test Exception thrown by the continuation is not redirected through a bind`` () =
+    let work = async {
+        let! x = async { return 1 }
+        return x + 1 }
+    let calls = ResizeArray<string>()
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(
+            work,
+            (fun value -> calls.Add (string value); failwith "boom from continuation"),
+            (fun _ -> calls.Add "error"),
+            (fun _ -> calls.Add "cancel")))
+    equal [|"2"|] (calls.ToArray())
+
+[<Fact>]
+let ``test FromContinuations rejects a second completion`` () =
+    let unitCalls = ResizeArray<string>()
+    let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok (); ok ())
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(unitWork, (fun () -> unitCalls.Add "success"), (fun _ -> unitCalls.Add "error"), (fun _ -> unitCalls.Add "cancel")))
+    equal true (unitCalls.Count <= 1)
+    equal false (unitCalls.Contains "error")
+    equal false (unitCalls.Contains "cancel")
+
+    let valueCalls = ResizeArray<string>()
+    let valueWork = Async.FromContinuations(fun (ok, _, _) -> ok 42; ok 43)
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(valueWork, (fun v -> valueCalls.Add (string v)), (fun _ -> valueCalls.Add "error"), (fun _ -> valueCalls.Add "cancel")))
+    equal true (valueCalls.Count <= 1)
+    equal false (valueCalls.Contains "43")
+    equal false (valueCalls.Contains "error")
+    equal false (valueCalls.Contains "cancel")

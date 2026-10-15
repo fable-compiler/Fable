@@ -56,6 +56,10 @@ from .protocols import (
 from .types import UNIT, Unit
 
 
+def erase_unit_callable[**P, R](callback: Callable[P, R], /) -> Callable[..., R]:
+    return callback
+
+
 class nullable:
     """Returns a tuple of None values with the specified types.
 
@@ -963,6 +967,7 @@ __all__ = [
     "Unit",
     "array_hash",
     "copy_to_array",
+    "erase_unit_callable",
     "escape_data_string",
     "escape_uri_string",
     "create_random",

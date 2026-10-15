@@ -123,6 +123,8 @@ export function postAndAsyncReply<Reply, Msg>(
   }
   const reply = {
     reply: (res: Reply) => {
+      // .NET AsyncReplyChannel.Reply ignores a second reply
+      if (replied) { return; }
       result = res;
       replied = true;
       checkCompletion();
