@@ -169,6 +169,14 @@ let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (Ope
 
 let tests =
   testList "Async" [
+    testCase "TryCancelled preserves success and ordinary errors" <| AsyncTryCancelled.successAndFailure
+    testCase "TryCancelled preserves cancellation identity and supports reuse" <| AsyncTryCancelled.cancellationIdentityAndReuse
+    testCase "TryCancelled installs nested handlers before cancellation" <| AsyncTryCancelled.preCancelledNesting
+    testCase "TryCancelled handles deferred cancellation" <| AsyncTryCancelled.deferredCancellation
+    testCase "TryCancelled preserves finalizer order when handlers throw" <| AsyncTryCancelled.finalizerOrdering
+    testCase "TryCancelled propagates downstream errors once" <| AsyncTryCancelled.downstreamExceptions
+    testCaseAsync "TryCancelled preserves bounded trampoline execution" <| AsyncTryCancelled.trampoline
+
     testCase "TryFinally installs cleanup before pre-cancellation" <| FinalizerRegressions.preCancelled
     testCase "Pre-cancelled nested TryFinally only runs outer cleanup" <| FinalizerRegressions.nestedPreCancelled
     testCase "Cancelled acquisition disposes use and use bang resources" <| FinalizerRegressions.cancelledAcquisition

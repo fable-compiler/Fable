@@ -41,6 +41,7 @@
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="RandomTests.fs" />
     <Compile Include="ArrayTests.fs" />
+    <Compile Include="../../Python/AsyncTryCancelled.fs" />
     <Compile Include="AsyncTests.fs" />
     <Compile Include="TaskTests.fs" />
     <Compile Include="CharTests.fs" />

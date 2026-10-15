@@ -9,6 +9,7 @@
     parallel/1,
     sequential/1,
     catch_async/1,
+    try_cancelled/2,
     ignore/1,
     from_continuations/1,
     start_as_task/1,
@@ -43,6 +44,7 @@
 -spec parallel(list() | reference()) -> async(reference()).
 -spec sequential(list()) -> async(list()).
 -spec catch_async(async(term())) -> async(term()).
+-spec try_cancelled(async(term()), fun((term()) -> term())) -> async(term()).
 -spec ignore(async(term())) -> async(ok).
 -spec from_continuations(fun()) -> async(term()).
 -spec start_as_task(async(term())) -> term().
@@ -477,6 +479,21 @@ catch_async(Computation) ->
         catch
             _:Err -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(Err)})
         end
+    end.
+
+%% TryCancelled: observe cancellation without changing its terminal outcome.
+try_cancelled(Computation, Compensation) ->
+    fun(Ctx) ->
+        OnCancel = maps:get(on_cancel, Ctx),
+        Ctx2 = Ctx#{
+            on_cancel => fun(Error) ->
+                %% decision: preserve the original cancellation even when compensation throws, matching .NET.
+                try Compensation(Error) catch _:_ -> ok end,
+                OnCancel(Error)
+            end
+        },
+        %% invariant: install the handler without adding a cancellation checkpoint, including for nested handlers.
+        Computation(Ctx2)
     end.
 
 %% Ignore: discard result

@@ -165,6 +165,34 @@ let cancelWork: Async<string> = Async.FromContinuations(fun (_,_,onCancel) ->
         System.OperationCanceledException("cancelled") |> onCancel)
 
 [<Fact>]
+let ``test TryCancelled preserves success and ordinary errors`` () =
+    AsyncTryCancelled.successAndFailure ()
+
+[<Fact>]
+let ``test TryCancelled preserves cancellation identity and supports reuse`` () =
+    AsyncTryCancelled.cancellationIdentityAndReuse ()
+
+[<Fact>]
+let ``test TryCancelled installs nested handlers before cancellation`` () =
+    AsyncTryCancelled.preCancelledNesting ()
+
+[<Fact>]
+let ``test TryCancelled handles deferred cancellation`` () =
+    AsyncTryCancelled.deferredCancellation ()
+
+[<Fact>]
+let ``test TryCancelled preserves finalizer order when handlers throw`` () =
+    AsyncTryCancelled.finalizerOrdering ()
+
+[<Fact>]
+let ``test TryCancelled propagates downstream errors once`` () =
+    AsyncTryCancelled.downstreamExceptions ()
+
+[<Fact>]
+let ``test TryCancelled preserves bounded trampoline execution`` () =
+    AsyncTryCancelled.trampoline () |> Async.RunSynchronously
+
+[<Fact>]
 let ``test Simple async translates without exception`` () =
     async { return () }
     |> Async.StartImmediate

@@ -215,6 +215,23 @@ def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     return delay(delayed)
 
 
+def try_cancelled[T](computation: Async[T], compensation: Callable[[OperationCanceledError], None]) -> Async[T]:
+    def cont(ctx: IAsyncContext[T]) -> None:
+        def on_cancel(error: OperationCanceledError) -> None:
+            # decision: preserves the original cancellation when compensation throws, matching .NET
+            try:
+                compensation(error)
+            except Exception:
+                pass
+            ctx.trampoline.run(lambda: ctx.on_cancel(error))
+
+        ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, ctx.on_success, ctx.on_error, on_cancel)
+        # invariant: installs the handler without adding a cancellation checkpoint, including for nested handlers
+        computation(ctx_)
+
+    return cont
+
+
 def catch_async[T](work: Async[T]) -> Async[FSharpChoice_2[T, Exception]]:
     def cont(ctx: IAsyncContext[FSharpChoice_2[T, Exception]]) -> None:
         def on_success(x: T):
@@ -523,4 +540,5 @@ __all__ = [
     "start_child",
     "start_immediate",
     "start_with_continuations",
+    "try_cancelled",
 ]

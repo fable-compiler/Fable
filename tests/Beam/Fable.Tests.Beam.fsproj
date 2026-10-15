@@ -74,6 +74,7 @@
     <Compile Include="SetTests.fs" />
     <Compile Include="EnumTests.fs" />
     <Compile Include="ExceptionTests.fs" />
+    <Compile Include="../Python/AsyncTryCancelled.fs" />
     <Compile Include="AsyncTests.fs" />
     <Compile Include="TaskTests.fs" />
     <Compile Include="MailboxProcessorTests.fs" />

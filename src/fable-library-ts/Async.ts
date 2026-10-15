@@ -127,6 +127,24 @@ export function catchAsync<T>(work: Async<T>) {
   });
 }
 
+export function tryCancelled<T>(computation: Async<T>, compensation: (error: OperationCanceledException) => void): Async<T> {
+  return (ctx) => {
+    // invariant: install the handler without adding a cancellation checkpoint, including for nested handlers
+    computation({
+      ...ctx,
+      onCancel: (error) => {
+        // decision: preserve the original cancellation even when compensation throws, matching .NET
+        try { compensation(error); } catch { /* Cancellation takes precedence. */ }
+        if (ctx.trampoline.incrementAndCheck()) {
+          ctx.trampoline.hijack(() => ctx.onCancel(error));
+        } else {
+          ctx.onCancel(error);
+        }
+      },
+    });
+  };
+}
+
 export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
   return (ctx: IAsyncContext<T>) => {
     let settled = false;
