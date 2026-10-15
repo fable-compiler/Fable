@@ -463,6 +463,9 @@ let private extractUsefulOptionsAndSources
         // Forward pathmap from the main project so CallerFilePath respects <PathMap>/<DeterministicSourcePaths>
         elif line.StartsWith("--pathmap:", StringComparison.Ordinal) && isMainProj then
             accSources, line :: accOptions
+        // FCS defaults the primary assembly to mscorlib, a facade in the .NET ref pack, which breaks IL-erased union helpers in precompiled assemblies
+        elif line.StartsWith("--targetprofile:", StringComparison.Ordinal) && isMainProj then
+            accSources, line :: accOptions
         elif
             line.StartsWith("--nowarn", StringComparison.Ordinal)
             || line.StartsWith("--warnon", StringComparison.Ordinal)
