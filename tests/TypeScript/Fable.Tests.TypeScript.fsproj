@@ -32,7 +32,6 @@
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="../Js/Main/RandomTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
-    <Compile Include="../Python/AsyncTryCancelled.fs" />
     <Compile Include="../Js/Main/AsyncTests.fs" />
     <!-- <Compile Include="../Js/Main/TaskTests.fs" /> -->
     <Compile Include="../Js/Main/CharTests.fs" />

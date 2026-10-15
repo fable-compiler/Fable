@@ -1,8 +1,34 @@
 module Fable.Tests.Async
 
 open System
+open System.Threading
 open Util
 open Util.Testing
+
+let private runOffThreadPool action =
+#if FABLE_COMPILER
+    action ()
+#else
+    // .NET reschedules deferred FromContinuations callbacks invoked on a pool thread.
+    // Use a dedicated thread so the probe can observe completion and thrown callbacks.
+    let mutable failure = None
+    let thread = Thread(ThreadStart(fun () ->
+        try action ()
+        with error -> failure <- Some error))
+    thread.Start()
+    thread.Join()
+    failure |> Option.iter raise
+#endif
+
+let private observeTryCancelled token (work: Async<int>) =
+    let calls = ResizeArray<string>()
+    Async.StartWithContinuations(
+        work,
+        (fun value -> calls.Add(string value)),
+        (fun error -> calls.Add("error: " + error.Message)),
+        (fun error -> calls.Add("cancel: " + error.Message)),
+        token)
+    calls
 
 module private FinalizerRegressions =
     open System
@@ -169,13 +195,123 @@ let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (Ope
 
 let tests =
   testList "Async" [
-    testCase "TryCancelled preserves success and ordinary errors" <| AsyncTryCancelled.successAndFailure
-    testCase "TryCancelled preserves cancellation identity and supports reuse" <| AsyncTryCancelled.cancellationIdentityAndReuse
-    testCase "TryCancelled installs nested handlers before cancellation" <| AsyncTryCancelled.preCancelledNesting
-    testCase "TryCancelled handles deferred cancellation" <| AsyncTryCancelled.deferredCancellation
-    testCase "TryCancelled preserves finalizer order when handlers throw" <| AsyncTryCancelled.finalizerOrdering
-    testCase "TryCancelled propagates downstream errors once" <| AsyncTryCancelled.downstreamExceptions
-    testCaseAsync "TryCancelled preserves bounded trampoline execution" <| AsyncTryCancelled.trampoline
+    testCase "TryCancelled preserves success and ordinary errors" <| fun () ->
+        let mutable compensations = 0
+        let wrap work = Async.TryCancelled(work, fun _ -> compensations <- compensations + 1)
+        equal [|"42"|] ((observeTryCancelled CancellationToken.None (wrap (async.Return 42))).ToArray())
+        for error in [Exception "body"; OperationCanceledException "thrown"] do
+            let work: Async<int> = async { return raise error }
+            equal [|"error: " + error.Message|] ((observeTryCancelled CancellationToken.None (wrap work)).ToArray())
+        let mutable completed = false
+        Async.StartWithContinuations(
+            Async.TryCancelled(async.Return (), fun _ -> compensations <- compensations + 1),
+            (fun () -> completed <- true), raise, raise)
+        equal true completed
+        equal 0 compensations
+
+    testCase "TryCancelled preserves cancellation identity and supports reuse" <| fun () ->
+        for throws in [false; true] do
+            let original = OperationCanceledException "original"
+            let calls = ResizeArray<string>()
+            let mutable handlerSawOriginal = true
+            let body: Async<int> = Async.FromContinuations(fun (_, _, cancel) -> cancel original)
+            let work = Async.TryCancelled(body, fun error ->
+                handlerSawOriginal <- handlerSawOriginal && obj.ReferenceEquals(original, error)
+                calls.Add "compensation"
+                if throws then failwith "compensation defect")
+            for _ in 1 .. 2 do
+                Async.StartWithContinuations(work,
+                    (fun _ -> failwith "unexpected success"),
+                    (fun _ -> failwith "unexpected error"),
+                    (fun error ->
+                        equal true (obj.ReferenceEquals(original, error))
+                        calls.Add "cancel"))
+            equal [|"compensation"; "cancel"; "compensation"; "cancel"|] (calls.ToArray())
+            equal true handlerSawOriginal
+
+    testCase "TryCancelled installs nested handlers before cancellation" <| fun () ->
+        use source = new CancellationTokenSource()
+        source.Cancel()
+        let mutable entered = false
+        let calls = ResizeArray<string>()
+        let body = async { entered <- true; return 42 }
+        let inner = Async.TryCancelled(body, fun _ -> calls.Add "inner")
+        let outer = Async.TryCancelled(inner, fun _ -> calls.Add "outer")
+        Async.StartWithContinuations(outer,
+            (fun _ -> failwith "unexpected success"), raise,
+            (fun _ -> calls.Add "cancel"), source.Token)
+        equal false entered
+        equal [|"inner"; "outer"; "cancel"|] (calls.ToArray())
+
+    testCase "TryCancelled handles deferred cancellation" <| fun () ->
+        runOffThreadPool (fun () ->
+            let original = OperationCanceledException "deferred"
+            let mutable cancel = fun (_: OperationCanceledException) -> failwith "not started"
+            let calls = ResizeArray<string>()
+            let body: Async<int> = Async.FromContinuations(fun (_, _, continuation) -> cancel <- continuation)
+            let work = Async.TryCancelled(body, fun _ -> calls.Add "compensation")
+            Async.StartWithContinuations(work,
+                (fun _ -> failwith "unexpected success"), raise,
+                (fun error -> equal true (obj.ReferenceEquals(original, error)); calls.Add "cancel"))
+            equal 0 calls.Count
+            cancel original
+            equal [|"compensation"; "cancel"|] (calls.ToArray()))
+
+    testCase "TryCancelled preserves finalizer order when handlers throw" <| fun () ->
+        let calls = ResizeArray<string>()
+        let body: Async<int> = Async.FromContinuations(fun (_, _, cancel) -> cancel (OperationCanceledException "original"))
+        let finalized = async.TryFinally(body, fun () -> calls.Add "finally")
+        let inner = Async.TryCancelled(finalized, fun _ -> calls.Add "inner"; failwith "inner defect")
+        let outer = Async.TryCancelled(inner, fun _ -> calls.Add "outer"; failwith "outer defect")
+        equal [|"cancel: original"|] ((observeTryCancelled CancellationToken.None outer).ToArray())
+        equal [|"finally"; "inner"; "outer"|] (calls.ToArray())
+
+    testCase "TryCancelled propagates downstream errors once" <| fun () ->
+        runOffThreadPool (fun () ->
+            for channel in ["success"; "error"; "cancel"] do
+                let mutable compensations = 0
+                let calls = ResizeArray<string>()
+                let mutable complete = fun () -> failwith "not started"
+                let body: Async<int> = Async.FromContinuations(fun (ok, error, cancel) ->
+                    complete <- fun () ->
+                        match channel with
+                        | "success" -> ok 42
+                        | "error" -> error (Exception "body")
+                        | _ -> cancel (OperationCanceledException "original"))
+                let work = Async.TryCancelled(body, fun _ -> compensations <- compensations + 1)
+                let terminal name = calls.Add name; failwith "downstream"
+                Async.StartWithContinuations(work,
+                    (fun _ -> terminal "success"),
+                    (fun _ -> terminal "error"),
+                    (fun _ -> terminal "cancel"))
+                let caught =
+                    try
+                        complete ()
+                        "no exception"
+                    with error -> error.Message
+                equal "downstream" caught
+                equal [|channel|] (calls.ToArray())
+                equal (if channel = "cancel" then 1 else 0) compensations)
+
+    testCaseAsync "TryCancelled preserves bounded trampoline execution" <| fun () -> async {
+        let original = OperationCanceledException "deep cancellation"
+        let mutable compensations = 0
+        let rec loop remaining =
+            if remaining = 0 then
+                Async.FromContinuations(fun (_, _, cancel) -> cancel original)
+            else
+                Async.TryCancelled(async {
+                    do! async.Return ()
+                    return! loop (remaining - 1)
+                }, fun _ -> compensations <- compensations + 1)
+        do! Async.FromContinuations(fun (ok, error, _) ->
+            Async.StartWithContinuations(loop 10000,
+                (fun () -> error (Exception "unexpected success")), error,
+                (fun cancelled ->
+                    if obj.ReferenceEquals(original, cancelled) then ok ()
+                    else error (Exception "cancellation identity changed"))))
+        equal 10000 compensations
+    }
 
     testCase "TryFinally installs cleanup before pre-cancellation" <| FinalizerRegressions.preCancelled
     testCase "Pre-cancelled nested TryFinally only runs outer cleanup" <| FinalizerRegressions.nestedPreCancelled
