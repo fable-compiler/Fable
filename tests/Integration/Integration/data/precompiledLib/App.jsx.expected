@@ -1,5 +1,6 @@
 
-import { plain as plain_1 } from "./precompiled/Library.js";
+import { Shape, circles as circles_1, plain as plain_1 } from "./precompiled/Library.js";
+import { ofArray } from "./precompiled/fable_modules/fable-library-js.5.21.0/List.js";
 
 export const greeting = {
     Greet(helpers) {
@@ -10,4 +11,6 @@ export const greeting = {
 export const doubled = 21 * 2;
 
 export const plain = plain_1(1);
+
+export const circles = circles_1(ofArray([new Shape(/* Circle */ 0, [1]), new Shape(/* Square */ 1, [2])]));
 
