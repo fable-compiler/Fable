@@ -239,7 +239,6 @@ __all__ = [
     "is_number",
     "is_punctuation",
     "is_separator",
-    "is_separator",
     "is_surrogate",
     "is_surrogate_pair",
     "is_symbol",

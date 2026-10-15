@@ -43,8 +43,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Check Python import and export sorting
-        run: uv run --frozen ruff check --select I,RUF022 src/fable-library-py
+      - name: Check Python imports and exports
+        run: uv run --frozen ruff check --select I,RUF022,RUF068 src/fable-library-py
 
       - name: Check Python formatting
         run: uv run --frozen ruff format --check src/fable-library-py
