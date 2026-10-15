@@ -179,6 +179,12 @@ type PrecompiledInfo =
     abstract TryGetRootModule: normalizedFullPath: string -> string option
     abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
 
+let private removeAll keys map =
+    (map, keys) ||> Seq.fold (fun map key -> Map.remove key map)
+
+let private addAll entries map =
+    (map, entries) ||> Seq.fold (fun map (key, value) -> Map.add key value map)
+
 type Project
     private
     (
@@ -186,12 +192,14 @@ type Project
         projectOptions: FSharpProjectOptions,
         implFiles: Map<string, ImplFile>,
         assemblies: Assemblies,
-        ?precompiledInfo: PrecompiledInfo
+        ?precompiledInfo: PrecompiledInfo,
+        ?inlineExprs: Map<string, InlineExprLazy>
     )
     =
 
-    let inlineExprsDic =
-        implFiles |> Map.values |> Seq.collect (fun f -> f.InlineExprs) |> dict
+    let inlineExprs =
+        inlineExprs
+        |> Option.defaultWith (fun () -> implFiles |> Map.values |> Seq.collect (fun f -> f.InlineExprs) |> Map)
 
     let precompiledInfo =
         precompiledInfo
@@ -234,19 +242,36 @@ type Project
         Project(projectFile, projectOptions, implFilesMap, assemblies, ?precompiledInfo = precompiledInfo)
 
     member this.Update(files: FSharpImplementationFileContents list) =
-        let implFiles =
-            (this.ImplementationFiles, files)
-            ||> List.fold (fun implFiles file ->
+        let implFiles, inlineExprs =
+            ((this.ImplementationFiles, inlineExprs), files)
+            ||> List.fold (fun (implFiles, inlineExprs) file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 let file = ImplFile.From(file)
-                Map.add key file implFiles
+
+                let previousInlineExprs =
+                    match Map.tryFind key implFiles with
+                    | Some previous -> previous.InlineExprs
+                    | None -> []
+
+                let inlineExprs =
+                    inlineExprs
+                    |> removeAll (List.map fst previousInlineExprs)
+                    |> addAll file.InlineExprs
+
+                Map.add key file implFiles, inlineExprs
             )
 
-        Project(this.ProjectFile, this.ProjectOptions, implFiles, this.Assemblies, this.PrecompiledInfo)
+        Project(
+            this.ProjectFile,
+            this.ProjectOptions,
+            implFiles,
+            this.Assemblies,
+            this.PrecompiledInfo,
+            inlineExprs = inlineExprs
+        )
 
     member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
-        inlineExprsDic
-        |> Dictionary.tryFind memberUniqueName
+        Map.tryFind memberUniqueName inlineExprs
         |> Option.map (fun e -> e.Calculate(com))
 
     member _.GetFileInlineExprs(com: Compiler) : (string * InlineExpr) array =
