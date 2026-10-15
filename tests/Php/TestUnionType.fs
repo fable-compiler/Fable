@@ -18,7 +18,6 @@ type Either<'TL,'TR> =
 //    | Case2 of string * string
 //    | Case3 of string * string * string
 
-
 // type TestUnion2 =
 //     | Tag of string
 //     | NewTag of string
