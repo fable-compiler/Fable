@@ -1,6 +1,7 @@
 module Fable.Tests.Async
 
 open System
+open Util
 open Util.Testing
 
 module private FinalizerRegressions =
@@ -1114,3 +1115,76 @@ let ``test generic unit callback adaptation preserves return types`` () =
     equal 42 (invokeGenericCallback (fun ok -> ok (); 42) ())
     equal "unit" (invokeGenericCallback (fun ok -> ok (); "unit") ())
     equal "value" (invokeGenericCallback (fun ok -> ok 7; "value") 7)
+
+type private CallbackRunner =
+    static member Run(callback: ('T -> unit) -> 'Result, value: 'T, [<ParamArray>] extra: int[]) : 'Result =
+        callback (fun received -> equal value received)
+
+[<Fact>]
+let ``test generic unit callback adaptation covers local functions and param arrays`` () =
+    let run (callback: ('T -> unit) -> 'Result) (value: 'T) : 'Result =
+        callback (fun received -> equal value received)
+    equal 42 (run (fun ok -> ok (); 42) ())
+    equal "value" (run (fun ok -> ok 7; "value") 7)
+    equal 42 (CallbackRunner.Run((fun ok -> ok (); 42), (), 1, 2))
+    equal "value" (CallbackRunner.Run((fun ok -> ok 7; "value"), 7))
+
+[<Fact>]
+let ``test Async try with does not run with branch when body succeeds`` () =
+    let work = async {
+        try
+            return 1
+        with _ ->
+            return 99 }
+    let mutable result = 0
+    Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
+    equal 1 result
+
+[<Fact>]
+let ``test Exception thrown by the continuation is not redirected to the with branch`` () =
+    let work = async {
+        try
+            return 1
+        with _ ->
+            return 99 }
+    let mutable calls = 0
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(
+            work,
+            (fun _ -> calls <- calls + 1; failwith "boom from continuation"),
+            ignore,
+            ignore))
+    equal 1 calls
+
+[<Fact>]
+let ``test Exception thrown by the continuation is not redirected through a bind`` () =
+    let work = async {
+        let! x = async { return 1 }
+        return x + 1 }
+    let calls = ResizeArray<string>()
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(
+            work,
+            (fun value -> calls.Add (string value); failwith "boom from continuation"),
+            (fun _ -> calls.Add "error"),
+            (fun _ -> calls.Add "cancel")))
+    equal [|"2"|] (calls.ToArray())
+
+[<Fact>]
+let ``test FromContinuations rejects a second completion`` () =
+    let unitCalls = ResizeArray<string>()
+    let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok (); ok ())
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(unitWork, (fun () -> unitCalls.Add "success"), (fun _ -> unitCalls.Add "error"), (fun _ -> unitCalls.Add "cancel")))
+    equal true (unitCalls.Count <= 1)
+    equal false (unitCalls.Contains "error")
+    equal false (unitCalls.Contains "cancel")
+
+    let valueCalls = ResizeArray<string>()
+    let valueWork = Async.FromContinuations(fun (ok, _, _) -> ok 42; ok 43)
+    throwsAnyError (fun () ->
+        Async.StartWithContinuations(valueWork, (fun v -> valueCalls.Add (string v)), (fun _ -> valueCalls.Add "error"), (fun _ -> valueCalls.Add "cancel")))
+    equal true (valueCalls.Count <= 1)
+    equal false (valueCalls.Contains "43")
+    equal false (valueCalls.Contains "error")
+    equal false (valueCalls.Contains "cancel")

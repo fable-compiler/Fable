@@ -30,6 +30,16 @@ module private FinalizerRegressions =
             check 1 cleanups
             check [|"cancel"|] (terminal.ToArray())
 
+    let nestedPreCancelled () =
+        use source = new CancellationTokenSource()
+        source.Cancel()
+        let cleanups = ResizeArray<string>()
+        let inner = async.TryFinally(async.Return 42, fun () -> cleanups.Add "inner")
+        let outer = async.TryFinally(inner, fun () -> cleanups.Add "outer")
+        let terminal = observe source.Token outer
+        check [|"outer"|] (cleanups.ToArray())
+        check [|"cancel"|] (terminal.ToArray())
+
     let cancelledAcquisition () =
         for acquisition in [0; 1; 2] do
             use source = new CancellationTokenSource()
@@ -160,6 +170,7 @@ let private fromGenericCallback (callback: ('T -> unit) -> (exn -> unit) -> (Ope
 let tests =
   testList "Async" [
     testCase "TryFinally installs cleanup before pre-cancellation" <| FinalizerRegressions.preCancelled
+    testCase "Pre-cancelled nested TryFinally only runs outer cleanup" <| FinalizerRegressions.nestedPreCancelled
     testCase "Cancelled acquisition disposes use and use bang resources" <| FinalizerRegressions.cancelledAcquisition
     testCase "Resource cleanup runs once on success and failure" <| FinalizerRegressions.normalAndFailure
     testCase "TryFinally propagates downstream continuation errors once" <| FinalizerRegressions.downstreamExceptions
@@ -186,6 +197,24 @@ let tests =
         Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
         Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
         equal 3 completed
+
+    testCase "FromContinuations rejects a second completion" <| fun () ->
+        let unitCalls = ResizeArray<string>()
+        let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok (); ok ())
+        throwsAnyError (fun () ->
+            Async.StartWithContinuations(unitWork, (fun () -> unitCalls.Add "success"), (fun _ -> unitCalls.Add "error"), (fun _ -> unitCalls.Add "cancel")))
+        equal true (unitCalls.Count <= 1)
+        equal false (unitCalls.Contains "error")
+        equal false (unitCalls.Contains "cancel")
+
+        let valueCalls = ResizeArray<string>()
+        let valueWork = Async.FromContinuations(fun (ok, _, _) -> ok 42; ok 43)
+        throwsAnyError (fun () ->
+            Async.StartWithContinuations(valueWork, (fun v -> valueCalls.Add (string v)), (fun _ -> valueCalls.Add "error"), (fun _ -> valueCalls.Add "cancel")))
+        equal true (valueCalls.Count <= 1)
+        equal false (valueCalls.Contains "43")
+        equal false (valueCalls.Contains "error")
+        equal false (valueCalls.Contains "cancel")
 
     testCase "Generic unit continuations work through recursive bindings and aliases" <| fun () ->
         let mutable recurse = true
@@ -819,6 +848,19 @@ let tests =
             do! agent.PostAndAsyncReply(fun ch -> ch)
             ran <- true
             equal true ran
+        }
+
+    testCaseAsync "MailboxProcessor second Reply is ignored" <| fun () ->
+        async {
+            let log = ResizeArray<string>()
+            let agent = MailboxProcessor<AsyncReplyChannel<int>>.Start(fun inbox -> async {
+                let! channel = inbox.Receive()
+                channel.Reply 1
+                channel.Reply 2
+                log.Add "body done" })
+            let! reply = agent.PostAndAsyncReply(id)
+            equal 1 reply
+            equal [|"body done"|] (log.ToArray())
         }
 
     testCase "Async try .. with returns correctly from 'with' branch" <| fun () ->

@@ -317,3 +317,17 @@ let ``test MailboxProcessor postAndAsyncReply can compute reply from state`` () 
         let! sum = agent.PostAndAsyncReply(GetSum)
         equal 65 sum
     } |> Async.StartImmediate
+
+[<Fact>]
+let ``test MailboxProcessor second Reply is ignored`` () =
+    async {
+        let log = ResizeArray<string>()
+        let agent = MailboxProcessor<AsyncReplyChannel<int>>.Start(fun inbox -> async {
+            let! channel = inbox.Receive()
+            channel.Reply 1
+            channel.Reply 2
+            log.Add "body done" })
+        let! reply = agent.PostAndAsyncReply(id)
+        equal 1 reply
+        equal [|"body done"|] (log.ToArray())
+    } |> Async.StartImmediate
