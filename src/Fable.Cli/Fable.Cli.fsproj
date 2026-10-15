@@ -12,7 +12,12 @@
     <PackAsTool>true</PackAsTool>
     <Description>F# to JS compiler</Description>
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- FCS is shipped as IL; the tiered JIT otherwise keeps it at tier 0 for the whole compilation -->
+    <RuntimeHostConfigurationOption Include="System.Runtime.TieredCompilation.CallCountingDelayMs" Value="0" />
+  </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\temp\fable-library-js\**\*.*" PackagePath="fable-library-js\" />
     <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
