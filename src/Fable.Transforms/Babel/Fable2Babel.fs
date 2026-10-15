@@ -5059,6 +5059,7 @@ module Compiler =
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
 
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
+            member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
             member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
                 com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)

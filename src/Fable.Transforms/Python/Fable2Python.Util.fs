@@ -329,12 +329,11 @@ module Util =
                 && List.exists2 mismatches expectedArgs actualArgs
             | _ -> false
 
+        // Generic-to-unit callback inputs need the typing adapter both directly and inside callbacks.
         expectedType
         |> Option.exists (fun expected ->
             match FableTransforms.uncurryType expected, FableTransforms.uncurryType argExpr.Type with
-            | Fable.DelegateType(expectedArgs, _), Fable.DelegateType(actualArgs, _) ->
-                List.sameLength expectedArgs actualArgs
-                && List.exists2 mismatches expectedArgs actualArgs
+            | Fable.DelegateType _, Fable.DelegateType _ -> mismatches expected argExpr.Type
             | _ -> false
         )
 

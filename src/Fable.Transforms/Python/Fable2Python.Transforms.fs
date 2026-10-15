@@ -382,6 +382,14 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
             let value, stmts = com.TransformAsExpr(ctx, e)
             libCall com ctx None "core" "int32" [ value ], stmts
         | _ -> com.TransformAsExpr(ctx, e)
+    // The other integer widths are wrapper classes too, so `uint32 (x: byte)` needs the same explicit constructor call
+    | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | UInt32) as kind, _), _ ->
+        match e.Type with
+        | Fable.Number(sourceKind, _) when sourceKind = kind -> com.TransformAsExpr(ctx, e)
+        | Fable.Number _ ->
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            libCall com ctx None "core" (Py.Replacements.getIntTypeName kind) [ value ], stmts
+        | _ -> com.TransformAsExpr(ctx, e)
     // Float64 is a plain Python `float`, and the same reasoning applies:
     // `Replacements.toFloat` emits a bare `TypeCast` for every numeric source that is
     // not bigint/decimal/int64, so `float (x: float32)` would otherwise stay a

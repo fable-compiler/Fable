@@ -322,12 +322,28 @@ let ``test MailboxProcessor postAndAsyncReply can compute reply from state`` () 
 let ``test MailboxProcessor second Reply is ignored`` () =
     async {
         let log = ResizeArray<string>()
+        let completed = new MailboxProcessor<unit>(fun _ -> async { return () })
         let agent = MailboxProcessor<AsyncReplyChannel<int>>.Start(fun inbox -> async {
             let! channel = inbox.Receive()
             channel.Reply 1
             channel.Reply 2
-            log.Add "body done" })
+            log.Add "body done"
+            completed.Post() })
         let! reply = agent.PostAndAsyncReply(id)
         equal 1 reply
+        do! completed.Receive()
         equal [|"body done"|] (log.ToArray())
-    } |> Async.StartImmediate
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test MailboxProcessor reply computation can be awaited twice`` () =
+    async {
+        let agent = MailboxProcessor<AsyncReplyChannel<int>>.Start(fun inbox -> async {
+            let! channel = inbox.Receive()
+            channel.Reply 42 })
+        let work = agent.PostAndAsyncReply(id)
+        let! first = work
+        let! second = work
+        equal 42 first
+        equal 42 second
+    } |> Async.RunSynchronously
