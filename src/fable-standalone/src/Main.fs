@@ -345,28 +345,37 @@ let toToolTips (el: ToolTipElement) : Fable.Standalone.ToolTip[] =
             }
         |]
 
-/// Get tool tip at the specified location
+let private declarationNotFoundReason (reason: FindDeclFailureReason) =
+    match reason with
+    | FindDeclFailureReason.Unknown message -> message
+    | FindDeclFailureReason.NoSourceCode -> "no source code"
+    | FindDeclFailureReason.ProvidedType typeName -> "provided type " + typeName
+    | FindDeclFailureReason.ProvidedMember memberName -> "provided member " + memberName
+
+/// Get the declaration location of the symbol at the specified location
 let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents (col - 1, lineText) with
-        | None -> None
+        | None -> DeclarationLocation.NotFound "no identifier at location"
         | Some(col, identIsland) ->
             let (declarations: FindDeclResult) =
                 checkFile.GetDeclarationLocation(line, col, lineText, identIsland)
 
             match declarations with
-            | FindDeclResult.DeclNotFound _
-            | FindDeclResult.ExternalDecl _ -> None
+            | FindDeclResult.DeclNotFound reason -> DeclarationLocation.NotFound(declarationNotFoundReason reason)
+            | FindDeclResult.ExternalDecl(assembly, externalSym) ->
+                DeclarationLocation.External(assembly, string externalSym)
             | FindDeclResult.DeclFound range ->
-                Some
+                DeclarationLocation.Found
                     {
+                        FileName = range.FileName
                         StartLine = range.StartLine
                         StartColumn = range.StartColumn
                         EndLine = range.EndLine
                         EndColumn = range.EndColumn
                     }
-    | None -> None
+    | None -> DeclarationLocation.NotFound "file not checked"
 
 /// Get tool tip at the specified location
 let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
