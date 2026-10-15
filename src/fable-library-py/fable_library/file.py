@@ -107,3 +107,24 @@ def replace(source_file_name: str, destination_file_name: str, destination_backu
     with open(destination_backup_file_name, "wb") as f:
         f.write(data)
     os.replace(source_file_name, destination_file_name)
+
+
+__all__ = [
+    "copy",
+    "delete",
+    "exists",
+    "move",
+    "read_all_bytes",
+    "read_all_bytes_async",
+    "read_all_lines",
+    "read_all_lines_async",
+    "read_all_text",
+    "read_all_text_async",
+    "replace",
+    "write_all_bytes",
+    "write_all_bytes_async",
+    "write_all_lines",
+    "write_all_lines_async",
+    "write_all_text",
+    "write_all_text_async",
+]

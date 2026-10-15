@@ -33,6 +33,22 @@ jobs:
       - name: Check F# code
         run: dotnet fantomas . --check --verbosity d
 
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Check Python imports and exports
+        run: uv run --frozen ruff check --select I,RUF022,RUF068 src/fable-library-py
+
+      - name: Check Python formatting
+        run: uv run --frozen ruff format --check src/fable-library-py
+
   # Verify that Fable.sln can be restored
   # See: https://github.com/fable-compiler/Fable/issues/3687
   restore-project:
