@@ -576,8 +576,17 @@ let private transformUnionCaseTest
     =
     trampoline {
         let! unionExpr = transformExpr com ctx [] unionExpr
+        let unionPattern = getUnionPattern fsType unionCase
 
-        match getUnionPattern fsType unionCase with
+        do
+            match unionPattern, FsUnionCase.CaseTest unionCase with
+            | TypeScriptTaggedUnion _, _
+            | _, None -> ()
+            | _, Some _ ->
+                $"CaseTest attribute on '%s{unionCase.Name}' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+                |> addWarning com ctx.InlinePath r
+
+        match unionPattern with
         | ErasedUnionCase -> return "Cannot test erased union cases" |> addErrorAndReturnNull com ctx.InlinePath r
 
         | ErasedUnion(tdef, genArgs, rule) ->
