@@ -35,6 +35,9 @@ module Atts =
     let compiledValue = "Fable.Core.CompiledValueAttribute" // typeof<CompiledValueAttribute>.FullName
 
     [<Literal>]
+    let caseTest = "Fable.Core.CaseTestAttribute" // typeof<CaseTestAttribute>.FullName
+
+    [<Literal>]
     let entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
 
     [<Literal>]

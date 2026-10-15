@@ -86,6 +86,23 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
     new(tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
 
 /// <summary>
+/// Adds a test to a case of a <c>TypeScriptTaggedUnion</c>, checked after the tag matches.
+/// Use it when several cases share a tag value.
+/// </summary>
+/// <remarks>
+/// The test is a JS expression in <c>Emit</c> syntax, where <c>$0</c> is the tested value:
+/// <code>
+/// [&lt;TypeScriptTaggedUnion("state")>]
+/// type Terminal =
+///     | [&lt;CompiledName("done"); CaseTest("'value' in $0")>] Done of value: float
+///     | [&lt;CompiledName("done"); CaseTest("'error' in $0")>] DoneError of error: string
+///     | Pending
+/// </code>
+/// </remarks>
+type CaseTestAttribute(test: string) =
+    inherit Attribute()
+
+/// <summary>
 /// Used in place of <c>CompiledNameAttribute</c> if the target is not a string.
 /// </summary>
 /// <remarks>

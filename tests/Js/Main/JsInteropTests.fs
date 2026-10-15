@@ -391,6 +391,13 @@ module TaggedUnion =
     type FooGeneric<'a> =
         | Bar of baz: 'a
 
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type SharedTag =
+        | [<CompiledName("done"); CaseTest("'value' in $0")>] Done of value: float
+        | [<CompiledName("done"); CaseTest("'error' in $0")>] DoneError of error: string
+        | [<CompiledName("done"); CaseTest("$0.ok === false")>] DoneFailed of ok: bool
+        | Pending
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1090,6 +1097,28 @@ let tests =
         let fooGeneric = getFooGeneric 10
 
         equal (TaggedUnion.FooGeneric.Bar 10) fooGeneric
+
+    testCase "Case testing with TS tagged unions whose cases share a tag works" <| fun () ->
+        let describe = function
+            | TaggedUnion.SharedTag.Done v -> sprintf "done: %.1f" v
+            | TaggedUnion.SharedTag.DoneError e -> sprintf "error: %s" e
+            | TaggedUnion.SharedTag.DoneFailed _ -> "failed"
+            | TaggedUnion.SharedTag.Pending -> "pending"
+        TaggedUnion.SharedTag.Done 1.5 |> describe |> equal "done: 1.5"
+        TaggedUnion.SharedTag.DoneError "oops" |> describe |> equal "error: oops"
+        TaggedUnion.SharedTag.DoneFailed false |> describe |> equal "failed"
+        TaggedUnion.SharedTag.Pending |> describe |> equal "pending"
+        !!{| state = "done"; error = "raw" |} |> describe |> equal "error: raw"
+        (TaggedUnion.SharedTag.DoneError "oops").IsDoneError |> equal true
+        (TaggedUnion.SharedTag.Done 1.5).IsDoneError |> equal false
+
+    testCase "Case testing with TS tagged unions whose cases share a tag evaluates the value once" <| fun () ->
+        let mutable calls = 0
+        let next () =
+            calls <- calls + 1
+            TaggedUnion.SharedTag.DoneError "oops"
+        (next ()).IsDoneError |> equal true
+        calls |> equal 1
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
