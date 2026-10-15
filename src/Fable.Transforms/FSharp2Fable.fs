@@ -813,6 +813,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.Const(value, typ) ->
             let typ = makeType ctx.GenericArgs typ
+
+            // Enum cases reach Fable as their numeric value, so files using them must follow the enum declaration
+            do
+                match typ with
+                | Fable.Number(_, Fable.NumberInfo.IsEnum entRef) ->
+                    entRef.SourcePath |> Option.iter com.AddSignatureDependency
+                | _ -> ()
+
             let expr = makeTypeConst (makeRangeFrom fsExpr) typ value
             return expr
 
@@ -1485,10 +1493,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! argExprs = transformExprList com ctx argExprs
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+            let entRef = FsEnt.Ref fsType.TypeDefinition
+            // Record fields are passed by position, so a field reordering in the declaring file changes this call
+            entRef.SourcePath |> Option.iter com.AddSignatureDependency
 
-            return
-                Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs)
-                |> makeValue r
+            return Fable.NewRecord(argExprs, entRef, genArgs) |> makeValue r
 
         | FSharpExprPatterns.NewAnonRecord(fsType, argExprs) ->
             let r = makeRangeFrom fsExpr
@@ -2947,6 +2956,7 @@ type FableCompiler(com: Compiler) =
         member _.TryGetEntity(entRef) = com.TryGetEntity(entRef)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
+        member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
         member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
             com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)

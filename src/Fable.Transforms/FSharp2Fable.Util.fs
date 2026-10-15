@@ -2432,6 +2432,7 @@ module Util =
             if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
                 makeIdentExpr entityName
             else
+                com.AddSignatureDependency(file)
                 makeInternalClassImport com ent entityName file
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) = entityIdentWithSuffix com ent ""
@@ -2513,6 +2514,8 @@ module Util =
                 // If the overload suffix changes, we need to recompile the files that call this member
                 if hasOverloadSuffix then
                     com.AddWatchDependency(file)
+
+                com.AddSignatureDependency(file)
 
                 // Private values are not exported so they can't be imported by call sites in other files.
                 // We need to handle it manually because Fable handle resolve inline function itself
