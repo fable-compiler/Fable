@@ -171,7 +171,8 @@ console.log("  BEAM example hashing and state-key diagnostics checked")
 // not gain any, and the tags and the XML doc must come through separately.
 const greetLine = `let greet (name: string) = sprintf "Hello %s" name`
 const runLine = `let run () = greet "world"`
-post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine].join("\n") }], []])
+const absLine = `let abs = System.Math.Abs(-1)`
+post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine, absLine].join("\n") }], []])
 await answer("ParsedCode")
 
 const signatureOf = (tooltips) => (tooltips[0]?.Signature ?? []).map((t) => t.Text).join("")
@@ -192,6 +193,27 @@ if (!signature.some((t) => t.Tag === "keyword") || !signature.some((t) => t.Tag 
 }
 if (!greetTooltip[0]?.XmlDoc?.includes("<summary>")) failures.push(`tooltip lost the XML doc: ${JSON.stringify(greetTooltip[0]?.XmlDoc)}`)
 console.log(`  tooltip: ${greetSignature} (${signature.length} tagged parts, ${greetTooltip[0]?.XmlDoc?.length ?? 0} doc lines)`)
+
+// Declaration locations: a project symbol, an FSharp.Core symbol (whose recorded file is not in the
+// project) and a .NET symbol must stay distinguishable.
+const declarationOf = async (id, line, col, lineText) => {
+    post(["GetDeclarationLocationForFile", id, "Program.fs", line, col, lineText])
+    const [, , location] = await answer("FoundDeclarationLocation")
+    return location
+}
+const greetDecl = await declarationOf("00000000-0000-0000-0000-000000000003", 4, 15, runLine)
+const sprintfDecl = await declarationOf("00000000-0000-0000-0000-000000000004", 3, 29, greetLine)
+const absDecl = await declarationOf("00000000-0000-0000-0000-000000000005", 5, 24, absLine)
+if (greetDecl[0] !== "Found" || greetDecl[1].FileName !== "Program.fs" || greetDecl[1].StartLine !== 3) {
+    failures.push(`greet should be found in Program.fs: ${JSON.stringify(greetDecl)}`)
+}
+if (sprintfDecl[0] !== "Found" || sprintfDecl[1].FileName === "Program.fs") {
+    failures.push(`sprintf should be found in an FSharp.Core source: ${JSON.stringify(sprintfDecl)}`)
+}
+if (absDecl[0] !== "External" || absDecl[2] !== "System.Math.Abs(System.Int32)") {
+    failures.push(`Math.Abs should be an external .NET symbol: ${JSON.stringify(absDecl)}`)
+}
+console.log(`  declarations: greet in ${greetDecl[1]?.FileName}, sprintf in ${sprintfDecl[1]?.FileName}, Math.Abs in ${absDecl[1]}`)
 
 if (failures.length) {
     console.error("\nFAILED")

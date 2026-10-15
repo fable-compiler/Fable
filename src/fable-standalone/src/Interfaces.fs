@@ -31,11 +31,20 @@ type Error =
 
 type Range =
     {
+        FileName: string
         StartLine: int
         StartColumn: int
         EndLine: int
         EndColumn: int
     }
+
+[<RequireQualifiedAccess>]
+type DeclarationLocation =
+    /// The file is the one FCS recorded for the symbol, so it can be a source outside the project
+    | Found of Range
+    /// A .NET symbol from a referenced assembly, e.g. `System.Math.Abs`
+    | External of assembly: string * symbol: string
+    | NotFound of reason: string
 
 type Completion =
     {
@@ -159,7 +168,7 @@ type IFableManager =
     abstract GetErrors: parseResults: IParseAndCheckResults -> Error[]
 
     abstract GetDeclarationLocation:
-        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Range option
+        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> DeclarationLocation
 
     abstract GetToolTips: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> ToolTip[]
 

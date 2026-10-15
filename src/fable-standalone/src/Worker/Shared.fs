@@ -74,7 +74,7 @@ type WorkerAnswer =
     | CompilerCrashed of message: string
     | FoundTooltip of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
-    | FoundDeclarationLocation of id: Guid (* line1, col1, line2, col2 *) * (int * int * int * int) option
+    | FoundDeclarationLocation of id: Guid * Fable.Standalone.DeclarationLocation
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerAnswer>()
 
