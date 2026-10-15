@@ -773,6 +773,14 @@ let ``test Optional named params work`` () =
     StaticClass.NamedParams() |> equal "John is 30 years old"
 
 [<Fact>]
+let ``test Mutable function bindings accept replacement callbacks`` () =
+    let mutable callback = fun (initial: int) -> initial + 1
+    let replace (replacement: int -> int) = callback <- replacement
+    callback 3 |> equal 4
+    replace (fun differentName -> differentName * 2)
+    callback 3 |> equal 6
+
+[<Fact>]
 let ``test F# optional param works`` () =
     let mutable f1 = fun (v: bool) ->
         StaticClass.FSharpOptionalParam(value=v)
