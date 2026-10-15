@@ -1,4 +1,7 @@
-from math import copysign as _copysign, fmod as _fmod, inf as _inf, nan as _nan
+from math import copysign as _copysign
+from math import fmod as _fmod
+from math import inf as _inf
+from math import nan as _nan
 from typing import Literal, SupportsFloat, SupportsInt
 
 from ._core import (
