@@ -549,6 +549,59 @@ let ``test Async.Parallel is lazy`` () =
     } |> Async.RunSynchronously
 
 [<Fact>]
+let ``test Async.Parallel bounds concurrency and preserves order`` () =
+    async {
+        let gate = obj ()
+        let mutable running = 0
+        let mutable peak = 0
+        let work i = async {
+            lock gate (fun () ->
+                running <- running + 1
+                peak <- max peak running)
+            do! Async.Sleep 30
+            lock gate (fun () -> running <- running - 1)
+            return i
+        }
+        let! results = Async.Parallel([ for i in 1..9 -> work i ], maxDegreeOfParallelism = 3)
+        results |> equal [| 1..9 |]
+        peak |> equal 3
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel cancels siblings and waits before reporting failure`` () =
+    async {
+        let mutable completed = 0
+        let work i = async {
+            if i = 2 then
+                do! Async.Sleep 20
+                failwith "parallel failure"
+            do! Async.Sleep 200
+#if FABLE_COMPILER
+            completed <- completed + 1
+#else
+            System.Threading.Interlocked.Increment(&completed) |> ignore<int>
+#endif
+        }
+        let! outcome = Async.Parallel [ for i in 0..4 -> work i ] |> Async.Catch
+        match outcome with
+        | Choice1Of2 _ -> failwith "Expected parallel failure"
+        | Choice2Of2 error -> error.Message |> equal "parallel failure"
+        completed |> equal 0
+        do! Async.Sleep 250
+        completed |> equal 0
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel validates degree and accepts an empty sequence`` () =
+    let mutable raised = false
+    try
+        Async.Parallel([ async { return 1 } ], maxDegreeOfParallelism = 0) |> ignore
+    with :? ArgumentException -> raised <- true
+    raised |> equal true
+    let empty = Async.RunSynchronously(Async.Parallel(([]: Async<int> list), maxDegreeOfParallelism = 2))
+    empty |> equal [||]
+
+[<Fact>]
 let ``test Async.Sequential works`` () =
     async {
         let mutable _aggregate = 0
