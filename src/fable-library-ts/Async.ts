@@ -4,7 +4,7 @@ import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
-import { InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
+import { ArgumentException_$ctor_Z384F8060, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
 import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
 import type { Option } from "./Option.ts";
 
@@ -182,10 +182,58 @@ export function ignore<T>(computation: Async<T>) {
   return protectedBind(computation, (_x) => protectedReturn(void 0));
 }
 
-export function parallel<T>(computations: Iterable<Async<T>>) {
-  // Children share the parent's cancellation token, like .NET Async.Parallel
+export function parallel<T>(computations: Iterable<Async<T>>, maxDegreeOfParallelism?: number) {
+  if (maxDegreeOfParallelism != null && maxDegreeOfParallelism < 1) {
+    throw ArgumentException_$ctor_Z384F8060(
+      `maxDegreeOfParallelism must be positive, was ${maxDegreeOfParallelism}`, "maxDegreeOfParallelism");
+  }
   return protectedCont((ctx: IAsyncContext<T[]>) =>
-    awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w, ctx.cancelToken))))(ctx));
+    awaitPromise(runParallel(Array.from(computations), maxDegreeOfParallelism, ctx.cancelToken))(ctx));
+}
+
+function runParallel<T>(computations: Async<T>[], limit: number | undefined, parentToken: CancellationToken) {
+  return new Promise<T[]>((resolve, reject) => {
+    const count = computations.length;
+    const results = new Array<T>(count);
+    const [token, unlink] = createLinkedToken(parentToken);
+    let next = 0;
+    let running = 0;
+    let failed = false;
+    let failure: unknown;
+
+    const startNext = () => {
+      const i = next++;
+      running++;
+      startAsPromise(computations[i], token)
+        .then(
+          (x) => { results[i] = x; },
+          (err) => {
+            if (!failed) {
+              failed = true;
+              failure = err;
+              try { token.cancel(); } catch (error) { failure = error; }
+            }
+          })
+        .then(() => {
+          running--;
+          if (!failed && next < count) {
+            startNext();
+          } else if (running === 0) {
+            unlink();
+            if (failed) { reject(failure); } else { resolve(results); }
+          }
+        });
+    };
+
+    if (count === 0) {
+      unlink();
+      resolve(results);
+    }
+    const initial = Math.min(limit ?? count, count);
+    while (next < initial) {
+      startNext();
+    }
+  });
 }
 
 export function choice<T>(computations: Iterable<Async<Option<T>>>): Async<Option<T>> {
