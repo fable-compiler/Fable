@@ -4,8 +4,9 @@ import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
-import { InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
-import { Exception } from "./Util.ts";
+import { ArgumentException_$ctor_Z384F8060, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
+import { Exception, IDisposable } from "./Util.ts";
+import type { Option } from "./Option.ts";
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -54,20 +55,43 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
+// Cancelling a token from a timer or a child's continuation leaves no caller
+// to report a failing cancellation callback to
+function cancelQuietly(token: CancellationToken) {
+  try { token.cancel(); } catch { /* Ignore errors from cancellation callbacks. */ }
+}
+
+// A token that is cancelled when the parent is but can also be cancelled on its own,
+// like CancellationTokenSource.CreateLinkedTokenSource. Call unlink once it's no longer needed.
+function createLinkedToken(parent: CancellationToken): [token: CancellationToken, unlink: () => void] {
+  const token = new CancellationToken();
+  const id = parent.addListener(() => token.cancel());
+  return [token, () => { parent.removeListener(id); }];
+}
+
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
   return protectedCont((ctx) => {
-    // Share the parent's cancellation token so cancelling the parent
-    // cancels the child, like .NET Async.StartChild
-    const promise = startAsPromise(computation, ctx.cancelToken);
+    // Cancelling the parent cancels the child, like .NET Async.StartChild.
+    // With a timeout the child gets its own linked token, so that the timeout
+    // can cancel the child without cancelling the parent.
+    const [childToken, unlink] = ms
+      ? createLinkedToken(ctx.cancelToken)
+      : [ctx.cancelToken, () => { /* NOP */ }];
+    const promise = startAsPromise(computation, childToken);
     let promiseToRun = promise;
 
     if (ms) {
-      // Race the computation against a timeout: whichever settles first wins.
+      // Race the computation against a timeout: whichever settles first wins,
+      // and if the timeout wins the child is cancelled.
       promiseToRun = new Promise<T>((resolve, reject) => {
-        const timeoutId = setTimeout(() => reject(TimeoutException_$ctor()), ms);
+        const timeoutId = setTimeout(() => {
+          unlink();
+          reject(TimeoutException_$ctor());
+          cancelQuietly(childToken);
+        }, ms);
         promise.then(
-          value => { clearTimeout(timeoutId); resolve(value); },
-          error => { clearTimeout(timeoutId); reject(error); }
+          value => { clearTimeout(timeoutId); unlink(); resolve(value); },
+          error => { clearTimeout(timeoutId); unlink(); reject(error); }
         );
       });
     }
@@ -169,10 +193,125 @@ export function ignore<T>(computation: Async<T>) {
   return protectedBind(computation, (_x) => protectedReturn(void 0));
 }
 
-export function parallel<T>(computations: Iterable<Async<T>>) {
-  // Children share the parent's cancellation token, like .NET Async.Parallel
+export function parallel<T>(computations: Iterable<Async<T>>, maxDegreeOfParallelism?: number) {
+  if (maxDegreeOfParallelism != null && maxDegreeOfParallelism < 1) {
+    throw ArgumentException_$ctor_Z384F8060(
+      `maxDegreeOfParallelism must be positive, was ${maxDegreeOfParallelism}`, "maxDegreeOfParallelism");
+  }
   return protectedCont((ctx: IAsyncContext<T[]>) =>
-    awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w, ctx.cancelToken))))(ctx));
+    awaitPromise(runParallel(Array.from(computations), maxDegreeOfParallelism, ctx.cancelToken))(ctx));
+}
+
+// Like .NET Async.Parallel: runs at most `limit` computations at once, in order,
+// and when one fails or is cancelled, cancels the others, waits for those already
+// running to finish, then reports the first failure.
+function runParallel<T>(computations: Async<T>[], limit: number | undefined, parentToken: CancellationToken) {
+  return new Promise<T[]>((resolve, reject) => {
+    const count = computations.length;
+    const results = new Array<T>(count);
+    // The children get their own token, linked to the parent's, so that a failure
+    // can cancel them without cancelling the parent
+    const [token, unlink] = createLinkedToken(parentToken);
+    let next = 0;
+    let running = 0;
+    let failed = false;
+    let failure: unknown;
+
+    const startNext = () => {
+      const i = next++;
+      running++;
+      startAsPromise(computations[i], token)
+        .then(
+          (x) => { results[i] = x; },
+          (err) => {
+            if (!failed) {
+              failed = true;
+              failure = err;
+              cancelQuietly(token);
+            }
+          })
+        .then(() => {
+          running--;
+          if (!failed && next < count) {
+            startNext();
+          } else if (running === 0) {
+            unlink();
+            if (failed) { reject(failure); } else { resolve(results); }
+          }
+        });
+    };
+
+    if (count === 0) {
+      unlink();
+      resolve(results);
+    }
+    const initial = Math.min(limit ?? count, count);
+    while (next < initial) {
+      startNext();
+    }
+  });
+}
+
+export function choice<T>(computations: Iterable<Async<Option<T>>>): Async<Option<T>> {
+  // Like .NET Async.Choice: the first computation to return Some wins and the others
+  // are cancelled; a failure or cancellation also ends it and cancels the rest
+  return protectedCont((ctx: IAsyncContext<Option<T>>) => {
+    const works = Array.from(computations);
+    let remaining = works.length;
+    if (remaining === 0) {
+      ctx.onSuccess(undefined);
+      return;
+    }
+    const [token, unlink] = createLinkedToken(ctx.cancelToken);
+    let done = false;
+    const finish = (report: () => void) => {
+      if (done) { return; }
+      done = true;
+      unlink();
+      cancelQuietly(token);
+      report();
+    };
+    for (const work of works) {
+      startWithContinuations(
+        work,
+        (x) => {
+          if (x != null) {
+            finish(() => ctx.onSuccess(x));
+          } else if (--remaining === 0) {
+            finish(() => ctx.onSuccess(undefined));
+          }
+        },
+        (err) => finish(() => ctx.onError(err)),
+        (err) => finish(() => ctx.onCancel(err)),
+        token);
+      if (done) { break; }
+    }
+  });
+}
+
+export function onCancel(interruption: () => void): Async<IDisposable> {
+  return protectedCont((ctx: IAsyncContext<IDisposable>) => {
+    const token = ctx.cancelToken;
+    let interrupted = false;
+    const interrupt = () => {
+      if (!interrupted) {
+        interrupted = true;
+        interruption();
+      }
+    };
+    const id = token.addListener(interrupt);
+    ctx.onSuccess({
+      Dispose() {
+        token.removeListener(id);
+        // decision: cancellation continues synchronously in JS (e.g. from Async.Sleep), so with
+        // `use! _ = Async.OnCancel ...` the registration is disposed while the token is still running
+        // its callbacks, before this one; run it now so the interruption still happens, as on .NET
+        if (token.isCancelled) {
+          try { interrupt(); } catch { /* Cancellation takes precedence. */ }
+        }
+      },
+    });
+  });
 }
 
 export function sequential<T>(computations: Iterable<Async<T>>) {
@@ -247,4 +386,13 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
   return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
+}
+
+// Task<T> is Promise<T> in JS/TS. TaskCreationOptions has no meaning here and is ignored.
+export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
+  return startAsPromise(computation, cancellationToken);
+}
+
+export function startImmediateAsTask<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
+  return startAsPromise(computation, cancellationToken);
 }
