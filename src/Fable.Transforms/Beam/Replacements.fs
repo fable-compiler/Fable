@@ -4301,6 +4301,7 @@ let tryField (com: ICompiler) returnTyp ownerTyp fieldName : Expr option =
             // 1_000_000 microseconds per second
             Value(NumberConstant(NumberValue.Int64 1_000_000L, NumberInfo.Empty), None)
             |> Some
+        | "System.Diagnostics.Stopwatch", "IsHighResolution" -> Value(BoolConstant true, None) |> Some
         | "System.BitConverter", "IsLittleEndian" ->
             // Match .NET behavior: IsLittleEndian = true (our runtime uses little-endian)
             Value(BoolConstant true, None) |> Some
@@ -4441,7 +4442,7 @@ let private stopwatch
     (t: Type)
     (info: CallInfo)
     (thisArg: Expr option)
-    (_args: Expr list)
+    (args: Expr list)
     =
     match info.CompiledName, thisArg with
     | ".ctor", _ -> Helper.LibCall(com, "fable_stopwatch", "create", t, [], ?loc = r) |> Some
@@ -4449,6 +4450,7 @@ let private stopwatch
     | "Start", Some x -> Helper.LibCall(com, "fable_stopwatch", "start", t, [ x ], ?loc = r) |> Some
     | "Stop", Some x -> Helper.LibCall(com, "fable_stopwatch", "stop", t, [ x ], ?loc = r) |> Some
     | "Reset", Some x -> Helper.LibCall(com, "fable_stopwatch", "reset", t, [ x ], ?loc = r) |> Some
+    | "Restart", Some x -> Helper.LibCall(com, "fable_stopwatch", "restart", t, [ x ], ?loc = r) |> Some
     | "get_IsRunning", Some x -> Helper.LibCall(com, "fable_stopwatch", "is_running", t, [ x ], ?loc = r) |> Some
     | "get_ElapsedMilliseconds", Some x ->
         Helper.LibCall(com, "fable_stopwatch", "elapsed_milliseconds", t, [ x ], ?loc = r)
@@ -4461,6 +4463,9 @@ let private stopwatch
     | "get_Frequency", _ -> makeIntConst 1_000_000 |> Some
     // Stopwatch.GetTimestamp() → erlang:monotonic_time(microsecond)
     | "GetTimestamp", _ -> emitExpr r t [] "erlang:monotonic_time(microsecond)" |> Some
+    | "GetElapsedTime", None ->
+        Helper.LibCall(com, "fable_stopwatch", "get_elapsed_time", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific Nullable<T> replacements.
