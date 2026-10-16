@@ -191,13 +191,15 @@ console.log(`  diagnostics: ${diagnostics.join(", ")}`)
 
 const signatureOf = (tooltips) => (tooltips[0]?.Signature ?? []).map((t) => t.Text).join("")
 
-post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000001", "Program.fs", 3, 29, greetLine])
+// Columns are 0-based: the first character of an identifier and the position just after its last
+// character must both resolve it.
+post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000001", "Program.fs", 3, 34, greetLine])
 const [, , sprintfTooltip] = await answer("FoundTooltip")
 const sprintfSignature = signatureOf(sprintfTooltip)
 if (!sprintfSignature.includes("Printf.StringFormat<")) failures.push(`tooltip has stray spaces: ${sprintfSignature}`)
 console.log(`  tooltip: ${sprintfSignature}`)
 
-post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000002", "Program.fs", 4, 15, runLine])
+post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000002", "Program.fs", 4, 13, runLine])
 const [, , greetTooltip] = await answer("FoundTooltip")
 const signature = greetTooltip[0]?.Signature ?? []
 const greetSignature = signatureOf(greetTooltip)
@@ -215,9 +217,9 @@ const declarationOf = async (id, line, col, lineText) => {
     const [, , location] = await answer("FoundDeclarationLocation")
     return location
 }
-const greetDecl = await declarationOf("00000000-0000-0000-0000-000000000003", 4, 15, runLine)
-const sprintfDecl = await declarationOf("00000000-0000-0000-0000-000000000004", 3, 29, greetLine)
-const absDecl = await declarationOf("00000000-0000-0000-0000-000000000005", 5, 24, absLine)
+const greetDecl = await declarationOf("00000000-0000-0000-0000-000000000003", 4, 13, runLine)
+const sprintfDecl = await declarationOf("00000000-0000-0000-0000-000000000004", 3, 34, greetLine)
+const absDecl = await declarationOf("00000000-0000-0000-0000-000000000005", 5, 22, absLine)
 if (greetDecl[0] !== "Found" || greetDecl[1].FileName !== "Program.fs" || greetDecl[1].StartLine !== 3) {
     failures.push(`greet should be found in Program.fs: ${JSON.stringify(greetDecl)}`)
 }
@@ -230,7 +232,7 @@ if (absDecl[0] !== "External" || absDecl[2] !== "System.Math.Abs(System.Int32)")
 console.log(`  declarations: greet in ${greetDecl[1]?.FileName}, sprintf in ${sprintfDecl[1]?.FileName}, Math.Abs in ${absDecl[1]}`)
 
 // Symbol uses: the definition of greet and its use must both come back, and nothing else.
-post(["GetSymbolUsesForFile", "00000000-0000-0000-0000-000000000006", "Program.fs", 4, 15, runLine])
+post(["GetSymbolUsesForFile", "00000000-0000-0000-0000-000000000006", "Program.fs", 4, 13, runLine])
 const [, , greetUses] = await answer("FoundSymbolUses")
 const usesText = greetUses.map((u) => `${u.Range.FileName}:${u.Range.StartLine}:${u.Range.StartColumn}-${u.Range.EndColumn}${u.IsDefinition ? " (definition)" : ""}`)
 const definitions = greetUses.filter((u) => u.IsDefinition)
@@ -242,7 +244,7 @@ console.log(`  symbol uses of greet: ${usesText.join(", ")}`)
 // Completions: the full item must come back, and the description of an item must be fetchable
 // afterwards by index.
 const completionsStarted = Date.now()
-post(["GetCompletionsForFile", "00000000-0000-0000-0000-000000000007", "Program.fs", 6, 12, greLine])
+post(["GetCompletionsForFile", "00000000-0000-0000-0000-000000000007", "Program.fs", 6, 11, greLine])
 const [, , greCompletions] = await answer("FoundCompletions")
 const completionsMs = Date.now() - completionsStarted
 const greetIndex = greCompletions.findIndex((c) => c.NameInList === "greet")
