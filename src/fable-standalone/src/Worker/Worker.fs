@@ -319,6 +319,14 @@ let private truncate (s: string) =
     else
         s
 
+let private symbolUsesAt (fable: FableState) (results: IParseAndCheckResults option) line col lineText =
+    match results with
+    | None -> [||]
+    | Some res ->
+        match fable.Manager.GetSymbolAtLocation(res, line, col, lineText) with
+        | None -> [||]
+        | Some symbol -> fable.Manager.GetUsesOfSymbolInFile(res, symbol)
+
 let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
     async {
 
@@ -448,6 +456,13 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             FoundCompletions(id, completions) |> state.Worker.Post
             return! loop box state
 
+        | Some fable, GetSymbolUses(id, line, col, lineText) ->
+            let uses =
+                symbolUsesAt fable (state.CurrentResults.TryFind FILE_NAME) (int line) (int col) lineText
+
+            FoundSymbolUses(id, uses) |> state.Worker.Post
+            return! loop box state
+
         | Some fable, GetDeclarationLocation(id, line, col, lineText) ->
             let location =
                 match FILE_NAME |> state.CurrentResults.TryFind with
@@ -474,6 +489,13 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
                 | Some res -> fable.Manager.GetCompletionsAtLocation(res, int line, int col, lineText)
 
             FoundCompletions(id, completions) |> state.Worker.Post
+            return! loop box state
+
+        | Some fable, GetSymbolUsesForFile(id, file, line, col, lineText) ->
+            let uses =
+                symbolUsesAt fable (state.CurrentResults.TryFind file) (int line) (int col) lineText
+
+            FoundSymbolUses(id, uses) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetDeclarationLocationForFile(id, file, line, col, lineText) ->

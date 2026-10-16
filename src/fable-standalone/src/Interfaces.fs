@@ -111,6 +111,16 @@ type SourceMapping = int * int * int * int * string option
 
 type IChecker = interface end
 
+/// Opaque FCS symbol, valid for the checker it came from
+type ISymbol =
+    abstract DisplayName: string
+
+type SymbolUse =
+    {
+        Range: Range
+        IsDefinition: bool
+    }
+
 /// Root modules and inline member bodies from a `fable precompile` output.
 type IPrecompiledInfo =
     /// Must be the name the precompiled assembly is referenced under, plus ".dll"
@@ -166,6 +176,11 @@ type IFableManager =
             IParseAndCheckResults
 
     abstract GetErrors: parseResults: IParseAndCheckResults -> Error[]
+
+    abstract GetSymbolAtLocation:
+        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> ISymbol option
+
+    abstract GetUsesOfSymbolInFile: parseResults: IParseAndCheckResults * symbol: ISymbol -> SymbolUse[]
 
     abstract GetDeclarationLocation:
         parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> DeclarationLocation

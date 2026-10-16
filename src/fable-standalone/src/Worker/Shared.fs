@@ -52,9 +52,11 @@ type WorkerRequest =
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
+    | GetSymbolUses of id: Guid * line: int * column: int * lineText: string
     | GetTooltipForFile of id: Guid * file: string * line: int * column: int * lineText: string
     | GetCompletionsForFile of id: Guid * file: string * line: int * column: int * lineText: string
     | GetDeclarationLocationForFile of id: Guid * file: string * line: int * column: int * lineText: string
+    | GetSymbolUsesForFile of id: Guid * file: string * line: int * column: int * lineText: string
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerRequest>()
 
@@ -75,6 +77,7 @@ type WorkerAnswer =
     | FoundTooltip of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
     | FoundDeclarationLocation of id: Guid * Fable.Standalone.DeclarationLocation
+    | FoundSymbolUses of id: Guid * uses: Fable.Standalone.SymbolUse[]
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerAnswer>()
 

@@ -215,6 +215,16 @@ if (absDecl[0] !== "External" || absDecl[2] !== "System.Math.Abs(System.Int32)")
 }
 console.log(`  declarations: greet in ${greetDecl[1]?.FileName}, sprintf in ${sprintfDecl[1]?.FileName}, Math.Abs in ${absDecl[1]}`)
 
+// Symbol uses: the definition of greet and its use must both come back, and nothing else.
+post(["GetSymbolUsesForFile", "00000000-0000-0000-0000-000000000006", "Program.fs", 4, 15, runLine])
+const [, , greetUses] = await answer("FoundSymbolUses")
+const usesText = greetUses.map((u) => `${u.Range.FileName}:${u.Range.StartLine}:${u.Range.StartColumn}-${u.Range.EndColumn}${u.IsDefinition ? " (definition)" : ""}`)
+const definitions = greetUses.filter((u) => u.IsDefinition)
+if (greetUses.length !== 2 || definitions.length !== 1 || definitions[0].Range.StartLine !== 3 || greetUses.some((u) => u.Range.FileName !== "Program.fs")) {
+    failures.push(`expected the definition and one use of greet: ${JSON.stringify(greetUses)}`)
+}
+console.log(`  symbol uses of greet: ${usesText.join(", ")}`)
+
 if (failures.length) {
     console.error("\nFAILED")
     for (const f of failures) console.error(`  - ${f}`)

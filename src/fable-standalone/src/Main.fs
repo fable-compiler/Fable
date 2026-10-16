@@ -352,6 +352,43 @@ let private declarationNotFoundReason (reason: FindDeclFailureReason) =
     | FindDeclFailureReason.ProvidedType typeName -> "provided type " + typeName
     | FindDeclFailureReason.ProvidedMember memberName -> "provided member " + memberName
 
+let private toRange (range: FSharp.Compiler.Text.range) : Range =
+    {
+        FileName = range.FileName
+        StartLine = range.StartLine
+        StartColumn = range.StartColumn
+        EndLine = range.EndLine
+        EndColumn = range.EndColumn
+    }
+
+type private SymbolImpl(symbol: FSharpSymbol) =
+    member _.Symbol = symbol
+
+    interface ISymbol with
+        member _.DisplayName = symbol.DisplayName
+
+let getSymbolAtLocation (results: ParseAndCheckResults) line col lineText =
+    match results.CheckFileResultsOpt with
+    | Some checkFile ->
+        match findLongIdents (col - 1, lineText) with
+        | None -> None
+        | Some(col, identIsland) ->
+            checkFile.GetSymbolUseAtLocation(line, col, lineText, identIsland)
+            |> Option.map (fun symbolUse -> SymbolImpl(symbolUse.Symbol) :> ISymbol)
+    | None -> None
+
+let getUsesOfSymbolInFile (results: ParseAndCheckResults) (symbol: ISymbol) =
+    match results.CheckFileResultsOpt, symbol with
+    | Some checkFile, (:? SymbolImpl as symbol) ->
+        checkFile.GetUsesOfSymbolInFile(symbol.Symbol)
+        |> Array.map (fun symbolUse ->
+            {
+                Range = toRange symbolUse.Range
+                IsDefinition = symbolUse.IsFromDefinition
+            }
+        )
+    | _ -> [||]
+
 /// Get the declaration location of the symbol at the specified location
 let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
@@ -366,15 +403,7 @@ let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
             | FindDeclResult.DeclNotFound reason -> DeclarationLocation.NotFound(declarationNotFoundReason reason)
             | FindDeclResult.ExternalDecl(assembly, externalSym) ->
                 DeclarationLocation.External(assembly, string externalSym)
-            | FindDeclResult.DeclFound range ->
-                DeclarationLocation.Found
-                    {
-                        FileName = range.FileName
-                        StartLine = range.StartLine
-                        StartColumn = range.StartColumn
-                        EndLine = range.EndLine
-                        EndColumn = range.EndColumn
-                    }
+            | FindDeclResult.DeclFound range -> DeclarationLocation.Found(toRange range)
     | None -> DeclarationLocation.NotFound "file not checked"
 
 /// Get tool tip at the specified location
@@ -596,6 +625,14 @@ let init () =
             :> IParseAndCheckResults
 
         member _.GetErrors(results: IParseAndCheckResults) = results.Errors
+
+        member _.GetSymbolAtLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
+            let res = results :?> ParseAndCheckResults
+            getSymbolAtLocation res line col lineText
+
+        member _.GetUsesOfSymbolInFile(results: IParseAndCheckResults, symbol: ISymbol) =
+            let res = results :?> ParseAndCheckResults
+            getUsesOfSymbolInFile res symbol
 
         member _.GetDeclarationLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
