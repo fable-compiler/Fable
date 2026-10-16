@@ -1,5 +1,5 @@
 ---
-last_commit_released: 148f989e1b37b3f6560c3dda615b6a3a8efffcb8
+last_commit_released: e33c57870454fea189a3eb33519f583a5003f8c3
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.9.0 - 2026-10-16
+
+### 🚀 Features
+
+* *(js/ts/python/beam)* Support Async.TryCancelled (#5083) ([1643297d](https://github.com/fable-compiler/Fable/commit/1643297d9297fef536c8d10091d5b0d1fad77af7))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Avoid full array copy in Encoding.GetString (#5069) ([e6b72ec7](https://github.com/fable-compiler/Fable/commit/e6b72ec73be454bd3b3233167542a65fc6553c8a))
+* *(js/ts/python)* Preserve cancelled cleanup and generic unit callbacks (#5062) ([5dd6b497](https://github.com/fable-compiler/Fable/commit/5dd6b4979e79c8f7c4632cbfb5254d6cf0d2e8d2))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/148f989e1b37b3f6560c3dda615b6a3a8efffcb8..e33c57870454fea189a3eb33519f583a5003f8c3)</small></strong>
 
 ## 2.8.1 - 2026-10-12
 

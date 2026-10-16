@@ -10,6 +10,7 @@ open EasyBuild.Tools.DotNet
 open EasyBuild.Tools.Changelog
 open EasyBuild.Tools.PackageJson
 open EasyBuild.Tools.Npm
+open Semver
 
 let updateLibraryVersionInFableTransforms
     (compilerVersion: string)
@@ -79,8 +80,14 @@ let publishNpm (projectDir: string) =
 
     PackageJson.replaceVersion (packageJsonFile, lastChangelogVersion)
 
+    let version = SemVersion.Parse(lastChangelogVersion, SemVersionStyles.Strict)
+
     if PackageJson.needPublishing packageJsonFile then
-        Npm.publish (projectDir)
+        if version.IsPrerelease then
+            Npm.publish (projectDir, tag = version.PrereleaseIdentifiers.[0].Value)
+        else
+            Npm.publish (projectDir)
+
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."

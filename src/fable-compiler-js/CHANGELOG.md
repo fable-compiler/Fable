@@ -1,5 +1,5 @@
 ---
-last_commit_released: a8661874d60694f0faad235adb7f760fed6f72a5
+last_commit_released: e33c57870454fea189a3eb33519f583a5003f8c3
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,39 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 4.0.0 - 2026-10-16
+
+### 🏗️ Breaking changes
+
+* *(standalone)* Return tagged tooltips instead of text (#5088) ([6b995913](https://github.com/fable-compiler/Fable/commit/6b995913acbe98434f252b19b07182cc831a8a0f))
+* *(standalone)* Keep file name in declaration locations (#5089) ([b210461c](https://github.com/fable-compiler/Fable/commit/b210461c1651eaaa47e1027597c7545b6f2097fa))
+* *(standalone)* Return full completions with lazy docs (#5102) ([53849cc5](https://github.com/fable-compiler/Fable/commit/53849cc5a65f5de57dc65c76158b840e7012bc9c))
+* *(standalone)* Report error codes and severities (#5103) ([4ec83ff4](https://github.com/fable-compiler/Fable/commit/4ec83ff4e280db3075230e72b02b699a16f2bc76))
+* *(standalone)* Drop GetErrors, use Errors on results (#5111) ([ec72286d](https://github.com/fable-compiler/Fable/commit/ec72286d3528d1bbc1bede72df11deb3432040b4))
+* *(standalone)* Take 0-based columns in positional APIs (#5112) ([e33c5787](https://github.com/fable-compiler/Fable/commit/e33c57870454fea189a3eb33519f583a5003f8c3))
+
+### 🚀 Features
+
+* *(js/ts/python/beam)* Support Async.TryCancelled (#5083) ([1643297d](https://github.com/fable-compiler/Fable/commit/1643297d9297fef536c8d10091d5b0d1fad77af7))
+* *(standalone)* Expose symbol lookup and uses in file (#5101) ([9eff071c](https://github.com/fable-compiler/Fable/commit/9eff071c8e5cf418e4bf9af63c051eae121d4512))
+* *(standalone)* Expose lexer tokens and classification (#5110) ([e65d42c0](https://github.com/fable-compiler/Fable/commit/e65d42c03b8262b94e058354904f1126560443b4))
+
+### 🐞 Bug Fixes
+
+* *(all)* Recompile dependents on signature change in watch (#5084) ([87fc89f7](https://github.com/fable-compiler/Fable/commit/87fc89f75b6ad22fafec72b4a57415682b4059df))
+* *(beam)* Make lazy sequence wrappers process-portable (#5063) ([9e78a3b3](https://github.com/fable-compiler/Fable/commit/9e78a3b327ca78d01863bf19b18c543673633af7))
+* *(js/ts/python)* Preserve cancelled cleanup and generic unit callbacks (#5062) ([5dd6b497](https://github.com/fable-compiler/Fable/commit/5dd6b4979e79c8f7c4632cbfb5254d6cf0d2e8d2))
+* *(python)* Settle cancelled tasks awaited by async workflows (#5064) ([52186937](https://github.com/fable-compiler/Fable/commit/5218693738defc8a4502d28c206e391b241f9fd8))
+* *(python)* Preserve reusable replies and unit continuations (#5082) ([f19e2c56](https://github.com/fable-compiler/Fable/commit/f19e2c56566488dfeb48e71508bdb218aaa58582))
+* *(python)* Emit widening integer casts (#5087) ([07989b16](https://github.com/fable-compiler/Fable/commit/07989b16214c4fcf8e33318fba1dd3f77df77cbb))
+* *(rust)* Support inref struct unions (#5060) ([a3f27e0e](https://github.com/fable-compiler/Fable/commit/a3f27e0e8c149d6bfeb347ca4f4146ccfd8fb063))
+
+### ⚡ Performance Improvements
+
+* Update inline expressions incrementally in watch mode (#5080) ([594d17b4](https://github.com/fable-compiler/Fable/commit/594d17b4b551ae33b5f2df5e4049611b9dd24bc2))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/a8661874d60694f0faad235adb7f760fed6f72a5..e33c57870454fea189a3eb33519f583a5003f8c3)</small></strong>
 
 ## 3.8.1 - 2026-10-12
 
