@@ -371,7 +371,7 @@ type private SymbolImpl(symbol: FSharpSymbol) =
 let getSymbolAtLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        match findLongIdents (col - 1, lineText) with
+        match findLongIdents (col, lineText) with
         | None -> None
         | Some(col, identIsland) ->
             checkFile.GetSymbolUseAtLocation(line, col, lineText, identIsland)
@@ -394,7 +394,7 @@ let getUsesOfSymbolInFile (results: ParseAndCheckResults) (symbol: ISymbol) =
 let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        match findLongIdents (col - 1, lineText) with
+        match findLongIdents (col, lineText) with
         | None -> DeclarationLocation.NotFound "no identifier at location"
         | Some(col, identIsland) ->
             let (declarations: FindDeclResult) =
@@ -411,7 +411,7 @@ let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
 let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        match findLongIdents (col - 1, lineText) with
+        match findLongIdents (col, lineText) with
         | None -> [||]
         | Some(col, identIsland) ->
             let (ToolTipText els) =
@@ -459,8 +459,8 @@ let private toCompletionItem (decl: DeclarationListItem) : Fable.Standalone.Comp
 let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        let ln, residue = findLongIdentsAndResidue (col - 1, lineText)
-        let longName = QuickParse.GetPartialLongNameEx(lineText, col - 1)
+        let ln, residue = findLongIdentsAndResidue (col, lineText)
+        let longName = QuickParse.GetPartialLongNameEx(lineText, col)
 
         let longName =
             { longName with

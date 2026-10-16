@@ -183,6 +183,10 @@ type IWriter =
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 
+/// Positional members take a 1-based `line` and a 0-based `col`, the same convention as the
+/// ranges they return. Any column from the first character of an identifier up to the position
+/// just after its last character resolves that identifier. For completions, `col` is the cursor
+/// position and the text before it is the prefix to complete.
 type IFableManager =
     abstract Version: string
 
