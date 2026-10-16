@@ -4259,6 +4259,22 @@ let tasks (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | Some x, ("GetAwaiter" | "GetResult" | "get_Result" | "Result") ->
         // Task<T> = Promise<T>; return the promise - callers use Async.AwaitTask to extract the value
         Some x
+    | None, "Delay" ->
+        // Without Temporal, a TimeSpan is already a number of milliseconds
+        let args =
+            match args with
+            | ExprType(Builtin BclTimeSpan) as delay :: rest when com.Options.JsTemporal ->
+                Helper.LibCall(
+                    com,
+                    timeSpanModule com,
+                    "totalMilliseconds",
+                    Number(Float64, NumberInfo.Empty),
+                    [ delay ]
+                )
+                :: rest
+            | args -> args
+
+        Helper.LibCall(com, "Task", "delay", t, args, ?loc = r) |> Some
     | None, "FromResult" ->
         Helper.LibCall(com, "Task", "fromResult", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
