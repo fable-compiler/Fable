@@ -247,7 +247,10 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
 
         let! compiledCode, errors, fableTransformTime =
             async {
-                if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
+                if
+                    parseResults.Errors
+                    |> Array.exists (fun e -> e.Severity = DiagnosticSeverity.Error)
+                then
                     return "", parseResults.Errors, 0.
                 else
                     let! code, fableErrors, fableTransformTime =
@@ -290,7 +293,12 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
         let mutable fableTransformTime = 0.
         let compiledCode = ResizeArray()
 
-        if not (parseResults.Errors |> Array.exists (fun e -> not e.IsWarning)) then
+        if
+            not (
+                parseResults.Errors
+                |> Array.exists (fun e -> e.Severity = DiagnosticSeverity.Error)
+            )
+        then
             for fileName in filesToEmit do
                 let! code, fableErrors, transformTime =
                     emitFile fable parseResults fileName language fableOptions
