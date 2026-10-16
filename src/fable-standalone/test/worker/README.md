@@ -30,6 +30,8 @@ project symbol, an FSharp.Core symbol and a .NET symbol, and checks that the thr
 Finally it asks for every use of a project symbol and checks that the definition is marked.
 It also lists completions and fetches the description of one of them by index.
 The parsed fixture carries one warning and one error, checked for their FCS code and severity.
+Finally it tokenizes a snippet with a multi-line string and an inactive `#if` block, and asks for the
+semantic classification of the parsed fixture.
 
 Beyond "the compile finished and returned a module per file", it measures the **stack headroom the
 compiler is handed for each file** and fails if it drifts between files.

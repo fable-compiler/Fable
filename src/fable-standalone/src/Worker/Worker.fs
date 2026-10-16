@@ -447,6 +447,28 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
 
             return! loop box state
 
+        | Some fable, Tokenize(id, source, defines) ->
+            Tokenized(id, fable.Manager.Tokenize(source, defines)) |> state.Worker.Post
+            return! loop box state
+
+        | Some fable, GetSemanticClassification id ->
+            let items =
+                match FILE_NAME |> state.CurrentResults.TryFind with
+                | None -> [||]
+                | Some res -> fable.Manager.GetSemanticClassification(res)
+
+            FoundSemanticClassification(id, items) |> state.Worker.Post
+            return! loop box state
+
+        | Some fable, GetSemanticClassificationForFile(id, file) ->
+            let items =
+                match file |> state.CurrentResults.TryFind with
+                | None -> [||]
+                | Some res -> fable.Manager.GetSemanticClassification(res)
+
+            FoundSemanticClassification(id, items) |> state.Worker.Post
+            return! loop box state
+
         | Some fable, GetTooltip(id, line, col, lineText) ->
             let tooltips =
                 match FILE_NAME |> state.CurrentResults.TryFind with

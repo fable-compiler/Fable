@@ -141,6 +141,77 @@ type CompletionItem =
         GetDescription: unit -> ToolTip[]
     }
 
+[<StringEnum; RequireQualifiedAccess>]
+type TokenColor =
+    | Default
+    | Keyword
+    | Comment
+    | Identifier
+    | String
+    | UpperIdentifier
+    | InactiveCode
+    | PreprocessorKeyword
+    | Number
+    | Operator
+    | Punctuation
+
+/// A lexical token of one line. Columns are 0-based and the end is exclusive.
+type Token =
+    {
+        StartColumn: int
+        EndColumn: int
+        Color: TokenColor
+        /// FCS token name such as "IDENT" or "STRING_TEXT"
+        Name: string
+    }
+
+/// Mirrors FCS `SemanticClassificationType`
+[<StringEnum; RequireQualifiedAccess>]
+type SemanticClass =
+    | ReferenceType
+    | ValueType
+    | UnionCase
+    | UnionCaseField
+    | Function
+    | Property
+    | MutableVar
+    | Module
+    | Namespace
+    | Printf
+    | ComputationExpression
+    | IntrinsicFunction
+    | Enumeration
+    | Interface
+    | TypeArgument
+    | Operator
+    | DisposableType
+    | DisposableTopLevelValue
+    | DisposableLocalValue
+    | Method
+    | ExtensionMethod
+    | ConstructorForReferenceType
+    | ConstructorForValueType
+    | Literal
+    | RecordField
+    | MutableRecordField
+    | RecordFieldAsFunction
+    | Exception
+    | Field
+    | Event
+    | Delegate
+    | NamedArgument
+    | Value
+    | LocalValue
+    | Type
+    | TypeDef
+    | Plaintext
+
+type SemanticClassification =
+    {
+        Range: Range
+        Type: SemanticClass
+    }
+
 type SourceMapping = int * int * int * int * string option
 
 type IChecker = interface end
@@ -220,6 +291,11 @@ type IFableManager =
         parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> DeclarationLocation
 
     abstract GetToolTips: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> ToolTip[]
+
+    /// Lexical tokens of every line of the source, with `#if` blocks resolved against the defines
+    abstract Tokenize: source: string * defines: string[] -> Token[][]
+
+    abstract GetSemanticClassification: parseResults: IParseAndCheckResults -> SemanticClassification[]
 
     abstract GetCompletionsAtLocation:
         parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> CompletionItem[]

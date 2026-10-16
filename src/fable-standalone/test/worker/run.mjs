@@ -259,6 +259,29 @@ if (!greetDescription[0]?.XmlDoc?.includes(" Says hello.")) {
 }
 console.log(`  completion description of greet: ${signatureOf(greetDescription)} (${greetDescription[0]?.XmlDoc?.length ?? 0} doc lines)`)
 
+// Tokens and semantic classification: the lexer must carry state across lines, and the checker
+// must classify identifiers by what they are.
+post(["Tokenize", "00000000-0000-0000-0000-000000000010", ["let s = \"\"\"multi", "line\"\"\" // done", "#if FOO", "let hidden = 1", "#endif"].join("\n"), []])
+const [, , tokenLines] = await answer("Tokenized")
+const tokenText = tokenLines.map((line) => line.map((t) => `${t.Color}:${t.StartColumn}-${t.EndColumn}`).join(" "))
+if (tokenLines[0]?.[0]?.Color !== "keyword" || tokenLines[0][0].EndColumn !== 3) failures.push(`first token should be the keyword let: ${tokenText[0]}`)
+if (!tokenLines[1]?.some((t) => t.Color === "string") || !tokenLines[1]?.some((t) => t.Color === "comment")) {
+    failures.push(`second line should continue the string and end with a comment: ${tokenText[1]}`)
+}
+if (!tokenLines[3]?.every((t) => t.Color === "inactiveCode")) failures.push(`code under #if FOO should be inactive: ${tokenText[3]}`)
+console.log(`  tokens: ${tokenText.join(" | ")}`)
+
+post(["GetSemanticClassificationForFile", "00000000-0000-0000-0000-000000000011", "Program.fs"])
+const [, , classified] = await answer("FoundSemanticClassification")
+const classifiedText = classified.map((c) => `${c.Type}@${c.Range.StartLine}:${c.Range.StartColumn}-${c.Range.EndColumn}`)
+if (!classified.some((c) => c.Type === "function" && c.Range.StartLine === 3 && c.Range.StartColumn === 4 && c.Range.EndColumn === 9)) {
+    failures.push(`greet should be classified as a function: ${classifiedText.join(", ")}`)
+}
+if (!classified.some((c) => c.Type === "referenceType" && c.Range.StartLine === 3 && c.Range.StartColumn === 17 && c.Range.EndColumn === 23)) {
+    failures.push(`the string annotation should be classified as a reference type: ${classifiedText.join(", ")}`)
+}
+console.log(`  classification: ${classifiedText.join(", ")}`)
+
 if (failures.length) {
     console.error("\nFAILED")
     for (const f of failures) console.error(`  - ${f}`)

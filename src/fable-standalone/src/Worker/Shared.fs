@@ -49,6 +49,9 @@ type WorkerRequest =
         filesToEmit: string[] *
         language: string *
         otherFSharpOptions: string[]
+    | Tokenize of id: Guid * source: string * defines: string[]
+    | GetSemanticClassification of id: Guid
+    | GetSemanticClassificationForFile of id: Guid * file: string
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     /// Tooltips of an item of the last FoundCompletions answer
@@ -76,6 +79,8 @@ type WorkerAnswer =
     | CompilationFinished of code: string * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilationsFinished of code: string[] * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
+    | Tokenized of id: Guid * lines: Fable.Standalone.Token[][]
+    | FoundSemanticClassification of id: Guid * items: Fable.Standalone.SemanticClassification[]
     | FoundTooltip of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
     | FoundCompletionDescription of id: Guid * tooltips: Fable.Standalone.ToolTip[]
