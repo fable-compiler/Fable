@@ -1390,6 +1390,61 @@ let tests =
             equal false token.IsCancellationRequested
         }
 
+    testCaseAsync "Async.Parallel respects maxDegreeOfParallelism" <| fun () ->
+        async {
+            let lockObj = obj ()
+            let mutable running = 0
+            let mutable peak = 0
+            let work i = async {
+                lock lockObj (fun () ->
+                    running <- running + 1
+                    peak <- max peak running)
+                do! Async.Sleep 50
+                lock lockObj (fun () -> running <- running - 1)
+                return i
+            }
+            let! results = Async.Parallel([ for i in 1..10 -> work i ], maxDegreeOfParallelism = 3)
+            equal [| 1..10 |] results
+            equal 3 peak
+        }
+
+    testCaseAsync "Async.Parallel cancels the other computations when one fails" <| fun () ->
+        async {
+            let mutable completed = 0
+            let work i = async {
+                if i = 2 then
+                    do! Async.Sleep 20
+                    failwith "boom"
+                do! Async.Sleep 300
+#if FABLE_COMPILER
+                completed <- completed + 1
+#else
+                System.Threading.Interlocked.Increment(&completed) |> ignore<int>
+#endif
+            }
+            let mutable error = ""
+            try
+                let! _ = Async.Parallel [ for i in 0..4 -> work i ]
+                ()
+            with ex -> error <- ex.Message
+            do! Async.Sleep 400
+            equal "boom" error
+            equal 0 completed
+        }
+
+    testCaseAsync "Async.Parallel with an empty sequence returns an empty array" <| fun () ->
+        async {
+            let! results = Async.Parallel(([]: Async<int> list), maxDegreeOfParallelism = 2)
+            equal 0 results.Length
+        }
+
+    testCase "Async.Parallel rejects a maxDegreeOfParallelism below 1" <| fun () ->
+        let mutable raised = false
+        try
+            Async.Parallel([ async { return 1 } ], maxDegreeOfParallelism = 0) |> ignore
+        with :? ArgumentException -> raised <- true
+        equal true raised
+
     testCaseAsync "Async.Choice returns the first Some and cancels the others" <| fun () ->
         async {
             let mutable completed = false
