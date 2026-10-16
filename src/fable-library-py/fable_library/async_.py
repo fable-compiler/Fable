@@ -38,6 +38,7 @@ from .system import InvalidOperationException__ctor_Z721C83C5, TimeoutException_
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
+from .util import to_iterable
 
 
 def cancellation_token() -> Async[CancellationToken]:
@@ -195,7 +196,7 @@ def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
 
 def choice[T](computations: IEnumerable_1[Async[T | None]]) -> Async[T | None]:
     def cont(ctx: IAsyncContext[T | None]) -> None:
-        works = list(computations)
+        works = list(to_iterable(computations))
         if not works:
             ctx.on_success(None)
             return
