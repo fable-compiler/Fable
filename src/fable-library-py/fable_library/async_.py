@@ -558,6 +558,25 @@ def start_immediate_as_task[T](
 
 
 def _start_child_timeout[T](computation: Async[T], ms: int | TimeSpan) -> Async[Async[T]]:
+    # Return the child result when ready, or raise TimeoutException when the deadline expires.
+    task = asyncio.ensure_future(start_as_task(computation))
+
+    async def with_timeout() -> T:
+        try:
+            return await asyncio.wait_for(task, timeout=to_milliseconds(ms) / 1000.0)
+        except TimeoutError:
+            # invariant: a completed child retains its exception; only deadline cancellation is translated
+            if not task.cancelled():
+                raise
+            raise TimeoutException__ctor()
+
+    def cont(ctx: IAsyncContext[Async[T]]) -> None:
+        protected_return(await_task(with_timeout()))(ctx)
+
+    return protected_cont(cont)
+
+
+def _start_child_timeout_linked[T](computation: Async[T], ms: int | TimeSpan) -> Async[Async[T]]:
     def cont(ctx: IAsyncContext[Async[T]]) -> None:
         # The child uses a linked token, so its deadline never cancels the parent.
         child_token = CancellationToken()
@@ -588,6 +607,18 @@ def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> A
     # decision: share TimeoutException across callers; its native base preserves Python TimeoutError handlers
     if ms is not None:
         return _start_child_timeout(computation, ms)
+
+    task = start_as_task(computation)
+
+    def cont(ctx: IAsyncContext[Async[T]]) -> None:
+        protected_return(await_task(task))(ctx)
+
+    return protected_cont(cont)
+
+
+def start_child_linked[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
+    if ms is not None:
+        return _start_child_timeout_linked(computation, ms)
 
     def cont(ctx: IAsyncContext[Async[T]]) -> None:
         task = start_as_task(computation, cancellation_token=ctx.cancel_token)
