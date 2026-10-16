@@ -200,4 +200,38 @@ let tests =
             })
             equal true cancelled
         }
+
+    testCaseAsync "task can bind an Async" <| fun () ->
+        async {
+            let work = async {
+                do! Async.Sleep 10
+                return 41
+            }
+            let! result = awaitTask (task {
+                let! x = work
+                return x + 1
+            })
+            equal 42 result
+        }
+
+    testCaseAsync "task can return! an Async" <| fun () ->
+        async {
+            let work = async {
+                do! Async.Sleep 10
+                return 42
+            }
+            let! result = awaitTask (task { return! work })
+            equal 42 result
+        }
+
+    testCaseAsync "task can do! an Async" <| fun () ->
+        async {
+            let mutable ran = false
+            let work = async {
+                do! Async.Sleep 10
+                ran <- true
+            }
+            let! _ = awaitTask (task { do! work })
+            equal true ran
+        }
   ]
