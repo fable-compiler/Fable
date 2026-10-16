@@ -46,10 +46,28 @@ type DeclarationLocation =
     | External of assembly: string * symbol: string
     | NotFound of reason: string
 
+[<StringEnum; RequireQualifiedAccess>]
+type CompletionKind =
+    | SuggestedName
+    | Field
+    | Property
+    | Method
+    | ExtensionMethod
+    | Event
+    | Argument
+    | CustomOperation
+    | Other
+
 type Completion =
     {
-        Name: string
+        NameInList: string
+        /// Text to insert, e.g. with backticks for names that need them
+        NameInCode: string
         Glyph: Glyph
+        Kind: CompletionKind
+        FullName: string
+        IsOwnMember: bool
+        MinorPriority: int
     }
 
 /// Mirrors FCS `FSharp.Compiler.Text.TextTag`
@@ -105,6 +123,13 @@ type ToolTip =
         XmlDoc: string[]
         TypeMapping: TaggedText[][]
         Remarks: TaggedText[]
+    }
+
+type CompletionItem =
+    {
+        Completion: Completion
+        /// Formats the tooltips on every call, so only call it for the highlighted row
+        GetDescription: unit -> ToolTip[]
     }
 
 type SourceMapping = int * int * int * int * string option
@@ -188,7 +213,7 @@ type IFableManager =
     abstract GetToolTips: parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> ToolTip[]
 
     abstract GetCompletionsAtLocation:
-        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> Completion[]
+        parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> CompletionItem[]
 
     abstract CompileToTargetAst:
         fableLibrary: string *

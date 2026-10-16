@@ -172,7 +172,8 @@ console.log("  BEAM example hashing and state-key diagnostics checked")
 const greetLine = `let greet (name: string) = sprintf "Hello %s" name`
 const runLine = `let run () = greet "world"`
 const absLine = `let abs = System.Math.Abs(-1)`
-post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine, absLine].join("\n") }], []])
+const greLine = `let g = gre`
+post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine, absLine, greLine].join("\n") }], []])
 await answer("ParsedCode")
 
 const signatureOf = (tooltips) => (tooltips[0]?.Signature ?? []).map((t) => t.Text).join("")
@@ -224,6 +225,26 @@ if (greetUses.length !== 2 || definitions.length !== 1 || definitions[0].Range.S
     failures.push(`expected the definition and one use of greet: ${JSON.stringify(greetUses)}`)
 }
 console.log(`  symbol uses of greet: ${usesText.join(", ")}`)
+
+// Completions: the full item must come back, and the description of an item must be fetchable
+// afterwards by index.
+const completionsStarted = Date.now()
+post(["GetCompletionsForFile", "00000000-0000-0000-0000-000000000007", "Program.fs", 6, 12, greLine])
+const [, , greCompletions] = await answer("FoundCompletions")
+const completionsMs = Date.now() - completionsStarted
+const greetIndex = greCompletions.findIndex((c) => c.NameInList === "greet")
+const greet = greCompletions[greetIndex]
+if (!greet || greet.NameInCode !== "greet" || greet.FullName !== "Demo.greet") {
+    failures.push(`greet should be a completion of the project: ${JSON.stringify(greet)}`)
+}
+console.log(`  completions for "${greLine}": ${greCompletions.length} items in ${completionsMs}ms`)
+
+post(["GetCompletionDescription", "00000000-0000-0000-0000-000000000008", greetIndex])
+const [, , greetDescription] = await answer("FoundCompletionDescription")
+if (!greetDescription[0]?.XmlDoc?.includes(" Says hello.")) {
+    failures.push(`completion description lost the XML doc: ${JSON.stringify(greetDescription)}`)
+}
+console.log(`  completion description of greet: ${signatureOf(greetDescription)} (${greetDescription[0]?.XmlDoc?.length ?? 0} doc lines)`)
 
 if (failures.length) {
     console.error("\nFAILED")
