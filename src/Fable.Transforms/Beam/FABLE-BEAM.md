@@ -396,9 +396,9 @@ such as PIDs and messages rather than captured process-dictionary-backed mutable
 Dispose a registration when its source may never cancel, because the broker retains
 active callbacks until cancellation or disposal.
 
-`Async.StartChild` and `Async.Parallel` do not implicitly propagate their parent
-cancellation token. Pass or capture a token explicitly when a spawned computation
-must observe it.
+`Async.Parallel` links its workers to the parent cancellation token and cancels
+remaining workers after a failure. `Async.StartChild` does not yet propagate its
+parent token; pass or capture a token explicitly when the child must observe it.
 
 `Task` uses the same runtime and is not a separate hot-task abstraction.
 `MailboxProcessor` also uses in-process CPS and a process-local queue. Real OTP
