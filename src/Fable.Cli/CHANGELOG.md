@@ -1,5 +1,5 @@
 ---
-last_commit_released: a8661874d60694f0faad235adb7f760fed6f72a5
+last_commit_released: e33c57870454fea189a3eb33519f583a5003f8c3
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.22.0 - 2026-10-16
+
+### 🚀 Features
+
+* *(js/ts/python/beam)* Support Async.TryCancelled (#5083) ([1643297d](https://github.com/fable-compiler/Fable/commit/1643297d9297fef536c8d10091d5b0d1fad77af7))
+
+### 🐞 Bug Fixes
+
+* *(all)* Recompile dependents on signature change in watch (#5084) ([87fc89f7](https://github.com/fable-compiler/Fable/commit/87fc89f75b6ad22fafec72b4a57415682b4059df))
+* *(all)* Forward `--targetprofile` for precompile (#5085) ([50129598](https://github.com/fable-compiler/Fable/commit/50129598a13d4ab7a6e50ae1be0d9aa9d3c68ef8))
+* *(beam)* Make lazy sequence wrappers process-portable (#5063) ([9e78a3b3](https://github.com/fable-compiler/Fable/commit/9e78a3b327ca78d01863bf19b18c543673633af7))
+* *(js/ts)* Avoid full array copy in Encoding.GetString (#5069) ([e6b72ec7](https://github.com/fable-compiler/Fable/commit/e6b72ec73be454bd3b3233167542a65fc6553c8a))
+* *(js/ts/python)* Preserve cancelled cleanup and generic unit callbacks (#5062) ([5dd6b497](https://github.com/fable-compiler/Fable/commit/5dd6b4979e79c8f7c4632cbfb5254d6cf0d2e8d2))
+* *(python)* Settle cancelled tasks awaited by async workflows (#5064) ([52186937](https://github.com/fable-compiler/Fable/commit/5218693738defc8a4502d28c206e391b241f9fd8))
+* *(python)* Preserve reusable replies and unit continuations (#5082) ([f19e2c56](https://github.com/fable-compiler/Fable/commit/f19e2c56566488dfeb48e71508bdb218aaa58582))
+* *(python)* Emit widening integer casts (#5087) ([07989b16](https://github.com/fable-compiler/Fable/commit/07989b16214c4fcf8e33318fba1dd3f77df77cbb))
+* *(rust)* Support inref struct unions (#5060) ([a3f27e0e](https://github.com/fable-compiler/Fable/commit/a3f27e0e8c149d6bfeb347ca4f4146ccfd8fb063))
+
+### ⚡ Performance Improvements
+
+* Crack project references in parallel (#5079) ([d42aa6b9](https://github.com/fable-compiler/Fable/commit/d42aa6b926ac531aba7069aea408009f96584ae5))
+* Update inline expressions incrementally in watch mode (#5080) ([594d17b4](https://github.com/fable-compiler/Fable/commit/594d17b4b551ae33b5f2df5e4049611b9dd24bc2))
+* *(all)* Enable server GC and immediate JIT tiering (#5073) ([9bde2e41](https://github.com/fable-compiler/Fable/commit/9bde2e41d8483100ed14bbb37fa261896a6c88a4))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/a8661874d60694f0faad235adb7f760fed6f72a5..e33c57870454fea189a3eb33519f583a5003f8c3)</small></strong>
 
 ## 5.21.0 - 2026-10-12
 
