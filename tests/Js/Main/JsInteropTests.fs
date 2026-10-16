@@ -398,6 +398,28 @@ module TaggedUnion =
         | [<CompiledName("done"); CaseTest("$0.ok === false")>] DoneFailed of ok: bool
         | Pending
 
+    type Payload(x: int) =
+        member _.X = x
+
+    type Animal() =
+        member _.Kind = "animal"
+
+    type Dog() =
+        inherit Animal()
+        member _.Kind = "dog"
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type DerivedTag =
+        | [<CompiledName("done")>] Done of value: float
+        | [<CompiledName("done")>] DoneError of error: string
+        | [<CompiledName("done")>] DoneWithExtra of value: float * extra: string
+        | [<CompiledName("log")>] LogString of message: string
+        | [<CompiledName("log")>] LogObject of message: obj
+        | [<CompiledName("log")>] LogPayload of message: Payload
+        | [<CompiledName("pet")>] PetAnimal of pet: Animal
+        | [<CompiledName("pet")>] PetDog of pet: Dog
+        | Pending
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1119,6 +1141,32 @@ let tests =
             TaggedUnion.SharedTag.DoneError "oops"
         (next ()).IsDoneError |> equal true
         calls |> equal 1
+
+    testCase "Case testing with TS tagged unions whose cases share a tag is derived from the fields" <| fun () ->
+        let describe = function
+            | TaggedUnion.DerivedTag.Done v -> sprintf "done: %.1f" v
+            | TaggedUnion.DerivedTag.DoneError e -> sprintf "error: %s" e
+            | TaggedUnion.DerivedTag.DoneWithExtra (v, e) -> sprintf "extra: %.1f %s" v e
+            | TaggedUnion.DerivedTag.LogString m -> sprintf "string: %s" m
+            | TaggedUnion.DerivedTag.LogObject _ -> "object"
+            | TaggedUnion.DerivedTag.LogPayload p -> sprintf "payload: %i" p.X
+            | TaggedUnion.DerivedTag.PetAnimal a -> "animal: " + a.Kind
+            | TaggedUnion.DerivedTag.PetDog d -> "dog: " + d.Kind
+            | TaggedUnion.DerivedTag.Pending -> "pending"
+        TaggedUnion.DerivedTag.Done 1.5 |> describe |> equal "done: 1.5"
+        TaggedUnion.DerivedTag.DoneError "oops" |> describe |> equal "error: oops"
+        TaggedUnion.DerivedTag.DoneWithExtra (2.5, "e") |> describe |> equal "extra: 2.5 e"
+        TaggedUnion.DerivedTag.LogString "hi" |> describe |> equal "string: hi"
+        TaggedUnion.DerivedTag.LogObject {| a = 1 |} |> describe |> equal "object"
+        TaggedUnion.DerivedTag.Pending |> describe |> equal "pending"
+        !!{| state = "done"; error = "raw" |} |> describe |> equal "error: raw"
+        !!{| state = "log"; message = 1 |} |> describe |> equal "object"
+        TaggedUnion.DerivedTag.LogPayload (TaggedUnion.Payload 3) |> describe |> equal "payload: 3"
+        TaggedUnion.DerivedTag.PetAnimal (TaggedUnion.Animal()) |> describe |> equal "animal: animal"
+        TaggedUnion.DerivedTag.PetDog (TaggedUnion.Dog()) |> describe |> equal "dog: dog"
+        TaggedUnion.DerivedTag.PetAnimal (TaggedUnion.Dog()) |> describe |> equal "dog: dog"
+        (TaggedUnion.DerivedTag.DoneWithExtra (2.5, "e")).IsDone |> equal false
+        (TaggedUnion.DerivedTag.Done 1.5).IsDone |> equal true
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

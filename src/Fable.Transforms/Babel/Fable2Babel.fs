@@ -474,6 +474,7 @@ module Reflection =
             ]
             |> libReflectionCall com ctx r "class"
 
+    // Keep in sync with FSharp2Fable.Util.tryRuntimeTypeTestKey, which predicts these tests
     let transformTypeTest (com: IBabelCompiler) ctx range expr typ : Expression =
         let warnAndEvalToFalse msg =
             WarningCodes.typeTestEvalsToFalse msg |> addWarningWithCode com [] range
