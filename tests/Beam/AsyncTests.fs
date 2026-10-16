@@ -438,6 +438,85 @@ let ``test async parallel works`` () =
     Array.sum results |> equal 6
 
 [<Fact>]
+let ``test Async.Choice returns first Some and handles empty input`` () =
+    let slow = async {
+        do! Async.Sleep 200
+        return Some 2
+    }
+    let fast = async {
+        do! Async.Sleep 20
+        return Some 1
+    }
+    let winner = Async.RunSynchronously(Async.Choice [ slow; async { return None }; fast ])
+    winner |> equal (Some 1)
+    Async.RunSynchronously(Async.Choice([]: Async<int option> list)) |> equal None
+
+[<Fact>]
+let ``test Async.OnCancel runs active interruption once`` () =
+    use source = new CancellationTokenSource()
+#if FABLE_COMPILER
+    let counts: obj = Fable.Core.BeamInterop.emitErlExpr () "atomics:new(2, [])"
+    let mark slot : unit = Fable.Core.BeamInterop.emitErlExpr (counts, slot) "atomics:add_get($0, $1, 1)"
+    let read slot : int = Fable.Core.BeamInterop.emitErlExpr (counts, slot) "atomics:get($0, $1)"
+    let parent: obj = Fable.Core.BeamInterop.emitErlExpr () "erlang:self()"
+    let ready () : unit = Fable.Core.BeamInterop.emitErlExpr parent "$0 ! oncancel_ready"
+    let doneSignal () : unit = Fable.Core.BeamInterop.emitErlExpr parent "$0 ! oncancel_done"
+    let work = async {
+        use! _ = Async.OnCancel(fun () -> mark 1)
+        let! registration = Async.OnCancel(fun () -> mark 2)
+        registration.Dispose()
+        ready ()
+        do! Async.Sleep 500
+    }
+    let run () =
+        try Async.RunSynchronously(work, cancellationToken = source.Token)
+        with :? OperationCanceledException -> ()
+        doneSignal ()
+    let _: obj = Fable.Core.BeamInterop.emitErlExpr run "erlang:spawn(fun() -> $0(ok) end)"
+    let wasReady: bool = Fable.Core.BeamInterop.emitErlExpr () "receive oncancel_ready -> true after 5000 -> false end"
+    wasReady |> equal true
+    source.Cancel()
+    let finished: bool = Fable.Core.BeamInterop.emitErlExpr () "receive oncancel_done -> true after 5000 -> false end"
+    finished |> equal true
+    read 1 |> equal 1
+    read 2 |> equal 0
+#else
+    let mutable active = 0
+    let mutable disposed = 0
+    use ready = new System.Threading.ManualResetEventSlim(false)
+    use interrupted = new System.Threading.ManualResetEventSlim(false)
+    Async.StartImmediate(async {
+        use! _ = Async.OnCancel(fun () ->
+            System.Threading.Interlocked.Increment(&active) |> ignore<int>
+            interrupted.Set())
+        let! registration = Async.OnCancel(fun () ->
+            System.Threading.Interlocked.Increment(&disposed) |> ignore<int>)
+        registration.Dispose()
+        ready.Set()
+        do! Async.Sleep 500
+    }, source.Token)
+    ready.Wait 5000 |> equal true
+    source.Cancel()
+    interrupted.Wait 5000 |> equal true
+    active |> equal 1
+    disposed |> equal 0
+#endif
+
+[<Fact>]
+let ``test Async.StartAsTask and StartImmediateAsTask return awaitable results`` () =
+    let task1 = Async.StartAsTask(async {
+        do! Async.Sleep 10
+        return 41
+    })
+    let task2 = Async.StartImmediateAsTask(async { return 1 })
+    let result = Async.RunSynchronously(async {
+        let! first = Async.AwaitTask task1
+        let! second = Async.AwaitTask task2
+        return first + second
+    })
+    result |> equal 42
+
+[<Fact>]
 let ``test async sequential composition works`` () =
     let mutable count = 0
     let comp = async {
@@ -1143,6 +1222,38 @@ let ``test Can use custom exceptions in async workflows`` () =
         let! res = parentWorkflow()
         equal 7 res
     } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild timeout cancels child and runs finalizer`` () =
+#if FABLE_COMPILER
+    let state: obj = Fable.Core.BeamInterop.emitErlExpr () "atomics:new(2, [])"
+    let mark (slot: int) : unit = Fable.Core.BeamInterop.emitErlExpr (state, slot) "atomics:put($0, $1, 1)"
+    let read (slot: int) : int = Fable.Core.BeamInterop.emitErlExpr (state, slot) "atomics:get($0, $1)"
+#else
+    let mutable completed = 0
+    let mutable finalized = 0
+    let mark slot = if slot = 1 then System.Threading.Interlocked.Exchange(&completed, 1) |> ignore<int> else System.Threading.Interlocked.Exchange(&finalized, 1) |> ignore<int>
+    let read slot = if slot = 1 then completed else finalized
+#endif
+    let child = async {
+        try
+            do! Async.Sleep 200
+            mark 1
+        finally
+            mark 2
+    }
+    Async.RunSynchronously(async {
+        let! inner = Async.StartChild(child, 50)
+        let! result = Async.Catch inner
+        match result with
+        | Choice1Of2 _ -> failwith "Expected timeout"
+        | Choice2Of2 error -> (error :? TimeoutException) |> equal true
+        let! token = Async.CancellationToken
+        token.IsCancellationRequested |> equal false
+        do! Async.Sleep 250
+    })
+    read 1 |> equal 0
+    read 2 |> equal 1
 
 [<Fact>]
 let ``test Async.AwaitEvent fires continuation when event is triggered`` () =
