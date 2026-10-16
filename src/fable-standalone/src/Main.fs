@@ -648,8 +648,6 @@ let init () =
                 precompiledInfo
             :> IParseAndCheckResults
 
-        member _.GetErrors(results: IParseAndCheckResults) = results.Errors
-
         member _.GetSymbolAtLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getSymbolAtLocation res line col lineText
