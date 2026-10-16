@@ -3300,3 +3300,142 @@ module Util =
         | Imported com ctx r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
         | _ -> getValueMemberRef v |> memberIdent com ctx r typ v
+
+    /// Runtime checks that tell apart TypeScriptTaggedUnion cases sharing a tag value
+    [<RequireQualifiedAccess>]
+    type TaggedUnionCaseTest =
+        | HasField of name: string
+        | LacksField of name: string
+        | FieldOfType of name: string * typ: Fable.Type
+        | FieldNotOfType of name: string * typ: Fable.Type
+
+    let private tryTaggedUnionTagKey (rule: CaseRules) (unionCase: FSharpUnionCase) =
+        match transformStringEnum rule unionCase with
+        | Fable.Value(Fable.StringConstant s, _) -> Some("s:" + s)
+        | Fable.Value(Fable.BoolConstant b, _) -> Some("b:" + string b)
+        | Fable.Value(Fable.NumberConstant(v, _), _) -> Some("n:" + string v)
+        | _ -> None
+
+    /// Keep in sync with Fable2Babel.Reflection.transformTypeTest: equal keys are the same runtime test, None is untestable
+    let rec private tryRuntimeTypeTestKey (com: Compiler) (typ: Fable.Type) : string option =
+        match typ with
+        | Fable.String
+        | Fable.Char -> Some "string"
+        | Fable.Boolean -> Some "boolean"
+        | Fable.Number(Decimal, _) -> Some "decimal"
+        | Fable.Number((Int64 | UInt64 | Int128 | UInt128 | BigInt | NativeInt | UNativeInt), _) -> Some "bigint"
+        | Fable.Number _ -> Some "number"
+        | Fable.Regex -> Some "regexp"
+        | Fable.LambdaType _
+        | Fable.DelegateType _ -> Some "function"
+        | Fable.Array _
+        | Fable.Tuple _ -> Some "array"
+        | Fable.List _ -> Some "list"
+        | Fable.Nullable(genArg, _) -> tryRuntimeTypeTestKey com genArg
+        | Fable.DeclaredType(entRef, _) ->
+            match com.TryGetEntity entRef with
+            | None -> None
+            | Some _ when isReplacementCandidate entRef -> None
+            | Some ent when hasAttribute Atts.stringEnum ent -> Some "string"
+            | Some ent when hasAttribute Atts.erase ent && ent.IsFSharpUnion ->
+                match ent.UnionCases with
+                | [ uci ] when List.isSingle uci.UnionCaseFields ->
+                    tryRuntimeTypeTestKey com uci.UnionCaseFields[0].FieldType
+                | cases when cases |> List.forall (fun c -> List.isEmpty c.UnionCaseFields) -> Some "string"
+                | _ -> None
+            | Some ent when ent.IsMeasure || isErasedOrStringEnumEntity ent -> None
+            | Some ent when ent.IsInterface && not (isGlobalOrImportedEntity ent) -> None
+            | Some ent -> Some("instanceof:" + ent.FullName)
+        | _ -> None
+
+    let rec private isSubtypeOf (com: Compiler) (baseFullName: string) (entRef: Fable.EntityRef) =
+        entRef.FullName = baseFullName
+        || match com.TryGetEntity entRef with
+           | None -> false
+           | Some ent ->
+               ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = baseFullName)
+               || (
+                   match ent.BaseType with
+                   | Some baseType -> isSubtypeOf com baseFullName baseType.Entity
+                   | None -> false
+               )
+
+    /// Whether every value of `sub` also passes the runtime test of `super`
+    let private passesTestOf (com: Compiler) (super: Fable.Type) (sub: Fable.Type) =
+        match super, sub with
+        | Fable.DeclaredType(superRef, _), Fable.DeclaredType(subRef, _) -> isSubtypeOf com superRef.FullName subRef
+        | _ -> false
+
+    let private tryDistinguishTaggedUnionCase
+        (com: Compiler)
+        (mine: (string * Fable.Type) list)
+        (other: (string * Fable.Type) list)
+        =
+        let isRequired (_, t) =
+            match t with
+            | Fable.Option _ -> false
+            | _ -> true
+
+        let hasName name fields =
+            fields |> List.exists (fun (n, _) -> n = name)
+
+        let byPresence =
+            mine
+            |> List.tryFind (fun ((name, _) as f) -> isRequired f && not (hasName name other))
+            |> Option.map (fun (name, _) -> TaggedUnionCaseTest.HasField name)
+
+        let byAbsence () =
+            other
+            |> List.tryFind (fun ((name, _) as f) -> isRequired f && not (hasName name mine))
+            |> Option.map (fun (name, _) -> TaggedUnionCaseTest.LacksField name)
+
+        let byType () =
+            mine
+            |> List.tryPick (fun (name, typ) ->
+                match List.tryFind (fun (n, _) -> n = name) other with
+                | None -> None
+                | Some(_, otherTyp) ->
+                    let myKey = tryRuntimeTypeTestKey com typ
+                    let otherKey = tryRuntimeTypeTestKey com otherTyp
+
+                    match myKey, otherKey with
+                    | Some _, _ when myKey <> otherKey && not (passesTestOf com typ otherTyp) ->
+                        Some(TaggedUnionCaseTest.FieldOfType(name, typ))
+                    | _, Some _ when myKey <> otherKey && not (passesTestOf com otherTyp typ) ->
+                        Some(TaggedUnionCaseTest.FieldNotOfType(name, otherTyp))
+                    | _ -> None
+            )
+
+        byPresence |> Option.orElseWith byAbsence |> Option.orElseWith byType
+
+    /// One check per other case with the same tag value, or the case the fields cannot exclude
+    let deriveTaggedUnionCaseTests
+        (com: Compiler)
+        (tdef: FSharpEntity)
+        (rule: CaseRules)
+        (unionCase: FSharpUnionCase)
+        : Result<TaggedUnionCaseTest list, FSharpUnionCase>
+        =
+        let fieldsOf (uc: FSharpUnionCase) =
+            uc.Fields
+            |> Seq.map (fun fi -> FsField.FSharpFieldName fi, makeType Map.empty fi.FieldType)
+            |> List.ofSeq
+
+        match tryTaggedUnionTagKey rule unionCase with
+        | None -> Ok []
+        | Some myTag ->
+            let myFields = fieldsOf unionCase
+
+            tdef.UnionCases
+            |> Seq.filter (fun uc -> uc.Name <> unionCase.Name && tryTaggedUnionTagKey rule uc = Some myTag)
+            |> Seq.fold
+                (fun acc other ->
+                    match acc with
+                    | Error _ -> acc
+                    | Ok tests ->
+                        match tryDistinguishTaggedUnionCase com myFields (fieldsOf other) with
+                        | Some test -> Ok(tests @ [ test ])
+                        | None -> Error other
+                )
+                (Ok [])
+            |> Result.map List.distinct

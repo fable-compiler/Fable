@@ -315,4 +315,65 @@ let isError (t: Terminal) = match t with DoneError _ -> true | Done _ -> false
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag compile when their fields tell them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Terminal =
+    | [<CompiledName("done")>] Done of value: float
+    | [<CompiledName("done")>] DoneError of error: string
+    | [<CompiledName("log")>] LogString of message: string
+    | [<CompiledName("log")>] LogObject of message: obj
+
+let describe (t: Terminal) =
+    match t with
+    | DoneError _ -> "error"
+    | LogString _ -> "string"
+    | LogObject _ -> "object"
+    | Done _ -> "done"
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when their fields cannot tell them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Result =
+    | [<CompiledName("done")>] Ok of ok: bool
+    | [<CompiledName("done")>] Failed of ok: bool
+
+let isFailed (r: Result) = match r with Failed _ -> true | Ok _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "share a tag value and cannot be told apart by their fields. Add a CaseTest attribute"
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only interfaces tell them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Circle =
+    abstract radius: float
+
+type Rect =
+    abstract width: float
+
+[<TypeScriptTaggedUnion("kind")>]
+type Shape =
+    | [<CompiledName("shape")>] Circle of shape: Circle
+    | [<CompiledName("shape")>] Rect of shape: Rect
+
+let isRect (s: Shape) = match s with Rect _ -> true | Circle _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "share a tag value and cannot be told apart by their fields. Add a CaseTest attribute"
+      |> ignore
   ]
