@@ -5,7 +5,8 @@ import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
 import { InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
-import { Exception } from "./Util.ts";
+import { Exception, IDisposable } from "./Util.ts";
+import type { Option } from "./Option.ts";
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -198,6 +199,68 @@ export function parallel<T>(computations: Iterable<Async<T>>) {
     awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w, ctx.cancelToken))))(ctx));
 }
 
+export function choice<T>(computations: Iterable<Async<Option<T>>>): Async<Option<T>> {
+  // Like .NET Async.Choice: the first computation to return Some wins and the others
+  // are cancelled; a failure or cancellation also ends it and cancels the rest
+  return protectedCont((ctx: IAsyncContext<Option<T>>) => {
+    const works = Array.from(computations);
+    let remaining = works.length;
+    if (remaining === 0) {
+      ctx.onSuccess(undefined);
+      return;
+    }
+    const [token, unlink] = createLinkedToken(ctx.cancelToken);
+    let done = false;
+    const finish = (report: () => void) => {
+      if (done) { return; }
+      done = true;
+      unlink();
+      cancelQuietly(token);
+      report();
+    };
+    for (const work of works) {
+      startWithContinuations(
+        work,
+        (x) => {
+          if (x != null) {
+            finish(() => ctx.onSuccess(x));
+          } else if (--remaining === 0) {
+            finish(() => ctx.onSuccess(undefined));
+          }
+        },
+        (err) => finish(() => ctx.onError(err)),
+        (err) => finish(() => ctx.onCancel(err)),
+        token);
+      if (done) { break; }
+    }
+  });
+}
+
+export function onCancel(interruption: () => void): Async<IDisposable> {
+  return protectedCont((ctx: IAsyncContext<IDisposable>) => {
+    const token = ctx.cancelToken;
+    let interrupted = false;
+    const interrupt = () => {
+      if (!interrupted) {
+        interrupted = true;
+        interruption();
+      }
+    };
+    const id = token.addListener(interrupt);
+    ctx.onSuccess({
+      Dispose() {
+        token.removeListener(id);
+        // decision: cancellation continues synchronously in JS (e.g. from Async.Sleep), so with
+        // `use! _ = Async.OnCancel ...` the registration is disposed while the token is still running
+        // its callbacks, before this one; run it now so the interruption still happens, as on .NET
+        if (token.isCancelled) {
+          try { interrupt(); } catch { /* Cancellation takes precedence. */ }
+        }
+      },
+    });
+  });
+}
+
 export function sequential<T>(computations: Iterable<Async<T>>) {
 
   function _sequential(computations: Iterable<Async<T>>, cancelToken: CancellationToken): Promise<T[]> {
@@ -270,4 +333,13 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
   return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
+}
+
+// Task<T> is Promise<T> in JS/TS. TaskCreationOptions has no meaning here and is ignored.
+export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
+  return startAsPromise(computation, cancellationToken);
+}
+
+export function startImmediateAsTask<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
+  return startAsPromise(computation, cancellationToken);
 }
