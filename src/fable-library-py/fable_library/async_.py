@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import Future, ensure_future
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock, Timer
 from typing import (
@@ -180,7 +180,22 @@ def ignore(computation: Async[Any]) -> Async[None]:
     return protected_bind(computation, binder)
 
 
-def parallel[T](computations: IEnumerable_1[Async[T]], max_degree_of_parallelism: int | None = None) -> Async[Array[T]]:
+def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
+    def delayed() -> Async[Array[T]]:
+        tasks: Iterable[Awaitable[T]] = map(start_as_task, computations)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
+        all: Future[list[T]] = asyncio.gather(*tasks)
+
+        def to_array(results: list[T]) -> Async[Array[T]]:
+            return protected_return(Array[T](results))
+
+        return protected_bind(await_task(all), to_array)
+
+    return delay(delayed)
+
+
+def parallel_with_cancellation[T](
+    computations: IEnumerable_1[Async[T]], max_degree_of_parallelism: int | None = None
+) -> Async[Array[T]]:
     if max_degree_of_parallelism is not None and max_degree_of_parallelism < 1:
         raise ArgumentException__ctor_Z721C83C5("maxDegreeOfParallelism must be positive")
 

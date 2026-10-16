@@ -3693,6 +3693,9 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "Parallel" ->
+        Helper.LibCall(com, "async_", "parallel_with_cancellation", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     // Make sure cancellationToken is called as a function and not a getter
     | "get_CancellationToken" -> Helper.LibCall(com, "async_", "cancellationToken", t, [], ?loc = r) |> Some
     // `catch` cannot be used as a function name in JS
