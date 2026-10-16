@@ -34,7 +34,7 @@ from .choice import (
 )
 from .event import IEvent_2
 from .protocols import IEnumerable_1
-from .system import InvalidOperationException__ctor_Z721C83C5, TimeoutException__ctor
+from .system import ArgumentException__ctor_Z721C83C5, InvalidOperationException__ctor_Z721C83C5, TimeoutException__ctor
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
@@ -192,6 +192,62 @@ def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
         return protected_bind(await_task(all), to_array)
 
     return delay(delayed)
+
+
+def parallel_with_cancellation[T](
+    computations: IEnumerable_1[Async[T]], max_degree_of_parallelism: int | None = None
+) -> Async[Array[T]]:
+    if max_degree_of_parallelism is not None and max_degree_of_parallelism < 1:
+        raise ArgumentException__ctor_Z721C83C5("maxDegreeOfParallelism must be positive")
+
+    def cont(ctx: IAsyncContext[Array[T]]) -> None:
+        works = list(to_iterable(computations))
+        token = CancellationToken()
+        limit = max_degree_of_parallelism or max(1, len(works))
+        semaphore = asyncio.Semaphore(limit)
+
+        async def run_one(work: Async[T]) -> T:
+            async with semaphore:
+                try:
+                    return await start_as_task(work, cancellation_token=token)
+                except asyncio.CancelledError as error:
+                    raise TaskCanceledError() from error
+
+        async def run_all() -> Array[T]:
+            # decision: retain the first failure while cancellation settles every started sibling.
+            registration = ctx.cancel_token.register(cancel_children)
+            try:
+                tasks = [asyncio.create_task(run_one(work)) for work in works]
+                first_error: Exception | None = None
+                for completed in asyncio.as_completed(tasks):
+                    try:
+                        await completed
+                    except Exception as error:
+                        if first_error is None:
+                            first_error = error
+                            cancel_children()
+                if first_error is not None:
+                    raise first_error
+                return Array[T]([task.result() for task in tasks])
+            finally:
+                registration.Dispose()
+
+        def cancel_children() -> None:
+            try:
+                token.cancel()
+            except Exception:
+                pass
+
+        def report_error(error: Exception) -> None:
+            if ctx.cancel_token.is_cancelled and isinstance(error, OperationCanceledError):
+                ctx.on_cancel(error)
+            else:
+                ctx.on_error(error)
+
+        child_ctx = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, ctx.on_success, report_error, ctx.on_cancel)
+        await_task(run_all())(child_ctx)
+
+    return protected_cont(cont)
 
 
 def choice[T](computations: IEnumerable_1[Async[T | None]]) -> Async[T | None]:

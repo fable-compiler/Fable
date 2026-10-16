@@ -3693,6 +3693,9 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "Parallel" ->
+        Helper.LibCall(com, "async_", "parallel_with_cancellation", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "StartChild" ->
         Helper.LibCall(com, "async_", "start_child_linked", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
