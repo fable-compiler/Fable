@@ -11,6 +11,7 @@ open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Tokenization
 
 type CheckerImpl(checker: InteractiveChecker) =
     member _.Checker = checker
@@ -407,6 +408,98 @@ let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
             | FindDeclResult.DeclFound range -> DeclarationLocation.Found(toRange range)
     | None -> DeclarationLocation.NotFound "file not checked"
 
+let private toTokenColor (color: FSharpTokenColorKind) =
+    match color with
+    | FSharpTokenColorKind.Keyword -> TokenColor.Keyword
+    | FSharpTokenColorKind.Comment -> TokenColor.Comment
+    | FSharpTokenColorKind.Identifier -> TokenColor.Identifier
+    | FSharpTokenColorKind.String -> TokenColor.String
+    | FSharpTokenColorKind.UpperIdentifier -> TokenColor.UpperIdentifier
+    | FSharpTokenColorKind.InactiveCode -> TokenColor.InactiveCode
+    | FSharpTokenColorKind.PreprocessorKeyword -> TokenColor.PreprocessorKeyword
+    | FSharpTokenColorKind.Number -> TokenColor.Number
+    | FSharpTokenColorKind.Operator -> TokenColor.Operator
+    | FSharpTokenColorKind.Punctuation -> TokenColor.Punctuation
+    | _ -> TokenColor.Default
+
+let tokenize (source: string) (defines: string[]) : Token[][] =
+    let tokenizer = FSharpSourceTokenizer(List.ofArray defines, None, None, None)
+
+    let tokenizeLine (state: FSharpTokenizerLexState) (line: string) =
+        let lineTokenizer = tokenizer.CreateLineTokenizer(line.TrimEnd('\r'))
+
+        let rec loop state acc =
+            match lineTokenizer.ScanToken state with
+            | Some token, state ->
+                let token: Token =
+                    {
+                        StartColumn = token.LeftColumn
+                        EndColumn = token.RightColumn + 1
+                        Color = toTokenColor token.ColorClass
+                        Name = token.TokenName
+                    }
+
+                loop state (token :: acc)
+            | None, state -> List.rev acc |> List.toArray, state
+
+        loop state []
+
+    source.Split('\n')
+    |> Array.mapFold tokenizeLine FSharpTokenizerLexState.Initial
+    |> fst
+
+let private toSemanticClass (classification: SemanticClassificationType) =
+    match classification with
+    | SemanticClassificationType.ReferenceType -> SemanticClass.ReferenceType
+    | SemanticClassificationType.ValueType -> SemanticClass.ValueType
+    | SemanticClassificationType.UnionCase -> SemanticClass.UnionCase
+    | SemanticClassificationType.UnionCaseField -> SemanticClass.UnionCaseField
+    | SemanticClassificationType.Function -> SemanticClass.Function
+    | SemanticClassificationType.Property -> SemanticClass.Property
+    | SemanticClassificationType.MutableVar -> SemanticClass.MutableVar
+    | SemanticClassificationType.Module -> SemanticClass.Module
+    | SemanticClassificationType.Namespace -> SemanticClass.Namespace
+    | SemanticClassificationType.Printf -> SemanticClass.Printf
+    | SemanticClassificationType.ComputationExpression -> SemanticClass.ComputationExpression
+    | SemanticClassificationType.IntrinsicFunction -> SemanticClass.IntrinsicFunction
+    | SemanticClassificationType.Enumeration -> SemanticClass.Enumeration
+    | SemanticClassificationType.Interface -> SemanticClass.Interface
+    | SemanticClassificationType.TypeArgument -> SemanticClass.TypeArgument
+    | SemanticClassificationType.Operator -> SemanticClass.Operator
+    | SemanticClassificationType.DisposableType -> SemanticClass.DisposableType
+    | SemanticClassificationType.DisposableTopLevelValue -> SemanticClass.DisposableTopLevelValue
+    | SemanticClassificationType.DisposableLocalValue -> SemanticClass.DisposableLocalValue
+    | SemanticClassificationType.Method -> SemanticClass.Method
+    | SemanticClassificationType.ExtensionMethod -> SemanticClass.ExtensionMethod
+    | SemanticClassificationType.ConstructorForReferenceType -> SemanticClass.ConstructorForReferenceType
+    | SemanticClassificationType.ConstructorForValueType -> SemanticClass.ConstructorForValueType
+    | SemanticClassificationType.Literal -> SemanticClass.Literal
+    | SemanticClassificationType.RecordField -> SemanticClass.RecordField
+    | SemanticClassificationType.MutableRecordField -> SemanticClass.MutableRecordField
+    | SemanticClassificationType.RecordFieldAsFunction -> SemanticClass.RecordFieldAsFunction
+    | SemanticClassificationType.Exception -> SemanticClass.Exception
+    | SemanticClassificationType.Field -> SemanticClass.Field
+    | SemanticClassificationType.Event -> SemanticClass.Event
+    | SemanticClassificationType.Delegate -> SemanticClass.Delegate
+    | SemanticClassificationType.NamedArgument -> SemanticClass.NamedArgument
+    | SemanticClassificationType.Value -> SemanticClass.Value
+    | SemanticClassificationType.LocalValue -> SemanticClass.LocalValue
+    | SemanticClassificationType.Type -> SemanticClass.Type
+    | SemanticClassificationType.TypeDef -> SemanticClass.TypeDef
+    | _ -> SemanticClass.Plaintext
+
+let getSemanticClassification (results: ParseAndCheckResults) : SemanticClassification[] =
+    match results.CheckFileResultsOpt with
+    | Some checkFile ->
+        checkFile.GetSemanticClassification(None)
+        |> Array.map (fun item ->
+            {
+                Range = toRange item.Range
+                Type = toSemanticClass item.Type
+            }
+        )
+    | None -> [||]
+
 /// Get tool tip at the specified location
 let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
@@ -663,6 +756,12 @@ let init () =
         member _.GetToolTips(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getToolTipAtLocation res line col lineText
+
+        member _.Tokenize(source: string, defines: string[]) = tokenize source defines
+
+        member _.GetSemanticClassification(results: IParseAndCheckResults) =
+            let res = results :?> ParseAndCheckResults
+            getSemanticClassification res
 
         member _.GetCompletionsAtLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
