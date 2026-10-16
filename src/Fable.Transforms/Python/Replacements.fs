@@ -3793,6 +3793,16 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
         Helper.LibCall(com, "task_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
+let taskBuilderAsync (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let startAsTask computation =
+        Helper.LibCall(com, "async_", "start_as_task", Any, [ computation ], ?loc = r)
+
+    match i.CompiledName, args with
+    | "TaskBuilderBase.Bind", [ computation; binder ] ->
+        taskBuilder com ctx r t i thisArg [ startAsTask computation; binder ]
+    | "TaskBuilderBase.ReturnFrom", [ computation ] -> taskBuilder com ctx r t i thisArg [ startAsTask computation ]
+    | _ -> None
+
 let guids
     (com: ICompiler)
     (ctx: Context)
@@ -4276,6 +4286,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority", taskBuilderAsync
             "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
             Types.guid, guids
             "System.Uri", uris
