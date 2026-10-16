@@ -38,6 +38,7 @@ from .system import ArgumentException__ctor_Z721C83C5, InvalidOperationException
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
+from .util import to_iterable
 
 
 def cancellation_token() -> Async[CancellationToken]:
@@ -200,7 +201,7 @@ def parallel_with_cancellation[T](
         raise ArgumentException__ctor_Z721C83C5("maxDegreeOfParallelism must be positive")
 
     def cont(ctx: IAsyncContext[Array[T]]) -> None:
-        works = list(computations)
+        works = list(to_iterable(computations))
         token = CancellationToken()
         limit = max_degree_of_parallelism or max(1, len(works))
         semaphore = asyncio.Semaphore(limit)
@@ -251,7 +252,7 @@ def parallel_with_cancellation[T](
 
 def choice[T](computations: IEnumerable_1[Async[T | None]]) -> Async[T | None]:
     def cont(ctx: IAsyncContext[T | None]) -> None:
-        works = list(computations)
+        works = list(to_iterable(computations))
         if not works:
             ctx.on_success(None)
             return
