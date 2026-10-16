@@ -4274,6 +4274,17 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
         )
         |> Some
 
+// The overloads in TaskBuilderExtensions.MediumPriority bind an Async<'T> inside task { }.
+// Like .NET, start the Async with the default token and bind the resulting task (a promise).
+let taskBuilderAsync (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let startAsPromise (computation: Expr) =
+        Helper.LibCall(com, "Async", "startAsPromise", Any, [ computation ], ?loc = r)
+
+    match i.CompiledName, args with
+    | "TaskBuilderBase.Bind", [ computation; f ] -> taskBuilder com ctx r t i thisArg [ startAsPromise computation; f ]
+    | "TaskBuilderBase.ReturnFrom", [ computation ] -> taskBuilder com ctx r t i thisArg [ startAsPromise computation ]
+    | _ -> None
+
 let tasks (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
     | Some x, ("GetAwaiter" | "GetResult" | "get_Result" | "Result") ->
@@ -4859,6 +4870,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority", taskBuilderAsync
             "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
             Types.guid, guids
             "System.Uri", uris
