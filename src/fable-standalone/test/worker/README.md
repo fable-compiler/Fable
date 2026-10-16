@@ -27,6 +27,7 @@ The fixture is generated, so nothing is downloaded.
 It hovers a library function and a documented user function, and checks that the tooltip signature
 has no stray spaces and keeps the FCS tags and the XML doc. It then asks for the declaration of a
 project symbol, an FSharp.Core symbol and a .NET symbol, and checks that the three stay apart.
+Finally it asks for every use of a project symbol and checks that the definition is marked.
 
 Beyond "the compile finished and returned a module per file", it measures the **stack headroom the
 compiler is handed for each file** and fails if it drifts between files.
