@@ -862,6 +862,73 @@ let ``test Async.StartChild applies timeout`` () =
     } |> Async.RunSynchronously
 
 [<Fact>]
+let ``test Async.StartChild timeout cancels child without cancelling parent`` () =
+    async {
+        let mutable completed = false
+        let child = async {
+            do! Async.Sleep 200
+            completed <- true
+        }
+        let! inner = Async.StartChild(child, 50)
+        let! result = Async.Catch inner
+        match result with
+        | Choice1Of2 _ -> failwith "Expected timeout"
+        | Choice2Of2 error -> (error :? TimeoutException) |> equal true
+        let! token = Async.CancellationToken
+        token.IsCancellationRequested |> equal false
+        do! Async.Sleep 250
+        completed |> equal false
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Choice returns first Some and stops siblings`` () =
+    async {
+        let mutable slowCompleted = false
+        let slow = async {
+            do! Async.Sleep 200
+            slowCompleted <- true
+            return Some 2
+        }
+        let fast = async {
+            do! Async.Sleep 20
+            return Some 1
+        }
+        let! winner = Async.Choice [ slow; async { return None }; fast ]
+        winner |> equal (Some 1)
+        do! Async.Sleep 250
+        slowCompleted |> equal false
+        let! empty = Async.Choice([]: Async<int option> list)
+        empty |> equal None
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.OnCancel invokes only active registration`` () =
+    async {
+        use source = new CancellationTokenSource()
+        let mutable active = 0
+        let mutable disposed = 0
+        Async.StartImmediate(async {
+            use! _ = Async.OnCancel(fun () -> active <- active + 1)
+            let! registration = Async.OnCancel(fun () -> disposed <- disposed + 1)
+            registration.Dispose()
+            do! Async.Sleep 200
+        }, source.Token)
+        do! Async.Sleep 20
+        source.Cancel()
+        do! Async.Sleep 20
+        active |> equal 1
+        disposed |> equal 0
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartImmediateAsTask completes`` () =
+    async {
+        let task = Async.StartImmediateAsTask(async { return 42 })
+        let! result = Async.AwaitTask task
+        result |> equal 42
+    } |> Async.RunSynchronously
+
+[<Fact>]
 let ``test Async.StartChild with timeout completes when computation finishes before timeout`` () = // See #4481
     async {
         let fast = async { do! Async.Sleep 10 }
