@@ -54,20 +54,43 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
+// Cancelling a token from a timer or a child's continuation leaves no caller
+// to report a failing cancellation callback to
+function cancelQuietly(token: CancellationToken) {
+  try { token.cancel(); } catch { /* Ignore errors from cancellation callbacks. */ }
+}
+
+// A token that is cancelled when the parent is but can also be cancelled on its own,
+// like CancellationTokenSource.CreateLinkedTokenSource. Call unlink once it's no longer needed.
+function createLinkedToken(parent: CancellationToken): [token: CancellationToken, unlink: () => void] {
+  const token = new CancellationToken();
+  const id = parent.addListener(() => token.cancel());
+  return [token, () => { parent.removeListener(id); }];
+}
+
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
   return protectedCont((ctx) => {
-    // Share the parent's cancellation token so cancelling the parent
-    // cancels the child, like .NET Async.StartChild
-    const promise = startAsPromise(computation, ctx.cancelToken);
+    // Cancelling the parent cancels the child, like .NET Async.StartChild.
+    // With a timeout the child gets its own linked token, so that the timeout
+    // can cancel the child without cancelling the parent.
+    const [childToken, unlink] = ms
+      ? createLinkedToken(ctx.cancelToken)
+      : [ctx.cancelToken, () => { /* NOP */ }];
+    const promise = startAsPromise(computation, childToken);
     let promiseToRun = promise;
 
     if (ms) {
-      // Race the computation against a timeout: whichever settles first wins.
+      // Race the computation against a timeout: whichever settles first wins,
+      // and if the timeout wins the child is cancelled.
       promiseToRun = new Promise<T>((resolve, reject) => {
-        const timeoutId = setTimeout(() => reject(TimeoutException_$ctor()), ms);
+        const timeoutId = setTimeout(() => {
+          unlink();
+          reject(TimeoutException_$ctor());
+          cancelQuietly(childToken);
+        }, ms);
         promise.then(
-          value => { clearTimeout(timeoutId); resolve(value); },
-          error => { clearTimeout(timeoutId); reject(error); }
+          value => { clearTimeout(timeoutId); unlink(); resolve(value); },
+          error => { clearTimeout(timeoutId); unlink(); reject(error); }
         );
       });
     }
