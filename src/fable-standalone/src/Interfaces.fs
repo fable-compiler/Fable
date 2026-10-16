@@ -18,6 +18,13 @@ type Glyph =
     | Event
     | TypeParameter
 
+[<StringEnum; RequireQualifiedAccess>]
+type DiagnosticSeverity =
+    | Hidden
+    | Info
+    | Warning
+    | Error
+
 type Error =
     {
         FileName: string
@@ -26,7 +33,9 @@ type Error =
         EndLine: int
         EndColumn: int
         Message: string
-        IsWarning: bool
+        Severity: DiagnosticSeverity
+        /// FCS error number such as "FS0039", or the Fable log tag such as "FABLE"
+        Code: string
     }
 
 type Range =

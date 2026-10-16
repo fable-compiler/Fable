@@ -114,7 +114,7 @@ console.log(`  ${modules.length} modules in ${((Date.now() - started) / 1000).to
 const failures = []
 if (modules.length !== fixture.length) failures.push(`expected ${fixture.length} modules, got ${modules.length}`)
 
-const hard = (errors ?? []).filter((e) => !e.IsWarning)
+const hard = (errors ?? []).filter((e) => e.Severity === "error")
 if (hard.length) failures.push(`${hard.length} compile error(s), first: ${hard[0].Message}`)
 
 // V8 caps the stack in bytes, so a frame count is only comparable against another count from this
@@ -137,7 +137,7 @@ console.log(`re-emit ${last} only: ${subset.length} module ` +
 
 if (subset.length !== 1) failures.push(`expected 1 module for a single-file emit, got ${subset.length}`)
 if (subset[0] !== modules[modules.length - 1]) failures.push(`re-emitting ${last} produced different output`)
-if ((subsetErrors ?? []).filter((e) => !e.IsWarning).length) failures.push("subset emit reported errors")
+if ((subsetErrors ?? []).filter((e) => e.Severity === "error").length) failures.push("subset emit reported errors")
 if (subsetStats.Fable_transform >= stats.Fable_transform) {
     failures.push(`emitting 1 of ${fixture.length} files took as long as emitting all of them`)
 }
@@ -146,7 +146,7 @@ if (subsetStats.Fable_transform >= stats.Fable_transform) {
 const longFunction = "long" + "x".repeat(230)
 post(["CompileFiles", [{ Name: "Program.fs", Content: `module Demo\nlet ${longFunction} () = 42` }], [], "beam", []])
 const [, beamModules, , beamErrors] = await answer("CompilationsFinished")
-const beamHard = (beamErrors ?? []).filter((e) => !e.IsWarning)
+const beamHard = (beamErrors ?? []).filter((e) => e.Severity === "error")
 if (beamHard.length) failures.push(`BEAM example failed: ${beamHard[0].Message}`)
 const beamCode = beamModules.join("\n")
 if (!/longx+_[0-9a-f]{8}\(/.test(beamCode)) {
@@ -162,7 +162,7 @@ post(["CompileFiles", [{ Name: "Program.fs", Content: [
     `let read () = ${mutablePrefix}a2, ${mutablePrefix}cp`,
 ].join("\n") }], [], "beam", []])
 const [, , , collisionErrors] = await answer("CompilationsFinished")
-if (!(collisionErrors ?? []).some((e) => !e.IsWarning && e.Message.includes("share Erlang state key"))) {
+if (!(collisionErrors ?? []).some((e) => e.Severity === "error" && e.Message.includes("share Erlang state key"))) {
     failures.push("standalone BEAM did not diagnose colliding mutable state keys")
 }
 console.log("  BEAM example hashing and state-key diagnostics checked")
@@ -173,8 +173,21 @@ const greetLine = `let greet (name: string) = sprintf "Hello %s" name`
 const runLine = `let run () = greet "world"`
 const absLine = `let abs = System.Math.Abs(-1)`
 const greLine = `let g = gre`
-post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine, absLine, greLine].join("\n") }], []])
-await answer("ParsedCode")
+const genericLine = `let addOne (x: 'a) = x + 1`
+const undefinedLine = `let bad = undefinedThing`
+post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine, absLine, greLine, genericLine, undefinedLine].join("\n") }], []])
+const [, parsedErrors] = await answer("ParsedCode")
+
+// Diagnostics: the FCS error number and the real severity must come through.
+const diagnostics = parsedErrors.map((e) => `${e.Code}:${e.Severity}@${e.StartLine}`)
+const fixtureLines = 6
+if (!parsedErrors.some((e) => e.Code === "FS0064" && e.Severity === "warning" && e.StartLine === fixtureLines + 1)) {
+    failures.push(`expected the FS0064 warning: ${diagnostics.join(", ")}`)
+}
+if (!parsedErrors.some((e) => e.Code === "FS0039" && e.Severity === "error" && e.StartLine === fixtureLines + 2)) {
+    failures.push(`expected the FS0039 error: ${diagnostics.join(", ")}`)
+}
+console.log(`  diagnostics: ${diagnostics.join(", ")}`)
 
 const signatureOf = (tooltips) => (tooltips[0]?.Signature ?? []).map((t) => t.Text).join("")
 

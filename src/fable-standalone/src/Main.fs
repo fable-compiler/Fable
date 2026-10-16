@@ -24,12 +24,13 @@ let mapError (error: FSharpDiagnostic) =
         EndLine = error.EndLine
         EndColumn = error.EndColumn
         Message = error.Message
-        IsWarning =
+        Severity =
             match error.Severity with
-            | FSharpDiagnosticSeverity.Info
-            | FSharpDiagnosticSeverity.Hidden
-            | FSharpDiagnosticSeverity.Warning -> true
-            | FSharpDiagnosticSeverity.Error -> false
+            | FSharpDiagnosticSeverity.Hidden -> DiagnosticSeverity.Hidden
+            | FSharpDiagnosticSeverity.Info -> DiagnosticSeverity.Info
+            | FSharpDiagnosticSeverity.Warning -> DiagnosticSeverity.Warning
+            | FSharpDiagnosticSeverity.Error -> DiagnosticSeverity.Error
+        Code = error.ErrorNumberText
     }
 
 type ParseAndCheckResults
@@ -482,16 +483,13 @@ let mapFableError (com: Compiler) (log: LogEntry) =
         StartColumn = r.start.column
         EndLine = r.``end``.line
         EndColumn = r.``end``.column
-        Message =
-            if log.Tag = "FABLE" then
-                "FABLE: " + log.Message
-            else
-                log.Message
-        IsWarning =
+        Message = log.Message
+        Severity =
             match log.Severity with
-            | Fable.Severity.Error -> false
-            | Fable.Severity.Warning
-            | Fable.Severity.Info -> true
+            | Fable.Severity.Info -> DiagnosticSeverity.Info
+            | Fable.Severity.Warning -> DiagnosticSeverity.Warning
+            | Fable.Severity.Error -> DiagnosticSeverity.Error
+        Code = log.Tag
     }
 
 type BabelResult(ast: Babel.Program, errors) =
