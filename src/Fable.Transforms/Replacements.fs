@@ -4265,9 +4265,12 @@ let taskBuilderAsync (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg:
     | "TaskBuilderBase.ReturnFrom", [ computation ] -> taskBuilder com ctx r t i thisArg [ startAsPromise computation ]
     | _ -> None
 
-let tasks (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let tasks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
-    | Some x, ("GetAwaiter" | "GetResult" | "get_Result" | "Result") ->
+    | Some x, "GetAwaiter" -> Some x
+    | Some x, ("GetResult" | "get_Result" | "Result") ->
+        "Task.Result and GetAwaiter().GetResult() return the task itself in JS/TS, as there's no way to block until it completes. Use let! in task { } or Async.AwaitTask instead."
+        |> addWarning com ctx.InlinePath r
         // Task<T> = Promise<T>; return the promise - callers use Async.AwaitTask to extract the value
         Some x
     | None, "Delay" ->
