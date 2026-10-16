@@ -280,8 +280,6 @@ type IFableManager =
         ?precompiledInfo: IPrecompiledInfo ->
             IParseAndCheckResults
 
-    abstract GetErrors: parseResults: IParseAndCheckResults -> Error[]
-
     abstract GetSymbolAtLocation:
         parseResults: IParseAndCheckResults * line: int * col: int * lineText: string -> ISymbol option
 
