@@ -449,15 +449,12 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             return! loop box state
 
         | Some fable, GetDeclarationLocation(id, line, col, lineText) ->
-            let result =
+            let location =
                 match FILE_NAME |> state.CurrentResults.TryFind with
-                | None -> None
+                | None -> DeclarationLocation.NotFound "file not parsed"
                 | Some res -> fable.Manager.GetDeclarationLocation(res, int line, int col, lineText)
 
-            match result with
-            | Some x -> FoundDeclarationLocation(id, Some(x.StartLine, x.StartColumn, x.EndLine, x.EndColumn))
-            | None -> FoundDeclarationLocation(id, None)
-            |> state.Worker.Post
+            FoundDeclarationLocation(id, location) |> state.Worker.Post
 
             return! loop box state
 
@@ -480,15 +477,12 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             return! loop box state
 
         | Some fable, GetDeclarationLocationForFile(id, file, line, col, lineText) ->
-            let result =
+            let location =
                 match file |> state.CurrentResults.TryFind with
-                | None -> None
+                | None -> DeclarationLocation.NotFound "file not parsed"
                 | Some res -> fable.Manager.GetDeclarationLocation(res, int line, int col, lineText)
 
-            match result with
-            | Some x -> FoundDeclarationLocation(id, Some(x.StartLine, x.StartColumn, x.EndLine, x.EndColumn))
-            | None -> FoundDeclarationLocation(id, None)
-            |> state.Worker.Post
+            FoundDeclarationLocation(id, location) |> state.Worker.Post
 
             return! loop box state
     }
