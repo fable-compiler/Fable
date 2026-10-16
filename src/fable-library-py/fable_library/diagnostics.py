@@ -2,63 +2,84 @@ from __future__ import annotations
 
 import time
 
-from .core import int32, int64
+from .core import int64
+from .time_span import TimeSpan, from_ticks
 
 
 class TimerError(Exception):
-    """A custom exception used to report errors in use of Timer class"""
+    """Kept for callers that imported the former stopwatch error type."""
 
 
 class StopWatch:
     def __init__(self) -> None:
-        self._start_time: float | None = None
-        self._elapsed_time: float | None = None
+        self._started_at: int | None = None
+        self._elapsed_ns = 0
 
     def is_running(self) -> bool:
-        """Return True if timer is running"""
-        return self._start_time is not None
+        return self._started_at is not None
 
     def start(self) -> None:
-        """Start a new timer"""
-        if self._start_time is not None:
-            raise TimerError("Timer is running. Use .stop() to stop it")
-
-        self._start_time = time.perf_counter()
+        if self._started_at is None:
+            self._started_at = time.perf_counter_ns()
 
     def stop(self) -> None:
-        """Stop the timer, and report the elapsed time"""
-        if self._start_time is None:
-            raise TimerError("Timer is not running. Use .start() to start it")
+        if self._started_at is not None:
+            self._elapsed_ns += time.perf_counter_ns() - self._started_at
+            self._started_at = None
 
-        self._elapsed_time = time.perf_counter() - self._start_time
-        self._start_time = None
+    def reset(self) -> None:
+        self._started_at = None
+        self._elapsed_ns = 0
 
-    def elapsed_milliseconds(self) -> int:
-        """Return the elapsed time in milliseconds"""
-        if self._elapsed_time is None:
-            raise TimerError("Timer is not running. Use .start() to start it")
+    def restart(self) -> None:
+        self._elapsed_ns = 0
+        self._started_at = time.perf_counter_ns()
 
-        return int32(self._elapsed_time * 1000)
+    def _elapsed_nanoseconds(self) -> int:
+        if self._started_at is None:
+            return self._elapsed_ns
+        return self._elapsed_ns + time.perf_counter_ns() - self._started_at
 
-    def elapsed_ticks(self) -> int:
-        """Return the elapsed time in ticks"""
-        if self._elapsed_time is None:
-            raise TimerError("Timer is not running. Use .start() to start it")
+    def elapsed_milliseconds(self) -> int64:
+        return int64(self._elapsed_nanoseconds() // 1_000_000)
 
-        return int32(self._elapsed_time * 10000000)
+    def elapsed_ticks(self) -> int64:
+        # invariant: ElapsedTicks and GetTimestamp use the units declared by Frequency.
+        return int64(self._elapsed_nanoseconds())
+
+    def elapsed(self) -> TimeSpan:
+        return from_ticks(self._elapsed_nanoseconds() // 100)
 
 
-def frequency() -> int:
-    return 1000000000
+def start_new() -> StopWatch:
+    stopwatch = StopWatch()
+    stopwatch.start()
+    return stopwatch
+
+
+def frequency() -> int64:
+    return int64(1_000_000_000)
+
+
+def is_high_resolution() -> bool:
+    return True
 
 
 def get_timestamp() -> int64:
     return int64(time.perf_counter_ns())
 
 
+def get_elapsed_time(starting_timestamp: int64, ending_timestamp: int64 | None = None) -> TimeSpan:
+    end = get_timestamp() if ending_timestamp is None else ending_timestamp
+    return from_ticks((end - starting_timestamp) // 100)
+
+
 __all__ = [
     "StopWatch",
     "TimerError",
     "frequency",
+    "get_elapsed_time",
     "get_timestamp",
+    "is_high_resolution",
+    "start_new",
 ]

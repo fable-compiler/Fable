@@ -2990,15 +2990,20 @@ let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor", _ ->
         Helper.LibCall(com, "diagnostics", "StopWatch", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
         |> Some
+    | "StartNew", None -> Helper.LibCall(com, "diagnostics", "start_new", t, [], ?loc = r) |> Some
+    | "GetTimestamp", None -> Helper.LibCall(com, "diagnostics", "get_timestamp", t, [], ?loc = r) |> Some
+    | "GetElapsedTime", None ->
+        Helper.LibCall(com, "diagnostics", "get_elapsed_time", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_IsRunning", Some x -> Helper.InstanceCall(x, "is_running", t, []) |> Some
+    | "get_Elapsed", Some x -> Helper.InstanceCall(x, "elapsed", t, []) |> Some
     | "get_ElapsedMilliseconds", Some x -> Helper.InstanceCall(x, "elapsed_milliseconds", t, []) |> Some
     | "get_ElapsedTicks", Some x -> Helper.InstanceCall(x, "elapsed_ticks", t, []) |> Some
     | "Start", Some x
-    | "Stop", Some x -> Helper.InstanceCall(x, i.CompiledName.ToLower(), t, []) |> Some
-    | _ ->
-        let memberName = Naming.lowerFirst i.CompiledName
-
-        Helper.LibCall(com, "diagnostics", memberName, Boolean, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+    | "Stop", Some x
+    | "Reset", Some x
+    | "Restart", Some x -> Helper.InstanceCall(x, i.CompiledName.ToLower(), t, []) |> Some
+    | _ -> None
 
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
