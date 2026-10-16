@@ -1359,4 +1359,34 @@ let tests =
             do! Async.Sleep 600
             equal 0 completed
         }
+
+    testCaseAsync "Async.StartChild with timeout cancels the child when the timeout expires" <| fun () ->
+        async {
+            let mutable completed = false
+            let child = async {
+                do! Async.Sleep 300
+                completed <- true
+            }
+            let mutable timedOut = false
+            try
+                let! childResult = Async.StartChild(child, 100)
+                do! childResult
+            with
+            | :? TimeoutException -> timedOut <- true
+            do! Async.Sleep 400
+            equal true timedOut
+            equal false completed
+        }
+
+    testCaseAsync "Async.StartChild with timeout leaves the parent running when the timeout expires" <| fun () ->
+        async {
+            let child = async { do! Async.Sleep 300 }
+            try
+                let! childResult = Async.StartChild(child, 100)
+                do! childResult
+            with
+            | :? TimeoutException -> ()
+            let! token = Async.CancellationToken
+            equal false token.IsCancellationRequested
+        }
   ]
