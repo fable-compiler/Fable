@@ -3784,6 +3784,34 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
+let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // Elapsed and GetElapsedTime are measured in milliseconds and converted to a TimeSpan
+    let toTimeSpan (ms: Expr) =
+        Helper.LibCall(com, timeSpanModule com, "fromMilliseconds", t, [ ms ], ?loc = r)
+
+    let float64 = Number(Float64, NumberInfo.Empty)
+
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> Helper.LibCall(com, "Stopwatch", "create", t, [], ?loc = r) |> Some
+    | ("StartNew" | "GetTimestamp" as meth), None ->
+        Helper.LibCall(com, "Stopwatch", Naming.lowerFirst meth, t, [], ?loc = r)
+        |> Some
+    | ("Start" | "Stop" | "Reset" | "Restart" as meth), Some x ->
+        Helper.LibCall(com, "Stopwatch", Naming.lowerFirst meth, t, [ x ], ?loc = r)
+        |> Some
+    | ("get_IsRunning" | "get_ElapsedMilliseconds" | "get_ElapsedTicks" as meth), Some x ->
+        Helper.LibCall(com, "Stopwatch", Naming.removeGetSetPrefix meth |> Naming.lowerFirst, t, [ x ], ?loc = r)
+        |> Some
+    | "get_Elapsed", Some x ->
+        Helper.LibCall(com, "Stopwatch", "elapsedTotalMilliseconds", float64, [ x ], ?loc = r)
+        |> toTimeSpan
+        |> Some
+    | "GetElapsedTime", None ->
+        Helper.LibCall(com, "Stopwatch", "getElapsedTotalMilliseconds", float64, args, ?loc = r)
+        |> toTimeSpan
+        |> Some
+    | _ -> None
+
 let systemEnv (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_NewLine" -> Some(makeStrConst "\n")
@@ -4680,6 +4708,9 @@ let tryField com returnTyp ownerTyp fieldName =
         | "System.BitConverter" ->
             Helper.LibCall(com, "BitConverter", Naming.lowerFirst fieldName, returnTyp, [])
             |> Some
+        | "System.Diagnostics.Stopwatch" when fieldName = "Frequency" || fieldName = "IsHighResolution" ->
+            Helper.LibCall(com, "Stopwatch", Naming.lowerFirst fieldName, returnTyp, [])
+            |> Some
         | _ -> None
     | _ -> None
 
@@ -4778,6 +4809,7 @@ let private replacedModules =
             "System.Convert", convert
             "System.Console", console
             "System.Diagnostics.Debug", debug
+            "System.Diagnostics.Stopwatch", stopwatch
             "System.Diagnostics.Debugger", debug
             Types.datetime, dateTime
             Types.datetimeOffset, dateTimeOffset
