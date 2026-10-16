@@ -65,6 +65,7 @@ type State =
         Fable: FableState option
         Worker: ObservableWorker<WorkerRequest>
         CurrentResults: Map<string, IParseAndCheckResults>
+        CurrentCompletions: CompletionItem[]
     }
 
 /// Map a REPL language string to its fable-library directory name (used as the
@@ -448,19 +449,29 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             return! loop box state
 
         | Some fable, GetCompletions(id, line, col, lineText) ->
-            let completions =
+            let items =
                 match FILE_NAME |> state.CurrentResults.TryFind with
                 | None -> [||]
                 | Some res -> fable.Manager.GetCompletionsAtLocation(res, int line, int col, lineText)
 
-            FoundCompletions(id, completions) |> state.Worker.Post
-            return! loop box state
+            FoundCompletions(id, items |> Array.map _.Completion) |> state.Worker.Post
+
+            return! loop box { state with CurrentCompletions = items }
 
         | Some fable, GetSymbolUses(id, line, col, lineText) ->
             let uses =
                 symbolUsesAt fable (state.CurrentResults.TryFind FILE_NAME) (int line) (int col) lineText
 
             FoundSymbolUses(id, uses) |> state.Worker.Post
+            return! loop box state
+
+        | Some _, GetCompletionDescription(id, index) ->
+            let tooltips =
+                match Array.tryItem index state.CurrentCompletions with
+                | None -> [||]
+                | Some item -> item.GetDescription()
+
+            FoundCompletionDescription(id, tooltips) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetDeclarationLocation(id, line, col, lineText) ->
@@ -483,13 +494,15 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
             return! loop box state
 
         | Some fable, GetCompletionsForFile(id, file, line, col, lineText) ->
-            let completions =
+            let items =
                 match file |> state.CurrentResults.TryFind with
                 | None -> [||]
                 | Some res -> fable.Manager.GetCompletionsAtLocation(res, int line, int col, lineText)
 
-            FoundCompletions(id, completions) |> state.Worker.Post
-            return! loop box state
+            FoundCompletions(id, items |> Array.map (fun item -> item.Completion))
+            |> state.Worker.Post
+
+            return! loop box { state with CurrentCompletions = items }
 
         | Some fable, GetSymbolUsesForFile(id, file, line, col, lineText) ->
             let uses =
@@ -517,6 +530,7 @@ let box =
             Fable = None
             Worker = worker
             CurrentResults = Map.empty
+            CurrentCompletions = [||]
         }
         |> loop box
     )

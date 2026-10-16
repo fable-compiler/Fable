@@ -51,6 +51,8 @@ type WorkerRequest =
         otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
+    /// Tooltips of an item of the last FoundCompletions answer
+    | GetCompletionDescription of id: Guid * index: int
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
     | GetSymbolUses of id: Guid * line: int * column: int * lineText: string
     | GetTooltipForFile of id: Guid * file: string * line: int * column: int * lineText: string
@@ -76,6 +78,7 @@ type WorkerAnswer =
     | CompilerCrashed of message: string
     | FoundTooltip of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
+    | FoundCompletionDescription of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundDeclarationLocation of id: Guid * Fable.Standalone.DeclarationLocation
     | FoundSymbolUses of id: Guid * uses: Fable.Standalone.SymbolUse[]
 

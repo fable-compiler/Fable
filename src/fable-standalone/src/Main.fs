@@ -425,6 +425,36 @@ let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
             List.map toToolTips els |> Array.concat
     | None -> [||]
 
+let private toCompletionKind (kind: CompletionItemKind) =
+    match kind with
+    | CompletionItemKind.SuggestedName -> CompletionKind.SuggestedName
+    | CompletionItemKind.Field -> CompletionKind.Field
+    | CompletionItemKind.Property -> CompletionKind.Property
+    | CompletionItemKind.Method false -> CompletionKind.Method
+    | CompletionItemKind.Method true -> CompletionKind.ExtensionMethod
+    | CompletionItemKind.Event -> CompletionKind.Event
+    | CompletionItemKind.Argument -> CompletionKind.Argument
+    | CompletionItemKind.CustomOperation -> CompletionKind.CustomOperation
+    | CompletionItemKind.Other -> CompletionKind.Other
+
+let private toCompletionItem (decl: DeclarationListItem) : Fable.Standalone.CompletionItem =
+    {
+        Completion =
+            {
+                NameInList = decl.NameInList
+                NameInCode = decl.NameInCode
+                Glyph = convertGlyph decl.Glyph
+                Kind = toCompletionKind decl.Kind
+                FullName = decl.FullName
+                IsOwnMember = decl.IsOwnMember
+                MinorPriority = decl.MinorPriority
+            }
+        GetDescription =
+            fun () ->
+                let (ToolTipText els) = decl.Description
+                List.map toToolTips els |> Array.concat
+    }
+
 let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
@@ -440,13 +470,7 @@ let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: i
         let decls =
             checkFile.GetDeclarationListInfo(results.ParseFileResultsOpt, line, lineText, longName, (fun () -> []))
 
-        decls.Items
-        |> Array.map (fun decl ->
-            {
-                Name = decl.NameInList
-                Glyph = convertGlyph decl.Glyph
-            }
-        )
+        decls.Items |> Array.map toCompletionItem
     | None -> [||]
 
 let mapFableError (com: Compiler) (log: LogEntry) =
