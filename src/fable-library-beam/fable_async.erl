@@ -6,7 +6,7 @@
     start_with_continuations/4, start_with_continuations/5,
     sleep/1,
     await_event/1, await_event/2,
-    parallel/1,
+    parallel/1, parallel/2,
     choice/1,
     sequential/1,
     catch_async/1,
@@ -424,45 +424,75 @@ invoke_await_event_cancel(CancelAction, OnCancel) ->
     end,
     OnCancel(fable_cancellation:exception()).
 
-%% Parallel: spawn one process per computation, collect results in order
-parallel(Computations) when is_reference(Computations) ->
-    parallel(get(Computations));
-parallel(Computations) ->
+%% Parallel: bounded workers, ordered results, and cooperative sibling cancellation.
+parallel(Computations) -> parallel(Computations, undefined).
+parallel(Computations, MaxDegree) when is_reference(Computations) ->
+    parallel(get(Computations), MaxDegree);
+parallel(_Computations, MaxDegree) when is_integer(MaxDegree), MaxDegree < 1 ->
+    erlang:error(#{exn_type => argument_exception,
+                   message => <<"maxDegreeOfParallelism must be positive">>});
+parallel(Computations, MaxDegree) ->
     fun(Ctx) ->
-        Self = self(),
+        ParentToken = maps:get(cancel_token, Ctx),
+        Token = fable_cancellation:create(),
+        %% invariant: cancellation of one parallel group never cancels its caller's token.
+        Registration = fable_cancellation:register(
+            ParentToken, fun(_) -> fable_cancellation:cancel(Token) end),
+        Ref = make_ref(),
         Indexed = lists:zip(lists:seq(1, length(Computations)), Computations),
-        lists:foreach(
-            fun({Idx, Comp}) ->
-                spawn(fun() ->
-                    try
-                        Result = fable_async:run_synchronously(Comp),
-                        Self ! {async_parallel, Idx, {ok, Result}}
-                    catch
-                        _:Err ->
-                            Self ! {async_parallel, Idx, {error, Err}}
+        Limit = case MaxDegree of undefined -> length(Computations); _ -> MaxDegree end,
+        try
+            {Waiting, Active} = start_parallel_workers(Indexed, Limit, Ref, Token),
+            case collect_parallel(Active, Waiting, Ref, Token, #{}, undefined) of
+                {ok, Map} ->
+                    Ordered = [maps:get(I, Map) || I <- lists:seq(1, length(Computations))],
+                    (maps:get(on_success, Ctx))(fable_utils:new_ref(Ordered));
+                {error, Err} ->
+                    case fable_cancellation:is_cancellation_requested(ParentToken)
+                         andalso fable_utils:is_exception_type(wrap_error(Err), operation_canceled_exception) of
+                        true -> (maps:get(on_cancel, Ctx))(wrap_error(Err));
+                        false -> (maps:get(on_error, Ctx))(Err)
                     end
-                end)
-            end,
-            Indexed
-        ),
-        Results = collect_parallel(length(Computations), #{}),
-        case Results of
-            {ok, Map} ->
-                Ordered = [maps:get(I, Map) || I <- lists:seq(1, length(Computations))],
-                (maps:get(on_success, Ctx))(fable_utils:new_ref(Ordered));
-            {error, Err} ->
-                (maps:get(on_error, Ctx))(Err)
+            end
+        after
+            fable_utils:safe_dispose(Registration)
         end
     end.
 
-collect_parallel(0, Acc) ->
-    {ok, Acc};
-collect_parallel(N, Acc) ->
+start_parallel_workers(Waiting, Slots, Ref, Token) ->
+    start_parallel_workers(Waiting, Slots, Ref, Token, 0).
+
+start_parallel_workers(Waiting, 0, _Ref, _Token, Started) -> {Waiting, Started};
+start_parallel_workers([], _Slots, _Ref, _Token, Started) -> {[], Started};
+start_parallel_workers([{Idx, Comp} | Rest], Slots, Ref, Token, Started) ->
+    Owner = self(),
+    spawn(fun() ->
+        Result = try
+            {ok, run_inline(Comp, Token)}
+        catch
+            _:Err -> {error, Err}
+        end,
+        Owner ! {async_parallel, Ref, Idx, Result}
+    end),
+    start_parallel_workers(Rest, Slots - 1, Ref, Token, Started + 1).
+
+collect_parallel(0, _Waiting, _Ref, _Token, Acc, undefined) -> {ok, Acc};
+collect_parallel(0, _Waiting, _Ref, _Token, _Acc, Error) -> {error, Error};
+collect_parallel(Active, Waiting, Ref, Token, Acc, Error) ->
     receive
-        {async_parallel, Idx, {ok, Val}} ->
-            collect_parallel(N - 1, maps:put(Idx, Val, Acc));
-        {async_parallel, _Idx, {error, Err}} ->
-            {error, Err}
+        {async_parallel, Ref, Idx, Outcome} ->
+            {NextAcc, NextError} = case Outcome of
+                {ok, Value} -> {maps:put(Idx, Value, Acc), Error};
+                {error, Err} when Error =:= undefined ->
+                    fable_cancellation:cancel(Token),
+                    {Acc, Err};
+                {error, _Err} -> {Acc, Error}
+            end,
+            {Remaining, Started} = case {NextError, Waiting} of
+                {undefined, [_ | _]} -> start_parallel_workers(Waiting, 1, Ref, Token);
+                _ -> {Waiting, 0}
+            end,
+            collect_parallel(Active - 1 + Started, Remaining, Ref, Token, NextAcc, NextError)
     end.
 
 %% Sequential: run computations one by one, collect results

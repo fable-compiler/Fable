@@ -438,6 +438,72 @@ let ``test async parallel works`` () =
     Array.sum results |> equal 6
 
 [<Fact>]
+let ``test Async.Parallel limits workers and preserves result order`` () =
+#if FABLE_COMPILER
+    let state: obj = Fable.Core.BeamInterop.emitErlExpr () "atomics:new(3, [])"
+    let enter () : int = Fable.Core.BeamInterop.emitErlExpr state "atomics:add_get($0, 1, 1)"
+    let leave () : unit = Fable.Core.BeamInterop.emitErlExpr state "atomics:sub_get($0, 1, 1)"
+    let mark (slot: int) : unit = Fable.Core.BeamInterop.emitErlExpr (state, slot) "atomics:put($0, $1, 1)"
+    let read (slot: int) : int = Fable.Core.BeamInterop.emitErlExpr (state, slot) "atomics:get($0, $1)"
+#else
+    let gate = obj ()
+    let mutable running = 0
+    let mutable seenTwo = 0
+    let mutable exceeded = 0
+    let enter () = lock gate (fun () -> running <- running + 1; running)
+    let leave () = lock gate (fun () -> running <- running - 1)
+    let mark slot = lock gate (fun () -> if slot = 2 then seenTwo <- 1 else exceeded <- 1)
+    let read slot = if slot = 2 then seenTwo else exceeded
+#endif
+    let work i = async {
+        let running = enter ()
+        if running = 2 then mark 2
+        if running > 2 then mark 3
+        do! Async.Sleep 50
+        leave ()
+        return i
+    }
+    let result = Async.RunSynchronously(Async.Parallel([ for i in 1..6 -> work i ], maxDegreeOfParallelism = 2))
+    result |> equal [| 1..6 |]
+    read 2 |> equal 1
+    read 3 |> equal 0
+
+[<Fact>]
+let ``test Async.Parallel cancels siblings after a failure`` () =
+#if FABLE_COMPILER
+    let completed: obj = Fable.Core.BeamInterop.emitErlExpr () "atomics:new(1, [])"
+    let finish () : unit = Fable.Core.BeamInterop.emitErlExpr completed "atomics:add_get($0, 1, 1)"
+    let count () : int = Fable.Core.BeamInterop.emitErlExpr completed "atomics:get($0, 1)"
+#else
+    let mutable completed = 0
+    let finish () = System.Threading.Interlocked.Increment(&completed) |> ignore<int>
+    let count () = completed
+#endif
+    let work i = async {
+        if i = 2 then
+            do! Async.Sleep 20
+            failwith "parallel failure"
+        do! Async.Sleep 200
+        finish ()
+    }
+    let outcome = Async.RunSynchronously(Async.Catch(Async.Parallel [ for i in 0..4 -> work i ]))
+    match outcome with
+    | Choice1Of2 _ -> failwith "Expected parallel failure"
+    | Choice2Of2 error -> error.Message |> equal "parallel failure"
+    Async.RunSynchronously(Async.Sleep 250)
+    count () |> equal 0
+
+[<Fact>]
+let ``test Async.Parallel validates degree and accepts empty input`` () =
+    let mutable raised = false
+    try
+        Async.Parallel([ async { return 1 } ], maxDegreeOfParallelism = 0) |> ignore
+    with :? ArgumentException -> raised <- true
+    raised |> equal true
+    Async.RunSynchronously(Async.Parallel(([]: Async<int> list), maxDegreeOfParallelism = 2))
+    |> equal [||]
+
+[<Fact>]
 let ``test Async.Choice returns first Some and handles empty input`` () =
     let slow = async {
         do! Async.Sleep 200

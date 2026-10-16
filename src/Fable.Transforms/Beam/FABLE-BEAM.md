@@ -397,9 +397,10 @@ such as PIDs and messages rather than captured process-dictionary-backed mutable
 Dispose a registration when its source may never cancel, because the broker retains
 active callbacks until cancellation or disposal.
 
+`Async.Parallel` links its workers to the parent cancellation token and cancels
+remaining workers after a failure.
 `Async.StartChild` links its child to the parent cancellation token, while a child
-timeout cancels only the child. `Async.Parallel` does not yet propagate its parent
-token; pass or capture a token explicitly when its workers must observe it.
+timeout cancels only the child.
 
 The `task { }` computation expression uses the same CPS runtime as `async { }`.
 `Async.StartAsTask` and `Task.Delay` start work immediately and return awaitable
