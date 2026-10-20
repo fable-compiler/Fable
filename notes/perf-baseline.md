@@ -1,6 +1,6 @@
 # Performance baseline
 
-Measured with `./fickle-build.sh timings` (the `--timings` report), Release compiler, cold process, `--noCache`.
+Measured with `dotnet run --project src/Fickle.Build -- timings` (the `--timings` report), Release compiler, cold process, `--noCache`.
 
 ## 2026-10-20: tests/Js/Main → JavaScript (76 source files), Windows 11, .NET 10
 
