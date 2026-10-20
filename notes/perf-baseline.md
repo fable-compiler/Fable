@@ -176,6 +176,38 @@ from the last unchanged file.
 - Watch mode: after editing `StringTests.fs`, the recheck (0.9 s) matches a cold watch-mode compile of the same
   source, file for file.
 
+### Project cracking is cached
+
+The 2.6–4.3 s of project cracking in the tables above is with `--noCache`. Without it, Fable reads the cracked
+project from its cache: 119 ms when nothing changed, 113 ms after editing a source file. A full crack only happens
+on the first run or after a project file changes, so it needs no fork work.
+
+### Symbol API caching (fickle-fsharp `7d83faa66`)
+
+A fresh trace of the parallel-checking build ranked the FCS symbol API calls Fable makes by allocation. The top ones
+recomputed the same answer on every call:
+
+- Every `FSharpType` predicate (`IsTupleType`, `HasTypeDefinition`, `IsAbbreviation`, ...) first checked resolution
+  by building an `FSharpEntity`; `IsAbbreviation` did so two or three times per call (408 MB).
+- `FSharpType.GenericArguments` built a list, an array and a collection per call (192 MB, 5.8% of CPU), and Fable
+  reads it several times per type.
+- `CurriedParameterGroups` (586 MB) is read several times per member by Fable.
+
+`FSharpType` now caches its resolution and generic arguments and checks the definition reference directly;
+`FSharpMemberOrFunctionOrValue` caches its parameter groups.
+
+| | Before | After |
+| --- | --- | --- |
+| Allocated, `tests/Js/Main` → JS | 9.26 GB | 7.94 GB |
+| Allocated, `tests/Python` → Python | 8.58 GB | 7.52 GB |
+| Fable per-file work (summed, JS) | 13.9 s | 12.2 s |
+| Compilation total (wall, JS, median of 6) | 3.42 s | 3.34 s |
+
+- Output is identical (JS byte-for-byte, 141 files; Python after counter normalisation, 110 files), as are warnings.
+  Compiler tests pass 133/133.
+- Wall time does not move on this machine: FCS type checking (2.7–3.0 s) is the critical path, and Fable's work
+  runs beside it on spare cores. The CPU and allocation savings should show as wall time on machines with fewer cores.
+
 ### Next measurements
 
 - Watch-mode rechecks are still sequential from the edited file onwards. Rechecking only the edited file's
