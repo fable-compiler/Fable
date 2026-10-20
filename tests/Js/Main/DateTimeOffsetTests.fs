@@ -112,6 +112,24 @@ let tests =
         DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.Zero).ToString("s", CultureInfo.InvariantCulture)
         |> equal "2014-09-01T16:37:02"
 
+    testCase "DateTimeOffset.ToString uses the offset's date in every local timezone" <| fun _ ->
+        // At +14 and -12 the offset's date differs from the UTC date, so one of the two
+        // differs from the date in any local timezone
+        let early = DateTimeOffset(2014, 9, 1, 0, 30, 5, TimeSpan.FromHours 14)
+        let late = DateTimeOffset(2014, 9, 1, 23, 30, 5, TimeSpan.FromHours -12)
+        for d in [ early; late ] do
+            let format (f: string) = d.ToString(f, CultureInfo.InvariantCulture)
+            let time = if d = early then "00:30" else "23:30"
+            format "D" |> equal "Monday, 01 September 2014"
+            format "d" |> equal "09/01/2014"
+            format "F" |> equal ("Monday, 01 September 2014 " + time + ":05")
+            format "f" |> equal ("Monday, 01 September 2014 " + time)
+            format "G" |> equal ("09/01/2014 " + time + ":05")
+            format "g" |> equal ("09/01/2014 " + time)
+            format "M" |> equal "September 01"
+            format "Y" |> equal "2014 September"
+            format "dd/MM/yyyy HH:mm" |> equal ("01/09/2014 " + time)
+
     testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
         let date = DateTimeOffset(1, 1, 2, 0, 0, 0, TimeSpan.Zero)
         date.Year |> equal 1

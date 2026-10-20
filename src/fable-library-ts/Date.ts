@@ -403,7 +403,9 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
 }
 
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
-  const d = new Date(date.getTime() + (date.offset ?? 0));
+  // fickle: the shifted date holds the offset's wall-clock time in its UTC fields, so it must be
+  // a Utc DateTime; a plain Date makes day/month/year/hour read the machine's local timezone
+  const d = DateTime(date.getTime() + (date.offset ?? 0), DateTimeKind.Utc);
   if (typeof format !== "string") {
     return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
