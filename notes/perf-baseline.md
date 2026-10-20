@@ -42,10 +42,81 @@ Default mode, 3 runs:
 | GC gen0/gen1/gen2 | ~105/50/9 | ~70/44/8 |
 
 - Wall time is unchanged within noise: the retarget alone buys no speed.
-- Allocation drops by about a third, presumably from the in-box net10 BCL replacing the netstandard
-  polyfill packages (System.Memory, System.Collections.Immutable, ...). To be confirmed with a dotTrace allocation snapshot.
+- Allocation drops by about a third. The profile below shows why; it is not the BCL.
+
+## 2026-10-21: profile of the same benchmark (net10 FCS)
+
+One dotTrace timeline snapshot for the overview, and dotnet-trace for the split by phase: CPU samples
+(`dotnet-sampled-thread-time`) plus GC allocation ticks (`Microsoft-Windows-DotNETRuntime:0x1:5`).
+The allocation ticks sum to 11.1 GB, which matches the `--timings` figure.
+
+### CPU by phase
+
+Running samples only, attributed by the innermost phase on the stack. "Fable → FCS" is FCS code
+that Fable calls through the symbol API, which FCS runs lazily during Fable's transform.
+
+| Phase | Share of running CPU |
+| --- | --- |
+| FCS parse | 22% |
+| FCS type check | 21% |
+| Fable's own code | 13% |
+| Fable → FCS symbol API | 10% |
+| Fable → FCS `FSharpExprConvert` | 5% |
+| FCS import (TcImports, IL reading) | 4% |
+| Other (mostly a blocked read of the MSBuild cracker's stdout) | 21% |
+
+- **About 40% of the parse share is waiting.** Parallel parse threads hit `FSharp.Compiler.Parser`'s static
+  constructor (the fsyacc tables) together and spin in `InitClassSlow` while one thread runs it: 8.5% of
+  running samples under parsing, 10.5% across all phases.
+- **GC suspension shows up as running time**: `Thread.PollGC` is about 13% of running samples across phases.
+- **JIT is not on the critical path.** The timeline shows 19.8 s of jitting over 65,725 methods, but a
+  ReadyToRun publish (FCS 19 → 38 MB) compiles in the same wall time, 3 runs each (8.0–8.6 s JIT,
+  8.1–8.4 s R2R). The jitting is tier-up on idle cores. This rules out R2R as a speedup here.
+
+### Allocation by phase
+
+| Phase | Allocated |
+| --- | --- |
+| FCS type check | 3.2 GB (29%) |
+| Fable → FCS `FSharpExprConvert` | 2.9 GB (26%) |
+| Fable → FCS symbol API | 2.3 GB (21%) |
+| Fable's own code | 1.5 GB (14%) |
+| FCS import | 0.8 GB (8%) |
+| FCS parse | 0.1 GB (1%) |
+
+- **1.95 GB (18% of all allocation) is one bug.** `FSharpExprConvert.GetWitnessArgs` runs on every value
+  or member application. It calls `ConstraintSolver.CodegenWitnessesForTyparInst`, which builds a fresh
+  `InfoReader` through `CreateCodegenState`, and that preallocates a dozen `Cache`s, each backed by a
+  `ConcurrentDictionary` of about 1,000 buckets. The `InfoReader` is built before checking whether any
+  type parameter has a trait constraint, and almost none do. Fix candidate (fickle-fsharp,
+  `src/Compiler/Checking/ConstraintSolver.fs`): return `[]` early when
+  `GetTraitConstraintInfosOfTypars g typars` is empty. The same `CreateCodegenState` sits under
+  IlxGen's and the Optimizer's witness paths.
+- The rest of the FCS-side allocation is spread thinly: type-structure hashing (`TypeHashing.emitTType`),
+  `FSharpType.isUnresolved`, `CurriedParameterGroups`, and IL metadata rows read via tuples.
+
+### Why the net10 build allocates 5 GB less
+
+The current Fable build, run against the old netstandard2.0 `lib/fcs` binaries (only the FCS assemblies
+swapped), reproduces 16.0 GB. Traced, the difference is two closures that the old binary allocates and the new one does not:
+
+- `primEntityRefEq@471`: 3.4 GB (`TypedTreeBasics.fs`, called by every entity-ref equality test)
+- `arrayPathEq` `loop@397`: 1.07 GB (the inner `let rec loop` over the path arrays)
+
+Neither function has platform-specific code. Both binaries are optimised builds, but closure names differ
+(`loop@235-42` vs `loop@233-47`), so the old binary is a different source revision and possibly a
+different compiler. Which of the two removed the closures has not been isolated.
+`arrayPathEq` is still a candidate for a span-based `SequenceEqual` rewrite.
 
 ### Next measurements
 
-- dotTrace sampling + allocation snapshot of a cold run, split by FCS phase (parse, import, type check).
+- Apply the witness fix in fickle-fsharp and re-measure allocation (expect about −2 GB).
+- Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
 - The same table for Python and for a large external project.
+
+### Profiling notes
+
+- `dottrace start` and `dotnet-trace collect -- <cmd>` both hang this benchmark. Project cracking
+  starts `dotnet msbuild`, which apparently inherits the profiler's suspend-on-start diagnostic port and waits forever.
+  Start Fable normally and attach by PID instead (`dotnet-trace collect -p <pid>`).
+- Rider's dotTrace MCP tools time out on a 530 MB timeline snapshot of this run.
