@@ -917,16 +917,17 @@ module Annotation =
 
                 AbstractMember.abstractProperty (prop, tagType, isComputed = isComputed)
 
-            match uci.UnionCaseFields with
-            // | [ field ] when field.Name = "Item" ->
-            //     IntersectionTypeAnnotation
-            //         [|
-            //             field.FieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
-            //             ObjectTypeAnnotation [| tagMember |]
-            //         |]
-            | fields ->
+            match tryInlinedInterface com ent uci with
+            | Ok(Some fieldType) ->
+                IntersectionTypeAnnotation
+                    [|
+                        fieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
+                        ObjectTypeAnnotation [| tagMember |]
+                    |]
+            | Ok None
+            | Error _ ->
                 let names, types =
-                    fields |> List.map (fun fi -> fi.Name, fi.FieldType) |> List.unzip
+                    uci.UnionCaseFields |> List.map (fun fi -> fi.Name, fi.FieldType) |> List.unzip
 
                 makeAnonymousRecordTypeAnnotation com ctx (List.toArray names) types
                 |> function

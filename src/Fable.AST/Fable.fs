@@ -78,6 +78,7 @@ type UnionCase =
     abstract FullName: string
     abstract CompiledName: string option
     abstract UnionCaseFields: Field list
+    abstract Attributes: Attribute seq
 
 [<RequireQualifiedAccess>]
 type Constraint =

@@ -138,9 +138,11 @@ type FsUnionCase(uci: FSharpUnionCase) =
             | _ -> None
         )
 
-    // static member HasNamedFields(uci: FSharpUnionCase) =
-    //     not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
-    //     true
+    /// The macro of a CaseTestAttribute, an extra test for a TypeScriptTaggedUnion case
+    static member CaseTest(uci: FSharpUnionCase) =
+        uci.Attributes
+        |> Helpers.tryFindAttrib Atts.caseTest
+        |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string<obj>)
 
     interface Fable.UnionCase with
         member _.Name = uci.Name
@@ -148,6 +150,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
         member _.CompiledName = FsUnionCase.CompiledName uci
 
         member _.UnionCaseFields = uci.Fields |> Seq.mapToList (fun x -> upcast FsField(x))
+        member _.Attributes = uci.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
 type FsAtt(att: FSharpAttribute) =
     interface Fable.Attribute with
