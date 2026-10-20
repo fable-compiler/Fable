@@ -140,10 +140,25 @@ Sample timestamps per phase, from the same trace (ms from trace start):
   costs only 60–75 ms cold (measured in isolation). Removing that contention would save at most ~0.1 s
   of wall time, so it is not worth a fork change.
 
+### How much graph-based checking could save
+
+`fsc` on the same project (`dotnet build tests/Js/Main --no-dependencies --no-incremental`), with
+`--times:<csv>`, with and without `--test:GraphBasedChecking`. Spans of `CheckDeclarations.CheckOneImplFile`, 69 files:
+
+| Mode | Type check wall | Summed per-file time | Effective parallelism |
+| --- | --- | --- | --- |
+| Sequential | 8.3 s | 8.3 s | 1.0 |
+| Graph | 2.0 s | 13.9 s | 6.9 |
+
+- The dependency graph of the test project is wide: type checking wall time drops by 4x.
+- Per-file times rise by ~70% under contention, and the floor is `ConvertTests.fs` (1.3–1.6 s on its own).
+- `fsc` checks with the same type checker as Fable's `service_slim`, so this bounds what parallel checking
+  there could save on a cold compile: about 6 s of the ~8.5 s compilation.
+
 ### Next measurements
 
-- Parallel type checking inside `service_slim`'s `ParseAndCheck`. FCS has graph-based checking
-  (`--test:GraphBasedChecking`, used by `fsc`), but Fable's service path checks files sequentially.
+- Parallel type checking inside `service_slim`'s `ParseAndCheck`, measured above via `fsc`. Fable's
+  service path still checks files sequentially.
 - (Dropped) Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
 - The same table for Python and for a large external project.
 
