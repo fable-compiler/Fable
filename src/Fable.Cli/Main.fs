@@ -992,7 +992,19 @@ type State =
                 // as some OS use case insensitive paths
                 let importDir = importDir.ToLower()
 
-                this.DeduplicateDic.GetOrAdd(importDir, (fun _ -> set this.DeduplicateDic.Values |> addTargetDir))
+                // fickl: choosing a target dir reads every dir chosen so far, and GetOrAdd runs its factory outside its
+                // own lock, so two files compiled at once could choose the same dir and write the same output file
+                match this.DeduplicateDic.TryGetValue importDir with
+                | true, targetDir -> targetDir
+                | false, _ ->
+                    lock
+                        this.DeduplicateDic
+                        (fun () ->
+                            this.DeduplicateDic.GetOrAdd(
+                                importDir,
+                                (fun _ -> set this.DeduplicateDic.Values |> addTargetDir)
+                            )
+                        )
         }
 
     static member Create(cliArgs, ?watchDelay, ?recompileAllFiles) =
