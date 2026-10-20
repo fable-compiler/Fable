@@ -10772,13 +10772,13 @@
 <member name="M:FSIstrings.SR.stoppedDueToError">
 <summary>
  Stopped due to error\n
- (Originally from Interactive/FSIstrings.txt:2)
+ (Originally from Interactive\FSIstrings.txt:2)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.shadowCopyReferences(System.String)">
 <summary>
  Prevents references from being locked by the F# Interactive process (%s by default)
- (Originally from Interactive/FSIstrings.txt:56)
+ (Originally from Interactive\FSIstrings.txt:56)
 </summary>
 </member>
 <member name="P:FSIstrings.SR.SwallowResourceText(System.Boolean)">
@@ -10794,349 +10794,349 @@
 <member name="M:FSIstrings.SR.fsiUse">
 <summary>
  Use the given file on startup as initial input
- (Originally from Interactive/FSIstrings.txt:11)
+ (Originally from Interactive\FSIstrings.txt:11)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiUsage(System.String)">
 <summary>
  Usage: %s &lt;options&gt; [script.fsx [&lt;arguments&gt;]]
- (Originally from Interactive/FSIstrings.txt:3)
+ (Originally from Interactive\FSIstrings.txt:3)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiUnexpectedThreadAbortException">
 <summary>
  - Unexpected ThreadAbortException (Ctrl-C) during event handling: Trying to restart...
- (Originally from Interactive/FSIstrings.txt:51)
+ (Originally from Interactive\FSIstrings.txt:51)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiTurnedTimingOn">
 <summary>
  --&gt; Timing now on
- (Originally from Interactive/FSIstrings.txt:49)
+ (Originally from Interactive\FSIstrings.txt:49)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiTurnedTimingOff">
 <summary>
  --&gt; Timing now off
- (Originally from Interactive/FSIstrings.txt:50)
+ (Originally from Interactive\FSIstrings.txt:50)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiTimeInfoMainString(System.String,System.String,System.String)">
 <summary>
  Real: %s, CPU: %s, GC %s
- (Originally from Interactive/FSIstrings.txt:25)
+ (Originally from Interactive\FSIstrings.txt:25)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiTimeInfoGCGenerationLabelSomeShorthandForTheWordGeneration">
 <summary>
  gen
- (Originally from Interactive/FSIstrings.txt:26)
+ (Originally from Interactive\FSIstrings.txt:26)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiRemaining">
 <summary>
  Treat remaining arguments as command line arguments, accessed using fsi.CommandLineArgs
- (Originally from Interactive/FSIstrings.txt:13)
+ (Originally from Interactive\FSIstrings.txt:13)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiReadline(System.String)">
 <summary>
  Support TAB completion in console (%s by default)
- (Originally from Interactive/FSIstrings.txt:18)
+ (Originally from Interactive\FSIstrings.txt:18)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiQuiet">
 <summary>
  Suppress fsi writing to stdout
- (Originally from Interactive/FSIstrings.txt:17)
+ (Originally from Interactive\FSIstrings.txt:17)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiProductNameCommunity(System.String)">
 <summary>
  F# Interactive for F# %s
- (Originally from Interactive/FSIstrings.txt:55)
+ (Originally from Interactive\FSIstrings.txt:55)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiProductName(System.String)">
 <summary>
  Microsoft (R) F# Interactive version %s
- (Originally from Interactive/FSIstrings.txt:54)
+ (Originally from Interactive\FSIstrings.txt:54)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiOperationFailed">
 <summary>
  Operation failed. The error text has been printed in the error stream. To return the corresponding FSharpDiagnostic use the EvalInteractionNonThrowing, EvalScriptNonThrowing or EvalExpressionNonThrowing
- (Originally from Interactive/FSIstrings.txt:58)
+ (Originally from Interactive\FSIstrings.txt:58)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiOperationCouldNotBeCompleted">
 <summary>
  Operation could not be completed due to earlier error
- (Originally from Interactive/FSIstrings.txt:57)
+ (Originally from Interactive\FSIstrings.txt:57)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiMultiAssemblyEmitOption(System.String)">
 <summary>
  Emit multiple assemblies (%s by default)
- (Originally from Interactive/FSIstrings.txt:59)
+ (Originally from Interactive\FSIstrings.txt:59)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiMiscellaneous">
 <summary>
  - MISCELLANEOUS -
- (Originally from Interactive/FSIstrings.txt:8)
+ (Originally from Interactive\FSIstrings.txt:8)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiLoadingFilesPrefixText">
 <summary>
  Loading
- (Originally from Interactive/FSIstrings.txt:40)
+ (Originally from Interactive\FSIstrings.txt:40)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiLoad">
 <summary>
  #load the given file on startup
- (Originally from Interactive/FSIstrings.txt:12)
+ (Originally from Interactive\FSIstrings.txt:12)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiLineTooLong">
 <summary>
  Warning: line too long, ignoring some characters\n
- (Originally from Interactive/FSIstrings.txt:24)
+ (Originally from Interactive\FSIstrings.txt:24)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiLanguage">
 <summary>
  - LANGUAGE -
- (Originally from Interactive/FSIstrings.txt:7)
+ (Originally from Interactive\FSIstrings.txt:7)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiInvalidAssembly(System.String)">
 <summary>
  &apos;%s&apos; is not a valid assembly name
- (Originally from Interactive/FSIstrings.txt:22)
+ (Originally from Interactive\FSIstrings.txt:22)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHeader3(System.String)">
 <summary>
        See &apos;%s&apos; for options
- (Originally from Interactive/FSIstrings.txt:39)
+ (Originally from Interactive\FSIstrings.txt:39)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHeader2commandLine">
 <summary>
    F# Interactive command line options:
- (Originally from Interactive/FSIstrings.txt:38)
+ (Originally from Interactive\FSIstrings.txt:38)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHeader1directives">
 <summary>
    F# Interactive directives:
- (Originally from Interactive/FSIstrings.txt:28)
+ (Originally from Interactive\FSIstrings.txt:28)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashtimeInfo">
 <summary>
  Toggle timing on/off
- (Originally from Interactive/FSIstrings.txt:33)
+ (Originally from Interactive\FSIstrings.txt:33)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashrInfo">
 <summary>
  Reference (dynamically load) the given DLL
- (Originally from Interactive/FSIstrings.txt:29)
+ (Originally from Interactive\FSIstrings.txt:29)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashquitInfo">
 <summary>
  Exit
- (Originally from Interactive/FSIstrings.txt:36)
+ (Originally from Interactive\FSIstrings.txt:36)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashloadInfo">
 <summary>
  Load the given file(s) as if compiled and referenced
- (Originally from Interactive/FSIstrings.txt:32)
+ (Originally from Interactive\FSIstrings.txt:32)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashhelpdocInfo">
 <summary>
  Display documentation for an identifier, e.g. #help \&quot;List.map\&quot;;;
- (Originally from Interactive/FSIstrings.txt:35)
+ (Originally from Interactive\FSIstrings.txt:35)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashhelpInfo">
 <summary>
  Display help
- (Originally from Interactive/FSIstrings.txt:34)
+ (Originally from Interactive\FSIstrings.txt:34)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashclearInfo">
 <summary>
  Clear screen
- (Originally from Interactive/FSIstrings.txt:37)
+ (Originally from Interactive\FSIstrings.txt:37)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroTextHashIInfo">
 <summary>
  Add the given search path for referenced DLLs
- (Originally from Interactive/FSIstrings.txt:30)
+ (Originally from Interactive\FSIstrings.txt:30)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiIntroPackageSourceUriInfo">
 <summary>
  Include package source uri when searching for packages
- (Originally from Interactive/FSIstrings.txt:31)
+ (Originally from Interactive\FSIstrings.txt:31)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiInterrupt">
 <summary>
  \n- Interrupt\n
- (Originally from Interactive/FSIstrings.txt:41)
+ (Originally from Interactive\FSIstrings.txt:41)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiInputFiles">
 <summary>
  - INPUT FILES -
- (Originally from Interactive/FSIstrings.txt:4)
+ (Originally from Interactive\FSIstrings.txt:4)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiHelp">
 <summary>
  Display this usage message (Short form: -?)
- (Originally from Interactive/FSIstrings.txt:14)
+ (Originally from Interactive\FSIstrings.txt:14)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiGui(System.String)">
 <summary>
  Execute interactions on a Windows Forms event loop (%s by default)
- (Originally from Interactive/FSIstrings.txt:16)
+ (Originally from Interactive\FSIstrings.txt:16)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiFailedToResolveAssembly(System.String)">
 <summary>
  Failed to resolve assembly &apos;%s&apos;
- (Originally from Interactive/FSIstrings.txt:52)
+ (Originally from Interactive\FSIstrings.txt:52)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiExit">
 <summary>
  \n- Exit...\n
- (Originally from Interactive/FSIstrings.txt:42)
+ (Originally from Interactive\FSIstrings.txt:42)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiExec">
 <summary>
  Exit fsi after loading the files or running the .fsx script given on the command line
- (Originally from Interactive/FSIstrings.txt:15)
+ (Originally from Interactive\FSIstrings.txt:15)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiExceptionRaisedStartingServer(System.String)">
 <summary>
  Exception raised when starting remoting server.\n%s
- (Originally from Interactive/FSIstrings.txt:10)
+ (Originally from Interactive\FSIstrings.txt:10)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiExceptionDuringPrettyPrinting(System.String)">
 <summary>
  \n\nException raised during pretty printing.\nPlease report this so it can be fixed.\nTrace: %s\n
- (Originally from Interactive/FSIstrings.txt:27)
+ (Originally from Interactive\FSIstrings.txt:27)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiErrorsAndWarnings">
 <summary>
  - ERRORS AND WARNINGS -
- (Originally from Interactive/FSIstrings.txt:6)
+ (Originally from Interactive\FSIstrings.txt:6)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiEntryPointWontBeInvoked(System.String,System.String,System.String)">
 <summary>
  Functions with [&lt;EntryPoint&gt;] are not invoked in FSI. &apos;%s&apos; was not invoked. Execute &apos;%s &lt;args&gt;&apos; in order to invoke &apos;%s&apos; with the appropriate string array of command line arguments.
- (Originally from Interactive/FSIstrings.txt:60)
+ (Originally from Interactive\FSIstrings.txt:60)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiEmitDebugInfoInQuotations(System.String)">
 <summary>
  Emit debug information in quotations (%s by default)
- (Originally from Interactive/FSIstrings.txt:19)
+ (Originally from Interactive\FSIstrings.txt:19)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiDirectoryDoesNotExist(System.String)">
 <summary>
  Directory &apos;%s&apos; doesn&apos;t exist
- (Originally from Interactive/FSIstrings.txt:23)
+ (Originally from Interactive\FSIstrings.txt:23)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiDidAHashrWithStaleWarning(System.String)">
 <summary>
  --&gt; Referenced &apos;%s&apos; (an assembly with a different timestamp has already been referenced from this location, reset fsi to load the updated assembly)
- (Originally from Interactive/FSIstrings.txt:47)
+ (Originally from Interactive\FSIstrings.txt:47)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiDidAHashrWithLockWarning(System.String)">
 <summary>
  --&gt; Referenced &apos;%s&apos; (file may be locked by F# Interactive process)
- (Originally from Interactive/FSIstrings.txt:46)
+ (Originally from Interactive\FSIstrings.txt:46)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiDidAHashr(System.String)">
 <summary>
  --&gt; Referenced &apos;%s&apos;
- (Originally from Interactive/FSIstrings.txt:45)
+ (Originally from Interactive\FSIstrings.txt:45)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiDidAHashI(System.String)">
 <summary>
  --&gt; Added &apos;%s&apos; to library include path
- (Originally from Interactive/FSIstrings.txt:48)
+ (Originally from Interactive\FSIstrings.txt:48)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiDetailedHelpLink">
 <summary>
  See https://learn.microsoft.com/dotnet/fsharp/language-reference/fsharp-interactive-options for more details.
- (Originally from Interactive/FSIstrings.txt:61)
+ (Originally from Interactive\FSIstrings.txt:61)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiCouldNotInstallCtrlCHandler(System.String)">
 <summary>
  Failed to install ctrl-c handler - Ctrl-C handling will not be available. Error was:\n\t%s
- (Originally from Interactive/FSIstrings.txt:44)
+ (Originally from Interactive\FSIstrings.txt:44)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiConsoleProblem">
 <summary>
  A problem occurred starting the F# Interactive process. This may be due to a known problem with background process console support for Unicode-enabled applications on some Windows systems. Try selecting Tools-&gt;Options-&gt;F# Interactive for Visual Studio and enter &apos;--fsi-server-no-unicode&apos;.
- (Originally from Interactive/FSIstrings.txt:21)
+ (Originally from Interactive\FSIstrings.txt:21)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiCodeGeneration">
 <summary>
  - CODE GENERATION -
- (Originally from Interactive/FSIstrings.txt:5)
+ (Originally from Interactive\FSIstrings.txt:5)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiBindingSessionTo(System.String)">
 <summary>
  Binding session to &apos;%s&apos;...
- (Originally from Interactive/FSIstrings.txt:53)
+ (Originally from Interactive\FSIstrings.txt:53)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiBanner3">
 <summary>
  For help type #help;;
- (Originally from Interactive/FSIstrings.txt:20)
+ (Originally from Interactive\FSIstrings.txt:20)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiAdvanced">
 <summary>
  - ADVANCED -
- (Originally from Interactive/FSIstrings.txt:9)
+ (Originally from Interactive\FSIstrings.txt:9)
 </summary>
 </member>
 <member name="M:FSIstrings.SR.fsiAbortingMainThread">
 <summary>
  - Aborting main thread...
- (Originally from Interactive/FSIstrings.txt:43)
+ (Originally from Interactive\FSIstrings.txt:43)
 </summary>
 </member>
 <member name="P:UtilsStrings.SR.SwallowResourceText(System.Boolean)">
@@ -11152,13 +11152,13 @@
 <member name="M:UtilsStrings.SR.fSharpBannerVersion(System.String,System.String)">
 <summary>
  %s for F# %s
- (Originally from Facilities/UtilsStrings.txt:2)
+ (Originally from Facilities\UtilsStrings.txt:2)
 </summary>
 </member>
 <member name="M:UtilsStrings.SR.buildProductName(System.String)">
 <summary>
  Microsoft (R) F# Compiler version %s
- (Originally from Facilities/UtilsStrings.txt:1)
+ (Originally from Facilities\UtilsStrings.txt:1)
 </summary>
 </member>
 <member name="M:Internal.Utilities.ResizeArrayModule.unzip``2(System.Collections.Generic.List{System.Tuple{``0,``1}})">

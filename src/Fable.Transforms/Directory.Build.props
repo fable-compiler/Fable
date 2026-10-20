@@ -3,7 +3,8 @@
 
     <PropertyGroup>
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <!-- fickle: net10 to consume the net10-only FCS in lib/fcs -->
+        <TargetFramework>net10.0</TargetFramework>
         <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
         <DebugType>embedded</DebugType>
     </PropertyGroup>

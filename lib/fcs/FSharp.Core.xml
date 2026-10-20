@@ -39,6 +39,16 @@
 <member name="T:Microsoft.FSharp.Collections.ResizeArray`1">
  <summary>An abbreviation for the CLI type <see cref="T:System.Collections.Generic.List`1"/></summary>
 </member>
+<member name="M:Microsoft.FSharp.Collections.FSharpList.Create``1(System.ReadOnlySpan{``0})">
+ <summary>Creates a list with the specified items.</summary>
+
+ <param name="items">The items to store in the list.</param>
+
+ <returns>A list containing the specified items.</returns>
+</member>
+<member name="T:Microsoft.FSharp.Collections.FSharpList">
+ <summary>Contains methods for compiler use related to lists.</summary>
+</member>
 <member name="T:Microsoft.FSharp.Collections.list`1">
  <summary>The type of immutable singly-linked lists. </summary>
 
@@ -304,6 +314,16 @@
  <remarks>See the <see cref="T:Microsoft.FSharp.Collections.MapModule"/> module for further operations on maps.
 
  All members of this class are thread-safe and may be used concurrently from multiple threads.</remarks>
+</member>
+<member name="M:Microsoft.FSharp.Collections.FSharpSet.Create``1(System.ReadOnlySpan{``0})">
+ <summary>Creates a set with the specified items.</summary>
+
+ <param name="items">The items to store in the set.</param>
+
+ <returns>A set containing the specified items.</returns>
+</member>
+<member name="T:Microsoft.FSharp.Collections.FSharpSet">
+ <summary>Contains methods for compiler use related to sets.</summary>
 </member>
 <member name="M:Microsoft.FSharp.Collections.FSharpSet`1.op_Subtraction(Microsoft.FSharp.Collections.FSharpSet{`0},Microsoft.FSharp.Collections.FSharpSet{`0})">
  <summary>Returns a new set with the elements of the second set removed from the first.</summary>
@@ -17530,6 +17550,11 @@
 <member name="M:Microsoft.FSharp.Control.TaskBuilderBase.While``1(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Boolean},Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},Microsoft.FSharp.Core.Unit})">
  <summary>
  Specifies the iterative execution of a unit of task code.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderBase.Using``3(``0,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``1},``2}})">
+ <summary>
+ Specifies a unit of task code which binds to the resource implementing IAsyncDisposable and disposes it asynchronously
  </summary>
 </member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderBase.TryWith``2(Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},``1},Microsoft.FSharp.Core.FSharpFunc{System.Exception,Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},``1}})">
