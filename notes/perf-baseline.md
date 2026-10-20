@@ -155,10 +155,31 @@ Sample timestamps per phase, from the same trace (ms from trace start):
 - `fsc` checks with the same type checker as Fable's `service_slim`, so this bounds what parallel checking
   there could save on a cold compile: about 6 s of the ~8.5 s compilation.
 
+### Parallel type checking applied (fickle-fsharp `ac0a7b8c5`)
+
+A cold `ParseAndCheckProject` now checks files over the dependency graph
+(`CheckMultipleInputsUsingGraphModeWithStates`), when the check cache is empty and the project has not
+opted out of graph checking. Files reach Fable in project order, each as soon as it and every file before it are
+checked: releasing them in dependency order instead made Fable's output non-deterministic (external
+`DllRef/Lib.js` vs `DllRef_1/Lib.js` naming) and broke a root-module lookup that expects earlier files to be known.
+The check cache gets the same per-file states a sequential check leaves, so watch-mode rechecks stay sequential
+from the last unchanged file.
+
+| Benchmark | Before | After |
+| --- | --- | --- |
+| `tests/Js/Main` → JS, compilation total (wall) | 7.4 s | 3.0–4.1 s (3 runs) |
+| `tests/Python` → Python, compilation total (wall) | 5.6 s | 2.9 s |
+| Allocated (JS) | ~8.8 GB | ~9.2 GB |
+
+- JS output is byte-identical (141 files) and Python is identical after counter normalisation (110 files);
+  warnings are identical. Compiler tests pass 133/133.
+- Watch mode: after editing `StringTests.fs`, the recheck (0.9 s) matches a cold watch-mode compile of the same
+  source, file for file.
+
 ### Next measurements
 
-- Parallel type checking inside `service_slim`'s `ParseAndCheck`, measured above via `fsc`. Fable's
-  service path still checks files sequentially.
+- Watch-mode rechecks are still sequential from the edited file onwards. Rechecking only the edited file's
+  dependents over the graph is the next step for watch mode.
 - (Dropped) Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
 - The same table for Python and for a large external project.
 
