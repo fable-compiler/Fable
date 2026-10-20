@@ -31762,10 +31762,10 @@ Get the signature for the value&apos;s XML documentation
  Check a single input and finish the checking
 </summary>
 </member>
-<member name="M:FSharp.Compiler.ParseAndCheckInputs.CheckMultipleInputsUsingGraphModeWithStates(FSharp.Compiler.CompilerImports.TcImports,FSharp.Compiler.TcGlobals.TcGlobals,Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident}},FSharp.Compiler.ParseAndCheckInputs.TcState,FSharp.Compiler.Syntax.ParsedInput[],Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.ParseAndCheckInputs.TcState,FSharp.Compiler.GraphChecking.Finisher{FSharp.Compiler.ParseAndCheckInputs.NodeToTypeCheck,FSharp.Compiler.ParseAndCheckInputs.TcState,System.Tuple{FSharp.Compiler.CheckBasics.TcEnv,FSharp.Compiler.CheckDeclarations.TopAttribs,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.CheckedImplFile},FSharp.Compiler.TypedTree.ModuleOrNamespaceType}}}},Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Tuple{FSharp.Compiler.CheckBasics.TcEnv,FSharp.Compiler.CheckDeclarations.TopAttribs,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.CheckedImplFile},FSharp.Compiler.TypedTree.ModuleOrNamespaceType},Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.ParseAndCheckInputs.TcState,Microsoft.FSharp.Core.Unit}}},Microsoft.FSharp.Core.FSharpFunc{System.Int32,FSharp.Compiler.DiagnosticsLogger.DiagnosticsLogger},System.Threading.CancellationToken)">
+<member name="M:FSharp.Compiler.ParseAndCheckInputs.CheckMultipleInputsUsingGraphModeWithStates(FSharp.Compiler.CompilerImports.TcImports,FSharp.Compiler.TcGlobals.TcGlobals,Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident}},FSharp.Compiler.ParseAndCheckInputs.TcState,FSharp.Compiler.Syntax.ParsedInput[],System.Collections.Generic.IReadOnlyDictionary{System.Int32,System.Int32[]},FSharp.Compiler.GraphChecking.FilePairMap,Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.ParseAndCheckInputs.TcState,FSharp.Compiler.GraphChecking.Finisher{FSharp.Compiler.ParseAndCheckInputs.NodeToTypeCheck,FSharp.Compiler.ParseAndCheckInputs.TcState,System.Tuple{FSharp.Compiler.CheckBasics.TcEnv,FSharp.Compiler.CheckDeclarations.TopAttribs,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.CheckedImplFile},FSharp.Compiler.TypedTree.ModuleOrNamespaceType}}}},Microsoft.FSharp.Core.FSharpFunc{System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Tuple{FSharp.Compiler.CheckBasics.TcEnv,FSharp.Compiler.CheckDeclarations.TopAttribs,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.CheckedImplFile},FSharp.Compiler.TypedTree.ModuleOrNamespaceType},Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.ParseAndCheckInputs.TcState,Microsoft.FSharp.Core.Unit}}},Microsoft.FSharp.Core.FSharpFunc{System.Int32,FSharp.Compiler.DiagnosticsLogger.DiagnosticsLogger},System.Threading.CancellationToken)">
 <summary>
- Check a closed set of inputs in parallel where possible, leaving the check of each file to &apos;checkFile&apos;,
- and return each file&apos;s result and the state after it, in file order.
+ Check a closed set of inputs in parallel over their dependency graph, leaving the check of each file to
+ &apos;checkFile&apos;, and return each file&apos;s result and the state after it, in file order.
 </summary>
 </member>
 <member name="M:FSharp.Compiler.ParseAndCheckInputs.CheckClosedInputSet(Internal.Utilities.Library.CompilationThreadToken,Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,System.Boolean},FSharp.Compiler.CompilerConfig.TcConfig,FSharp.Compiler.CompilerImports.TcImports,FSharp.Compiler.TcGlobals.TcGlobals,Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.Ident}},FSharp.Compiler.ParseAndCheckInputs.TcState,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.DiagnosticsLogger.PhasedDiagnostic,FSharp.Compiler.DiagnosticsLogger.PhasedDiagnostic},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Syntax.ParsedInput})">
@@ -39207,6 +39207,12 @@ Get the signature for the value&apos;s XML documentation
  Clears parse and typecheck caches.
 </summary>
 </member>
+<member name="T:FSharp.Compiler.SourceCodeServices.GraphCheckEntry">
+<summary>
+ The result of checking one file over the dependency graph, kept for reuse while
+ neither the file nor anything it depends on changes.
+</summary>
+</member>
 <member name="M:FSharp.Compiler.SourceCodeServices.ParseAndCheck.ErrorsByFile(System.String[],Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Diagnostics.FSharpDiagnostic[]})">
 <summary>
  Errors grouped by file, sorted by line, column
@@ -39214,9 +39220,10 @@ Get the signature for the value&apos;s XML documentation
 </member>
 <member name="M:FSharp.Compiler.SourceCodeServices.ParseAndCheck.TypeCheckInputsInParallel(FSharp.Compiler.CodeAnalysis.FSharpParseFileResults[],FSharp.Compiler.ParseAndCheckInputs.TcState,FSharp.Compiler.SourceCodeServices.CompilerState,Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.Symbols.FSharpImplementationFileContents,Microsoft.FSharp.Core.Unit}})">
 <summary>
- Type checks all files in parallel where the file dependency graph allows, and fills the check cache
- with the same per-file entries a sequential check would leave, so later rechecks can start from any file.
- The subscriber gets the files in project order, each as soon as it and all files before it are checked,
+ Type checks the files in parallel where the file dependency graph allows. A file checked by an earlier call is
+ reused while neither it nor anything it depends on has changed, so after an edit only the edited file and its
+ dependents are checked again. Fills the check cache with the same per-file entries a sequential check would
+ leave. The subscriber gets the files in project order, each as soon as it and all files before it are checked,
  because Fable expects every earlier file to be known, not only the file&apos;s dependencies.
 </summary>
 </member>

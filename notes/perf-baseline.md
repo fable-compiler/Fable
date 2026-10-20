@@ -208,10 +208,31 @@ recomputed the same answer on every call:
 - Wall time does not move on this machine: FCS type checking (2.7–3.0 s) is the critical path, and Fable's work
   runs beside it on spare cores. The CPU and allocation savings should show as wall time on machines with fewer cores.
 
+### Dependents-only recheck in watch mode (fickle-fsharp `fff58bb81`)
+
+Every check of several files now goes through the graph checker. Each file's result is kept and reused while the
+file and everything it depends on (in the current or the previous dependency graph) are unchanged, so an edit
+rechecks only the edited file and its dependents, in parallel.
+
+One watch session of `tests/Js/Main`, four edits in a row; "Fable compilation finished" time per edit:
+
+| Edit | Sequential recheck (before) | Dependents-only recheck |
+| --- | --- | --- |
+| Add a value to `StringTests.fs` (few dependents) | 0.94 s | 0.61 s |
+| Add a value to `Util/Util.fs` (most files depend on it) | 3.6 s | 1.3 s |
+| Type error in `StringTests.fs` | 0.39 s | 0.46 s |
+| Revert both files | 3.7 s | 1.1 s |
+
+- Each recheck's output is identical to the sequential recheck's, file for file, and the type error is reported the
+  same way.
+- Compared with a cold compile of the same sources, both rechecks differ only in `MiscTests.js` whenever it is
+  rechecked: FCS gives closures of a `let rec` a new numbered name (`recursive1@385-2`) each time a file is checked
+  again in the same process. This is existing behaviour, not new.
+- Cold compiles are unchanged (byte-identical JS, identical warnings). Compiler tests pass 133/133.
+
 ### Next measurements
 
-- Watch-mode rechecks are still sequential from the edited file onwards. Rechecking only the edited file's
-  dependents over the graph is the next step for watch mode.
+- The same tables for Python and for a large external project.
 - (Dropped) Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
 - The same table for Python and for a large external project.
 
