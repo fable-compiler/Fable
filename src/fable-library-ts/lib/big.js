@@ -194,6 +194,11 @@ function parse(x, n) {
   }
 
   x = round(x, Big.DP + 1, Big.RM);
+
+  // Remove the leading zeros kept after the decimal point (e.g. 0.0836), so
+  // that x.e is the exponent of the first nonzero digit, as round() expects.
+  // Zero keeps them, to preserve its scale (e.g. 0.00).
+  if (hasNonzeroDigit(x)) normalize(x);
   return x;
 }
 
