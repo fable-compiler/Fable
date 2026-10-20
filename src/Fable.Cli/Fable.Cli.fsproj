@@ -34,6 +34,7 @@
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Timings.fs" />
     <Compile Include="Pipeline.fs" />
+    <Compile Include="PackageCache.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="CustomLogging.fs" />
     <Compile Include="Entry.fs" />

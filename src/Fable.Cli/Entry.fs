@@ -89,6 +89,11 @@ let knownCliArgs () =
         [ "--yes" ], [ "Automatically reply 'yes' (e.g. with `clean` command)" ]
         [ "--noRestore" ], [ "Skip `dotnet restore`" ]
         [ "--noCache" ], [ "Recompile all files, including sources from packages" ]
+        [ "--noPackageCache" ],
+        [
+            "Type-check package sources instead of reusing them from Fickl's package cache"
+            "(JavaScript and TypeScript; the cache is keyed by package contents and options)"
+        ]
         [ "--noGitignore" ],
         [
             "Don't generate a `.gitignore` file in the `fable_modules` folder"
@@ -574,6 +579,7 @@ let main argv =
                     LogLevel.Information, Verbosity.Normal
 
         Timings.setEnabled (args.FlagEnabled "--timings")
+        PackageCache.setEnabled (not (args.FlagEnabled "--noPackageCache"))
 
         // Override the logger now that we know the verbosity level
         Log.setLogger verbosity (createLogger level)

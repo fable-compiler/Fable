@@ -411,6 +411,13 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
         Timings.recordCrack ms
 
+        // fickl: reference cached package sources, or remember to cache them after this compilation
+        let result =
+            if evaluateOnly then
+                result
+            else
+                PackageCache.apply cliArgs result
+
         // We display "parsed" because "cracked" may not be understood by users
         Log.always
             $"Project and references ({result.ProjectOptions.SourceFiles.Length} source files) parsed in %i{ms}ms{Log.newLine}"
@@ -611,7 +618,11 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                             let! res = compileFile com projCracked.CliArgs state.PathResolver state.IsSilent
 
                             let res =
-                                if not projCracked.CliArgs.Precompile then
+                                // fickl: the package cache needs the inline bodies of package sources
+                                if
+                                    not projCracked.CliArgs.Precompile
+                                    && not (PackageCache.collectsInlineExprs fileName)
+                                then
                                     res
                                 else
                                     res
@@ -897,7 +908,8 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                     [],
                     assemblies,
                     Log.log,
-                    ?precompiledInfo = (projCracked.PrecompiledInfo |> Option.map (fun i -> i :> _)),
+                    // fickl: cached package sources resolve inline imports from this project's fable_modules
+                    ?precompiledInfo = (projCracked.PrecompiledInfo |> Option.map PackageCache.asPrecompiledInfo),
                     getPlugin = Reflection.loadType projCracked.CliArgs
                 )
 
@@ -1738,6 +1750,29 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                                 Log.always ($"Precompiled info saved in {ms}ms")
                                 return 0
+                    // fickl: cache the package sources compiled in this run for later compilations
+                    | false, false when PackageCache.hasPending () ->
+                        let! fableProj = fableCompiler.GetFableProject()
+
+                        let compiled =
+                            fableResults
+                            |> List.choose (
+                                function
+                                | Ok res ->
+                                    Map.tryFind res.File fableProj.ImplementationFiles
+                                    |> Option.map (fun file ->
+                                        {
+                                            PackageCache.CompiledFile.File = res.File
+                                            PackageCache.CompiledFile.OutPath = res.OutPath
+                                            PackageCache.CompiledFile.RootModule = file.RootModule
+                                            PackageCache.CompiledFile.InlineExprs = res.InlineExprs
+                                        }
+                                    )
+                                | Error _ -> None
+                            )
+
+                        do! PackageCache.save cliArgs compiled
+                        return 0
                     | _ -> return 0
                 }
 
