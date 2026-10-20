@@ -2,7 +2,7 @@
 /// Upstream's build commands, declared as typed Partas.Build commands.
 /// Each command declares the flags its Fable.Build handler reads, so they appear in <c>--help</c>,
 /// and runs the handler in-process through <c>Build.Main.main</c> with the same arguments
-/// <c>./build.sh</c> would pass. Fable.Build itself stays untouched, so upstream merges stay cheap.
+/// upstream's <c>./build.sh</c> would pass. Fable.Build itself stays untouched, so upstream merges stay cheap.
 /// </summary>
 module Fickle.Build.Forwarded
 
