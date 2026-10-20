@@ -101,6 +101,9 @@ module Atts =
     let tsTaggedUnion = "Fable.Core.TypeScriptTaggedUnionAttribute" // typeof<Fable.Core.TypeScriptTaggedUnionAttribute>.FullName
 
     [<Literal>]
+    let inlineInterface = "Fable.Core.InlineInterfaceAttribute" // typeof<Fable.Core.InlineInterfaceAttribute>.FullName
+
+    [<Literal>]
     let stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
 
     [<Literal>]
@@ -925,6 +928,27 @@ module AST =
             | 6 -> ValueSome "NFKD"
             | _ -> ValueNone
         | _ -> ValueNone
+
+    /// The interface type a TypeScriptTaggedUnion case compiles as, when InlineInterface applies to the case.
+    /// An error carries the message for a case InlineInterface is applied to but cannot inline.
+    let tryInlinedInterface (com: Compiler) (ent: Entity) (uci: UnionCase) : Result<Type option, string> =
+        let hasAtt (atts: Attribute seq) =
+            atts |> Seq.exists (fun att -> att.Entity.FullName = Atts.inlineInterface)
+
+        let onCase = hasAtt uci.Attributes
+
+        let isInterface =
+            function
+            | DeclaredType(entRef, _) -> com.TryGetEntity(entRef) |> Option.exists (fun ent -> ent.IsInterface)
+            | _ -> false
+
+        match uci.UnionCaseFields with
+        | _ when not (onCase || hasAtt ent.Attributes) -> Ok None
+        | [] when not onCase -> Ok None
+        | [ field ] when isInterface field.FieldType -> Ok(Some field.FieldType)
+        | _ ->
+            Error
+                $"InlineInterface cannot apply to '%s{uci.Name}': the case must have exactly one field, whose type is an interface"
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
