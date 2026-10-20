@@ -38,6 +38,9 @@ module Atts =
     let caseTest = "Fable.Core.CaseTestAttribute" // typeof<CaseTestAttribute>.FullName
 
     [<Literal>]
+    let fickleCaseTest = "Fickle.Core.CaseTestAttribute" // typeof<Fickle.Core.CaseTestAttribute>.FullName
+
+    [<Literal>]
     let entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
 
     [<Literal>]
@@ -105,6 +108,9 @@ module Atts =
 
     [<Literal>]
     let inlineInterface = "Fable.Core.InlineInterfaceAttribute" // typeof<Fable.Core.InlineInterfaceAttribute>.FullName
+
+    [<Literal>]
+    let fickleInlineInterface = "Fickle.Core.InlineInterfaceAttribute" // typeof<Fickle.Core.InlineInterfaceAttribute>.FullName
 
     [<Literal>]
     let stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
@@ -936,7 +942,11 @@ module AST =
     /// An error carries the message for a case InlineInterface is applied to but cannot inline.
     let tryInlinedInterface (com: Compiler) (ent: Entity) (uci: UnionCase) : Result<Type option, string> =
         let hasAtt (atts: Attribute seq) =
-            atts |> Seq.exists (fun att -> att.Entity.FullName = Atts.inlineInterface)
+            atts
+            |> Seq.exists (fun att ->
+                att.Entity.FullName = Atts.inlineInterface
+                || att.Entity.FullName = Atts.fickleInlineInterface
+            )
 
         let onCase = hasAtt uci.Attributes
 

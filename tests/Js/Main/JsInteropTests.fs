@@ -3,6 +3,7 @@ module Fable.Tests.JsInterop
 open System
 open Util.Testing
 open Fable.Core
+open Fickle.Core
 
 #if FABLE_COMPILER
 open Fable.Core.JsInterop

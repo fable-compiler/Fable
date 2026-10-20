@@ -140,8 +140,8 @@ type FsUnionCase(uci: FSharpUnionCase) =
 
     /// The macro of a CaseTestAttribute, an extra test for a TypeScriptTaggedUnion case
     static member CaseTest(uci: FSharpUnionCase) =
-        uci.Attributes
-        |> Helpers.tryFindAttrib Atts.caseTest
+        [ Atts.caseTest; Atts.fickleCaseTest ]
+        |> List.tryPick (fun fullName -> Helpers.tryFindAttrib fullName uci.Attributes)
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string<obj>)
 
     interface Fable.UnionCase with
