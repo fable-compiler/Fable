@@ -123,9 +123,28 @@ Generated output is unchanged: `tests/Js/Main` JavaScript is byte-identical (141
 `tests/Python` is identical once the nondeterministic `_exprN`/`_arrowN`/`ObjectExprN` counters are normalised (110 files).
 Warnings are identical. Compiler tests pass 133/133.
 
+### Wall-clock view: type checking is serial
+
+Sample timestamps per phase, from the same trace (ms from trace start):
+
+| Phase | Wall span | Threads |
+| --- | --- | --- |
+| Project cracking (`run_dotnet_msbuild`) | 0–3,543 | 5 |
+| FCS parse, all 76 files (`ParseInput`) | 4,755–5,135 (0.4 s) | 24 |
+| FCS type check (`TypeCheckOneInputEntry`) | 5,138–13,976 (8.8 s) | **1** |
+| Fable transform (`transformFile`) | 6,147–14,031 | 8 |
+
+- Type checking is the critical path, and it runs on one thread, file after file. Fable's transforms
+  finish 55 ms after the last file is checked.
+- Parsing is a 0.4 s burst. Its large CPU share is 24 threads at once, and the parser static constructor
+  costs only 60–75 ms cold (measured in isolation). Removing that contention would save at most ~0.1 s
+  of wall time, so it is not worth a fork change.
+
 ### Next measurements
 
-- Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
+- Parallel type checking inside `service_slim`'s `ParseAndCheck`. FCS has graph-based checking
+  (`--test:GraphBasedChecking`, used by `fsc`), but Fable's service path checks files sequentially.
+- (Dropped) Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
 - The same table for Python and for a large external project.
 
 ### Profiling notes
