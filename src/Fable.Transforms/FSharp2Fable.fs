@@ -656,6 +656,7 @@ let private transformUnionCaseTest
                             Fable.Get(unionExpr, Fable.FieldInfo.Create(name, fieldType = typ), typ, r)
 
                         makeUnOp r Fable.Boolean (Fable.Test(field, Fable.TypeTest typ, r)) UnaryNot
+                    | TaggedUnionCaseTest.NotCaseTest macro -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})"
 
                 let caseTests: (Fable.Expr -> Fable.Expr) list =
                     match FsUnionCase.CaseTest unionCase with
@@ -664,7 +665,7 @@ let private transformUnionCaseTest
                         match deriveTaggedUnionCaseTests com tdef rule unionCase with
                         | Ok tests -> tests |> List.map (fun test unionExpr -> makeDerivedTest unionExpr test)
                         | Error other ->
-                            $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' share a tag value and cannot be told apart by their fields. Add a CaseTest attribute to '%s{unionCase.Name}'."
+                            $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' share a tag value and cannot be told apart by their fields. Add a CaseTest attribute to '%s{unionCase.Name}' or '%s{other.Name}'."
                             |> addError com ctx.InlinePath r
 
                             []

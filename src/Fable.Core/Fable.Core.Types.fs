@@ -87,9 +87,12 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 
 /// <summary>
 /// Adds a test to a case of a <c>TypeScriptTaggedUnion</c>, checked after the tag matches.
-/// Use it when several cases share a tag value.
+/// Use it when several cases share a tag value and their fields cannot tell them apart.
 /// </summary>
 /// <remarks>
+/// The test must be true for every value of its case. Its negation is used to test
+/// the other cases sharing the tag, so one case per group may be left without a test.
+///
 /// The test is a JS expression in <c>Emit</c> syntax, where <c>$0</c> is the tested value:
 /// <code>
 /// [&lt;TypeScriptTaggedUnion("state")>]

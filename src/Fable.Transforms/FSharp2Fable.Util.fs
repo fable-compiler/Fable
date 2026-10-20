@@ -3311,6 +3311,7 @@ module Util =
         | LacksField of name: string
         | FieldOfType of name: string * typ: Fable.Type
         | FieldNotOfType of name: string * typ: Fable.Type
+        | NotCaseTest of macro: string
 
     let private tryTaggedUnionTagKey (rule: CaseRules) (unionCase: FSharpUnionCase) =
         match transformStringEnum rule unionCase with
@@ -3436,7 +3437,13 @@ module Util =
                     match acc with
                     | Error _ -> acc
                     | Ok tests ->
-                        match tryDistinguishTaggedUnionCase com myFields (fieldsOf other) with
+                        let byCaseTest () =
+                            FsUnionCase.CaseTest other |> Option.map TaggedUnionCaseTest.NotCaseTest
+
+                        match
+                            tryDistinguishTaggedUnionCase com myFields (fieldsOf other)
+                            |> Option.orElseWith byCaseTest
+                        with
                         | Some test -> Ok(tests @ [ test ])
                         | None -> Error other
                 )

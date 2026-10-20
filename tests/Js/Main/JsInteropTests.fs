@@ -420,6 +420,13 @@ module TaggedUnion =
         | [<CompiledName("pet")>] PetDog of pet: Dog
         | Pending
 
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type Job =
+        | [<CompiledName("run"); CaseTest("$0.kind === 'build'")>] Build of kind: string
+        | [<CompiledName("run"); CaseTest("$0.kind === 'test'")>] Test of kind: string
+        | [<CompiledName("run")>] Other of kind: string
+        | [<CompiledName("idle")>] Idle
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1167,6 +1174,23 @@ let tests =
         TaggedUnion.DerivedTag.PetAnimal (TaggedUnion.Dog()) |> describe |> equal "dog: dog"
         (TaggedUnion.DerivedTag.DoneWithExtra (2.5, "e")).IsDone |> equal false
         (TaggedUnion.DerivedTag.Done 1.5).IsDone |> equal true
+
+    testCase "Case testing with TS tagged unions whose cases share a tag uses the CaseTest of the other cases" <| fun () ->
+        let describe = function
+            | TaggedUnion.Job.Other k -> "other: " + k
+            | TaggedUnion.Job.Build k -> "build: " + k
+            | TaggedUnion.Job.Test k -> "test: " + k
+            | TaggedUnion.Job.Idle -> "idle"
+        TaggedUnion.Job.Build "build" |> describe |> equal "build: build"
+        TaggedUnion.Job.Test "test" |> describe |> equal "test: test"
+        TaggedUnion.Job.Other "lint" |> describe |> equal "other: lint"
+        TaggedUnion.Job.Idle |> describe |> equal "idle"
+        !!{| state = "run"; kind = "deploy" |} |> describe |> equal "other: deploy"
+        !!{| state = "run"; kind = "test" |} |> describe |> equal "test: test"
+        (TaggedUnion.Job.Other "lint").IsOther |> equal true
+        (TaggedUnion.Job.Other "lint").IsBuild |> equal false
+        (TaggedUnion.Job.Build "build").IsOther |> equal false
+        (TaggedUnion.Job.Test "test").IsOther |> equal false
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

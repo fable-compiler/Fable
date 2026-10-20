@@ -391,6 +391,40 @@ let isFailed (r: Result) = match r with Failed _ -> true | Ok _ -> false
       |> Assert.Exists.errorWith "share a tag value and cannot be told apart by their fields. Add a CaseTest attribute"
       |> ignore
 
+    testCase "TypeScriptTaggedUnion cases sharing a tag compile when the other case has a CaseTest" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Result =
+    | [<CompiledName("done")>] Ok of ok: bool
+    | [<CompiledName("done"); CaseTest("$0.ok === false")>] Failed of ok: bool
+
+let isOk (r: Result) = r.IsOk
+let isFailed (r: Result) = match r with Failed _ -> true | Ok _ -> false
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when more than one case has no CaseTest" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Job =
+    | [<CompiledName("run"); CaseTest("$0.kind === 'build'")>] Build of kind: string
+    | [<CompiledName("run")>] Test of kind: string
+    | [<CompiledName("run")>] Other of kind: string
+
+let isOther (j: Job) = j.IsOther
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Other' and 'Test' of 'Job' share a tag value and cannot be told apart by their fields. Add a CaseTest attribute to 'Other' or 'Test'."
+      |> ignore
+
     testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only interfaces tell them apart" <| fun _ ->
       let source =
         """
