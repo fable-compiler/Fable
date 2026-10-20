@@ -10,7 +10,41 @@ open Fable.Compiler.Util
 
 let mutable private enabled = false
 
-let setEnabled value = enabled <- value
+// FCS activities (parse, check and import, per file), as `fsc --times` reports them for the command-line compiler
+let private fcsActivitiesFile =
+    match Environment.GetEnvironmentVariable "FICKL_FCS_ACTIVITIES" with
+    | null
+    | "" -> None
+    | file -> Some file
+
+let private fcsActivities = Collections.Concurrent.ConcurrentQueue<string>()
+
+let private listenToFcs () =
+    let listener =
+        new ActivityListener(
+            ShouldListenTo = (fun source -> source.Name = "fsc"),
+            Sample = (fun _ -> ActivitySamplingResult.AllData),
+            ActivityStopped =
+                (fun a ->
+                    let file =
+                        match a.GetTagItem "fileName" with
+                        | :? string as file -> file.Replace(',', ';')
+                        | _ -> ""
+
+                    fcsActivities.Enqueue(
+                        $"{a.OperationName},{a.StartTimeUtc.Ticks},%.3f{a.Duration.TotalMilliseconds},{Environment.CurrentManagedThreadId},{file}"
+                    )
+                )
+        )
+
+    ActivitySource.AddActivityListener listener
+
+/// With FICKL_FCS_ACTIVITIES=<file.csv>, --timings also records FCS's own activities to that file.
+let setEnabled value =
+    enabled <- value
+
+    if value && fcsActivitiesFile.IsSome then
+        listenToFcs ()
 
 // Counter cells, kept in an array so Interlocked can update them from compiling threads
 [<Literal>]
@@ -106,6 +140,12 @@ let report (totalMs: int64) =
 
         let maxMs = ticksToMs counters[MaxFileTicks]
         let nl = Environment.NewLine
+
+        match fcsActivitiesFile with
+        | Some file ->
+            IO.File.WriteAllLines(file, Seq.append [ "name,startTicks,durationMs,thread,file" ] fcsActivities)
+            fcsActivities.Clear()
+        | None -> ()
 
         Log.always (
             $"{nl}Timings (--timings):{nl}"
