@@ -377,6 +377,32 @@ let tests =
         Math.Floor 11.25M |> equal 11.M
         Math.Floor -11.25M |> equal -12.M
 
+    testCase "Decimal rounding works for values below 0.1" <| fun () ->
+        Math.Floor (decimal -0.0836) |> equal -1.M
+        Math.Floor (decimal (sin (-5. * Math.PI / 180.))) |> equal -1.M
+        Math.Floor (decimal "-0.0836") |> equal -1.M
+        Math.Floor (decimal "-0.0000123") |> equal -1.M
+        Math.Floor -0.0836M |> equal -1.M
+        Math.Floor (decimal 0.0836) |> equal 0.M
+        Math.Ceiling (decimal 0.0836) |> equal 1.M
+        Math.Ceiling (decimal "0.0000123") |> equal 1.M
+        Math.Ceiling (decimal -0.0836) |> equal 0.M
+        Math.Round (decimal 0.06) |> equal 0.M
+        Math.Round (decimal 0.0836, 2) |> equal 0.08M
+        Math.Round (decimal -0.0836, 3) |> equal -0.084M
+        Math.Truncate (decimal -0.0836) |> equal 0.M
+        Math.Floor (0.M - 0.0836M) |> equal -1.M
+
+    testCase "Decimal values below 0.1 hash the same however they are built" <| fun () ->
+        (decimal -0.0836).GetHashCode() |> equal ((0.M - 0.0836M).GetHashCode())
+        (decimal "0.05").GetHashCode() |> equal ((0.1M / 2.M).GetHashCode())
+        let set = Collections.Generic.HashSet<decimal>()
+        set.Add(decimal -0.0836) |> equal true
+        set.Add(0.M - 0.0836M) |> equal false
+        let dict = Collections.Generic.Dictionary<decimal, string>()
+        dict.[decimal "0.05"] <- "a"
+        dict.ContainsKey(0.1M / 2.M) |> equal true
+
     testCase "Decimal pown works" <| fun () ->
         pown 2.2M 3 |> equal 10.648M
 
