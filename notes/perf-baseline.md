@@ -108,9 +108,23 @@ Neither function has platform-specific code. Both binaries are optimised builds,
 different compiler. Which of the two removed the closures has not been isolated.
 `arrayPathEq` is still a candidate for a span-based `SequenceEqual` rewrite.
 
+### Witness fix applied (fickle-fsharp `7687bf609`)
+
+`CodegenWitnessesForTyparInst` now returns no witnesses before building the codegen state when no
+type parameter has a trait constraint. 3 runs:
+
+| | Before | After |
+| --- | --- | --- |
+| Compilation total (wall) | 8.6–10.1 s | 8.0–8.6 s |
+| Allocated | ~11.0 GB | ~8.7 GB |
+| GC gen0/gen1/gen2 | ~70/44/8 | ~59/17/6 |
+
+Generated output is unchanged: `tests/Js/Main` JavaScript is byte-identical (141 files), and
+`tests/Python` is identical once the nondeterministic `_exprN`/`_arrowN`/`ObjectExprN` counters are normalised (110 files).
+Warnings are identical. Compiler tests pass 133/133.
+
 ### Next measurements
 
-- Apply the witness fix in fickle-fsharp and re-measure allocation (expect about −2 GB).
 - Parser static-constructor contention: initialise the parser tables once, before the parallel parse starts.
 - The same table for Python and for a large external project.
 
