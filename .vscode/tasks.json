@@ -22,91 +22,71 @@
         {
             "label": "Build fable-library - JavaScript",
             "type": "shell",
+            "command": "dotnet",
             "args": [
+                "run",
+                "--project",
+                "src/Fickle.Build",
+                "--",
                 "fable-library",
-                "--javascript"
+                "javascript"
             ],
-            "linux": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "osx": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "windows": {
-                "command": "${workspaceFolder}/build.cmd"
-            },
             "problemMatcher": []
         },
         {
             "label": "Build fable-library - TypeScript",
             "type": "shell",
+            "command": "dotnet",
             "args": [
+                "run",
+                "--project",
+                "src/Fickle.Build",
+                "--",
                 "fable-library",
-                "--typescript"
+                "typescript"
             ],
-            "linux": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "osx": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "windows": {
-                "command": "${workspaceFolder}/build.cmd"
-            },
             "problemMatcher": []
         },
         {
             "label": "Build fable-library - Python",
             "type": "shell",
+            "command": "dotnet",
             "args": [
+                "run",
+                "--project",
+                "src/Fickle.Build",
+                "--",
                 "fable-library",
-                "--python"
+                "python"
             ],
-            "linux": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "osx": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "windows": {
-                "command": "${workspaceFolder}/build.cmd"
-            },
             "problemMatcher": []
         },
         {
             "label": "Build fable-library - Dart",
             "type": "shell",
+            "command": "dotnet",
             "args": [
+                "run",
+                "--project",
+                "src/Fickle.Build",
+                "--",
                 "fable-library",
-                "--dart"
+                "dart"
             ],
-            "linux": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "osx": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "windows": {
-                "command": "${workspaceFolder}/build.cmd"
-            },
             "problemMatcher": []
         },
         {
             "label": "Build fable-library - Rust",
             "type": "shell",
+            "command": "dotnet",
             "args": [
+                "run",
+                "--project",
+                "src/Fickle.Build",
+                "--",
                 "fable-library",
-                "--rust"
+                "rust"
             ],
-            "linux": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "osx": {
-                "command": "${workspaceFolder}/build.sh"
-            },
-            "windows": {
-                "command": "${workspaceFolder}/build.cmd"
-            },
             "problemMatcher": []
         },
         {

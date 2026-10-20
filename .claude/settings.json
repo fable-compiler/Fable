@@ -1,8 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./build.sh fable-library *)",
-      "Bash(./build.sh test *)"
+      "Bash(dotnet run --project src/Fickle.Build -- fable-library *)",
+      "Bash(dotnet run --project src/Fickle.Build -- test *)"
     ],
     "deny": [
       "Read(lib/fcs/**)",

@@ -42,7 +42,7 @@ jobs:
           pipx install maturin
 
       - name: Build Python (compile only)
-        run: ./build.sh test python --compile-only
+        run: dotnet run --project src/Fickle.Build -- test python --compile-only
 
       - name: Run Pyright and collect errors
         id: pyright

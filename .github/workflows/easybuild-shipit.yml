@@ -31,7 +31,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet
       # Run your tests before generating the changelog to make sure everything is working fine before creating a pull request.
       - name: Prepare for release
-        run: ./build.sh prepare-release
+        run: dotnet run --project src/Fable.Build -- prepare-release
       - name: ShipIt (Pull Request)
         # Configure add --pre-release below when we want to create a pre-release, e.g. --pre-release beta
         run: dotnet shipit
@@ -80,7 +80,7 @@ jobs:
 
       - name: Build, and Release
         run: |
-            ./build.sh automated-release
+            dotnet run --project src/Fable.Build -- automated-release
         env:
           FABLE_NUGET_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
