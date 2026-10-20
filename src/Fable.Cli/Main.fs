@@ -210,7 +210,9 @@ module private Util =
                 if not (IO.Directory.Exists dir) then
                     IO.Directory.CreateDirectory dir |> ignore
 
-                do! Pipeline.compileFile com cliArgs pathResolver isSilent outPath
+                do!
+                    Pipeline.compileFile com cliArgs pathResolver isSilent outPath
+                    |> Timings.timeFile
 
                 return
                     Ok
@@ -407,6 +409,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
                 CrackerOptions(cliArgs, evaluateOnly) |> getFullProjectOpts resolver
 
+        Timings.recordCrack ms
+
         // We display "parsed" because "cracked" may not be understood by users
         Log.always
             $"Project and references ({result.ProjectOptions.SourceFiles.Length} source files) parsed in %i{ms}ms{Log.newLine}"
@@ -560,6 +564,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                             lastFile,
                             ?subscriber = subscriber
                         )
+                        |> Timings.timeCheck
                     )
 
             let updateProject (state: FableCompilerState) (files: FSharpImplementationFileContents list) =
@@ -845,6 +850,8 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                 if not isSilent then
                     Log.always "Started Fable compilation..."
 
+                Timings.reset ()
+
                 let! results, ms =
                     Performance.measureAsync
                     <| fun () ->
@@ -864,6 +871,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                     match results with
                     | Ok results ->
                         Log.always $"{Log.newLine}Fable compilation finished in %i{ms}ms{Log.newLine}"
+                        Timings.report ms
 
                         results
                     | Error e -> e.Message + Log.newLine + e.StackTrace |> Fable.FableError |> raise

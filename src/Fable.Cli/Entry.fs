@@ -71,6 +71,7 @@ let knownCliArgs () =
             "default is 'Debug' in watch mode, or 'Release' otherwise"
         ]
         [ "--verbose" ], [ "Print more info during compilation" ]
+        [ "--timings" ], [ "Print a per-phase timing and allocation report after each compilation" ]
         [ "--silent" ], [ "Don't print any log during compilation" ]
         [ "--typedArrays" ], [ "Compile numeric arrays as JS typed arrays (default is true)" ]
         [ "--watch" ], [ "Alias of watch command" ]
@@ -571,6 +572,8 @@ let main argv =
                     LogLevel.Debug, Verbosity.Verbose
                 else
                     LogLevel.Information, Verbosity.Normal
+
+        Timings.setEnabled (args.FlagEnabled "--timings")
 
         // Override the logger now that we know the verbosity level
         Log.setLogger verbosity (createLogger level)
