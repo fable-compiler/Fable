@@ -14,7 +14,13 @@ type PluginRef =
         TypeFullName: string
     }
 
-type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severity -> string -> unit) =
+type Assemblies
+    (
+        getPlugin: (PluginRef -> System.Type) option,
+        fsharpAssemblies: FSharpAssembly list,
+        addLog: Severity -> string -> unit
+    )
+    =
     let assemblies = Dictionary()
     let coreAssemblies = Dictionary()
     let entities = ConcurrentDictionary<string, Fable.Entity>()
@@ -55,8 +61,23 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                                 false
 
                     if scanForPlugins then
-                        for e in asm.Contents.Entities do
-                            if e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
+                        let pluginEntities =
+                            asm.Contents.Entities
+                            |> Seq.filter (fun e ->
+                                e.IsAttributeType && FSharp2Fable.Util.inherits e "Fable.PluginAttribute"
+                            )
+                            |> Seq.toList
+
+                        match getPlugin with
+                        | None ->
+                            if not pluginEntities.IsEmpty then
+                                let names = pluginEntities |> List.map (fun e -> e.FullName) |> String.concat ", "
+
+                                addLog
+                                    Severity.Warning
+                                    $"Skipping Fable plugins from %s{asmName} because plugins cannot be loaded in this environment: %s{names}"
+                        | Some getPlugin ->
+                            for e in pluginEntities do
                                 try
                                     let plugin =
                                         getPlugin
@@ -364,8 +385,6 @@ type Project
 
         let checknulls = projectOptions.OtherOptions |> Array.exists ((=) "--checknulls+")
         Compiler.SetCheckNullsUnsafe checknulls // set it one time only as early as possible
-
-        let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
 
         let assemblies = Assemblies(getPlugin, fsharpAssemblies, addLog)
 
