@@ -2482,9 +2482,18 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "get_Out" -> typedObjExpr t [] |> Some // empty object
+    | "get_Out" -> libCall com r t "Console" "getOut" [] |> Some
+    | "get_Error" -> libCall com r t "Console" "getError" [] |> Some
     | "Write" -> "printf!" |> emitFormat com r t args |> Some
     | "WriteLine" -> "printfn!" |> emitFormat com r t args |> Some
+    | _ -> None
+
+let textWriter (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "WriteLine", Some writer, [ message ] ->
+        let message = toString com ctx r [ message ]
+        libCall com r t "Console" "writeLine" [ writer; message ] |> Some
+    | "WriteLine", Some writer, [] -> libCall com r t "Console" "writeLineEmpty" [ writer ] |> Some
     | _ -> None
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3501,6 +3510,7 @@ let private replacedModules =
             Types.decimal, decimals
             "System.Convert", convert
             "System.Console", console
+            "System.IO.TextWriter", textWriter
             "System.Diagnostics.Debug", debug
             "System.Diagnostics.Debugger", debug
             Types.datetime, dateTimes
