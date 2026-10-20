@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Forwarded.fs" />
-    <Compile Include="Fickle.fs" />
+    <Compile Include="Fickl.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

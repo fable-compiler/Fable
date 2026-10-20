@@ -8,25 +8,25 @@ Fable is an F# to multi-language compiler that transpiles F# code to JavaScript,
 
 ## Build Commands
 
-The build system is implemented in F# at `src/Fable.Build/`. All commands go through `src/Fickle.Build/`, which runs the same Fable.Build handlers:
+The build system is implemented in F# at `src/Fable.Build/`. All commands go through `src/Fickl.Build/`, which runs the same Fable.Build handlers:
 
 ```bash
-dotnet run --project src/Fickle.Build -- --help                                  # Show all available commands
+dotnet run --project src/Fickl.Build -- --help                                  # Show all available commands
 
 # Build runtime libraries
-dotnet run --project src/Fickle.Build -- fable-library javascript                # Also: typescript, python, dart, rust, beam
+dotnet run --project src/Fickl.Build -- fable-library javascript                # Also: typescript, python, dart, rust, beam
 
 # Run tests (targets: javascript, typescript, python, dart, rust, beam, integration)
-dotnet run --project src/Fickle.Build -- test javascript
-dotnet run --project src/Fickle.Build -- test javascript --watch                 # Watch mode (recompile on changes)
-dotnet run --project src/Fickle.Build -- test javascript --force-fable-library   # Force fable-library rebuild (needed if you modified Fable compiler to fix the generation of `src/fable-library-*/**/*.fs` files)
+dotnet run --project src/Fickl.Build -- test javascript
+dotnet run --project src/Fickl.Build -- test javascript --watch                 # Watch mode (recompile on changes)
+dotnet run --project src/Fickl.Build -- test javascript --force-fable-library   # Force fable-library rebuild (needed if you modified Fable compiler to fix the generation of `src/fable-library-*/**/*.fs` files)
 
 # Python-specific options
-dotnet run --project src/Fickle.Build -- test python --skip-fable-library-core   # Skip slow Rust extension + .pyi rebuild (Python only)
-dotnet run --project src/Fickle.Build -- test python --type-check                # Run Pyright type checking on Python output
+dotnet run --project src/Fickl.Build -- test python --skip-fable-library-core   # Skip slow Rust extension + .pyi rebuild (Python only)
+dotnet run --project src/Fickl.Build -- test python --type-check                # Run Pyright type checking on Python output
 
 # Quick iteration (test on a minimal project)
-dotnet run --project src/Fickle.Build -- quicktest javascript                    # Also: typescript, python, dart, rust, beam
+dotnet run --project src/Fickl.Build -- quicktest javascript                    # Also: typescript, python, dart, rust, beam
 ```
 
 In most cases, you should not need to use `--force-fable-library`. Only use it if you modified compiler code that affects how F# files used in `src/fable-library-*/` are generated (e.g., changes to `FSharp2Fable.fs` that affect how F# AST is transformed into Fable AST for library files).
@@ -100,7 +100,7 @@ Be careful when modifying shared files like `FableTransforms.fs`, `Transforms.Ut
 
 All code in `fable-library-py` must be fully type-annotated using Python 3.13-compatible syntax, including PEP 695 type parameters. Avoid `Any`, `cast()`, and `# type: ignore` — these require justification. Keep functions small and simple: extract helpers and use early returns. The Rust extension modules (`fable-library-core`) exist to provide correct .NET semantics for numerics, arrays, etc. — not for performance (the FFI crossing is expensive).
 
-All transpiled Python code is type-checked with Pyright at standard settings (`dotnet run --project src/Fickle.Build -- test python --type-check`). Do not introduce type-checking regressions without justification.
+All transpiled Python code is type-checked with Pyright at standard settings (`dotnet run --project src/Fickl.Build -- test python --type-check`). Do not introduce type-checking regressions without justification.
 
 ## Development Workflow
 

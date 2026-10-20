@@ -1,9 +1,9 @@
-/// Fickle's own build commands.
-module Fickle.Build.Fickle
+/// Fickl's own build commands.
+module Fickl.Build.Fickl
 
 open System.IO
 open Partas.Build
-open Fickle.Build.Forwarded
+open Fickl.Build.Forwarded
 
 let private cliProject = Path.Combine(Paths.root, "src", "Fable.Cli")
 

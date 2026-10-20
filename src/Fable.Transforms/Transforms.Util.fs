@@ -38,7 +38,7 @@ module Atts =
     let caseTest = "Fable.Core.CaseTestAttribute" // typeof<CaseTestAttribute>.FullName
 
     [<Literal>]
-    let fickleCaseTest = "Fickle.Core.CaseTestAttribute" // typeof<Fickle.Core.CaseTestAttribute>.FullName
+    let ficklCaseTest = "Fickl.Core.CaseTestAttribute" // typeof<Fickl.Core.CaseTestAttribute>.FullName
 
     [<Literal>]
     let entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
@@ -110,7 +110,7 @@ module Atts =
     let inlineInterface = "Fable.Core.InlineInterfaceAttribute" // typeof<Fable.Core.InlineInterfaceAttribute>.FullName
 
     [<Literal>]
-    let fickleInlineInterface = "Fickle.Core.InlineInterfaceAttribute" // typeof<Fickle.Core.InlineInterfaceAttribute>.FullName
+    let ficklInlineInterface = "Fickl.Core.InlineInterfaceAttribute" // typeof<Fickl.Core.InlineInterfaceAttribute>.FullName
 
     [<Literal>]
     let stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
@@ -945,7 +945,7 @@ module AST =
             atts
             |> Seq.exists (fun att ->
                 att.Entity.FullName = Atts.inlineInterface
-                || att.Entity.FullName = Atts.fickleInlineInterface
+                || att.Entity.FullName = Atts.ficklInlineInterface
             )
 
         let onCase = hasAtt uci.Attributes

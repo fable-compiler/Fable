@@ -2,14 +2,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <DisableImplicitFSharpCoreReference>false</DisableImplicitFSharpCoreReference>
-    <Description>Fickle Core Library: Fickle-only attributes and Fickle.Core aliases over Fable.Core</Description>
+    <Description>Fickl Core Library: Fickl-only attributes and Fickl.Core aliases over Fable.Core</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Fickle.Core.Types.fs" />
+    <Compile Include="Fickl.Core.Types.fs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Fable compiles packaged F# sources found under the fable/ folder of a NuGet package -->

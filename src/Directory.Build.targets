@@ -9,5 +9,5 @@
         <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --report &quot;$(SarifOutput)$(MSBuildProjectName)-$(TargetFramework).sarif&quot;</FSharpAnalyzersOtherFlags>
         <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --exclude-analyzers PartialAppAnalyzer</FSharpAnalyzersOtherFlags>
     </PropertyGroup>
-    <Import Project="Fickle.Branding.targets" />
+    <Import Project="Fickl.Branding.targets" />
 </Project>

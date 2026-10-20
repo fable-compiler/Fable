@@ -506,7 +506,7 @@ let private logPrelude commands language =
             | "" -> ""
             | status -> $" (status: {status})"
 
-        Log.always ($"Fickle {Literals.VERSION}: F# to {language} compiler{status} (a Fable fork)")
+        Log.always ($"Fickl {Fickl.Version.VERSION} (Fable {Literals.VERSION}): F# to {language} compiler{status}")
 
         match getLibPkgVersion language with
         | Some(repository, pkgName, version) ->

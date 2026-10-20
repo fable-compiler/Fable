@@ -288,7 +288,7 @@ type MyClass() =
       let source =
         """
 open Fable.Core
-open Fickle.Core
+open Fickl.Core
 
 [<Erase>]
 type Id =
@@ -305,7 +305,7 @@ let isName (id: Id) = match id with Name _ -> true | Slug _ -> false
       let source =
         """
 open Fable.Core
-open Fickle.Core
+open Fickl.Core
 
 [<TypeScriptTaggedUnion("state")>]
 type Terminal =
@@ -322,7 +322,7 @@ let isError (t: Terminal) = match t with DoneError _ -> true | Done _ -> false
       let source =
         """
 open Fable.Core
-open Fickle.Core
+open Fickl.Core
 
 [<TypeScriptTaggedUnion("type")>]
 type Value =
@@ -339,7 +339,7 @@ let make () = Count 1
       let source =
         """
 open Fable.Core
-open Fickle.Core
+open Fickl.Core
 
 type Take =
     abstract fromIndex: int

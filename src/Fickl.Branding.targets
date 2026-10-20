@@ -1,0 +1,52 @@
+<Project>
+    <!--
+        Fickl package identity. Every Fickl-specific NuGet override lives here so upstream
+        Fable project files stay untouched; src/Directory.Build.targets imports this file.
+        Namespaces and assembly names are deliberately left as Fable.* to keep upstream merges cheap.
+    -->
+    <PropertyGroup>
+        <PackageProjectUrl>https://github.com/shayanhabibi/fickl</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/shayanhabibi/fickl.git</RepositoryUrl>
+        <PackageTags>fsharp;fickl;fable;javascript;typescript;python;f#;js</PackageTags>
+        <Authors>Alfonso García-Caro Núñez;Fable contributors;Fickl contributors</Authors>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.Cli'">
+        <PackageId>Fickl</PackageId>
+        <ToolCommandName>fickl</ToolCommandName>
+        <Description>Fickl: a performance-focused fork of the Fable F# compiler</Description>
+        <!-- Fickl's own version; the CHANGELOG version EasyBuild would set is Fable's -->
+        <EasyBuildPackageReleaseNotes_DisableSetVersion>true</EasyBuildPackageReleaseNotes_DisableSetVersion>
+        <Version>0.1.0</Version>
+    </PropertyGroup>
+
+    <!-- Fable.Cli sets GenerateAssemblyInfo=false, so the Fickl version reaches the code as a generated module -->
+    <Target Name="FicklWriteVersion" BeforeTargets="CoreCompile" Condition="'$(MSBuildProjectName)' == 'Fable.Cli'">
+        <PropertyGroup>
+            <FicklVersionFile>$(IntermediateOutputPath)Fickl.Version.fs</FicklVersionFile>
+        </PropertyGroup>
+        <WriteLinesToFile
+            File="$(FicklVersionFile)"
+            Lines="module internal Fickl.Version;let VERSION = &quot;$(Version)&quot;"
+            Overwrite="true"
+            WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <_FicklCompile Include="@(Compile)" />
+            <Compile Remove="@(Compile)" />
+            <Compile Include="$(FicklVersionFile);@(_FicklCompile)" />
+            <FileWrites Include="$(FicklVersionFile)" />
+        </ItemGroup>
+    </Target>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.Compiler'">
+        <PackageId>Fickl.Compiler</PackageId>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.AST'">
+        <PackageId>Fickl.AST</PackageId>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.PublishUtils'">
+        <PackageId>Fickl.PublishUtils</PackageId>
+    </PropertyGroup>
+</Project>

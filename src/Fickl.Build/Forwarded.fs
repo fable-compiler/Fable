@@ -4,7 +4,7 @@
 /// and runs the handler in-process through <c>Build.Main.main</c> with the same arguments
 /// upstream's <c>./build.sh</c> would pass. Fable.Build itself stays untouched, so upstream merges stay cheap.
 /// </summary>
-module Fickle.Build.Forwarded
+module Fickl.Build.Forwarded
 
 open System.IO
 open Partas.Build

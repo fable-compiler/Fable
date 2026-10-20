@@ -1,4 +1,4 @@
-namespace Fickle.Core
+namespace Fickl.Core
 
 open System
 

@@ -1,4 +1,4 @@
-/// Fickle: opt-in phase timings for a compilation, enabled with --timings.
+/// Fickl: opt-in phase timings for a compilation, enabled with --timings.
 /// Fable compiles files while FCS is still type-checking the project, so phases overlap:
 /// per-file work is summed across threads and reported next to the wall-clock totals.
 module Fable.Cli.Timings

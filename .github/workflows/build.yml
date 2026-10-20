@@ -87,11 +87,11 @@ jobs:
 
       - name: Fable Tests - JavaScript (linux)
         if: matrix.platform == 'ubuntu-latest'
-        run: dotnet run --project src/Fickle.Build -- test javascript
+        run: dotnet run --project src/Fickl.Build -- test javascript
 
       - name: Fable Tests - JavaScript (Windows)
         if: matrix.platform == 'windows-latest'
-        run: dotnet run --project src/Fickle.Build -- test javascript
+        run: dotnet run --project src/Fickl.Build -- test javascript
 
   # Separate build job for TypeScript
   build-typescript:
@@ -108,7 +108,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
       - name: Fable Tests - TypeScript
-        run: dotnet run --project src/Fickle.Build -- test typescript
+        run: dotnet run --project src/Fickl.Build -- test typescript
 
     # - name: Fable Tests - TypeScript
     #   run: dotnet fsi build.fsx test-ts
@@ -128,7 +128,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
       - name: Fable Tests
-        run: dotnet run --project src/Fickle.Build -- test integration
+        run: dotnet run --project src/Fickl.Build -- test integration
 
   # Separate build job for Standalone
   build-standalone:
@@ -145,7 +145,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
       - name: Fable Tests
-        run: dotnet run --project src/Fickle.Build -- test standalone
+        run: dotnet run --project src/Fickl.Build -- test standalone
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
@@ -179,7 +179,7 @@ jobs:
 
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
-        run: dotnet run --project src/Fickle.Build -- fable-library python
+        run: dotnet run --project src/Fickl.Build -- fable-library python
 
       # PEP 561 requires the marker inside the package directory. CopyStage filters
       # by extension, so it is easy to drop again; without it mypy refuses to read
@@ -192,15 +192,15 @@ jobs:
 
       - name: Fable Library - Python (Windows)
         if: matrix.platform == 'windows-latest'
-        run: dotnet run --project src/Fickle.Build -- fable-library python
+        run: dotnet run --project src/Fickl.Build -- fable-library python
 
       - name: Fable Tests - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
-        run: dotnet run --project src/Fickle.Build -- test python
+        run: dotnet run --project src/Fickl.Build -- test python
 
       - name: Fable Tests - Python (Windows)
         if: matrix.platform == 'windows-latest'
-        run: dotnet run --project src/Fickle.Build -- test python
+        run: dotnet run --project src/Fickl.Build -- test python
 
   # Native/Rust-extension unit tests for the published fable-library package.
   # These live in src/fable-library-py/tests and exercise hand-written sources
@@ -283,10 +283,10 @@ jobs:
           components: rustfmt
 
       - name: Fable Library - Rust
-        run: dotnet run --project src/Fickle.Build -- fable-library rust
+        run: dotnet run --project src/Fickl.Build -- fable-library rust
 
       - name: Fable Tests - Rust
-        run: dotnet run --project src/Fickle.Build -- test rust --features "${{ matrix.features }}"
+        run: dotnet run --project src/Fickl.Build -- test rust --features "${{ matrix.features }}"
 
   # Separate build job for Dart
   build-dart:
@@ -307,7 +307,7 @@ jobs:
         uses: dart-lang/setup-dart@v1
 
       - name: Fable Tests - Dart
-        run: dotnet run --project src/Fickle.Build -- test dart
+        run: dotnet run --project src/Fickl.Build -- test dart
 
   # Separate build job for Beam (Erlang)
   build-beam:
@@ -327,7 +327,7 @@ jobs:
           rebar3-version: "3"
 
       - name: Fable Tests - Beam
-        run: dotnet run --project src/Fickle.Build -- test beam
+        run: dotnet run --project src/Fickl.Build -- test beam
 
   # Separate job to run F# analyzers
   analyzers:

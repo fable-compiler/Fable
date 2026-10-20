@@ -1,6 +1,6 @@
 # Performance baseline
 
-Measured with `dotnet run --project src/Fickle.Build -- timings` (the `--timings` report), Release compiler, cold process, `--noCache`.
+Measured with `dotnet run --project src/Fickl.Build -- timings` (the `--timings` report), Release compiler, cold process, `--noCache`.
 
 ## 2026-10-20: tests/Js/Main → JavaScript (76 source files), Windows 11, .NET 10
 
@@ -29,7 +29,7 @@ Ranges span the runs taken while building the tool; cracking varies most (MSBuil
 
 ## 2026-10-20: same benchmark, net10-only FCS (fickle-fsharp `da62eba`)
 
-FCS rebuilt for net10.0 only (`dotnet run --project src/Fickle.Build -- fcs-fork`), with no source changes.
+FCS rebuilt for net10.0 only (`dotnet run --project src/Fickl.Build -- fcs-fork`), with no source changes.
 Default mode, 3 runs:
 
 | Phase | netstandard2.0 FCS (above) | net10 FCS |

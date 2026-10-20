@@ -26,7 +26,7 @@
             "args": [
                 "run",
                 "--project",
-                "src/Fickle.Build",
+                "src/Fickl.Build",
                 "--",
                 "fable-library",
                 "javascript"
@@ -40,7 +40,7 @@
             "args": [
                 "run",
                 "--project",
-                "src/Fickle.Build",
+                "src/Fickl.Build",
                 "--",
                 "fable-library",
                 "typescript"
@@ -54,7 +54,7 @@
             "args": [
                 "run",
                 "--project",
-                "src/Fickle.Build",
+                "src/Fickl.Build",
                 "--",
                 "fable-library",
                 "python"
@@ -68,7 +68,7 @@
             "args": [
                 "run",
                 "--project",
-                "src/Fickle.Build",
+                "src/Fickl.Build",
                 "--",
                 "fable-library",
                 "dart"
@@ -82,7 +82,7 @@
             "args": [
                 "run",
                 "--project",
-                "src/Fickle.Build",
+                "src/Fickl.Build",
                 "--",
                 "fable-library",
                 "rust"
