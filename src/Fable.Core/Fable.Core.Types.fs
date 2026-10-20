@@ -103,6 +103,26 @@ type CaseTestAttribute(test: string) =
     inherit Attribute()
 
 /// <summary>
+/// Compiles a case of a <c>TypeScriptTaggedUnion</c> as its interface field with the tag added,
+/// instead of as an object holding the field.
+/// On the union type, it applies to every case that has fields.
+/// </summary>
+/// <remarks>
+/// The case must have exactly one field, whose type is an interface:
+/// <code>
+/// [&lt;TypeScriptTaggedUnion("type")>]
+/// type Command =
+///     | [&lt;InlineInterface>] Take of Take
+///     | Save
+/// </code>
+/// The TypeScript type of the <c>Take</c> case is <c>Take &amp; { type: "take" }</c>.
+/// Constructing the case copies the field value with its prototype and sets the tag on the copy.
+/// Reading the field returns the union value.
+/// </remarks>
+type InlineInterfaceAttribute() =
+    inherit Attribute()
+
+/// <summary>
 /// Used in place of <c>CompiledNameAttribute</c> if the target is not a string.
 /// </summary>
 /// <remarks>

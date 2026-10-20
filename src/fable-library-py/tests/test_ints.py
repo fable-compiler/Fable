@@ -2,7 +2,6 @@ from array import array
 from decimal import Decimal
 
 import pytest
-
 from fable_library.core import FSharpRef, Int32, byte, float32, int16, int32, int64, sbyte, uint16, uint32, uint64
 from fable_library.int32 import parse as int32_parse
 from fable_library.int32 import try_parse as int32_try_parse

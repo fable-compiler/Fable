@@ -95,6 +95,14 @@ let private transformStringEnumCase (com: Compiler) (rule: Fable.Core.CaseRules)
     | Beam -> transformStringEnumAsAtom rule unionCase
     | _ -> transformStringEnum rule unionCase
 
+/// The interface type a TypeScriptTaggedUnion case compiles as; reports an error when InlineInterface cannot apply.
+let private inlinedInterface (com: IFableCompiler) (ctx: Context) r tdef (unionCase: FSharpUnionCase) =
+    match tryInlinedInterface com (FsEnt tdef) (FsUnionCase unionCase) with
+    | Ok inlined -> inlined
+    | Error msg ->
+        addError com ctx.InlinePath r msg
+        None
+
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase -> makeTuple r false argExprs
@@ -109,31 +117,50 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             |> addErrorAndReturnNull com ctx.InlinePath r
         | argExprs -> makeTuple r false argExprs
 
-    | TypeScriptTaggedUnion(_, _, tagName, rule) ->
-        match argExprs with
-        // | [ argExpr ] when not (FsUnionCase.HasNamedFields unionCase) -> argExpr
+    | TypeScriptTaggedUnion(tdef, _, tagName, rule) ->
+        let inlined = inlinedInterface com ctx r tdef unionCase
+
+        let isCompiledValue, tagExpr =
+            match FsUnionCase.CompiledValue unionCase with
+            | None -> false, transformStringEnum rule unionCase
+            | Some(CompiledValue.Integer i) -> false, makeIntConst i
+            | Some(CompiledValue.Float f) -> false, makeFloatConst f
+            | Some(CompiledValue.Boolean b) -> false, makeBoolConst b
+
+        match isCompiledValue, com.Options.Language with
+        | true, TypeScript ->
+            "CompileValue attribute is not supported in TypeScript"
+            |> addErrorAndReturnNull com ctx.InlinePath r
         | _ ->
-            let isCompiledValue, tagExpr =
-                match FsUnionCase.CompiledValue unionCase with
-                | None -> false, transformStringEnum rule unionCase
-                | Some(CompiledValue.Integer i) -> false, makeIntConst i
-                | Some(CompiledValue.Float f) -> false, makeFloatConst f
-                | Some(CompiledValue.Boolean b) -> false, makeBoolConst b
+            let fieldNames, fieldTypes =
+                unionCase.Fields
+                |> Seq.map (fun fi -> fi.Name, fi.FieldType)
+                |> Seq.toArray
+                |> Array.unzip
 
-            match isCompiledValue, com.Options.Language with
-            | true, TypeScript ->
-                "CompileValue attribute is not supported in TypeScript"
-                |> addErrorAndReturnNull com ctx.InlinePath r
-            | _ ->
-                let fieldNames, fieldTypes =
-                    unionCase.Fields
-                    |> Seq.map (fun fi -> fi.Name, fi.FieldType)
-                    |> Seq.toArray
-                    |> Array.unzip
+            let fieldTypes = makeTypeGenArgs ctx.GenericArgs fieldTypes
 
-                let fieldTypes = makeTypeGenArgs ctx.GenericArgs fieldTypes
+            let expr =
+                match inlined, argExprs with
+                | Some _, [ argExpr ] ->
+                    // A copy of the interface value, with its prototype, carrying the tag
+                    let tag =
+                        Fable.NewAnonymousRecord([ tagExpr ], [| tagName |], [ tagExpr.Type ], false)
+                        |> makeValue r
 
-                let expr =
+                    let makeCopy argExpr =
+                        emitExpr
+                            r
+                            Fable.Any
+                            [ argExpr; tag ]
+                            "Object.assign(Object.create(Object.getPrototypeOf($0)), $0, $1)"
+
+                    if canHaveSideEffects com argExpr then
+                        let ident = getIdentUniqueName com ctx "caseValue" |> makeTypedIdent argExpr.Type
+                        Fable.Let(ident, argExpr, makeCopy (Fable.IdentExpr ident))
+                    else
+                        makeCopy argExpr
+                | _ ->
                     Fable.NewAnonymousRecord(
                         tagExpr :: argExprs,
                         Array.append [| tagName |] fieldNames,
@@ -142,7 +169,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
                     )
                     |> makeValue r
 
-                Fable.TypeCast(expr, makeType ctx.GenericArgs fsType)
+            Fable.TypeCast(expr, makeType ctx.GenericArgs fsType)
 
     | StringEnum(tdef, rule) ->
         match argExprs with
@@ -836,6 +863,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.Const(value, typ) ->
             let typ = makeType ctx.GenericArgs typ
+
+            // Enum cases reach Fable as their numeric value, so files using them must follow the enum declaration
+            do
+                match typ with
+                | Fable.Number(_, Fable.NumberInfo.IsEnum entRef) ->
+                    entRef.SourcePath |> Option.iter com.AddSignatureDependency
+                | _ -> ()
+
             let expr = makeTypeConst (makeRangeFrom fsExpr) typ value
             return expr
 
@@ -1350,17 +1385,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
 
                     return Fable.Get(unionExpr, Fable.TupleIndex index, fieldType, r)
-            | TypeScriptTaggedUnion _ ->
-                // if not (FsUnionCase.HasNamedFields unionCase) then
-                //     return unionExpr
-                // else
-                let kind =
-                    Fable.FieldInfo.Create(
-                        FsField.FSharpFieldName field,
-                        fieldType = makeType Map.empty field.FieldType
-                    )
+            | TypeScriptTaggedUnion(tdef, _, _, _) ->
+                match inlinedInterface com ctx r tdef unionCase with
+                | Some _ -> return Fable.TypeCast(unionExpr, fieldType)
+                | None ->
+                    let kind =
+                        Fable.FieldInfo.Create(
+                            FsField.FSharpFieldName field,
+                            fieldType = makeType Map.empty field.FieldType
+                        )
 
-                return Fable.Get(unionExpr, kind, fieldType, r)
+                    return Fable.Get(unionExpr, kind, fieldType, r)
             | StringEnum _ ->
                 return
                     "StringEnum types cannot have fields"
@@ -1508,10 +1543,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! argExprs = transformExprList com ctx argExprs
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+            let entRef = FsEnt.Ref fsType.TypeDefinition
+            // Record fields are passed by position, so a field reordering in the declaring file changes this call
+            entRef.SourcePath |> Option.iter com.AddSignatureDependency
 
-            return
-                Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs)
-                |> makeValue r
+            return Fable.NewRecord(argExprs, entRef, genArgs) |> makeValue r
 
         | FSharpExprPatterns.NewAnonRecord(fsType, argExprs) ->
             let r = makeRangeFrom fsExpr
@@ -2970,6 +3006,7 @@ type FableCompiler(com: Compiler) =
         member _.TryGetEntity(entRef) = com.TryGetEntity(entRef)
         member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
+        member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
         member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
             com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)

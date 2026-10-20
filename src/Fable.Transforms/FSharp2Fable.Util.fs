@@ -144,16 +144,13 @@ type FsUnionCase(uci: FSharpUnionCase) =
         |> Helpers.tryFindAttrib Atts.caseTest
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string<obj>)
 
-    // static member HasNamedFields(uci: FSharpUnionCase) =
-    //     not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
-    //     true
-
     interface Fable.UnionCase with
         member _.Name = uci.Name
         member _.FullName = FsUnionCase.FullName uci
         member _.CompiledName = FsUnionCase.CompiledName uci
 
         member _.UnionCaseFields = uci.Fields |> Seq.mapToList (fun x -> upcast FsField(x))
+        member _.Attributes = uci.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
 type FsAtt(att: FSharpAttribute) =
     interface Fable.Attribute with
@@ -2438,6 +2435,7 @@ module Util =
             if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
                 makeIdentExpr entityName
             else
+                com.AddSignatureDependency(file)
                 makeInternalClassImport com ent entityName file
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) = entityIdentWithSuffix com ent ""
@@ -2519,6 +2517,8 @@ module Util =
                 // If the overload suffix changes, we need to recompile the files that call this member
                 if hasOverloadSuffix then
                     com.AddWatchDependency(file)
+
+                com.AddSignatureDependency(file)
 
                 // Private values are not exported so they can't be imported by call sites in other files.
                 // We need to handle it manually because Fable handle resolve inline function itself

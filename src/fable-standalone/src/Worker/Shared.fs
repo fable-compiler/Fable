@@ -49,12 +49,19 @@ type WorkerRequest =
         filesToEmit: string[] *
         language: string *
         otherFSharpOptions: string[]
+    | Tokenize of id: Guid * source: string * defines: string[]
+    | GetSemanticClassification of id: Guid
+    | GetSemanticClassificationForFile of id: Guid * file: string
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
+    /// Tooltips of an item of the last FoundCompletions answer
+    | GetCompletionDescription of id: Guid * index: int
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
+    | GetSymbolUses of id: Guid * line: int * column: int * lineText: string
     | GetTooltipForFile of id: Guid * file: string * line: int * column: int * lineText: string
     | GetCompletionsForFile of id: Guid * file: string * line: int * column: int * lineText: string
     | GetDeclarationLocationForFile of id: Guid * file: string * line: int * column: int * lineText: string
+    | GetSymbolUsesForFile of id: Guid * file: string * line: int * column: int * lineText: string
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerRequest>()
 
@@ -72,9 +79,13 @@ type WorkerAnswer =
     | CompilationFinished of code: string * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilationsFinished of code: string[] * language: string * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
-    | FoundTooltip of id: Guid * lines: string[]
+    | Tokenized of id: Guid * lines: Fable.Standalone.Token[][]
+    | FoundSemanticClassification of id: Guid * items: Fable.Standalone.SemanticClassification[]
+    | FoundTooltip of id: Guid * tooltips: Fable.Standalone.ToolTip[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
-    | FoundDeclarationLocation of id: Guid (* line1, col1, line2, col2 *) * (int * int * int * int) option
+    | FoundCompletionDescription of id: Guid * tooltips: Fable.Standalone.ToolTip[]
+    | FoundDeclarationLocation of id: Guid * Fable.Standalone.DeclarationLocation
+    | FoundSymbolUses of id: Guid * uses: Fable.Standalone.SymbolUse[]
 
     static member Decoder = Decode.Auto.generateDecoder<WorkerAnswer>()
 

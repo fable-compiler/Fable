@@ -398,6 +398,30 @@ module TaggedUnion =
         | [<CompiledName("done"); CaseTest("$0.ok === false")>] DoneFailed of ok: bool
         | Pending
 
+    type Take =
+        abstract fromIndex: int
+        abstract toIndex: int
+
+    type Edit =
+        abstract text: string
+
+    type TakeRange(fromIndex: int, toIndex: int) =
+        interface Take with
+            member _.fromIndex = fromIndex
+            member _.toIndex = toIndex
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("type")>]
+    type InlinedCase =
+        | [<InlineInterface>] Take of Take
+        | Edit of Edit
+        | Save
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("type"); InlineInterface>]
+    type InlinedType =
+        | Take of Take
+        | Edit of Edit
+        | Save
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1118,6 +1142,59 @@ let tests =
             calls <- calls + 1
             TaggedUnion.SharedTag.DoneError "oops"
         (next ()).IsDoneError |> equal true
+        calls |> equal 1
+
+    testCase "InlineInterface on a TS tagged union case compiles the case as its interface" <| fun () ->
+        let take = { new TaggedUnion.Take with
+                        member _.fromIndex = 1
+                        member _.toIndex = 3 }
+        let command = TaggedUnion.InlinedCase.Take take
+        command?``type`` |> equal "take"
+        command?fromIndex |> equal 1
+        jsTypeof command?Item |> equal "undefined"
+        jsTypeof take?``type`` |> equal "undefined"
+        let edit = TaggedUnion.InlinedCase.Edit { new TaggedUnion.Edit with member _.text = "hi" }
+        edit?Item?text |> equal "hi"
+        let describe = function
+            | TaggedUnion.InlinedCase.Take t -> sprintf "take: %d-%d" t.fromIndex t.toIndex
+            | TaggedUnion.InlinedCase.Edit e -> sprintf "edit: %s" e.text
+            | TaggedUnion.InlinedCase.Save -> "save"
+        command |> describe |> equal "take: 1-3"
+        edit |> describe |> equal "edit: hi"
+        TaggedUnion.InlinedCase.Save |> describe |> equal "save"
+        !!{| ``type`` = "take"; fromIndex = 2; toIndex = 5 |} |> describe |> equal "take: 2-5"
+        command.IsTake |> equal true
+        edit.IsTake |> equal false
+
+    testCase "InlineInterface on a TS tagged union type applies to every case with fields" <| fun () ->
+        let describe = function
+            | TaggedUnion.InlinedType.Take t -> sprintf "take: %d-%d" t.fromIndex t.toIndex
+            | TaggedUnion.InlinedType.Edit e -> sprintf "edit: %s" e.text
+            | TaggedUnion.InlinedType.Save -> "save"
+        let edit = TaggedUnion.InlinedType.Edit { new TaggedUnion.Edit with member _.text = "hi" }
+        edit?``type`` |> equal "edit"
+        edit?text |> equal "hi"
+        edit |> describe |> equal "edit: hi"
+        TaggedUnion.InlinedType.Save |> describe |> equal "save"
+        !!{| ``type`` = "edit"; text = "raw" |} |> describe |> equal "edit: raw"
+
+    testCase "InlineInterface keeps the prototype of a class instance" <| fun () ->
+        let range = TaggedUnion.TakeRange(1, 3)
+        let command = TaggedUnion.InlinedType.Take range
+        match command with
+        | TaggedUnion.InlinedType.Take t -> sprintf "%d-%d" t.fromIndex t.toIndex |> equal "1-3"
+        | _ -> failwith "expected Take"
+        jsTypeof range?``type`` |> equal "undefined"
+
+    testCase "InlineInterface evaluates the case value once" <| fun () ->
+        let mutable calls = 0
+        let next () =
+            calls <- calls + 1
+            { new TaggedUnion.Take with
+                member _.fromIndex = 1
+                member _.toIndex = 3 }
+        let command = TaggedUnion.InlinedCase.Take(next ())
+        command.IsTake |> equal true
         calls |> equal 1
 #endif
 

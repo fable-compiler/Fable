@@ -65,6 +65,7 @@ type State =
         Fable: FableState option
         Worker: ObservableWorker<WorkerRequest>
         CurrentResults: Map<string, IParseAndCheckResults>
+        CurrentCompletions: CompletionItem[]
     }
 
 /// Map a REPL language string to its fable-library directory name (used as the
@@ -246,7 +247,10 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
 
         let! compiledCode, errors, fableTransformTime =
             async {
-                if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
+                if
+                    parseResults.Errors
+                    |> Array.exists (fun e -> e.Severity = DiagnosticSeverity.Error)
+                then
                     return "", parseResults.Errors, 0.
                 else
                     let! code, fableErrors, fableTransformTime =
@@ -289,7 +293,12 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
         let mutable fableTransformTime = 0.
         let compiledCode = ResizeArray()
 
-        if not (parseResults.Errors |> Array.exists (fun e -> not e.IsWarning)) then
+        if
+            not (
+                parseResults.Errors
+                |> Array.exists (fun e -> e.Severity = DiagnosticSeverity.Error)
+            )
+        then
             for fileName in filesToEmit do
                 let! code, fableErrors, transformTime =
                     emitFile fable parseResults fileName language fableOptions
@@ -318,6 +327,14 @@ let private truncate (s: string) =
         s.Substring(0, 80) + "..."
     else
         s
+
+let private symbolUsesAt (fable: FableState) (results: IParseAndCheckResults option) line col lineText =
+    match results with
+    | None -> [||]
+    | Some res ->
+        match fable.Manager.GetSymbolAtLocation(res, line, col, lineText) with
+        | None -> [||]
+        | Some symbol -> fable.Manager.GetUsesOfSymbolInFile(res, symbol)
 
 let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
     async {
@@ -430,65 +447,107 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
 
             return! loop box state
 
-        | Some fable, GetTooltip(id, line, col, lineText) ->
-            let tooltipLines =
+        | Some fable, Tokenize(id, source, defines) ->
+            Tokenized(id, fable.Manager.Tokenize(source, defines)) |> state.Worker.Post
+            return! loop box state
+
+        | Some fable, GetSemanticClassification id ->
+            let items =
                 match FILE_NAME |> state.CurrentResults.TryFind with
                 | None -> [||]
-                | Some res -> fable.Manager.GetToolTipText(res, int line, int col, lineText)
+                | Some res -> fable.Manager.GetSemanticClassification(res)
 
-            FoundTooltip(id, tooltipLines) |> state.Worker.Post
+            FoundSemanticClassification(id, items) |> state.Worker.Post
+            return! loop box state
+
+        | Some fable, GetSemanticClassificationForFile(id, file) ->
+            let items =
+                match file |> state.CurrentResults.TryFind with
+                | None -> [||]
+                | Some res -> fable.Manager.GetSemanticClassification(res)
+
+            FoundSemanticClassification(id, items) |> state.Worker.Post
+            return! loop box state
+
+        | Some fable, GetTooltip(id, line, col, lineText) ->
+            let tooltips =
+                match FILE_NAME |> state.CurrentResults.TryFind with
+                | None -> [||]
+                | Some res -> fable.Manager.GetToolTips(res, int line, int col, lineText)
+
+            FoundTooltip(id, tooltips) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetCompletions(id, line, col, lineText) ->
-            let completions =
+            let items =
                 match FILE_NAME |> state.CurrentResults.TryFind with
                 | None -> [||]
                 | Some res -> fable.Manager.GetCompletionsAtLocation(res, int line, int col, lineText)
 
-            FoundCompletions(id, completions) |> state.Worker.Post
+            FoundCompletions(id, items |> Array.map _.Completion) |> state.Worker.Post
+
+            return! loop box { state with CurrentCompletions = items }
+
+        | Some fable, GetSymbolUses(id, line, col, lineText) ->
+            let uses =
+                symbolUsesAt fable (state.CurrentResults.TryFind FILE_NAME) (int line) (int col) lineText
+
+            FoundSymbolUses(id, uses) |> state.Worker.Post
+            return! loop box state
+
+        | Some _, GetCompletionDescription(id, index) ->
+            let tooltips =
+                match Array.tryItem index state.CurrentCompletions with
+                | None -> [||]
+                | Some item -> item.GetDescription()
+
+            FoundCompletionDescription(id, tooltips) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetDeclarationLocation(id, line, col, lineText) ->
-            let result =
+            let location =
                 match FILE_NAME |> state.CurrentResults.TryFind with
-                | None -> None
+                | None -> DeclarationLocation.NotFound "file not parsed"
                 | Some res -> fable.Manager.GetDeclarationLocation(res, int line, int col, lineText)
 
-            match result with
-            | Some x -> FoundDeclarationLocation(id, Some(x.StartLine, x.StartColumn, x.EndLine, x.EndColumn))
-            | None -> FoundDeclarationLocation(id, None)
-            |> state.Worker.Post
+            FoundDeclarationLocation(id, location) |> state.Worker.Post
 
             return! loop box state
 
         | Some fable, GetTooltipForFile(id, file, line, col, lineText) ->
-            let tooltipLines =
+            let tooltips =
                 match file |> state.CurrentResults.TryFind with
                 | None -> [||]
-                | Some res -> fable.Manager.GetToolTipText(res, int line, int col, lineText)
+                | Some res -> fable.Manager.GetToolTips(res, int line, int col, lineText)
 
-            FoundTooltip(id, tooltipLines) |> state.Worker.Post
+            FoundTooltip(id, tooltips) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetCompletionsForFile(id, file, line, col, lineText) ->
-            let completions =
+            let items =
                 match file |> state.CurrentResults.TryFind with
                 | None -> [||]
                 | Some res -> fable.Manager.GetCompletionsAtLocation(res, int line, int col, lineText)
 
-            FoundCompletions(id, completions) |> state.Worker.Post
+            FoundCompletions(id, items |> Array.map (fun item -> item.Completion))
+            |> state.Worker.Post
+
+            return! loop box { state with CurrentCompletions = items }
+
+        | Some fable, GetSymbolUsesForFile(id, file, line, col, lineText) ->
+            let uses =
+                symbolUsesAt fable (state.CurrentResults.TryFind file) (int line) (int col) lineText
+
+            FoundSymbolUses(id, uses) |> state.Worker.Post
             return! loop box state
 
         | Some fable, GetDeclarationLocationForFile(id, file, line, col, lineText) ->
-            let result =
+            let location =
                 match file |> state.CurrentResults.TryFind with
-                | None -> None
+                | None -> DeclarationLocation.NotFound "file not parsed"
                 | Some res -> fable.Manager.GetDeclarationLocation(res, int line, int col, lineText)
 
-            match result with
-            | Some x -> FoundDeclarationLocation(id, Some(x.StartLine, x.StartColumn, x.EndLine, x.EndColumn))
-            | None -> FoundDeclarationLocation(id, None)
-            |> state.Worker.Post
+            FoundDeclarationLocation(id, location) |> state.Worker.Post
 
             return! loop box state
     }
@@ -501,6 +560,7 @@ let box =
             Fable = None
             Worker = worker
             CurrentResults = Map.empty
+            CurrentCompletions = [||]
         }
         |> loop box
     )

@@ -418,6 +418,26 @@ let private toIntFromInt16 (x: int16) = int x
 let private toFloatFromSingle (x: float32) = float x
 let private toFloatFromByte (x: byte) = float x
 let private toFloatFromInt (x: int) = float x
+let private toInt16FromSByte (x: sbyte) = int16 x
+let private toUInt16FromByte (x: byte) = uint16 x
+let private toUInt32FromByte (x: byte) = uint32 x
+let private toUInt32FromUInt16 (x: uint16) = uint32 x
+
+[<Fact>]
+let ``test Widening between integer wrappers uses the target width`` () =
+    // Compare as int so wrapper equality cannot truncate the expected value to the source width.
+    toInt16FromSByte 100y <<< 1 |> int |> equal 200
+    toInt16FromSByte -100y <<< 1 |> int |> equal -200
+    toUInt16FromByte 200uy <<< 1 |> int |> equal 400
+    toUInt32FromByte 200uy <<< 1 |> int |> equal 400
+    toUInt32FromUInt16 60000us <<< 1 |> int |> equal 120000
+
+[<Fact>]
+let ``test Widening between integer wrappers has the target runtime type`` () =
+    box (toInt16FromSByte 5y) :? int16 |> equal true
+    box (toUInt16FromByte 5uy) :? uint16 |> equal true
+    box (toUInt32FromByte 5uy) :? uint32 |> equal true
+    box (toUInt32FromUInt16 5us) :? uint32 |> equal true
 
 [<Fact>]
 let ``test Widening to int does not keep the source width`` () =

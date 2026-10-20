@@ -442,3 +442,31 @@ class IReadOnlyDictionary[K, V](Protocol):
     def __getitem__(self, key: K, /) -> V:
         """Get the value for a key."""
         ...
+
+
+__all__ = [
+    "HashCode",
+    "ICollection",
+    "IComparable",
+    "IComparable_1",
+    "IComparer",
+    "IComparer_1",
+    "IDictionary_2",
+    "IDisposable",
+    "IEnumerable",
+    "IEnumerable_1",
+    "IEnumerator",
+    "IEqualityComparer",
+    "IEqualityComparer_1",
+    "IEquatable",
+    "IGenericAdder",
+    "IGenericAverager",
+    "IReadOnlyCollection_1",
+    "IReadOnlyDictionary",
+    "IReadOnlyDictionary_2",
+    "IReadOnlySet_1",
+    "ISet",
+    "IStructuralComparable",
+    "IStructuralEquatable",
+    "SupportsLessThan",
+]

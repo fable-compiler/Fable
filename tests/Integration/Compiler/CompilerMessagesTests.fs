@@ -315,4 +315,39 @@ let isError (t: Terminal) = match t with DoneError _ -> true | Done _ -> false
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "InlineInterface on a case without an interface field emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("type")>]
+type Value =
+    | [<InlineInterface>] Count of int
+    | Empty
+
+let make () = Count 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "InlineInterface cannot apply to 'Count'"
+      |> ignore
+
+    testCase "InlineInterface on a case with an interface field does not emit error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Take =
+    abstract fromIndex: int
+
+[<TypeScriptTaggedUnion("type"); InlineInterface>]
+type Command =
+    | Take of Take
+    | Save
+
+let fromIndex (c: Command) = match c with Take t -> t.fromIndex | Save -> 0
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
   ]

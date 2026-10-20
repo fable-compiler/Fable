@@ -114,7 +114,7 @@ console.log(`  ${modules.length} modules in ${((Date.now() - started) / 1000).to
 const failures = []
 if (modules.length !== fixture.length) failures.push(`expected ${fixture.length} modules, got ${modules.length}`)
 
-const hard = (errors ?? []).filter((e) => !e.IsWarning)
+const hard = (errors ?? []).filter((e) => e.Severity === "error")
 if (hard.length) failures.push(`${hard.length} compile error(s), first: ${hard[0].Message}`)
 
 // V8 caps the stack in bytes, so a frame count is only comparable against another count from this
@@ -137,7 +137,7 @@ console.log(`re-emit ${last} only: ${subset.length} module ` +
 
 if (subset.length !== 1) failures.push(`expected 1 module for a single-file emit, got ${subset.length}`)
 if (subset[0] !== modules[modules.length - 1]) failures.push(`re-emitting ${last} produced different output`)
-if ((subsetErrors ?? []).filter((e) => !e.IsWarning).length) failures.push("subset emit reported errors")
+if ((subsetErrors ?? []).filter((e) => e.Severity === "error").length) failures.push("subset emit reported errors")
 if (subsetStats.Fable_transform >= stats.Fable_transform) {
     failures.push(`emitting 1 of ${fixture.length} files took as long as emitting all of them`)
 }
@@ -146,7 +146,7 @@ if (subsetStats.Fable_transform >= stats.Fable_transform) {
 const longFunction = "long" + "x".repeat(230)
 post(["CompileFiles", [{ Name: "Program.fs", Content: `module Demo\nlet ${longFunction} () = 42` }], [], "beam", []])
 const [, beamModules, , beamErrors] = await answer("CompilationsFinished")
-const beamHard = (beamErrors ?? []).filter((e) => !e.IsWarning)
+const beamHard = (beamErrors ?? []).filter((e) => e.Severity === "error")
 if (beamHard.length) failures.push(`BEAM example failed: ${beamHard[0].Message}`)
 const beamCode = beamModules.join("\n")
 if (!/longx+_[0-9a-f]{8}\(/.test(beamCode)) {
@@ -162,10 +162,127 @@ post(["CompileFiles", [{ Name: "Program.fs", Content: [
     `let read () = ${mutablePrefix}a2, ${mutablePrefix}cp`,
 ].join("\n") }], [], "beam", []])
 const [, , , collisionErrors] = await answer("CompilationsFinished")
-if (!(collisionErrors ?? []).some((e) => !e.IsWarning && e.Message.includes("share Erlang state key"))) {
+if (!(collisionErrors ?? []).some((e) => e.Severity === "error" && e.Message.includes("share Erlang state key"))) {
     failures.push("standalone BEAM did not diagnose colliding mutable state keys")
 }
 console.log("  BEAM example hashing and state-key diagnostics checked")
+
+// Tooltips: FCS tagged text already carries its own spaces and punctuation, so the joined text must
+// not gain any, and the tags and the XML doc must come through separately.
+const greetLine = `let greet (name: string) = sprintf "Hello %s" name`
+const runLine = `let run () = greet "world"`
+const absLine = `let abs = System.Math.Abs(-1)`
+const greLine = `let g = gre`
+const genericLine = `let addOne (x: 'a) = x + 1`
+const undefinedLine = `let bad = undefinedThing`
+post(["ParseFile", "Program.fs", [{ Name: "Program.fs", Content: ["module Demo", "/// Says hello.", greetLine, runLine, absLine, greLine, genericLine, undefinedLine].join("\n") }], []])
+const [, parsedErrors] = await answer("ParsedCode")
+
+// Diagnostics: the FCS error number and the real severity must come through.
+const diagnostics = parsedErrors.map((e) => `${e.Code}:${e.Severity}@${e.StartLine}`)
+const fixtureLines = 6
+if (!parsedErrors.some((e) => e.Code === "FS0064" && e.Severity === "warning" && e.StartLine === fixtureLines + 1)) {
+    failures.push(`expected the FS0064 warning: ${diagnostics.join(", ")}`)
+}
+if (!parsedErrors.some((e) => e.Code === "FS0039" && e.Severity === "error" && e.StartLine === fixtureLines + 2)) {
+    failures.push(`expected the FS0039 error: ${diagnostics.join(", ")}`)
+}
+console.log(`  diagnostics: ${diagnostics.join(", ")}`)
+
+const signatureOf = (tooltips) => (tooltips[0]?.Signature ?? []).map((t) => t.Text).join("")
+
+// Columns are 0-based: the first character of an identifier and the position just after its last
+// character must both resolve it.
+post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000001", "Program.fs", 3, 34, greetLine])
+const [, , sprintfTooltip] = await answer("FoundTooltip")
+const sprintfSignature = signatureOf(sprintfTooltip)
+if (!sprintfSignature.includes("Printf.StringFormat<")) failures.push(`tooltip has stray spaces: ${sprintfSignature}`)
+console.log(`  tooltip: ${sprintfSignature}`)
+
+post(["GetTooltipForFile", "00000000-0000-0000-0000-000000000002", "Program.fs", 4, 13, runLine])
+const [, , greetTooltip] = await answer("FoundTooltip")
+const signature = greetTooltip[0]?.Signature ?? []
+const greetSignature = signatureOf(greetTooltip)
+if (!greetSignature.startsWith("val greet:")) failures.push(`unexpected tooltip signature: ${greetSignature}`)
+if (!signature.some((t) => t.Tag === "keyword") || !signature.some((t) => t.Tag === "punctuation")) {
+    failures.push(`tooltip lost its tags: ${JSON.stringify(signature.slice(0, 4))}`)
+}
+if (!greetTooltip[0]?.XmlDoc?.includes("<summary>")) failures.push(`tooltip lost the XML doc: ${JSON.stringify(greetTooltip[0]?.XmlDoc)}`)
+console.log(`  tooltip: ${greetSignature} (${signature.length} tagged parts, ${greetTooltip[0]?.XmlDoc?.length ?? 0} doc lines)`)
+
+// Declaration locations: a project symbol, an FSharp.Core symbol (whose recorded file is not in the
+// project) and a .NET symbol must stay distinguishable.
+const declarationOf = async (id, line, col, lineText) => {
+    post(["GetDeclarationLocationForFile", id, "Program.fs", line, col, lineText])
+    const [, , location] = await answer("FoundDeclarationLocation")
+    return location
+}
+const greetDecl = await declarationOf("00000000-0000-0000-0000-000000000003", 4, 13, runLine)
+const sprintfDecl = await declarationOf("00000000-0000-0000-0000-000000000004", 3, 34, greetLine)
+const absDecl = await declarationOf("00000000-0000-0000-0000-000000000005", 5, 22, absLine)
+if (greetDecl[0] !== "Found" || greetDecl[1].FileName !== "Program.fs" || greetDecl[1].StartLine !== 3) {
+    failures.push(`greet should be found in Program.fs: ${JSON.stringify(greetDecl)}`)
+}
+if (sprintfDecl[0] !== "Found" || sprintfDecl[1].FileName === "Program.fs") {
+    failures.push(`sprintf should be found in an FSharp.Core source: ${JSON.stringify(sprintfDecl)}`)
+}
+if (absDecl[0] !== "External" || absDecl[2] !== "System.Math.Abs(System.Int32)") {
+    failures.push(`Math.Abs should be an external .NET symbol: ${JSON.stringify(absDecl)}`)
+}
+console.log(`  declarations: greet in ${greetDecl[1]?.FileName}, sprintf in ${sprintfDecl[1]?.FileName}, Math.Abs in ${absDecl[1]}`)
+
+// Symbol uses: the definition of greet and its use must both come back, and nothing else.
+post(["GetSymbolUsesForFile", "00000000-0000-0000-0000-000000000006", "Program.fs", 4, 13, runLine])
+const [, , greetUses] = await answer("FoundSymbolUses")
+const usesText = greetUses.map((u) => `${u.Range.FileName}:${u.Range.StartLine}:${u.Range.StartColumn}-${u.Range.EndColumn}${u.IsDefinition ? " (definition)" : ""}`)
+const definitions = greetUses.filter((u) => u.IsDefinition)
+if (greetUses.length !== 2 || definitions.length !== 1 || definitions[0].Range.StartLine !== 3 || greetUses.some((u) => u.Range.FileName !== "Program.fs")) {
+    failures.push(`expected the definition and one use of greet: ${JSON.stringify(greetUses)}`)
+}
+console.log(`  symbol uses of greet: ${usesText.join(", ")}`)
+
+// Completions: the full item must come back, and the description of an item must be fetchable
+// afterwards by index.
+const completionsStarted = Date.now()
+post(["GetCompletionsForFile", "00000000-0000-0000-0000-000000000007", "Program.fs", 6, 11, greLine])
+const [, , greCompletions] = await answer("FoundCompletions")
+const completionsMs = Date.now() - completionsStarted
+const greetIndex = greCompletions.findIndex((c) => c.NameInList === "greet")
+const greet = greCompletions[greetIndex]
+if (!greet || greet.NameInCode !== "greet" || greet.FullName !== "Demo.greet") {
+    failures.push(`greet should be a completion of the project: ${JSON.stringify(greet)}`)
+}
+console.log(`  completions for "${greLine}": ${greCompletions.length} items in ${completionsMs}ms`)
+
+post(["GetCompletionDescription", "00000000-0000-0000-0000-000000000008", greetIndex])
+const [, , greetDescription] = await answer("FoundCompletionDescription")
+if (!greetDescription[0]?.XmlDoc?.includes(" Says hello.")) {
+    failures.push(`completion description lost the XML doc: ${JSON.stringify(greetDescription)}`)
+}
+console.log(`  completion description of greet: ${signatureOf(greetDescription)} (${greetDescription[0]?.XmlDoc?.length ?? 0} doc lines)`)
+
+// Tokens and semantic classification: the lexer must carry state across lines, and the checker
+// must classify identifiers by what they are.
+post(["Tokenize", "00000000-0000-0000-0000-000000000010", ["let s = \"\"\"multi", "line\"\"\" // done", "#if FOO", "let hidden = 1", "#endif"].join("\n"), []])
+const [, , tokenLines] = await answer("Tokenized")
+const tokenText = tokenLines.map((line) => line.map((t) => `${t.Color}:${t.StartColumn}-${t.EndColumn}`).join(" "))
+if (tokenLines[0]?.[0]?.Color !== "keyword" || tokenLines[0][0].EndColumn !== 3) failures.push(`first token should be the keyword let: ${tokenText[0]}`)
+if (!tokenLines[1]?.some((t) => t.Color === "string") || !tokenLines[1]?.some((t) => t.Color === "comment")) {
+    failures.push(`second line should continue the string and end with a comment: ${tokenText[1]}`)
+}
+if (!tokenLines[3]?.every((t) => t.Color === "inactiveCode")) failures.push(`code under #if FOO should be inactive: ${tokenText[3]}`)
+console.log(`  tokens: ${tokenText.join(" | ")}`)
+
+post(["GetSemanticClassificationForFile", "00000000-0000-0000-0000-000000000011", "Program.fs"])
+const [, , classified] = await answer("FoundSemanticClassification")
+const classifiedText = classified.map((c) => `${c.Type}@${c.Range.StartLine}:${c.Range.StartColumn}-${c.Range.EndColumn}`)
+if (!classified.some((c) => c.Type === "function" && c.Range.StartLine === 3 && c.Range.StartColumn === 4 && c.Range.EndColumn === 9)) {
+    failures.push(`greet should be classified as a function: ${classifiedText.join(", ")}`)
+}
+if (!classified.some((c) => c.Type === "referenceType" && c.Range.StartLine === 3 && c.Range.StartColumn === 17 && c.Range.EndColumn === 23)) {
+    failures.push(`the string annotation should be classified as a reference type: ${classifiedText.join(", ")}`)
+}
+console.log(`  classification: ${classifiedText.join(", ")}`)
 
 if (failures.length) {
     console.error("\nFAILED")

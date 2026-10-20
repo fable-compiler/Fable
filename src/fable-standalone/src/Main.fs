@@ -11,6 +11,7 @@ open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Tokenization
 
 type CheckerImpl(checker: InteractiveChecker) =
     member _.Checker = checker
@@ -24,12 +25,13 @@ let mapError (error: FSharpDiagnostic) =
         EndLine = error.EndLine
         EndColumn = error.EndColumn
         Message = error.Message
-        IsWarning =
+        Severity =
             match error.Severity with
-            | FSharpDiagnosticSeverity.Info
-            | FSharpDiagnosticSeverity.Hidden
-            | FSharpDiagnosticSeverity.Warning -> true
-            | FSharpDiagnosticSeverity.Error -> false
+            | FSharpDiagnosticSeverity.Hidden -> DiagnosticSeverity.Hidden
+            | FSharpDiagnosticSeverity.Info -> DiagnosticSeverity.Info
+            | FSharpDiagnosticSeverity.Warning -> DiagnosticSeverity.Warning
+            | FSharpDiagnosticSeverity.Error -> DiagnosticSeverity.Error
+        Code = error.ErrorNumberText
     }
 
 type ParseAndCheckResults
@@ -262,61 +264,248 @@ let parseAndCheckFileInProject
 
     ParseAndCheckResults(project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
-let tooltipToString (el: ToolTipElement) : string[] =
-    let dataToString (data: ToolTipElementData) =
-        let toString (tts: FSharp.Compiler.Text.TaggedText[]) =
-            tts |> Array.map (fun x -> x.Text) |> String.concat " "
+type private FcsTextTag = FSharp.Compiler.Text.TextTag
 
-        [|
-            match data.ParamName with
-            | Some x -> yield x + ": "
-            | None -> ()
-            yield data.MainDescription |> toString
-            match data.XmlDoc with
-            | FSharp.Compiler.Symbols.FSharpXmlDoc.FromXmlText xmlDoc ->
-                yield! xmlDoc.UnprocessedLines
-                yield! xmlDoc.GetElaboratedXmlLines()
-            | _ -> ()
-            yield! data.TypeMapping |> List.map toString
-            match data.Remarks with
-            | Some x -> yield x |> toString
-            | None -> ()
-        |]
+let private toTextTag (tag: FcsTextTag) =
+    match tag with
+    | FcsTextTag.ActivePatternCase -> TextTag.ActivePatternCase
+    | FcsTextTag.ActivePatternResult -> TextTag.ActivePatternResult
+    | FcsTextTag.Alias -> TextTag.Alias
+    | FcsTextTag.Class -> TextTag.Class
+    | FcsTextTag.Union -> TextTag.Union
+    | FcsTextTag.UnionCase -> TextTag.UnionCase
+    | FcsTextTag.Delegate -> TextTag.Delegate
+    | FcsTextTag.Enum -> TextTag.Enum
+    | FcsTextTag.Event -> TextTag.Event
+    | FcsTextTag.Field -> TextTag.Field
+    | FcsTextTag.Interface -> TextTag.Interface
+    | FcsTextTag.Keyword -> TextTag.Keyword
+    | FcsTextTag.LineBreak -> TextTag.LineBreak
+    | FcsTextTag.Local -> TextTag.Local
+    | FcsTextTag.Record -> TextTag.Record
+    | FcsTextTag.RecordField -> TextTag.RecordField
+    | FcsTextTag.Method -> TextTag.Method
+    | FcsTextTag.Member -> TextTag.Member
+    | FcsTextTag.ModuleBinding -> TextTag.ModuleBinding
+    | FcsTextTag.Function -> TextTag.Function
+    | FcsTextTag.Module -> TextTag.Module
+    | FcsTextTag.Namespace -> TextTag.Namespace
+    | FcsTextTag.NumericLiteral -> TextTag.NumericLiteral
+    | FcsTextTag.Operator -> TextTag.Operator
+    | FcsTextTag.Parameter -> TextTag.Parameter
+    | FcsTextTag.Property -> TextTag.Property
+    | FcsTextTag.Space -> TextTag.Space
+    | FcsTextTag.StringLiteral -> TextTag.StringLiteral
+    | FcsTextTag.Struct -> TextTag.Struct
+    | FcsTextTag.TypeParameter -> TextTag.TypeParameter
+    | FcsTextTag.Text -> TextTag.Text
+    | FcsTextTag.Punctuation -> TextTag.Punctuation
+    | FcsTextTag.UnknownType -> TextTag.UnknownType
+    | FcsTextTag.UnknownEntity -> TextTag.UnknownEntity
+
+let private toTaggedText (tts: FSharp.Compiler.Text.TaggedText[]) : TaggedText[] =
+    tts
+    |> Array.map (fun x ->
+        {
+            Tag = toTextTag x.Tag
+            Text = x.Text
+        }
+    )
+
+let private xmlDocLines (xmlDoc: FSharpXmlDoc) =
+    match xmlDoc with
+    | FSharpXmlDoc.FromXmlText xmlDoc -> xmlDoc.GetElaboratedXmlLines()
+    | _ -> [||]
+
+let toToolTips (el: ToolTipElement) : Fable.Standalone.ToolTip[] =
+    let toToolTip (data: ToolTipElementData) : Fable.Standalone.ToolTip =
+        {
+            ParamName = data.ParamName
+            Signature = toTaggedText data.MainDescription
+            XmlDoc = xmlDocLines data.XmlDoc
+            TypeMapping = data.TypeMapping |> List.map toTaggedText |> List.toArray
+            Remarks = data.Remarks |> Option.map toTaggedText |> Option.defaultValue [||]
+        }
 
     match el with
     | ToolTipElement.None -> [||]
-    | ToolTipElement.Group(els) -> Seq.map dataToString els |> Array.concat
-    | ToolTipElement.CompositionError err -> [| err |]
+    | ToolTipElement.Group(els) -> els |> List.map toToolTip |> List.toArray
+    | ToolTipElement.CompositionError err ->
+        [|
+            {
+                ParamName = None
+                Signature =
+                    [|
+                        {
+                            Tag = TextTag.Text
+                            Text = err
+                        }
+                    |]
+                XmlDoc = [||]
+                TypeMapping = [||]
+                Remarks = [||]
+            }
+        |]
 
-/// Get tool tip at the specified location
+let private declarationNotFoundReason (reason: FindDeclFailureReason) =
+    match reason with
+    | FindDeclFailureReason.Unknown message -> message
+    | FindDeclFailureReason.NoSourceCode -> "no source code"
+    | FindDeclFailureReason.ProvidedType typeName -> "provided type " + typeName
+    | FindDeclFailureReason.ProvidedMember memberName -> "provided member " + memberName
+
+let private toRange (range: FSharp.Compiler.Text.range) : Range =
+    {
+        FileName = range.FileName
+        StartLine = range.StartLine
+        StartColumn = range.StartColumn
+        EndLine = range.EndLine
+        EndColumn = range.EndColumn
+    }
+
+type private SymbolImpl(symbol: FSharpSymbol) =
+    member _.Symbol = symbol
+
+    interface ISymbol with
+        member _.DisplayName = symbol.DisplayName
+
+let getSymbolAtLocation (results: ParseAndCheckResults) line col lineText =
+    match results.CheckFileResultsOpt with
+    | Some checkFile ->
+        match findLongIdents (col, lineText) with
+        | None -> None
+        | Some(col, identIsland) ->
+            checkFile.GetSymbolUseAtLocation(line, col, lineText, identIsland)
+            |> Option.map (fun symbolUse -> SymbolImpl(symbolUse.Symbol) :> ISymbol)
+    | None -> None
+
+let getUsesOfSymbolInFile (results: ParseAndCheckResults) (symbol: ISymbol) =
+    match results.CheckFileResultsOpt, symbol with
+    | Some checkFile, (:? SymbolImpl as symbol) ->
+        checkFile.GetUsesOfSymbolInFile(symbol.Symbol)
+        |> Array.map (fun symbolUse ->
+            {
+                Range = toRange symbolUse.Range
+                IsDefinition = symbolUse.IsFromDefinition
+            }
+        )
+    | _ -> [||]
+
+/// Get the declaration location of the symbol at the specified location
 let getDeclarationLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        match findLongIdents (col - 1, lineText) with
-        | None -> None
+        match findLongIdents (col, lineText) with
+        | None -> DeclarationLocation.NotFound "no identifier at location"
         | Some(col, identIsland) ->
             let (declarations: FindDeclResult) =
                 checkFile.GetDeclarationLocation(line, col, lineText, identIsland)
 
             match declarations with
-            | FindDeclResult.DeclNotFound _
-            | FindDeclResult.ExternalDecl _ -> None
-            | FindDeclResult.DeclFound range ->
-                Some
+            | FindDeclResult.DeclNotFound reason -> DeclarationLocation.NotFound(declarationNotFoundReason reason)
+            | FindDeclResult.ExternalDecl(assembly, externalSym) ->
+                DeclarationLocation.External(assembly, string externalSym)
+            | FindDeclResult.DeclFound range -> DeclarationLocation.Found(toRange range)
+    | None -> DeclarationLocation.NotFound "file not checked"
+
+let private toTokenColor (color: FSharpTokenColorKind) =
+    match color with
+    | FSharpTokenColorKind.Keyword -> TokenColor.Keyword
+    | FSharpTokenColorKind.Comment -> TokenColor.Comment
+    | FSharpTokenColorKind.Identifier -> TokenColor.Identifier
+    | FSharpTokenColorKind.String -> TokenColor.String
+    | FSharpTokenColorKind.UpperIdentifier -> TokenColor.UpperIdentifier
+    | FSharpTokenColorKind.InactiveCode -> TokenColor.InactiveCode
+    | FSharpTokenColorKind.PreprocessorKeyword -> TokenColor.PreprocessorKeyword
+    | FSharpTokenColorKind.Number -> TokenColor.Number
+    | FSharpTokenColorKind.Operator -> TokenColor.Operator
+    | FSharpTokenColorKind.Punctuation -> TokenColor.Punctuation
+    | _ -> TokenColor.Default
+
+let tokenize (source: string) (defines: string[]) : Token[][] =
+    let tokenizer = FSharpSourceTokenizer(List.ofArray defines, None, None, None)
+
+    let tokenizeLine (state: FSharpTokenizerLexState) (line: string) =
+        let lineTokenizer = tokenizer.CreateLineTokenizer(line.TrimEnd('\r'))
+
+        let rec loop state acc =
+            match lineTokenizer.ScanToken state with
+            | Some token, state ->
+                let token: Token =
                     {
-                        StartLine = range.StartLine
-                        StartColumn = range.StartColumn
-                        EndLine = range.EndLine
-                        EndColumn = range.EndColumn
+                        StartColumn = token.LeftColumn
+                        EndColumn = token.RightColumn + 1
+                        Color = toTokenColor token.ColorClass
+                        Name = token.TokenName
                     }
-    | None -> None
+
+                loop state (token :: acc)
+            | None, state -> List.rev acc |> List.toArray, state
+
+        loop state []
+
+    source.Split('\n')
+    |> Array.mapFold tokenizeLine FSharpTokenizerLexState.Initial
+    |> fst
+
+let private toSemanticClass (classification: SemanticClassificationType) =
+    match classification with
+    | SemanticClassificationType.ReferenceType -> SemanticClass.ReferenceType
+    | SemanticClassificationType.ValueType -> SemanticClass.ValueType
+    | SemanticClassificationType.UnionCase -> SemanticClass.UnionCase
+    | SemanticClassificationType.UnionCaseField -> SemanticClass.UnionCaseField
+    | SemanticClassificationType.Function -> SemanticClass.Function
+    | SemanticClassificationType.Property -> SemanticClass.Property
+    | SemanticClassificationType.MutableVar -> SemanticClass.MutableVar
+    | SemanticClassificationType.Module -> SemanticClass.Module
+    | SemanticClassificationType.Namespace -> SemanticClass.Namespace
+    | SemanticClassificationType.Printf -> SemanticClass.Printf
+    | SemanticClassificationType.ComputationExpression -> SemanticClass.ComputationExpression
+    | SemanticClassificationType.IntrinsicFunction -> SemanticClass.IntrinsicFunction
+    | SemanticClassificationType.Enumeration -> SemanticClass.Enumeration
+    | SemanticClassificationType.Interface -> SemanticClass.Interface
+    | SemanticClassificationType.TypeArgument -> SemanticClass.TypeArgument
+    | SemanticClassificationType.Operator -> SemanticClass.Operator
+    | SemanticClassificationType.DisposableType -> SemanticClass.DisposableType
+    | SemanticClassificationType.DisposableTopLevelValue -> SemanticClass.DisposableTopLevelValue
+    | SemanticClassificationType.DisposableLocalValue -> SemanticClass.DisposableLocalValue
+    | SemanticClassificationType.Method -> SemanticClass.Method
+    | SemanticClassificationType.ExtensionMethod -> SemanticClass.ExtensionMethod
+    | SemanticClassificationType.ConstructorForReferenceType -> SemanticClass.ConstructorForReferenceType
+    | SemanticClassificationType.ConstructorForValueType -> SemanticClass.ConstructorForValueType
+    | SemanticClassificationType.Literal -> SemanticClass.Literal
+    | SemanticClassificationType.RecordField -> SemanticClass.RecordField
+    | SemanticClassificationType.MutableRecordField -> SemanticClass.MutableRecordField
+    | SemanticClassificationType.RecordFieldAsFunction -> SemanticClass.RecordFieldAsFunction
+    | SemanticClassificationType.Exception -> SemanticClass.Exception
+    | SemanticClassificationType.Field -> SemanticClass.Field
+    | SemanticClassificationType.Event -> SemanticClass.Event
+    | SemanticClassificationType.Delegate -> SemanticClass.Delegate
+    | SemanticClassificationType.NamedArgument -> SemanticClass.NamedArgument
+    | SemanticClassificationType.Value -> SemanticClass.Value
+    | SemanticClassificationType.LocalValue -> SemanticClass.LocalValue
+    | SemanticClassificationType.Type -> SemanticClass.Type
+    | SemanticClassificationType.TypeDef -> SemanticClass.TypeDef
+    | _ -> SemanticClass.Plaintext
+
+let getSemanticClassification (results: ParseAndCheckResults) : SemanticClassification[] =
+    match results.CheckFileResultsOpt with
+    | Some checkFile ->
+        checkFile.GetSemanticClassification(None)
+        |> Array.map (fun item ->
+            {
+                Range = toRange item.Range
+                Type = toSemanticClass item.Type
+            }
+        )
+    | None -> [||]
 
 /// Get tool tip at the specified location
 let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        match findLongIdents (col - 1, lineText) with
-        | None -> [| "Cannot find ident for tooltip" |]
+        match findLongIdents (col, lineText) with
+        | None -> [||]
         | Some(col, identIsland) ->
             let (ToolTipText els) =
                 checkFile.GetToolTip(
@@ -327,14 +516,44 @@ let getToolTipAtLocation (results: ParseAndCheckResults) line col lineText =
                     FSharp.Compiler.Tokenization.FSharpTokenTag.IDENT
                 )
 
-            Seq.map tooltipToString els |> Array.concat
+            List.map toToolTips els |> Array.concat
     | None -> [||]
+
+let private toCompletionKind (kind: CompletionItemKind) =
+    match kind with
+    | CompletionItemKind.SuggestedName -> CompletionKind.SuggestedName
+    | CompletionItemKind.Field -> CompletionKind.Field
+    | CompletionItemKind.Property -> CompletionKind.Property
+    | CompletionItemKind.Method false -> CompletionKind.Method
+    | CompletionItemKind.Method true -> CompletionKind.ExtensionMethod
+    | CompletionItemKind.Event -> CompletionKind.Event
+    | CompletionItemKind.Argument -> CompletionKind.Argument
+    | CompletionItemKind.CustomOperation -> CompletionKind.CustomOperation
+    | CompletionItemKind.Other -> CompletionKind.Other
+
+let private toCompletionItem (decl: DeclarationListItem) : Fable.Standalone.CompletionItem =
+    {
+        Completion =
+            {
+                NameInList = decl.NameInList
+                NameInCode = decl.NameInCode
+                Glyph = convertGlyph decl.Glyph
+                Kind = toCompletionKind decl.Kind
+                FullName = decl.FullName
+                IsOwnMember = decl.IsOwnMember
+                MinorPriority = decl.MinorPriority
+            }
+        GetDescription =
+            fun () ->
+                let (ToolTipText els) = decl.Description
+                List.map toToolTips els |> Array.concat
+    }
 
 let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: int) lineText =
     match results.CheckFileResultsOpt with
     | Some checkFile ->
-        let ln, residue = findLongIdentsAndResidue (col - 1, lineText)
-        let longName = QuickParse.GetPartialLongNameEx(lineText, col - 1)
+        let ln, residue = findLongIdentsAndResidue (col, lineText)
+        let longName = QuickParse.GetPartialLongNameEx(lineText, col)
 
         let longName =
             { longName with
@@ -345,13 +564,7 @@ let getCompletionsAtLocation (results: ParseAndCheckResults) (line: int) (col: i
         let decls =
             checkFile.GetDeclarationListInfo(results.ParseFileResultsOpt, line, lineText, longName, (fun () -> []))
 
-        decls.Items
-        |> Array.map (fun decl ->
-            {
-                Name = decl.NameInList
-                Glyph = convertGlyph decl.Glyph
-            }
-        )
+        decls.Items |> Array.map toCompletionItem
     | None -> [||]
 
 let mapFableError (com: Compiler) (log: LogEntry) =
@@ -363,16 +576,13 @@ let mapFableError (com: Compiler) (log: LogEntry) =
         StartColumn = r.start.column
         EndLine = r.``end``.line
         EndColumn = r.``end``.column
-        Message =
-            if log.Tag = "FABLE" then
-                "FABLE: " + log.Message
-            else
-                log.Message
-        IsWarning =
+        Message = log.Message
+        Severity =
             match log.Severity with
-            | Fable.Severity.Error -> false
-            | Fable.Severity.Warning
-            | Fable.Severity.Info -> true
+            | Fable.Severity.Info -> DiagnosticSeverity.Info
+            | Fable.Severity.Warning -> DiagnosticSeverity.Warning
+            | Fable.Severity.Error -> DiagnosticSeverity.Error
+        Code = log.Tag
     }
 
 type BabelResult(ast: Babel.Program, errors) =
@@ -529,15 +739,27 @@ let init () =
                 precompiledInfo
             :> IParseAndCheckResults
 
-        member _.GetErrors(results: IParseAndCheckResults) = results.Errors
+        member _.GetSymbolAtLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
+            let res = results :?> ParseAndCheckResults
+            getSymbolAtLocation res line col lineText
+
+        member _.GetUsesOfSymbolInFile(results: IParseAndCheckResults, symbol: ISymbol) =
+            let res = results :?> ParseAndCheckResults
+            getUsesOfSymbolInFile res symbol
 
         member _.GetDeclarationLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getDeclarationLocation res line col lineText
 
-        member _.GetToolTipText(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
+        member _.GetToolTips(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults
             getToolTipAtLocation res line col lineText
+
+        member _.Tokenize(source: string, defines: string[]) = tokenize source defines
+
+        member _.GetSemanticClassification(results: IParseAndCheckResults) =
+            let res = results :?> ParseAndCheckResults
+            getSemanticClassification res
 
         member _.GetCompletionsAtLocation(results: IParseAndCheckResults, line: int, col: int, lineText: string) =
             let res = results :?> ParseAndCheckResults

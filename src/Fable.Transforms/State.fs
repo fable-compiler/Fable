@@ -135,6 +135,53 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
 
     member _.Plugins = plugins
 
+type ParameterSignature =
+    {
+        Name: string option
+        IsOptional: bool
+        IsParamArray: bool
+    }
+
+type MemberSignature =
+    {
+        Type: Fable.Type
+        Parameters: ParameterSignature list list
+        IsInline: FSharpInlineAnnotation
+        IsMutable: bool
+        Attributes: (string * obj list) list
+    }
+
+type EntitySignature =
+    {
+        Attributes: (string * obj list) list
+        Kind: bool * bool * bool * bool * bool
+        Fields: (string * Fable.Type * obj) list
+        UnionCases: (string * (string * Fable.Type) list) list
+    }
+
+/// The parts of a file other files can depend on without naming them in their own typed tree
+type FileSignature =
+    {
+        IsUnknown: bool
+        Literals: Map<string, obj>
+        Members: Map<string, MemberSignature>
+        Entities: Map<string, EntitySignature>
+    }
+
+    static member Unknown =
+        {
+            IsUnknown = true
+            Literals = Map.empty
+            Members = Map.empty
+            Entities = Map.empty
+        }
+
+    static member Changed(before: FileSignature, after: FileSignature) =
+        before.IsUnknown || after.IsUnknown || before <> after
+
+    static member LiteralsChanged(before: FileSignature, after: FileSignature) =
+        before.IsUnknown || after.IsUnknown || before.Literals <> after.Literals
+
 type ImplFile =
     {
         Declarations: FSharpImplementationFileDeclaration list
@@ -142,6 +189,7 @@ type ImplFile =
         RootComment: FSharpXmlDoc option
         Entities: IReadOnlyDictionary<string, Fable.Entity>
         InlineExprs: (string * InlineExprLazy) list
+        Signature: FileSignature
     }
 
     static member From(file: FSharpImplementationFileContents) =
@@ -153,6 +201,96 @@ type ImplFile =
                     entities[fullName] <- FSharp2Fable.FsEnt e :> Fable.Entity
 
                 loop entities e.NestedEntities
+
+        let signature (declarations: FSharpImplementationFileDeclaration list) =
+            try
+                let makeType = FSharp2Fable.TypeHelpers.makeType Map.empty
+
+                let attributes (atts: FSharpAttribute seq) =
+                    atts
+                    |> Seq.map (fun att ->
+                        FSharp2Fable.FsEnt.FullName att.AttributeType,
+                        att.ConstructorArguments |> Seq.map snd |> List.ofSeq
+                    )
+                    |> List.ofSeq
+
+                let rec members (decls: FSharpImplementationFileDeclaration list) =
+                    decls
+                    |> List.collect (
+                        function
+                        | FSharpImplementationFileDeclaration.Entity(_, decls) -> members decls
+                        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, _) when
+                            not memb.IsCompilerGenerated && not memb.Accessibility.IsPrivate
+                            ->
+                            [ memb ]
+                        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue _
+                        | FSharpImplementationFileDeclaration.InitAction _ -> []
+                    )
+
+                let rec entities (ents: FSharpEntity seq) =
+                    ents |> Seq.collect (fun e -> Seq.append [ e ] (entities e.NestedEntities))
+
+                let members = members declarations
+
+                {
+                    IsUnknown = false
+                    Literals =
+                        members
+                        |> List.choose (fun memb ->
+                            memb.LiteralValue
+                            |> Option.map (fun value -> FSharp2Fable.Helpers.getMemberUniqueName memb, value)
+                        )
+                        |> Map
+                    Members =
+                        members
+                        |> List.map (fun memb ->
+                            FSharp2Fable.Helpers.getMemberUniqueName memb,
+                            {
+                                Type = makeType memb.FullType
+                                Parameters =
+                                    memb.CurriedParameterGroups
+                                    |> Seq.map (
+                                        Seq.map (fun p ->
+                                            {
+                                                Name = p.Name
+                                                IsOptional = p.IsOptionalArg
+                                                IsParamArray = p.IsParamArrayArg
+                                            }
+                                        )
+                                        >> List.ofSeq
+                                    )
+                                    |> List.ofSeq
+                                IsInline = memb.InlineAnnotation
+                                IsMutable = memb.IsMutable
+                                Attributes = attributes memb.Attributes
+                            }
+                        )
+                        |> Map
+                    Entities =
+                        FSharp2Fable.Compiler.getRootFSharpEntities declarations
+                        |> entities
+                        |> Seq.map (fun e ->
+                            FSharp2Fable.FsEnt.FullName e,
+                            {
+                                Attributes = attributes e.Attributes
+                                Kind = e.IsFSharpRecord, e.IsFSharpUnion, e.IsEnum, e.IsInterface, e.IsValueType
+                                Fields =
+                                    e.FSharpFields
+                                    |> Seq.map (fun f -> f.Name, makeType f.FieldType, Option.toObj f.LiteralValue)
+                                    |> List.ofSeq
+                                UnionCases =
+                                    e.UnionCases
+                                    |> Seq.map (fun c ->
+                                        c.Name,
+                                        c.Fields |> Seq.map (fun f -> f.Name, makeType f.FieldType) |> List.ofSeq
+                                    )
+                                    |> List.ofSeq
+                            }
+                        )
+                        |> Map
+                }
+            with _ ->
+                FileSignature.Unknown
 
         // add all entities to the entity cache
         let entities = Dictionary()
@@ -172,12 +310,19 @@ type ImplFile =
             RootModule = rootModule
             RootComment = rootComment
             InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
+            Signature = signature declarations
         }
 
 type PrecompiledInfo =
     abstract DllPath: string
     abstract TryGetRootModule: normalizedFullPath: string -> string option
     abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
+
+let private removeAll keys map =
+    (map, keys) ||> Seq.fold (fun map key -> Map.remove key map)
+
+let private addAll entries map =
+    (map, entries) ||> Seq.fold (fun map (key, value) -> Map.add key value map)
 
 type Project
     private
@@ -186,12 +331,14 @@ type Project
         projectOptions: FSharpProjectOptions,
         implFiles: Map<string, ImplFile>,
         assemblies: Assemblies,
-        ?precompiledInfo: PrecompiledInfo
+        ?precompiledInfo: PrecompiledInfo,
+        ?inlineExprs: Map<string, InlineExprLazy>
     )
     =
 
-    let inlineExprsDic =
-        implFiles |> Map.values |> Seq.collect (fun f -> f.InlineExprs) |> dict
+    let inlineExprs =
+        inlineExprs
+        |> Option.defaultWith (fun () -> implFiles |> Map.values |> Seq.collect (fun f -> f.InlineExprs) |> Map)
 
     let precompiledInfo =
         precompiledInfo
@@ -234,19 +381,36 @@ type Project
         Project(projectFile, projectOptions, implFilesMap, assemblies, ?precompiledInfo = precompiledInfo)
 
     member this.Update(files: FSharpImplementationFileContents list) =
-        let implFiles =
-            (this.ImplementationFiles, files)
-            ||> List.fold (fun implFiles file ->
+        let implFiles, inlineExprs =
+            ((this.ImplementationFiles, inlineExprs), files)
+            ||> List.fold (fun (implFiles, inlineExprs) file ->
                 let key = Path.normalizePathAndEnsureFsExtension file.FileName
                 let file = ImplFile.From(file)
-                Map.add key file implFiles
+
+                let previousInlineExprs =
+                    match Map.tryFind key implFiles with
+                    | Some previous -> previous.InlineExprs
+                    | None -> []
+
+                let inlineExprs =
+                    inlineExprs
+                    |> removeAll (List.map fst previousInlineExprs)
+                    |> addAll file.InlineExprs
+
+                Map.add key file implFiles, inlineExprs
             )
 
-        Project(this.ProjectFile, this.ProjectOptions, implFiles, this.Assemblies, this.PrecompiledInfo)
+        Project(
+            this.ProjectFile,
+            this.ProjectOptions,
+            implFiles,
+            this.Assemblies,
+            this.PrecompiledInfo,
+            inlineExprs = inlineExprs
+        )
 
     member _.TryGetInlineExpr(com: Compiler, memberUniqueName: string) =
-        inlineExprsDic
-        |> Dictionary.tryFind memberUniqueName
+        Map.tryFind memberUniqueName inlineExprs
         |> Option.map (fun e -> e.Calculate(com))
 
     member _.GetFileInlineExprs(com: Compiler) : (string * InlineExpr) array =
@@ -294,6 +458,7 @@ type CompilerImpl
         ?outType: OutputType,
         ?outDir: string,
         ?watchDependencies: HashSet<string>,
+        ?signatureDependencies: HashSet<string>,
         ?logs: ResizeArray<LogEntry>,
         ?isPrecompilingInlineFunction: bool
     )
@@ -308,6 +473,11 @@ type CompilerImpl
 
     member _.WatchDependencies =
         match watchDependencies with
+        | Some w -> Array.ofSeq w
+        | None -> [||]
+
+    member _.SignatureDependencies =
+        match signatureDependencies with
         | Some w -> Array.ofSeq w
         | None -> [||]
 
@@ -344,6 +514,7 @@ type CompilerImpl
                 outType,
                 ?outDir = outDir,
                 ?watchDependencies = watchDependencies,
+                ?signatureDependencies = signatureDependencies,
                 logs = logs,
                 isPrecompilingInlineFunction = true
             )
@@ -402,6 +573,11 @@ type CompilerImpl
         member _.AddWatchDependency(file) =
             match watchDependencies with
             | Some watchDependencies when file <> currentFile -> watchDependencies.Add(file) |> ignore
+            | _ -> ()
+
+        member _.AddSignatureDependency(file) =
+            match signatureDependencies with
+            | Some signatureDependencies when file <> currentFile -> signatureDependencies.Add(file) |> ignore
             | _ -> ()
 
         member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =

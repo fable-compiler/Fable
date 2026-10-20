@@ -108,3 +108,9 @@ class Uri:
             return True
         except Exception:
             return False
+
+
+__all__ = [
+    "Uri",
+    "UriKind",
+]

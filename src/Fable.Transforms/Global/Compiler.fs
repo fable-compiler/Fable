@@ -2,10 +2,10 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "5.21.0"
+    let VERSION = "5.22.0"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "2.8.1"
+    let JS_LIBRARY_VERSION = "2.9.0"
 
 type CompilerOptionsHelper =
     static member Make
@@ -87,6 +87,7 @@ type Compiler =
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
     abstract GetInlineExpr: string -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
+    abstract AddSignatureDependency: file: string -> unit
 
     abstract AddLog:
         msg: string * severity: Severity * ?range: SourceLocation * ?fileName: string * ?tag: string -> unit

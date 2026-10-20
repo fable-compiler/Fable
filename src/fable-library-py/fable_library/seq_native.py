@@ -29,6 +29,7 @@ from .protocols import IEnumerable_1, IEnumerator
 from .types import UNIT, Unit
 from .util import Enumerator, get_enumerator, to_iterator
 
+
 _SENTINEL: Any = object()
 
 

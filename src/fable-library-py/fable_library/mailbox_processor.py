@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from queue import SimpleQueue
-from threading import RLock
+from threading import Lock, RLock
 from typing import Any
 
 from .async_ import call_on_owner_loop, from_continuations, start_immediate
@@ -73,18 +73,30 @@ class MailboxProcessor[Msg]:
         # Track whether `reply` was actually called, since the reply value itself
         # may legitimately be `None` (e.g. `AsyncReplyChannel[None]` for unit).
         replied = False
+        gate = Lock()
         continuation: Continuations[Any] | None = (
             None  # This is the continuation for the `done` callback of the awaiting poster.
         )
 
         def check_completion() -> None:
-            if replied and continuation is not None:
-                continuation[0](result)
+            nonlocal continuation
+            # reply may run on another thread before the poster's continuation is installed
+            with gate:
+                if not replied or continuation is None:
+                    return
+                deliver = continuation[0]
+                # Consume this waiter once, retaining the reply for later executions.
+                continuation = None
+            deliver(result)
 
         def reply_callback(res: Reply):
             nonlocal result, replied
-            result = res
-            replied = True
+            # .NET AsyncReplyChannel.Reply ignores a second reply
+            with gate:
+                if replied:
+                    return
+                result = res
+                replied = True
             check_completion()
 
         reply_channel: AsyncReplyChannel[Reply] = AsyncReplyChannel(reply_callback)
@@ -93,7 +105,8 @@ class MailboxProcessor[Msg]:
 
         def callback(conts: Continuations[Any]) -> None:
             nonlocal continuation
-            continuation = conts
+            with gate:
+                continuation = conts
             check_completion()
 
         return from_continuations(callback)

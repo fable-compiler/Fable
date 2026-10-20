@@ -185,14 +185,19 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
         let errorType =
-            if e.IsWarning then
-                "Warning"
-            else
-                "Error"
+            match e.Severity with
+            | Fable.Standalone.DiagnosticSeverity.Hidden
+            | Fable.Standalone.DiagnosticSeverity.Info -> "Info"
+            | Fable.Standalone.DiagnosticSeverity.Warning -> "Warning"
+            | Fable.Standalone.DiagnosticSeverity.Error -> "Error"
 
-        printfn $"%s{e.FileName} (%d{e.StartLine},%d{e.StartColumn}): %s{errorType}: %s{e.Message}"
+        printfn $"%s{e.FileName} (%d{e.StartLine},%d{e.StartColumn}): %s{errorType} %s{e.Code}: %s{e.Message}"
 
-    let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
+    let warnings, errors =
+        errors
+        |> Array.filter (fun e -> e.Severity <> Fable.Standalone.DiagnosticSeverity.Hidden)
+        |> Array.partition (fun e -> e.Severity <> Fable.Standalone.DiagnosticSeverity.Error)
+
     let hasErrors = not (Array.isEmpty errors)
 
     if showWarnings then
