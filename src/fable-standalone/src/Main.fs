@@ -37,6 +37,7 @@ let mapError (error: FSharpDiagnostic) =
 type ParseAndCheckResults
     (
         project: Lazy<Project>,
+        projectLogs: ResizeArray<LogEntry>,
         parseFileResultsOpt: FSharpParseFileResults option,
         checkFileResultsOpt: FSharpCheckFileResults option,
         checkProjectResults: FSharpCheckProjectResults,
@@ -45,6 +46,12 @@ type ParseAndCheckResults
     =
 
     member _.GetProject() = project.Force()
+
+    member _.TakeProjectLogs() =
+        let logs = projectLogs.ToArray()
+        projectLogs.Clear()
+        logs
+
     member _.ParseFileResultsOpt = parseFileResultsOpt
     member _.CheckFileResultsOpt = checkFileResultsOpt
     member _.CheckProjectResults = checkProjectResults
@@ -209,6 +216,7 @@ let makeProject
     (projectOptions: FSharpProjectOptions)
     (checkResults: FSharpCheckProjectResults)
     (precompiledInfo: IPrecompiledInfo option)
+    (logs: ResizeArray<LogEntry>)
     =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
@@ -220,7 +228,7 @@ let makeProject
         else
             checkResults.AssemblyContents.ImplementationFiles
 
-    let addLog (severity: Fable.Severity) (msg: string) = () //TODO: log loading errors
+    let addLog (severity: Fable.Severity) (msg: string) = logs.Add(LogEntry.Make(severity, msg))
 
     Project.From(
         projectOptions.ProjectFileName,
@@ -243,8 +251,12 @@ let parseAndCheckProject
 
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
-    let project = lazy (makeProject projectOptions checkResults precompiledInfo)
-    ParseAndCheckResults(project, None, None, checkResults, otherFSharpOptions)
+    let projectLogs = ResizeArray<LogEntry>()
+
+    let project =
+        lazy (makeProject projectOptions checkResults precompiledInfo projectLogs)
+
+    ParseAndCheckResults(project, projectLogs, None, None, checkResults, otherFSharpOptions)
 
 let parseAndCheckFileInProject
     (checker: InteractiveChecker)
@@ -260,9 +272,12 @@ let parseAndCheckFileInProject
 
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
-    let project = lazy (makeProject projectOptions projectResults precompiledInfo)
+    let projectLogs = ResizeArray<LogEntry>()
 
-    ParseAndCheckResults(project, Some results, Some checkResults, projectResults, otherFSharpOptions)
+    let project =
+        lazy (makeProject projectOptions projectResults precompiledInfo projectLogs)
+
+    ParseAndCheckResults(project, projectLogs, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
 type private FcsTextTag = FSharp.Compiler.Text.TextTag
 
@@ -669,6 +684,9 @@ let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary ty
 
     let com =
         makeCompiler fableLibrary typedArrays language results.OtherFSharpOptions project fileName
+
+    for log in res.TakeProjectLogs() do
+        (com :> Compiler).AddLog(log.Message, log.Severity, tag = log.Tag)
 
     let fableAst = transformToFableAst com
     fableAst |> transformToTargetAst com
