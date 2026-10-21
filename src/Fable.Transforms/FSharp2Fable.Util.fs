@@ -3346,7 +3346,12 @@ module Util =
                     tryRuntimeTypeTestKey com uci.UnionCaseFields[0].FieldType
                 | cases when cases |> List.forall (fun c -> List.isEmpty c.UnionCaseFields) -> Some "string"
                 | _ -> None
-            | Some ent when ent.IsMeasure || isErasedOrStringEnumEntity ent -> None
+            | Some ent when
+                ent.IsMeasure
+                || isErasedOrStringEnumEntity ent
+                || isPojoDefinedByConsArgsEntity ent
+                ->
+                None
             | Some ent when ent.IsInterface && not (isGlobalOrImportedEntity ent) -> None
             | Some ent -> Some("instanceof:" + ent.FullName)
         | _ -> None

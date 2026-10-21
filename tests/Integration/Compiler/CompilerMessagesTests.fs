@@ -491,6 +491,28 @@ let isDog (p: Pet) = p.IsPetDog
       |> Assert.Is.strictSuccess
       |> ignore
 
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only a Pojo field type tells them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<JS.Pojo>]
+type Options(name: string) =
+    member val name = name
+
+[<TypeScriptTaggedUnion("state")>]
+type Log =
+    | [<CompiledName("log")>] LogString of message: string
+    | [<CompiledName("log")>] LogOptions of message: Options
+
+let isOptions (l: Log) = l.IsLogOptions
+let isString (l: Log) = l.IsLogString
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'LogOptions' and 'LogString' of 'Log' share a tag value and cannot be told apart by their fields."
+      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogOptions' of 'Log' share a tag value and cannot be told apart by their fields."
+      |> ignore
+
     testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only interfaces tell them apart" <| fun _ ->
       let source =
         """

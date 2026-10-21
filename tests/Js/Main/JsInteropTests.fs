@@ -422,6 +422,15 @@ module TaggedUnion =
         | [<CompiledName("pet"); CaseTest("'Bark' in $0.pet")>] PetDog of pet: Dog
         | Pending
 
+    [<JS.Pojo>]
+    type Options(name: string) =
+        member val name = name
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type PojoField =
+        | [<CompiledName("log")>] LogString of message: string
+        | [<CompiledName("log"); CaseTest("typeof $0.message === 'object'")>] LogOptions of message: Options
+
     [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
     type Outcome =
         | [<CompiledName("done")>] Ok of ok: bool
@@ -1201,6 +1210,17 @@ let tests =
         (TaggedUnion.DerivedTag.PetDog (TaggedUnion.Dog())).IsPetDog |> equal true
         (TaggedUnion.DerivedTag.PetDog (TaggedUnion.Dog())).IsPetAnimal |> equal false
 
+    testCase "Case testing with TS tagged unions whose cases share a tag uses a CaseTest for a Pojo field" <| fun () ->
+        let describe = function
+            | TaggedUnion.PojoField.LogOptions o -> "options: " + o.name
+            | TaggedUnion.PojoField.LogString s -> "string: " + s
+        TaggedUnion.PojoField.LogOptions (TaggedUnion.Options "x") |> describe |> equal "options: x"
+        TaggedUnion.PojoField.LogString "hi" |> describe |> equal "string: hi"
+        (TaggedUnion.PojoField.LogOptions (TaggedUnion.Options "x")).IsLogOptions |> equal true
+        (TaggedUnion.PojoField.LogOptions (TaggedUnion.Options "x")).IsLogString |> equal false
+        (TaggedUnion.PojoField.LogString "hi").IsLogString |> equal true
+        (TaggedUnion.PojoField.LogString "hi").IsLogOptions |> equal false
+
     testCase "Case testing with TS tagged unions whose cases share a tag uses the CaseTest of the other case" <| fun () ->
         let describe = function
             | TaggedUnion.Outcome.Failed _ -> "failed"
@@ -1243,6 +1263,9 @@ let tests =
             | TaggedUnion.DerivedTag.LogString m -> sprintf "string: %s" m
             | TaggedUnion.DerivedTag.LogNumber n -> sprintf "number: %.1f" n
             | _ -> "other"
+        let describePojo = function
+            | TaggedUnion.PojoField.LogOptions o -> "options: " + o.name
+            | TaggedUnion.PojoField.LogString s -> "string: " + s
         let describeOutcome = function
             | TaggedUnion.Outcome.Failed _ -> "failed"
             | TaggedUnion.Outcome.Ok _ -> "ok"
@@ -1255,6 +1278,8 @@ let tests =
         !!{| state = "done"; error = "raw" |} |> describeDerived |> equal "error: raw"
         !!{| state = "log"; message = 1 |} |> describeDerived |> equal "number: 1.0"
         !!{| state = "log"; message = "raw" |} |> describeDerived |> equal "string: raw"
+        !!{| state = "log"; message = {| name = "raw" |} |} |> describePojo |> equal "options: raw"
+        !!{| state = "log"; message = "raw" |} |> describePojo |> equal "string: raw"
         !!{| state = "done"; ok = true |} |> describeOutcome |> equal "ok"
         !!{| state = "done"; ok = false |} |> describeOutcome |> equal "failed"
         !!{| state = "run"; kind = "deploy" |} |> describeJob |> equal "other: deploy"
