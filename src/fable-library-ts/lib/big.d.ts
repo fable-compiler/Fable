@@ -202,6 +202,7 @@ export interface Big extends CustomNumeric {
      * @throws `!Big.RM!` if rm is invalid.
      */
     round(dp?: number, rm?: RoundingMode): Big;
+    prec(sd: number, rm?: RoundingMode): Big;
     /**
      * Returns a Big number whose value is the square root of this Big number.
      *

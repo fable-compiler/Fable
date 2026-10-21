@@ -438,6 +438,10 @@ export function format(str: string | object, ...args: any[]) {
           }
           break;
         case "g": case "G": {
+          if (precision == null && typeof rep !== "number" && typeof rep !== "bigint") {
+            rep = String(rep);
+            break;
+          }
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
           // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent.
           // .NET G format guarantees an exponent of at least 2 digits with an explicit sign (e.g. "E-07").
