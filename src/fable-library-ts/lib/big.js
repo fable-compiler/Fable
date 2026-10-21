@@ -271,12 +271,12 @@ function padScale(x, dp) {
 
 
 /*
- * Return true if the mantissa c is larger than MAX_MANTISSA.
+ * Return true if the digits c, padded with zeros to the length of MAX_MANTISSA, exceed it.
  */
 function exceedsMax(c) {
-  if (c.length !== MAX_MANTISSA.length) return c.length > MAX_MANTISSA.length;
-  for (var i = 0; i < c.length; i++) {
-    if (c[i] !== MAX_MANTISSA[i]) return c[i] > MAX_MANTISSA[i];
+  for (var i = 0; i < MAX_MANTISSA.length; i++) {
+    var d = i < c.length ? c[i] : 0;
+    if (d !== MAX_MANTISSA[i]) return d > MAX_MANTISSA[i];
   }
   return false;
 }
@@ -287,16 +287,16 @@ function exceedsMax(c) {
  * and a mantissa no larger than MAX_MANTISSA. Throws when no decimal place is left to drop.
  */
 function fit(x) {
-  var dp = Math.min(scaleOf(x), Big.DP, Big.DP - x.e);
+  var scale = scaleOf(x),
+    dp = Math.min(scale, Big.DP, Big.DP - x.e);
 
-  if (dp < 0) throw Error(OVERFLOW);
-  if (dp < scaleOf(x)) round(x, x.e + 1 + dp, 2);
-
-  if (exceedsMax(x.c)) {
-    if (!scaleOf(x)) throw Error(OVERFLOW);
-    round(x, x.c.length - 1, 2);
-  }
   if (x.e > Big.DP) throw Error(OVERFLOW);
+  if (dp < scale) round(x, x.e + 1 + dp, 2);
+  if (x.e > Big.DP) throw Error(OVERFLOW);
+
+  // Both the value and the mantissa itself must not exceed MAX_MANTISSA.
+  if (x.e === Big.DP && exceedsMax(x.c)) throw Error(OVERFLOW);
+  if (x.c.length === MAX_MANTISSA.length && exceedsMax(x.c)) round(x, x.c.length - 1, 2);
 
   return x;
 }
