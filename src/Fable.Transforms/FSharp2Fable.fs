@@ -2981,8 +2981,8 @@ type FableCompiler(com: Compiler) =
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
-        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
-            com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
+        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
+            com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
 
 
 let rec attachClassMembers (com: FableCompiler) =

@@ -20,6 +20,7 @@ let tests =
       compile source
       |> Assert.Is.success
       |> ignore
+
     testCase "Compile printfn" <| fun _ ->
       let source = "printfn \"Hello %s\" \"World\""
       compile source
@@ -31,6 +32,7 @@ let tests =
       compile source
       |> Assert.Is.Single.error
       |> ignore
+
     testCase "Compiling incomplete pattern match results in warning" <| fun _ ->
       let source = "match None with | Some n -> 42 |> ignore" // without `ignore`: Warning: Result of Expression is implicitly ignored
       compile source
@@ -42,6 +44,7 @@ let tests =
       compile source
       |> Assert.Exists.errorWith "This expression was expected to have type"
       |> ignore
+
     testCase "Compiling incomplete pattern match results in specific warning" <| fun _ ->
       let source = "match None with | Some n -> 42"
       compile source
@@ -330,4 +333,20 @@ let isOptions (o: obj) = match o with :? Options -> true | _ -> false
       compile source
       |> Assert.Exists.warningWith "Cannot type test (evals to false): Program.Options (pojo)"
       |> ignore
+
+    testCase "The formatted output carries the warning code" <| fun _ ->
+      // Without this there is no way to discover which code to put in a directive.
+      let source =
+        """
+open System.Globalization
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+"""
+      let formatted =
+        compile source
+        |> List.filter (fun log -> log.Code = Some "FABLE0100")
+        |> List.map (Fable.Cli.Main.Util.formatLog Compiler.Cached.projDir)
+
+      match formatted with
+      | [] -> failwith "Expected a FABLE0100 warning"
+      | messages -> equal true (messages |> List.forall (fun m -> m.Contains "warning FABLE FABLE0100:"))
   ]

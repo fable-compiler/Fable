@@ -16,7 +16,7 @@ open Fable.Compiler
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
 
-module private Util =
+module Util =
     type PathResolver with
 
         static member Dummy =
@@ -79,10 +79,18 @@ module private Util =
                 | Severity.Error -> "error"
                 | Severity.Info -> "info"
 
+            // MSBuild-style `<severity> <tag> <code>`: without the code there is no way to
+            // discover what to put in a `// fable-disable-line` comment, and rendering it here
+            // also makes Fable warnings parseable by IDEs and MSBuild loggers.
+            let tag =
+                match log.Code with
+                | Some code -> $"%s{log.Tag} %s{code}"
+                | None -> log.Tag
+
             match log.Range with
             | Some r ->
-                $"%s{file}(%i{r.start.line},%i{r.start.column}): (%i{r.``end``.line},%i{r.``end``.column}) %s{severity} %s{log.Tag}: %s{log.Message}"
-            | None -> $"%s{file}(1,1): %s{severity} %s{log.Tag}: %s{log.Message}"
+                $"%s{file}(%i{r.start.line},%i{r.start.column}): (%i{r.``end``.line},%i{r.``end``.column}) %s{severity} %s{tag}: %s{log.Message}"
+            | None -> $"%s{file}(1,1): %s{severity} %s{tag}: %s{log.Message}"
 
     let logErrors rootDir (logs: LogEntry seq) =
         logs
@@ -353,6 +361,18 @@ type FsWatcher(delayMs: int) =
 
 type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: Fable.Compiler.File array) =
 
+    let sourceReader = lazy (snd (Fable.Compiler.File.MakeSourceReader sourceFiles))
+
+    // Shared by every file of the project: a warning can point at any file (inlined calls) and
+    // files compile in parallel. A new ProjectCracked is built on every watch rebuild, so this
+    // never outlives the source it was computed from.
+    let warningSuppression =
+        lazy
+            (WarningSuppression.Resolver.FromCompilerOptions(
+                crackerResponse.ProjectOptions.OtherOptions,
+                sourceReader.Value
+            ))
+
     member _.CliArgs = cliArgs
     member _.ProjectFile = cliArgs.ProjectFile
     member _.FableOptions = cliArgs.CompilerOptions
@@ -390,8 +410,31 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             crackerResponse.OutputType,
             ?outDir = cliArgs.OutDir,
             ?watchDependencies = watchDependencies,
-            ?signatureDependencies = signatureDependencies
+            ?signatureDependencies = signatureDependencies,
+            warningSuppression = warningSuppression.Value
         )
+
+    /// Problems with the `fable-disable` directives themselves (typo'd codes, directives that
+    /// suppress nothing). Only valid once every file has been compiled, since a directive in one
+    /// file can be what suppresses a warning raised while compiling another.
+    member _.DirectiveDiagnostics(files: string seq) =
+        warningSuppression.Value.GetDiagnostics(files)
+        |> List.map (fun (file, d) ->
+            let pos: Position =
+                {
+                    line = d.Line
+                    column = 0
+                }
+
+            LogEntry.Make(
+                Severity.Warning,
+                d.Message,
+                fileName = file,
+                range = SourceLocation.Create(pos, pos, file),
+                code = d.Code
+            )
+        )
+        |> Array.ofList
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
@@ -1596,6 +1639,11 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                         Array.append logs [| log |], deps, sigDeps
                 )
+
+            // Every file is compiled by now, so a directive that still hasn't suppressed anything
+            // really is unused - checking earlier would flag directives that only ever fire for a
+            // warning raised while some later file was being compiled.
+            let logs = Array.append logs (projCracked.DirectiveDiagnostics filesToCompile)
 
             let state =
                 { state with
