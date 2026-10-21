@@ -1465,4 +1465,60 @@ let tests =
         let times2 x = x * 2
         fn <- fn >> times2
         fn 5 |> equal 10
+
+    testCase "Stopwatch.Frequency and IsHighResolution work" <| fun () ->
+        Diagnostics.Stopwatch.Frequency > 0L |> equal true
+        Diagnostics.Stopwatch.IsHighResolution |> equal true
+
+    testCaseAsync "Stopwatch.GetTimestamp and GetElapsedTime work" <| fun () ->
+        async {
+            let start = Diagnostics.Stopwatch.GetTimestamp()
+            do! Async.Sleep 50
+            let stop = Diagnostics.Stopwatch.GetTimestamp()
+            let elapsedMs = float (stop - start) * 1000. / float Diagnostics.Stopwatch.Frequency
+            elapsedMs >= 40. |> equal true
+            (Diagnostics.Stopwatch.GetElapsedTime(start, stop)).TotalMilliseconds >= 40. |> equal true
+            (Diagnostics.Stopwatch.GetElapsedTime start).TotalMilliseconds >= 40. |> equal true
+        }
+
+    testCaseAsync "Stopwatch.StartNew and Elapsed work" <| fun () ->
+        async {
+            let sw = Diagnostics.Stopwatch.StartNew()
+            box sw :? Diagnostics.Stopwatch |> equal true
+            sw.IsRunning |> equal true
+            do! Async.Sleep 50
+            sw.ElapsedMilliseconds >= 40L |> equal true
+            sw.Elapsed.TotalMilliseconds >= 40. |> equal true
+            sw.ElapsedTicks >= Diagnostics.Stopwatch.Frequency / 25L |> equal true
+        }
+
+    testCaseAsync "Stopwatch Start, Stop and Reset work" <| fun () ->
+        async {
+            let sw = Diagnostics.Stopwatch()
+            sw.IsRunning |> equal false
+            sw.ElapsedMilliseconds |> equal 0L
+            sw.Start()
+            do! Async.Sleep 50
+            sw.Stop()
+            sw.IsRunning |> equal false
+            let stopped = sw.ElapsedMilliseconds
+            stopped >= 40L |> equal true
+            do! Async.Sleep 50
+            sw.ElapsedMilliseconds |> equal stopped
+            sw.Start()
+            do! Async.Sleep 50
+            sw.ElapsedMilliseconds >= stopped + 40L |> equal true
+            sw.Reset()
+            sw.IsRunning |> equal false
+            sw.ElapsedMilliseconds |> equal 0L
+        }
+
+    testCaseAsync "Stopwatch.Restart works" <| fun () ->
+        async {
+            let sw = Diagnostics.Stopwatch.StartNew()
+            do! Async.Sleep 100
+            sw.Restart()
+            sw.IsRunning |> equal true
+            sw.ElapsedMilliseconds < 50L |> equal true
+        }
   ]
