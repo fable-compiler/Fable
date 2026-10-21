@@ -11,6 +11,117 @@ open Fable.AST
 open Fable.Compiler.Util
 open Fable.Compiler.ProjectCracker
 
+/// fickl: the `dotnet msbuild` processes cracking starts outlived the compiler when it was stopped while they ran, and
+/// one that never finished kept running. On Windows each one joins a job object that kills it when the compiler's
+/// handle to the job closes, which happens however the compiler exits. Processes they start are left out of the job,
+/// so MSBuild's reusable nodes keep their usual lifetime. Elsewhere they are killed when the compiler exits or is
+/// interrupted.
+module private ChildProcesses =
+
+    open System.Runtime.InteropServices
+
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type JobObjectBasicLimitInformation =
+        val mutable PerProcessUserTimeLimit: int64
+        val mutable PerJobUserTimeLimit: int64
+        val mutable LimitFlags: uint32
+        val mutable MinimumWorkingSetSize: unativeint
+        val mutable MaximumWorkingSetSize: unativeint
+        val mutable ActiveProcessLimit: uint32
+        val mutable Affinity: unativeint
+        val mutable PriorityClass: uint32
+        val mutable SchedulingClass: uint32
+
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type IoCounters =
+        val mutable ReadOperationCount: uint64
+        val mutable WriteOperationCount: uint64
+        val mutable OtherOperationCount: uint64
+        val mutable ReadTransferCount: uint64
+        val mutable WriteTransferCount: uint64
+        val mutable OtherTransferCount: uint64
+
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type JobObjectExtendedLimitInformation =
+        val mutable BasicLimitInformation: JobObjectBasicLimitInformation
+        val mutable IoInfo: IoCounters
+        val mutable ProcessMemoryLimit: unativeint
+        val mutable JobMemoryLimit: unativeint
+        val mutable PeakProcessMemoryUsed: unativeint
+        val mutable PeakJobMemoryUsed: unativeint
+
+    [<DllImport("kernel32.dll", SetLastError = true)>]
+    extern nativeint CreateJobObjectW(nativeint jobAttributes, nativeint name)
+
+    [<DllImport("kernel32.dll", SetLastError = true)>]
+    extern bool SetInformationJobObject(nativeint job, int infoClass, nativeint info, uint32 infoLength)
+
+    [<DllImport("kernel32.dll", SetLastError = true)>]
+    extern bool AssignProcessToJobObject(nativeint job, nativeint proc)
+
+    let private JobObjectExtendedLimitInformationClass = 9
+    let private JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK = 0x1000u
+    let private JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000u
+
+    /// Never closed: the system closes it when the compiler exits.
+    let private job =
+        lazy
+            try
+                let job = CreateJobObjectW(0n, 0n)
+
+                if job = 0n then
+                    None
+                else
+                    let mutable info = JobObjectExtendedLimitInformation()
+
+                    info.BasicLimitInformation.LimitFlags <-
+                        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE ||| JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK
+
+                    let length = Marshal.SizeOf<JobObjectExtendedLimitInformation>()
+                    let ptr = Marshal.AllocHGlobal length
+
+                    try
+                        Marshal.StructureToPtr(info, ptr, false)
+
+                        if SetInformationJobObject(job, JobObjectExtendedLimitInformationClass, ptr, uint32 length) then
+                            Some job
+                        else
+                            None
+                    finally
+                        Marshal.FreeHGlobal ptr
+            with _ ->
+                None
+
+    let private running = ConcurrentDictionary<int, Process>()
+
+    let private killRunning () =
+        for p in running.Values do
+            try
+                if not p.HasExited then
+                    p.Kill(entireProcessTree = true)
+            with _ ->
+                ()
+
+    let private handlers =
+        lazy
+            AppDomain.CurrentDomain.ProcessExit.Add(fun _ -> killRunning ())
+            Console.CancelKeyPress.Add(fun _ -> killRunning ())
+
+    /// Ties a started process to the compiler's lifetime until `release`.
+    let track (p: Process) =
+        if OperatingSystem.IsWindows() then
+            try
+                match job.Force() with
+                | Some job -> AssignProcessToJobObject(job, p.Handle) |> ignore
+                | None -> ()
+            with _ ->
+                ()
+
+        handlers.Force()
+        running[p.Id] <- p
+
+    let release (p: Process) = running.TryRemove p.Id |> ignore
+
 module private MSBuildCrackerResolver =
 
     let private fsharpFiles = set [| ".fs"; ".fsi"; ".fsx" |]
@@ -56,9 +167,11 @@ module private MSBuildCrackerResolver =
             use ps = new Process()
             ps.StartInfo <- psi
             ps.Start() |> ignore
+            ChildProcesses.track ps // fickl
             let output = ps.StandardOutput.ReadToEnd()
             let error = ps.StandardError.ReadToEnd()
             do! ps.WaitForExitAsync()
+            ChildProcesses.release ps // fickl
 
             return
                 {|
