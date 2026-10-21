@@ -1562,7 +1562,7 @@ let ``test System.Diagnostics.Stopwatch.Frequency works`` () =
     let x = System.Diagnostics.Stopwatch.Frequency
     x > 1000000L |> equal true
 
-
+[<Fact>]
 let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
     let freq = double System.Diagnostics.Stopwatch.Frequency
     let start = System.Diagnostics.Stopwatch.GetTimestamp()
@@ -1574,6 +1574,7 @@ let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
 [<Fact>]
 let ``test Stopwatch accumulates while running and after restart`` () =
     let sw = System.Diagnostics.Stopwatch()
+    box sw :? System.Diagnostics.Stopwatch |> equal true
     sw.IsRunning |> equal false
     sw.ElapsedMilliseconds |> equal 0L
     sw.Start()

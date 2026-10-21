@@ -6,10 +6,6 @@ from .core import int64
 from .time_span import TimeSpan, from_ticks
 
 
-class TimerError(Exception):
-    """Kept for callers that imported the former stopwatch error type."""
-
-
 class StopWatch:
     def __init__(self) -> None:
         self._started_at: int | None = None
@@ -76,7 +72,6 @@ def get_elapsed_time(starting_timestamp: int64, ending_timestamp: int64 | None =
 
 __all__ = [
     "StopWatch",
-    "TimerError",
     "frequency",
     "get_elapsed_time",
     "get_timestamp",

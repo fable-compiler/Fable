@@ -784,6 +784,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | "System.Threading.Tasks.TaskCanceledException" ->
         makeImportLib com Any "TaskCanceledError" "async_builder" |> Some
+    | "System.Diagnostics.Stopwatch" -> makeImportLib com Any "StopWatch" "diagnostics" |> Some
     // | "System.Collections.Generic.KeyNotFoundException" ->
     //     makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic" |> Some
     | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
