@@ -289,6 +289,8 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         match kind with
         | Decimal -> args.Head
         | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toDecimal", targetType, args)
+        | Float32 -> Helper.LibCall(com, "Decimal", "fromFloat32", targetType, args, ?loc = r)
+        | Float64 -> Helper.LibCall(com, "Decimal", "fromFloat64", targetType, args, ?loc = r)
         | _ -> makeDecimalFromExpr com r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
@@ -2696,7 +2698,9 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 []
 
         let args =
-            if isFloatOrDecimal then
+            if kind = Decimal then
+                [ str; makeIntConst style ] @ outValue
+            elif isFloatOrDecimal then
                 [ str ] @ outValue
             else
                 [ str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
@@ -2745,7 +2749,11 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
 
-        if style <> hexConst && style <> intConst then
+        if
+            style <> hexConst
+            && style <> intConst
+            && i.DeclaringEntityFullName <> Types.decimal
+        then
             $"%s{i.DeclaringEntityFullName}.%s{meth}(): NumberStyle %d{style} is ignored"
             |> addWarning com ctx.InlinePath r
 
@@ -2773,7 +2781,12 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
             |> addWarning com ctx.InlinePath r
 
-        let style = int System.Globalization.NumberStyles.Any
+        let style =
+            if i.DeclaringEntityFullName = Types.decimal then
+                int System.Globalization.NumberStyles.Number
+            else
+                int System.Globalization.NumberStyles.Any
+
         parseCall meth str args style |> Some
     | "Pow", _ ->
         Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb = "pow", ?loc = r)

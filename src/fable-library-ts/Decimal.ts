@@ -57,7 +57,7 @@ export function equals(x: Decimal, y: Decimal) {
 export function abs(x: Decimal) { return x.abs(); }
 export function sign(x: Decimal): number { return x.lt(get_Zero) ? -1 : x.gt(get_Zero) ? 1 : 0; }
 
-export function max(x: Decimal, y: Decimal): Decimal { return x.gt(y) ? x : y; }
+export function max(x: Decimal, y: Decimal): Decimal { return x.lt(y) ? y : x; }
 export function min(x: Decimal, y: Decimal): Decimal { return x.lt(y) ? x : y; }
 
 export function maxMagnitude(x: Decimal, y: Decimal): Decimal { return abs(x).gt(abs(y)) ? x : y; }
@@ -132,22 +132,81 @@ export function toString(x: Decimal) {
   return x.toString();
 }
 
-export function tryParse(str: string, defValue: FSharpRef<Decimal>): boolean {
+const NumberStyles = {
+  AllowLeadingWhite: 1,
+  AllowTrailingWhite: 2,
+  AllowLeadingSign: 4,
+  AllowTrailingSign: 8,
+  AllowParentheses: 16,
+  AllowDecimalPoint: 32,
+  AllowThousands: 64,
+  AllowExponent: 128,
+  AllowHexSpecifier: 512,
+  Number: 111,
+} as const;
+
+// The digits of a decimal string once whitespace, sign and parentheses are stripped
+function digitsPattern(style: number): RegExp {
+  const integral = style & NumberStyles.AllowThousands ? "\\d+(?:,\\d+)*" : "\\d+";
+  const point = style & NumberStyles.AllowDecimalPoint ? "(?:\\.\\d*)?" : "";
+  const leadingPoint = style & NumberStyles.AllowDecimalPoint ? "|\\.\\d+" : "";
+  const exponent = style & NumberStyles.AllowExponent ? "(?:[eE][+-]?\\d+)?" : "";
+  return new RegExp(`^(?:${integral}${point}${leadingPoint})${exponent}$`);
+}
+
+// Returns undefined when the string does not have the format allowed by the style
+function parseWithStyle(str: string, style: number): Decimal | undefined {
+  if (style & NumberStyles.AllowHexSpecifier) {
+    throw new Exception("The number style AllowHexSpecifier is not supported on floating point data types.");
+  }
+  let s = str;
+  if (style & NumberStyles.AllowLeadingWhite) {
+    s = s.replace(/^\s+/, "");
+  }
+  if (style & NumberStyles.AllowTrailingWhite) {
+    s = s.replace(/\s+$/, "");
+  }
+  let negative = false;
+  if (style & NumberStyles.AllowParentheses && s.startsWith("(") && s.endsWith(")")) {
+    s = s.slice(1, -1);
+    negative = true;
+  }
+  if (style & NumberStyles.AllowLeadingSign && /^[+-]/.test(s)) {
+    negative = s[0] === "-" ? !negative : negative;
+    s = s.slice(1);
+  } else if (style & NumberStyles.AllowTrailingSign && /[+-]$/.test(s)) {
+    negative = s[s.length - 1] === "-" ? !negative : negative;
+    s = s.slice(0, -1);
+  }
+  if (!digitsPattern(style).test(s)) {
+    return undefined;
+  }
+  const d = new Decimal(s.replace(/,/g, ""));
+  if (negative) {
+    d.s = -1;
+  }
+  return d;
+}
+
+export function tryParse(str: string, style: number, defValue: FSharpRef<Decimal>): boolean {
   try {
-    defValue.contents = new Decimal(str.trim());
+    const d = parseWithStyle(str, style);
+    if (d === undefined) {
+      return false;
+    }
+    defValue.contents = d;
     return true;
   } catch {
     return false;
   }
 }
 
-export function parse(str: string): Decimal {
-  const defValue = new FSharpRef(get_Zero);
-  if (tryParse(str, defValue)) {
-    return defValue.contents;
-  } else {
+export function parse(str: string, style: number = NumberStyles.Number): Decimal {
+  const d = parseWithStyle(str, style);
+  if (d === undefined) {
     throw new Exception(`The input string ${str} was not in a correct format.`);
   }
+  return d;
 }
 
 export function toNumber(x: Decimal): number {
@@ -226,6 +285,37 @@ function getInt32Bits(hexDigits: Uint8Array, offset: number) {
     bits = bits | (hexDigits[offset + i] << (i * 4));
   }
   return bits;
+}
+
+const OVERFLOW = "Value was either too large or too small for a Decimal.";
+
+// The first double outside the decimal range
+const MAX_DOUBLE = 2 ** 96;
+
+function fromFloat(n: number, significantDigits: number): Decimal {
+  if (!isFinite(n) || Math.abs(n) >= MAX_DOUBLE) {
+    throw new Exception(OVERFLOW);
+  }
+  const exact = Math.abs(n) >= 1e21 ? BigInt(n).toString() : n.toFixed(100);
+  const d = new Decimal(exact).prec(significantDigits, 2);
+  const digits: number[] = d.c;
+  let end = digits.length;
+  while (end > 1 && digits[end - 1] === 0) {
+    end--;
+  }
+  d.c = digits.slice(0, end);
+  if (d.c[0] === 0) {
+    d.e = 0;
+  }
+  return d;
+}
+
+export function fromFloat64(n: number): Decimal {
+  return fromFloat(n, 15);
+}
+
+export function fromFloat32(n: number): Decimal {
+  return fromFloat(n, 7);
 }
 
 export function fromIntArray(bits: ArrayLike<number>) {
