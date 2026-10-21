@@ -429,6 +429,90 @@ let tests =
         (0.00M).ToString("E3", System.Globalization.CultureInfo.InvariantCulture) |> equal "0.000E+000"
         (decimal "0.00").GetHashCode() |> equal (Decimal(0, 0, 0, false, 2uy).GetHashCode())
 
+    testCase "Decimal addition and subtraction keep the larger scale" <| fun () ->
+        string (1.50M + 0.5M) |> equal "2.00"
+        string (1.5M + 0.50M) |> equal "2.00"
+        string (0.1M + 0.2M) |> equal "0.3"
+        string (1M + 1M) |> equal "2"
+        string (0.00M + 0M) |> equal "0.00"
+        string (0.00M + 1.5M) |> equal "1.50"
+        string (1.0M + (-1.0M)) |> equal "0.0"
+        string (0.05M - 0.05M) |> equal "0.00"
+        string (1.00M - 0.50M) |> equal "0.50"
+        string (100.5M - 0.5M) |> equal "100.0"
+        string (1.5M - 0.00M) |> equal "1.50"
+
+    testCase "Decimal multiplication adds the scales up to 28 places" <| fun () ->
+        string (2.0M * 3.0M) |> equal "6.00"
+        string (1.5M * 2M) |> equal "3.0"
+        string (0.5M * 0.5M) |> equal "0.25"
+        string (1.50M * 1.0M) |> equal "1.500"
+        string (10M * 0.1M) |> equal "1.0"
+        string (1.10M * 1.10M) |> equal "1.2100"
+        string (0.0M * 5M) |> equal "0.0"
+        string (0M * 1.50M) |> equal "0.00"
+        string (pown 1.50M 2) |> equal "2.2500"
+        string (0.1234567890123456789012345678M * 0.1M) |> equal "0.0123456789012345678901234568"
+        string (0.0000000000000000000000000025M * 0.1M) |> equal "0.0000000000000000000000000002"
+        string (0.0000000000000000000000000035M * 0.1M) |> equal "0.0000000000000000000000000004"
+        string (123456789012345678901234567.89M * 1.1M) |> equal "135802467913580246791358024.68"
+
+    testCase "Decimal division keeps the scale of an exact quotient" <| fun () ->
+        string (1.00M / 2M) |> equal "0.50"
+        string (10M / 2M) |> equal "5"
+        string (1M / 4M) |> equal "0.25"
+        string (1.0M / 0.5M) |> equal "2"
+        string (2M / 1.0M) |> equal "2"
+        string (5.0M / 2.0M) |> equal "2.5"
+        string (1.000M / 8M) |> equal "0.125"
+        string (1.23M / 0.1M) |> equal "12.3"
+        string (0.0M / 5M) |> equal "0.0"
+
+    testCase "Decimal division rounds an inexact quotient half to even to fit a decimal" <| fun () ->
+        string (1M / 3M) |> equal "0.3333333333333333333333333333"
+        string (2M / 3M) |> equal "0.6666666666666666666666666667"
+        string (10M / 3M) |> equal "3.3333333333333333333333333333"
+        string (100M / 3M) |> equal "33.333333333333333333333333333"
+        string (1M / 30000M) |> equal "0.0000333333333333333333333333"
+        string (1M / 7M) |> equal "0.1428571428571428571428571429"
+        string (80M / 9M) |> equal "8.888888888888888888888888889"
+        string (1000000000000000000000000000M / 3M) |> equal "333333333333333333333333333.33"
+        string (10000000000000000000000000001M / 2M) |> equal "5000000000000000000000000000.5"
+        string (0.0000000000000000000000000005M / 2M) |> equal "0.0000000000000000000000000002"
+        string (0.0000000000000000000000000007M / 2M) |> equal "0.0000000000000000000000000004"
+        string (0.0000000000000000000000000001M / 2M) |> equal "0"
+
+    testCase "Decimal remainder keeps the larger scale" <| fun () ->
+        string (5.0M % 2M) |> equal "1.0"
+        string (5M % 2.0M) |> equal "1.0"
+        string (5.5M % 2M) |> equal "1.5"
+        string (7.00M % 2.5M) |> equal "2.00"
+        string (-5.0M % 2M) |> equal "-1.0"
+        string (1.5M % 2.00M) |> equal "1.5"
+
+    testCase "Decimal arithmetic and parsing throw on overflow" <| fun () ->
+        (fun () -> Decimal.MaxValue + 1M) |> throwsError ""
+        (fun () -> Decimal.MaxValue + 0.5M) |> throwsError ""
+        string (Decimal.MaxValue + 0.4M) |> equal "79228162514264337593543950335"
+        string ((Decimal.MaxValue - 1M) + 1M) |> equal "79228162514264337593543950335"
+        (fun () -> Decimal.MinValue - 1M) |> throwsError ""
+        (fun () -> Decimal.MaxValue * 1.1M) |> throwsError ""
+        string (Decimal.MaxValue * 1.0M) |> equal "79228162514264337593543950335"
+        (fun () -> Decimal.MaxValue / 0.5M) |> throwsError ""
+        (fun () -> decimal "1e30") |> throwsError ""
+        (fun () -> decimal "79228162514264337593543950336") |> throwsError ""
+        (fun () -> decimal "79228162514264337593543950335.5") |> throwsError ""
+        string (decimal "79228162514264337593543950335.4") |> equal "79228162514264337593543950335"
+        (fun () -> decimal 1e30) |> throwsError ""
+
+    testCase "Decimal rounding keeps the requested scale" <| fun () ->
+        string (Math.Round(1.20001M, 2)) |> equal "1.20"
+        string (Math.Round(1.2M, 3)) |> equal "1.2"
+        string (Math.Round(1.99M, 1)) |> equal "2.0"
+        string (Math.Floor 1.50M) |> equal "1"
+        string (Math.Ceiling 1.50M) |> equal "2"
+        string (Math.Truncate 1.50M) |> equal "1"
+
     testCase "Decimal rounding is half to even when a trailing zero follows the 5" <| fun () ->
         Math.Round 2.50M |> equal 2.M
         Math.Round 0.50M |> equal 0.M
