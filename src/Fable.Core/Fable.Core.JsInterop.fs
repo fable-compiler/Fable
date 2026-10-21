@@ -3,7 +3,24 @@ module Fable.Core.JsInterop
 open System
 open Fable.Core
 
-/// Compiles to ?? operator in JavaScript
+/// <summary>
+/// Compiles to the JavaScript nullish coalescing operator <c>??</c>.
+/// Returns <paramref name="nullable"/> when it is neither <c>null</c> nor <c>undefined</c> at runtime,
+/// otherwise <paramref name="defaultValue"/>.
+/// </summary>
+/// <example><code lang="fsharp">
+/// let name = maybeName ??= "anonymous"
+/// </code>
+/// Compiles to:
+/// <code lang="js">
+/// const name = maybeName ?? "anonymous";
+/// </code>
+/// </example>
+/// <param name="nullable">Value tested for <c>null</c> or <c>undefined</c>.</param>
+/// <param name="defaultValue">Value returned when <paramref name="nullable"/> is <c>null</c> or <c>undefined</c>.</param>
+/// <seealso href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">
+/// MDN: Nullish coalescing operator
+/// </seealso>
 [<Emit("$0 ?? $1")>]
 let (??=) (nullable: 'T) (defaultValue: 'T) : 'T = nativeOnly
 
@@ -48,21 +65,36 @@ let emitJsExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
 /// <summary>
-/// Emit a directive prologue at the top of the file (before the imports)
-///
-/// This is useful when working with Next.js or other frameworks that require
-/// a specific directive at the top of the file, such as "use client" or "use server".
+/// <para>Emits a directive prologue at the top of the file, before the imports.</para>
+/// <para>Frameworks such as Next.js require directives like <c>"use client"</c> or <c>"use server"</c> there.</para>
 /// </summary>
-/// <param name="text">Directive text</param>
+/// <example><code lang="fsharp">
+/// let x = 5
+/// emitJsTopDirectivePrologue "use server"
+/// </code>
+/// Compiles to:
+/// <code lang="js">
+/// "use server";
+/// export const x = 5;
+/// </code>
+/// </example>
+/// <param name="text">Directive text. The quotes are added.</param>
 let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
 
 /// <summary>
-/// Emit a directive prologue at the calling position.
-///
-/// This is useful when you need to emit a directive prologue for a specific part of the code,
-/// such as "use client" or "use server".
+/// Emits a directive prologue at the calling position.
 /// </summary>
-/// <param name="text">Directive text</param>
+/// <example><code lang="fsharp">
+/// let x = 5
+/// emitJsDirectivePrologue "use server"
+/// </code>
+/// Compiles to:
+/// <code lang="js">
+/// export const x = 5;
+/// "use server";
+/// </code>
+/// </example>
+/// <param name="text">Directive text. The quotes are added.</param>
 let emitJsDirectivePrologue (text: string) : unit = nativeOnly
 
 /// Create a literal JS object from a collection of key-value tuples.
