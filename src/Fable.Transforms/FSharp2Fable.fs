@@ -582,32 +582,83 @@ let private transformUnionCaseTest
         | ErasedUnionCase -> return "Cannot test erased union cases" |> addErrorAndReturnNull com ctx.InlinePath r
 
         | ErasedUnion(tdef, genArgs, rule) ->
+            let payloadType (uc: FSharpUnionCase) =
+                match uc.Fields.Count with
+                | 1 ->
+                    let fi = uc.Fields[0]
+
+                    let typ =
+                        if fi.FieldType.IsGenericParameter then
+                            let name = genParamName fi.FieldType.GenericParameter
+
+                            let index =
+                                tdef.GenericParameters |> Seq.findIndex (fun arg -> genParamName arg = name)
+
+                            genArgs[index]
+                        else
+                            fi.FieldType
+
+                    makeType ctx.GenericArgs typ |> Some
+                | _ -> None
+
+            let supportsCaseTest =
+                match com.Options.Language with
+                | JavaScript
+                | TypeScript -> not (isReplacementCandidate (FsEnt.Ref tdef))
+                | _ -> false
+
             match unionCase.Fields.Count with
             | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
             | 1 ->
-                let fi = unionCase.Fields[0]
+                let fableType = (payloadType unionCase).Value
 
-                let typ =
-                    if fi.FieldType.IsGenericParameter then
-                        let name = genParamName fi.FieldType.GenericParameter
+                let typeTest unionExpr =
+                    Fable.Test(unionExpr, Fable.TypeTest fableType, r)
 
-                        let index =
-                            tdef.GenericParameters |> Seq.findIndex (fun arg -> genParamName arg = name)
+                let anyError =
+                    $"Erased union case '%s{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
 
-                        genArgs[index]
+                let tests: Result<(Fable.Expr -> Fable.Expr) list, string> =
+                    match FsUnionCase.CaseTest unionCase, fableType with
+                    | _, Fable.Any when not supportsCaseTest -> Error anyError
+                    | _, _ when not supportsCaseTest -> Ok [ typeTest ]
+                    | Some macro, _ ->
+                        let caseTest unionExpr =
+                            emitExpr r Fable.Boolean [ unionExpr ] macro
+
+                        if isUntestableType com fableType then
+                            Ok [ caseTest ]
+                        else
+                            Ok [ typeTest; caseTest ]
+                    | None, Fable.Any -> Error anyError
+                    | None, _ ->
+                        match deriveErasedUnionCaseTests com tdef unionCase payloadType with
+                        | ErasedUnionCaseTests.Untestable reason ->
+                            Error
+                                $"Case '%s{unionCase.Name}' of '%s{tdef.DisplayName}' cannot be tested at runtime: %s{reason}. Add a CaseTest attribute to '%s{unionCase.Name}'."
+                        | ErasedUnionCaseTests.Ambiguous(other, reason) ->
+                            Error
+                                $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' cannot be told apart at runtime: %s{reason}. Add a CaseTest attribute to '%s{unionCase.Name}' or '%s{other.Name}'."
+                        | ErasedUnionCaseTests.NotCaseTests macros ->
+                            macros
+                            |> List.distinct
+                            |> List.map (fun macro unionExpr -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})")
+                            |> fun negated -> Ok(typeTest :: negated)
+
+                match tests with
+                | Error msg -> return addErrorAndReturnNull com ctx.InlinePath r msg
+                | Ok [ test ] -> return test unionExpr
+                | Ok tests ->
+                    let makeTest unionExpr =
+                        tests
+                        |> List.map (fun test -> test unionExpr)
+                        |> List.reduce (fun acc test -> makeLogOp r acc test LogicalAnd)
+
+                    if canHaveSideEffects com unionExpr then
+                        let ident = getIdentUniqueName com ctx "unionValue" |> makeTypedIdent unionExpr.Type
+                        return Fable.Let(ident, unionExpr, makeTest (Fable.IdentExpr ident))
                     else
-                        fi.FieldType
-
-                let fableType = makeType ctx.GenericArgs typ
-
-                match fableType with
-                | Fable.Any ->
-                    return
-                        $"Erased union case '%s{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
-                        |> addErrorAndReturnNull com ctx.InlinePath r
-                | _ ->
-                    let kind = fableType |> Fable.TypeTest
-                    return Fable.Test(unionExpr, kind, r)
+                        return makeTest unionExpr
             | _ ->
                 return
                     "Erased unions with multiple cases cannot have more than one field: "
@@ -2237,10 +2288,23 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
     )
 
 let private warnIgnoredCaseTests (com: FableCompiler) ctx (ent: FSharpEntity) =
-    if ent.IsFSharpUnion && not (hasAttrib Atts.tsTaggedUnion ent.Attributes) then
+    let reason =
+        if not ent.IsFSharpUnion || hasAttrib Atts.tsTaggedUnion ent.Attributes then
+            None
+        elif not (hasAttrib Atts.erase ent.Attributes) then
+            Some "it is only supported on TypeScriptTaggedUnion and Erase union cases"
+        else
+            match (com :> Compiler).Options.Language with
+            | JavaScript
+            | TypeScript -> None
+            | _ -> Some "on Erase union cases it only applies when targeting JavaScript or TypeScript"
+
+    match reason with
+    | None -> ()
+    | Some reason ->
         for uci in ent.UnionCases do
             if (FsUnionCase.CaseTest uci).IsSome then
-                WarningCodes.caseTestIgnored uci.Name
+                WarningCodes.caseTestIgnored uci.Name reason
                 |> addWarningWithCode (com :> Compiler) ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
 
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =

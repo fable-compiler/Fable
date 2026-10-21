@@ -109,9 +109,9 @@ let inlinedArgumentDoubleEvaluation (argName: string) =
     "FABLE0115",
     $"Inlined argument %s{argName} is being captured but is also used somewhere else. There's a risk of double evaluation."
 
-/// A `CaseTest` attribute on a case of a union that is not a `TypeScriptTaggedUnion`.
-let caseTestIgnored (caseName: string) =
-    "FABLE0116", $"CaseTest attribute on '%s{caseName}' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+/// A `CaseTest` attribute on a union case where Fable does not use it.
+let caseTestIgnored (caseName: string) (reason: string) =
+    "FABLE0116", $"CaseTest attribute on '%s{caseName}' is ignored: %s{reason}"
 
 /// Rust: `String.Compare` and `String.CompareTo` are compiled as ordinal comparisons.
 let stringCompareIsOrdinal (methodName: string) =
@@ -154,7 +154,7 @@ let knownCodes =
         baseCallIgnored ""
         nonPrimaryBaseConstructor
         inlinedArgumentDoubleEvaluation ""
-        caseTestIgnored ""
+        caseTestIgnored "" ""
         stringCompareIsOrdinal ""
         charSurrogateTestsAreFalse
         staticDoBindingsDisabled
