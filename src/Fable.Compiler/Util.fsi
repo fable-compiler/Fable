@@ -93,6 +93,10 @@ module Process =
     val runSync: workingDir: string -> exePath: string -> args: string list -> int
 
     val runSyncWithOutput: string -> string -> string list -> string
+    /// fickl: environment for the `dotnet` processes the compiler starts for itself
+    val dotnetEnvVars: unit -> (string * string) list
+    /// fickl: runSyncWithOutput with environment variables
+    val runSyncWithOutputEnv: envVars: (string * string) list -> string -> string -> string list -> string
 
 type PathResolver =
     abstract TryPrecompiledOutPath: sourceDir: string * relativePath: string -> string option

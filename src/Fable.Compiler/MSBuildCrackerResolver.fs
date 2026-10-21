@@ -160,6 +160,9 @@ module private MSBuildCrackerResolver =
             // https://github.com/fable-compiler/Fable/issues/4014
             psi.Environment.Add("DOTNET_NOLOGO", "1")
 
+            for key, value in Fable.Compiler.Util.Process.dotnetEnvVars () do // fickl
+                psi.Environment[key] <- value
+
             if not (List.isEmpty defines) then
                 let definesValue = defines |> String.concat ";"
                 psi.Environment.Add("DefineConstants", definesValue)

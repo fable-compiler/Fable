@@ -474,6 +474,22 @@ module Process =
     let runSync (workingDir: string) (exePath: string) (args: string list) =
         runSyncWithEnv [] workingDir exePath args
 
+    /// fickl: environment for the `dotnet` processes the compiler starts for itself (cracking, building excluded
+    /// projects), not for the user's --run commands. The .NET CLI sends telemetry when it exits and waits for it,
+    /// which on some networks takes seconds per process; it is turned off unless the user set
+    /// DOTNET_CLI_TELEMETRY_OPTOUT.
+    let dotnetEnvVars () =
+        if isNull (Environment.GetEnvironmentVariable "DOTNET_CLI_TELEMETRY_OPTOUT") then
+            [ "DOTNET_CLI_TELEMETRY_OPTOUT", "1" ]
+        else
+            []
+
+    /// fickl: runSyncWithOutput with environment variables
+    let runSyncWithOutputEnv envVars workingDir exePath args =
+        let p = startProcess true envVars workingDir exePath args
+        p.WaitForExit 7000 |> ignore
+        p.StandardOutput.ReadToEnd()
+
     let runSyncWithOutput workingDir exePath args =
         let p = startProcess true [] workingDir exePath args
         // Don't wait indefinitely to run process

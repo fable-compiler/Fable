@@ -158,7 +158,12 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
 
             pendingDllBuilds[normalizedDllPath] <-
                 Task.Run(fun () ->
-                    Process.runSyncWithOutput projDir "dotnet" [ "build"; "-c"; cliArgs.Configuration; "--no-restore" ]
+                    // fickl: dotnetEnvVars
+                    Process.runSyncWithOutputEnv
+                        (Process.dotnetEnvVars ())
+                        projDir
+                        "dotnet"
+                        [ "build"; "-c"; cliArgs.Configuration; "--no-restore" ]
                 )
 
     member _.WaitForBuiltDlls() =
