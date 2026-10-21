@@ -403,6 +403,26 @@ let tests =
         dict.[decimal "0.05"] <- "a"
         dict.ContainsKey(0.1M / 2.M) |> equal true
 
+    testCase "Decimal parsing rounds to 28 places and keeps the scale of zero" <| fun () ->
+        string (decimal "0.0000000000000000000000000000004") |> equal "0.0000000000000000000000000000"
+        string (decimal "0.00000000000000000000000000005") |> equal "0.0000000000000000000000000000"
+        string (decimal "0.00000000000000000000000000015") |> equal "0.0000000000000000000000000002"
+        string (decimal "0.000000000000000000000000000012") |> equal "0.0000000000000000000000000000"
+        Decimal.GetBits(decimal "0.0000000000000000000000000000004") |> equal [| 0; 0; 0; 1835008 |]
+        Decimal.GetBits(decimal "0.00") |> equal [| 0; 0; 0; 131072 |]
+        string (-(0.00M)) |> equal "0.00"
+        string (abs 0.00M) |> equal "0.00"
+        string (Math.Round(0.004M, 2)) |> equal "0.00"
+        (0.00M).ToString("E3", System.Globalization.CultureInfo.InvariantCulture) |> equal "0.000E+000"
+        (decimal "0.00").GetHashCode() |> equal (Decimal(0, 0, 0, false, 2uy).GetHashCode())
+
+    testCase "Decimal rounding is half to even when a trailing zero follows the 5" <| fun () ->
+        Math.Round 2.50M |> equal 2.M
+        Math.Round 0.50M |> equal 0.M
+        Math.Round(1.250M, 1) |> equal 1.2M
+        Math.Round(0.050M, 1) |> equal 0.0M
+        Math.Round(0.0050M, 2) |> equal 0.00M
+
     testCase "Decimal pown works" <| fun () ->
         pown 2.2M 3 |> equal 10.648M
 

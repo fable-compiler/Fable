@@ -95,7 +95,6 @@ function _Big_() {
       x.s = n.s;
       x.e = n.e;
       x.c = n.c.slice();
-      normalize(x);
     } else {
       if (typeof n !== 'string') {
         if (Big.strict === true) {
@@ -122,15 +121,6 @@ function _Big_() {
   Big.strict = STRICT;
 
   return Big;
-}
-
-function normalize(x) {
-  // x = round(x, DP, 0);
-  if (x.c.length > 1 && !x.c[0]) {
-    let i = x.c.findIndex(x => x);
-    x.c = x.c.slice(i);
-    x.e = x.e - i;
-  }
 }
 
 /*
@@ -167,17 +157,14 @@ function parse(x, n) {
 
   nl = n.length;
 
-  // Determine leading zeros before decimal point.
-  for (i = 0; i < e && i < nl && n.charAt(i) == '0';) ++i;
-
-  // original version (ignores decimal point).
-  // // Determine leading zeros.
-  // for (i = 0; i < nl && n.charAt(i) == '0';) ++i;
+  // Determine leading zeros.
+  for (i = 0; i < nl && n.charAt(i) == '0';) ++i;
 
   if (i == nl) {
 
-    // Zero.
-    x.c = [x.e = 0];
+    // Zero, keeping the scale: 0.00 is c = [0], e = -2.
+    x.c = [0];
+    x.e = nl > e ? e - nl : 0;
   } else {
 
     x.e = e - i - 1;
@@ -193,12 +180,8 @@ function parse(x, n) {
     // for (e = 0; i <= nl;) x.c[e++] = +n.charAt(i++);
   }
 
-  x = round(x, Big.DP + 1, Big.RM);
-
-  // Remove the leading zeros kept after the decimal point (e.g. 0.0836), so
-  // that x.e is the exponent of the first nonzero digit, as round() expects.
-  // Zero keeps them, to preserve its scale (e.g. 0.00).
-  if (hasNonzeroDigit(x)) normalize(x);
+  // At most 29 significant digits and 28 decimal places, rounded half to even as Decimal.Parse.
+  x = round(x, Math.min(Big.DP + 1, x.e + 1 + Big.DP), 2);
   return x;
 }
 
@@ -223,21 +206,14 @@ function round(x, sd, rm, more) {
     more =
       rm === 3 && (more || !!xc[0]) || sd === 0 && (
       rm === 1 && xc[0] >= 5 ||
-      rm === 2 && (xc[0] > 5 || xc[0] === 5 && (more || xc[1] !== UNDEFINED))
+      rm === 2 && (xc[0] > 5 || xc[0] === 5 && (more || xc.some((d, i) => i > 0 && d)))
     );
 
     xc.length = 1;
 
-    if (more) {
-
-      // 1, 0.1, 0.01, 0.001, 0.0001 etc.
-      x.e = x.e - sd + 1;
-      xc[0] = 1;
-    } else {
-
-      // Zero.
-      xc[0] = x.e = 0;
-    }
+    // 1, 0.1, 0.01, 0.001, 0.0001 etc., or zero at the same place.
+    x.e = x.e - sd + 1;
+    xc[0] = more ? 1 : 0;
   } else if (sd < xc.length) {
 
     // xc[sd] is the digit after the digit that may be rounded up.
@@ -245,7 +221,7 @@ function round(x, sd, rm, more) {
     more =
       rm === 1 && xc[sd] >= 5 ||
       rm === 2 && (xc[sd] > 5 || xc[sd] === 5 &&
-        (more || xc[sd + 1] !== UNDEFINED || xc[sd - 1] & 1)) ||
+        (more || xc.some((d, i) => i > sd && d) || xc[sd - 1] & 1)) ||
       rm === 3 && (more || !isZero);
 
     // Remove any digits after the required precision.
@@ -272,11 +248,6 @@ function round(x, sd, rm, more) {
 }
 
 
-function hasNonzeroDigit(x) {
-  return x.c.some(d => d !== 0);
-}
-
-
 /*
  * Return a string representing the value of Big x in normal or exponential notation.
  * Handles P.toExponential, P.toFixed, P.toJSON, P.toPrecision, P.toString and P.valueOf.
@@ -288,6 +259,7 @@ function stringify(x, doExponential, isNonzero) {
 
   // Exponential notation?
   if (doExponential) {
+    if (!x.c[0]) e = 0;
     s = s.charAt(0) + (n > 1 ? '.' + s.slice(1) : '') + (e < 0 ? 'e' : 'e+') + e;
 
   // Normal notation.
@@ -942,7 +914,7 @@ P.times = P.mul = function (y) {
  */
 P.toExponential = function (dp, rm) {
   var x = this,
-    n = hasNonzeroDigit(x);
+    n = x.c[0];
 
   if (dp !== UNDEFINED) {
     if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
@@ -952,7 +924,7 @@ P.toExponential = function (dp, rm) {
     for (; x.c.length < dp;) x.c.push(0);
   }
 
-  return stringify(x, true, n);
+  return stringify(x, true, !!n);
 };
 
 
@@ -973,14 +945,13 @@ P.toFixed = function (dp, rm) {
     if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
       throw Error(INVALID_DP);
     }
-    x = new x.constructor(x);
-    x = round(x, dp + x.e + 1, rm);
+    x = round(new x.constructor(x), dp + x.e + 1, rm);
 
     // x.e may have changed if the value is rounded up.
     for (dp = dp + x.e + 1; x.c.length < dp;) x.c.push(0);
   }
 
-  return stringify(x, false, hasNonzeroDigit(x));
+  return stringify(x, false, !!x.c[0]);
 };
 
 
@@ -993,7 +964,7 @@ P.toFixed = function (dp, rm) {
 P.toJSON = P.toString = function () {
   var x = this,
     Big = x.constructor;
-  return stringify(x, x.e <= Big.NE || x.e >= Big.PE, hasNonzeroDigit(x));
+  return stringify(x, x.e <= Big.NE || x.e >= Big.PE, !!x.c[0]);
 };
 
 
@@ -1021,17 +992,18 @@ P.toNumber = function () {
 P.toPrecision = function (sd, rm) {
   var x = this,
     Big = x.constructor,
-    n = hasNonzeroDigit(x);
+    n = x.c[0];
 
   if (sd !== UNDEFINED) {
     if (sd !== ~~sd || sd < 1 || sd > MAX_DP) {
       throw Error(INVALID + 'precision');
     }
     x = round(new Big(x), sd, rm);
+    if (!x.c[0]) x.e = 0;
     for (; x.c.length < sd;) x.c.push(0);
   }
 
-  return stringify(x, sd <= x.e || x.e <= Big.NE || x.e >= Big.PE, n);
+  return stringify(x, sd <= x.e || x.e <= Big.NE || x.e >= Big.PE, !!n);
 };
 
 
