@@ -330,4 +330,91 @@ let isOptions (o: obj) = match o with :? Options -> true | _ -> false
       compile source
       |> Assert.Exists.warningWith "Cannot type test (evals to false): Program.Options (pojo)"
       |> ignore
+
+    testCase "Implementing overloads of a non-mangled interface is an error" <| fun _ ->
+      let source =
+        """
+type IUpdater =
+    abstract Update: int -> unit
+    abstract Update: string -> unit
+
+type Updater() =
+    interface IUpdater with
+        member _.Update(x: int) = ()
+        member _.Update(x: string) = ()
+"""
+      compile source
+      |> Assert.Exists.errorWith "Member Update is duplicated, use Mangle attribute"
+      |> ignore
+
+    testCase "Implementing overloads of a non-mangled interface in an object expression is an error" <| fun _ ->
+      let source =
+        """
+type IUpdater =
+    abstract Update: int -> unit
+    abstract Update: string -> unit
+
+let updater =
+    { new IUpdater with
+        member _.Update(x: int) = ()
+        member _.Update(x: string) = () }
+"""
+      compile source
+      |> Assert.Exists.errorWith "Member Update is duplicated, use Mangle attribute"
+      |> ignore
+
+    testCase "A field sharing its name with a non-mangled interface member is an error" <| fun _ ->
+      let source =
+        """
+type INamed =
+    abstract name: string
+
+type Named =
+    val name: string
+    new(name) = { name = name }
+    interface INamed with
+        member this.name = this.name
+"""
+      compile source
+      |> Assert.Exists.errorWith "Member name is duplicated, use Mangle attribute"
+      |> ignore
+
+    testCase "Overloads behind Emit are not reported" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type IStateHook<'T> =
+    [<Emit("$0[1]($1)")>]
+    abstract update: 'T -> unit
+    [<Emit("$0[1]($1)")>]
+    abstract update: ('T -> 'T) -> unit
+
+let dummy (value: 'T) =
+    { new IStateHook<'T> with
+        member _.update(x: 'T) = ()
+        member _.update(f: 'T -> 'T) = () }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Overloads of a mangled interface are not reported" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Mangle>]
+type IUpdater =
+    abstract Update: int -> unit
+    abstract Update: string -> unit
+
+type Updater() =
+    interface IUpdater with
+        member _.Update(x: int) = ()
+        member _.Update(x: string) = ()
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
   ]
