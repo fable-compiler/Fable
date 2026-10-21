@@ -617,7 +617,7 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
             | Char
             | String
             | Builtin BclGuid -> "stringHash"
-            | Number(Decimal, _) -> "fastStructuralHash"
+            | Number(Decimal, _) -> "safeHash"
             | Number(BigIntegers _, _) -> "bigintHash"
             | Number(Numbers _, _) -> "numberHash"
             | Builtin BclTimeSpan

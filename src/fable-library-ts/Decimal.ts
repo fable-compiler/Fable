@@ -7,7 +7,15 @@ import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } fr
 import * as bigInt from "./BigInt.ts";
 
 Decimal.prototype.GetHashCode = function () {
-  return combineHashCodes([this.s, this.e].concat(this.c))
+  const digits: number[] = this.c;
+  if (digits[0] === 0) {
+    return combineHashCodes([1, 0, 0]);
+  }
+  let end = digits.length;
+  while (digits[end - 1] === 0) {
+    end--;
+  }
+  return combineHashCodes([this.s, this.e].concat(digits.slice(0, end)));
 }
 
 Decimal.prototype.Equals = function (x: Decimal) {
