@@ -5,7 +5,8 @@ import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
 import { InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
-import { Exception } from "./Util.ts";
+import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
+import type { Option } from "./Option.ts";
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -54,33 +55,45 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
+// The parent keeps the listener until unlink is called
+function createLinkedToken(parent: CancellationToken): [token: CancellationToken, unlink: () => void] {
+  const token = new CancellationToken();
+  const id = parent.addListener(() => token.cancel());
+  return [token, () => { parent.removeListener(id); }];
+}
+
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
   return protectedCont((ctx) => {
-    // Share the parent's cancellation token so cancelling the parent
-    // cancels the child, like .NET Async.StartChild
-    const promise = startAsPromise(computation, ctx.cancelToken);
-    let promiseToRun = promise;
+    const timeout = ms == null || ms === -1 ? undefined : ms;
+    const [childToken, unlink] = timeout === undefined
+      ? [ctx.cancelToken, () => { /* NOP */ }]
+      : createLinkedToken(ctx.cancelToken);
+    const promise = startAsPromise(computation, childToken);
+    let settled = false;
+    const onSettled = () => { settled = true; unlink(); };
 
-    if (ms) {
-      // Race the computation against a timeout: whichever settles first wins.
-      promiseToRun = new Promise<T>((resolve, reject) => {
-        const timeoutId = setTimeout(() => reject(TimeoutException_$ctor()), ms);
+    // Without a rejection handler an unawaited child's failure is an unhandled rejection
+    promise.then(onSettled, onSettled);
+
+    // Like .NET, the timeout only runs while the result is awaited, not from the start of the child
+    const awaitResult = (): Promise<T> =>
+      timeout === undefined || settled ? promise : new Promise<T>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          // .NET doesn't cancel the child when the timeout is 0
+          if (timeout !== 0) {
+            try { childToken.cancel(); } catch (error) { reject(error); return; }
+          }
+          reject(TimeoutException_$ctor());
+        }, timeout);
         promise.then(
           value => { clearTimeout(timeoutId); resolve(value); },
           error => { clearTimeout(timeoutId); reject(error); }
         );
       });
-    }
-
-    // Prevent an unhandled rejection when the child is cancelled or fails
-    // while nobody awaits it (in F# an unobserved child's cancellation or
-    // failure is simply not propagated). awaitPromise attaches its own
-    // handlers to the same promise, so awaiting still observes the result.
-    promiseToRun.catch(emptyContinuation);
 
     // JS Promises are hot, computation has already started
     // but we delay returning the result
-    protectedReturn(awaitPromise(promiseToRun))(ctx);
+    protectedReturn(protectedCont<T>((awaitCtx) => awaitPromise(awaitResult())(awaitCtx)))(ctx);
   });
 }
 
@@ -175,6 +188,65 @@ export function parallel<T>(computations: Iterable<Async<T>>) {
     awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w, ctx.cancelToken))))(ctx));
 }
 
+export function choice<T>(computations: Iterable<Async<Option<T>>>): Async<Option<T>> {
+  return protectedCont((ctx: IAsyncContext<Option<T>>) => {
+    const works = Array.from(computations);
+    let remaining = works.length;
+    if (remaining === 0) {
+      ctx.onSuccess(undefined);
+      return;
+    }
+    const [token, unlink] = createLinkedToken(ctx.cancelToken);
+    let done = false;
+    const finish = (report: () => void) => {
+      if (done) { return; }
+      done = true;
+      unlink();
+      try { token.cancel(); } catch (error) { ctx.onError(ensureErrorOrException(error)); return; }
+      report();
+    };
+    for (const work of works) {
+      startWithContinuations(
+        work,
+        (x) => {
+          if (x != null) {
+            finish(() => ctx.onSuccess(x));
+          } else if (--remaining === 0) {
+            finish(() => ctx.onSuccess(undefined));
+          }
+        },
+        (err) => finish(() => ctx.onError(err)),
+        (err) => finish(() => ctx.onCancel(err)),
+        token);
+      if (done) { break; }
+    }
+  });
+}
+
+export function onCancel(interruption: () => void): Async<IDisposable> {
+  return protectedCont((ctx: IAsyncContext<IDisposable>) => {
+    const token = ctx.cancelToken;
+    let interrupted = false;
+    const interrupt = () => {
+      if (!interrupted) {
+        interrupted = true;
+        try { interruption(); } catch { /* Ignored, like .NET Async.OnCancel */ }
+      }
+    };
+    const id = token.addListener(interrupt);
+    let disposed = false;
+    ctx.onSuccess({
+      Dispose() {
+        if (disposed) { return; }
+        disposed = true;
+        token.removeListener(id);
+        // With use! Dispose runs inside cancel() before this listener gets its turn
+        if (token.isCancelled) { interrupt(); }
+      },
+    });
+  });
+}
+
 export function sequential<T>(computations: Iterable<Async<T>>) {
 
   function _sequential(computations: Iterable<Async<T>>, cancelToken: CancellationToken): Promise<T[]> {
@@ -247,4 +319,12 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
   return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
+}
+
+export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
+  return startAsPromise(computation, cancellationToken);
+}
+
+export function startImmediateAsTask<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
+  return startAsPromise(computation, cancellationToken);
 }

@@ -1,4 +1,4 @@
-import { OperationCanceledException } from "./AsyncBuilder.ts";
+import { CancellationToken, OperationCanceledException } from "./AsyncBuilder.ts";
 
 export class TaskCompletionSource<T> {
   private _resolve!: (value: T) => void;
@@ -24,6 +24,27 @@ export function fromResult<T>(value: T): Promise<T> {
 
 export function zero(): Promise<void> {
   return Promise.resolve();
+}
+
+// Like .NET, -1 waits until the token is cancelled
+export function delay(millisecondsDelay: number, cancellationToken?: CancellationToken): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (cancellationToken?.isCancelled) {
+      reject(new OperationCanceledException());
+      return;
+    }
+    let tokenId: number | undefined;
+    const timeoutId = millisecondsDelay === -1 ? undefined : setTimeout(() => {
+      if (tokenId !== undefined) { cancellationToken!.removeListener(tokenId); }
+      resolve();
+    }, millisecondsDelay);
+    if (cancellationToken != null) {
+      tokenId = cancellationToken.addListener(() => {
+        clearTimeout(timeoutId);
+        reject(new OperationCanceledException());
+      });
+    }
+  });
 }
 
 // Task<T> = Promise<T> in JS/TS. GetAwaiter/GetResult return the Promise itself;

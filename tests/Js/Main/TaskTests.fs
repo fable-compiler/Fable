@@ -174,4 +174,64 @@ let tests =
             let! result = awaitTask tcs.Task
             equal 42 result
         }
+
+    testCaseAsync "Task.Delay works" <| fun () ->
+        async {
+            let mutable steps = []
+            let! _ = awaitTask (task {
+                steps <- "before" :: steps
+                do! Task.Delay 20
+                do! Task.Delay(TimeSpan.FromMilliseconds 10.)
+                steps <- "after" :: steps
+            })
+            equal [ "after"; "before" ] steps
+        }
+
+    testCaseAsync "Task.Delay can be cancelled" <| fun () ->
+        async {
+            let cts = new System.Threading.CancellationTokenSource()
+            let delay = Task.Delay(1000, cts.Token)
+            cts.Cancel()
+            let! cancelled = awaitTask (task {
+                try
+                    do! delay
+                    return false
+                with _ -> return true
+            })
+            equal true cancelled
+        }
+
+    testCaseAsync "task can bind an Async" <| fun () ->
+        async {
+            let work = async {
+                do! Async.Sleep 10
+                return 41
+            }
+            let! result = awaitTask (task {
+                let! x = work
+                return x + 1
+            })
+            equal 42 result
+        }
+
+    testCaseAsync "task can return! an Async" <| fun () ->
+        async {
+            let work = async {
+                do! Async.Sleep 10
+                return 42
+            }
+            let! result = awaitTask (task { return! work })
+            equal 42 result
+        }
+
+    testCaseAsync "task can do! an Async" <| fun () ->
+        async {
+            let mutable ran = false
+            let work = async {
+                do! Async.Sleep 10
+                ran <- true
+            }
+            let! _ = awaitTask (task { do! work })
+            equal true ran
+        }
   ]
