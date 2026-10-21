@@ -4,16 +4,22 @@ open System
 open Fable.Core
 
 /// <summary>
-/// Compiles to <c>??</c> nullish coalescing operator in JavaScript.
+/// Compiles to the JavaScript nullish coalescing operator <c>??</c>.
+/// Returns <paramref name="nullable"/> when it is neither <c>null</c> nor <c>undefined</c> at runtime,
+/// otherwise <paramref name="defaultValue"/>.
 /// </summary>
-/// <remarks>
-/// <code lang="fsharp">
-/// expr1 ?? expr2
+/// <example><code lang="fsharp">
+/// let name = maybeName ??= "anonymous"
 /// </code>
-/// Returns <c>expr1</c> if it is neither <c>null</c> nor <c>undefined</c> on runtime; otherwise, returns <c>expr2</c>
-/// </remarks>
+/// Compiles to:
+/// <code lang="js">
+/// const name = maybeName ?? "anonymous";
+/// </code>
+/// </example>
+/// <param name="nullable">Value tested for <c>null</c> or <c>undefined</c>.</param>
+/// <param name="defaultValue">Value returned when <paramref name="nullable"/> is <c>null</c> or <c>undefined</c>.</param>
 /// <seealso href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">
-/// JavaScript Documentation
+/// MDN: Nullish coalescing operator
 /// </seealso>
 [<Emit("$0 ?? $1")>]
 let (??=) (nullable: 'T) (defaultValue: 'T) : 'T = nativeOnly
@@ -59,9 +65,8 @@ let emitJsExpr<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 
 /// <summary>
-/// <para>Emit a directive prologue at the top of the file (before the imports).</para>
-/// <para>This is useful when working with Next.js or other frameworks that require
-/// a specific directive at the top of the file, such as "use client" or "use server".</para>
+/// <para>Emits a directive prologue at the top of the file, before the imports.</para>
+/// <para>Frameworks such as Next.js require directives like <c>"use client"</c> or <c>"use server"</c> there.</para>
 /// </summary>
 /// <example><code lang="fsharp">
 /// let x = 5
@@ -73,13 +78,11 @@ let emitJsStatement<'T> (args: obj) (jsCode: string) : 'T = nativeOnly
 /// export const x = 5;
 /// </code>
 /// </example>
-/// <param name="text">Directive text</param>
+/// <param name="text">Directive text. The quotes are added.</param>
 let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
 
 /// <summary>
-/// <para>Emit a directive prologue at the calling position.</para>
-/// <para>This is useful when you need to emit a directive prologue for a specific part of the code,
-/// such as "use client" or "use server".</para>
+/// Emits a directive prologue at the calling position.
 /// </summary>
 /// <example><code lang="fsharp">
 /// let x = 5
@@ -91,7 +94,7 @@ let emitJsTopDirectivePrologue (text: string) : unit = nativeOnly
 /// "use server";
 /// </code>
 /// </example>
-/// <param name="text">Directive text</param>
+/// <param name="text">Directive text. The quotes are added.</param>
 let emitJsDirectivePrologue (text: string) : unit = nativeOnly
 
 /// Create a literal JS object from a collection of key-value tuples.
