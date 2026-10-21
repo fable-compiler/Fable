@@ -566,6 +566,18 @@ let private transformDelegate com ctx (delegateType: FSharpType) expr =
         | _ -> return expr
     }
 
+let private makeDerivedCaseTest r (unionExpr: Fable.Expr) (test: DerivedCaseTest) =
+    match test with
+    | DerivedCaseTest.HasField name -> emitExpr r Fable.Boolean [ makeStrConst name; unionExpr ] "$0 in $1"
+    | DerivedCaseTest.LacksField name -> emitExpr r Fable.Boolean [ makeStrConst name; unionExpr ] "!($0 in $1)"
+    | DerivedCaseTest.FieldOfType(name, typ) ->
+        let field =
+            Fable.Get(unionExpr, Fable.FieldInfo.Create(name, fieldType = typ), typ, r)
+
+        Fable.Test(field, Fable.TypeTest typ, r)
+    | DerivedCaseTest.NotOfType typ -> makeUnOp r Fable.Boolean (Fable.Test(unionExpr, Fable.TypeTest typ, r)) UnaryNot
+    | DerivedCaseTest.NotCaseTest macro -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})"
+
 let private transformUnionCaseTest
     (com: IFableCompiler)
     (ctx: Context)
@@ -639,14 +651,18 @@ let private transformUnionCaseTest
                         | ErasedUnionCaseTests.Ambiguous(other, reason) ->
                             Error
                                 $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' cannot be told apart at runtime: %s{reason}. Add a CaseTest attribute to '%s{unionCase.Name}' or '%s{other.Name}'."
-                        | ErasedUnionCaseTests.NotCaseTests macros ->
-                            macros
-                            |> List.distinct
-                            |> List.map (fun macro unionExpr -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})")
-                            |> fun negated -> Ok(typeTest :: negated)
+                        | ErasedUnionCaseTests.Tests derived ->
+                            let derived =
+                                derived |> List.map (fun test unionExpr -> makeDerivedCaseTest r unionExpr test)
+
+                            if isUntestableType com fableType then
+                                Ok derived
+                            else
+                                Ok(typeTest :: derived)
 
                 match tests with
                 | Error msg -> return addErrorAndReturnNull com ctx.InlinePath r msg
+                | Ok [] -> return makeBoolConst true
                 | Ok [ test ] -> return test unionExpr
                 | Ok tests ->
                     let makeTest unionExpr =
@@ -683,25 +699,12 @@ let private transformUnionCaseTest
                     let getTag = Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r)
                     makeEqOp r getTag value BinaryEqual
 
-                let makeDerivedTest unionExpr test =
-                    match test with
-                    | TaggedUnionCaseTest.HasField name ->
-                        emitExpr r Fable.Boolean [ makeStrConst name; unionExpr ] "$0 in $1"
-                    | TaggedUnionCaseTest.LacksField name ->
-                        emitExpr r Fable.Boolean [ makeStrConst name; unionExpr ] "!($0 in $1)"
-                    | TaggedUnionCaseTest.FieldOfType(name, typ) ->
-                        let field =
-                            Fable.Get(unionExpr, Fable.FieldInfo.Create(name, fieldType = typ), typ, r)
-
-                        Fable.Test(field, Fable.TypeTest typ, r)
-                    | TaggedUnionCaseTest.NotCaseTest macro -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})"
-
                 let caseTests: (Fable.Expr -> Fable.Expr) list =
                     match FsUnionCase.CaseTest unionCase with
                     | Some macro -> [ fun unionExpr -> emitExpr r Fable.Boolean [ unionExpr ] macro ]
                     | None ->
-                        match deriveTaggedUnionCaseTests com tdef rule unionCase with
-                        | Ok tests -> tests |> List.map (fun test unionExpr -> makeDerivedTest unionExpr test)
+                        match deriveDerivedCaseTests com tdef rule unionCase with
+                        | Ok tests -> tests |> List.map (fun test unionExpr -> makeDerivedCaseTest r unionExpr test)
                         | Error(other, reason) ->
                             let tag = taggedUnionTagDisplay rule unionCase
 

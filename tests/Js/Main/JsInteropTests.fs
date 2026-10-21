@@ -458,10 +458,32 @@ module ErasedCaseTest =
     type Rect =
         abstract width: float
 
+    type Animal =
+        abstract name: string
+
+    type Dog =
+        inherit Animal
+        abstract bark: string
+
+    type Kinded =
+        abstract kind: string
+
     [<Erase; RequireQualifiedAccess>]
     type Shape =
-        | [<CaseTest("'radius' in $0")>] Circle of Circle
-        | [<CaseTest("'width' in $0")>] Rect of Rect
+        | Circle of Circle
+        | Rect of Rect
+        | Count of int
+        | Label of string
+
+    [<Erase; RequireQualifiedAccess>]
+    type Pet =
+        | Animal of Animal
+        | Dog of Dog
+
+    [<Erase; RequireQualifiedAccess>]
+    type Tagged =
+        | [<CaseTest("$0.kind === 'a'")>] A of Kinded
+        | B of Kinded
 
     [<Erase; RequireQualifiedAccess>]
     type Id =
@@ -476,6 +498,19 @@ module ErasedCaseTest =
     let rect w =
         { new Rect with
             member _.width = w }
+
+    let animal n =
+        { new Animal with
+            member _.name = n }
+
+    let dog n b =
+        { new Dog with
+            member _.name = n
+            member _.bark = b }
+
+    let kinded k =
+        { new Kinded with
+            member _.kind = k }
 
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
@@ -1305,12 +1340,30 @@ let tests =
         (TaggedUnion.NumberTag.Off false).IsOff |> equal true
         (TaggedUnion.NumberTag.Off false).IsOn |> equal false
 
-    testCase "Erased union cases of interface type use their CaseTest" <| fun () ->
+    testCase "Erased union cases of interface type are told apart by their members" <| fun () ->
         let describe = function
             | ErasedCaseTest.Shape.Circle c -> sprintf "circle %.1f" c.radius
             | ErasedCaseTest.Shape.Rect r -> sprintf "rect %.1f" r.width
+            | ErasedCaseTest.Shape.Count n -> sprintf "count %i" n
+            | ErasedCaseTest.Shape.Label l -> "label " + l
         ErasedCaseTest.Shape.Circle (ErasedCaseTest.circle 1.5) |> describe |> equal "circle 1.5"
         ErasedCaseTest.Shape.Rect (ErasedCaseTest.rect 2.5) |> describe |> equal "rect 2.5"
+        ErasedCaseTest.Shape.Count 3 |> describe |> equal "count 3"
+        ErasedCaseTest.Shape.Label "x" |> describe |> equal "label x"
+
+    testCase "Erased union cases of inherited interface types are told apart by their members" <| fun () ->
+        let describe = function
+            | ErasedCaseTest.Pet.Animal a -> "animal " + a.name
+            | ErasedCaseTest.Pet.Dog d -> "dog " + d.name + " " + d.bark
+        ErasedCaseTest.Pet.Animal (ErasedCaseTest.animal "cat") |> describe |> equal "animal cat"
+        ErasedCaseTest.Pet.Dog (ErasedCaseTest.dog "rex" "woof") |> describe |> equal "dog rex woof"
+
+    testCase "Erased union cases of interface type use the CaseTest of the other case" <| fun () ->
+        let describe = function
+            | ErasedCaseTest.Tagged.B k -> "b " + k.kind
+            | ErasedCaseTest.Tagged.A k -> "a " + k.kind
+        ErasedCaseTest.Tagged.A (ErasedCaseTest.kinded "a") |> describe |> equal "a a"
+        ErasedCaseTest.Tagged.B (ErasedCaseTest.kinded "b") |> describe |> equal "b b"
 
     testCase "Erased union cases of the same type use the CaseTest of the other case" <| fun () ->
         let describe = function
@@ -1369,12 +1422,26 @@ let tests =
         let describeShape = function
             | ErasedCaseTest.Shape.Circle c -> sprintf "circle %.1f" c.radius
             | ErasedCaseTest.Shape.Rect r -> sprintf "rect %.1f" r.width
+            | ErasedCaseTest.Shape.Count n -> sprintf "count %i" n
+            | ErasedCaseTest.Shape.Label l -> "label " + l
+        let describePet = function
+            | ErasedCaseTest.Pet.Animal a -> "animal " + a.name
+            | ErasedCaseTest.Pet.Dog d -> "dog " + d.name + " " + d.bark
+        let describeTagged = function
+            | ErasedCaseTest.Tagged.B k -> "b " + k.kind
+            | ErasedCaseTest.Tagged.A k -> "a " + k.kind
         let describeId = function
             | ErasedCaseTest.Id.Slug s -> "slug " + s
             | ErasedCaseTest.Id.Name n -> "name " + n
             | ErasedCaseTest.Id.Count c -> sprintf "count %i" c
         !!{| radius = 3.0 |} |> describeShape |> equal "circle 3.0"
-        !!{| width = 4.0 |} |> describeShape |> equal "rect 4.0"
+        !!{| width = 4.0; area = fun () -> 1.0 |} |> describeShape |> equal "rect 4.0"
+        !!5 |> describeShape |> equal "count 5"
+        !!"raw" |> describeShape |> equal "label raw"
+        !!{| name = "cat" |} |> describePet |> equal "animal cat"
+        !!{| name = "rex"; bark = "woof" |} |> describePet |> equal "dog rex woof"
+        !!{| kind = "a" |} |> describeTagged |> equal "a a"
+        !!{| kind = "b" |} |> describeTagged |> equal "b b"
         !!"n:raw" |> describeId |> equal "name n:raw"
         !!"raw" |> describeId |> equal "slug raw"
         !!7 |> describeId |> equal "count 7"

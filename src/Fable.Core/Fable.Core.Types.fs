@@ -107,9 +107,9 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 ///     | Pending
 ///
 /// [&lt;Erase>]
-/// type Shape =
-///     | [&lt;CaseTest("'radius' in $0")>] Circle of Circle
-///     | [&lt;CaseTest("'width' in $0")>] Rect of Rect
+/// type Id =
+///     | [&lt;CaseTest("$0.startsWith('n:')")>] Name of string
+///     | Slug of string
 /// </code>
 /// </remarks>
 type CaseTestAttribute(test: string) =
