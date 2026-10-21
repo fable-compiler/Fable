@@ -14,6 +14,23 @@ Runtime sweeps use cold `--noCache` runs, configurations interleaved, 4–5 runs
 ("Fable compilation finished in"), which excludes project cracking. Glutinum's compile times range 4.2–6.8 s within one
 configuration, so it is not used to rank settings; the JS test suite stays within ±0.2 s.
 
+## End to end against upstream (Fickl 0.5.1, 2026-10-21)
+
+Same harness, adding upstream with `DOTNET_CLI_TELEMETRY_OPTOUT=1` set by the user (Fable as installed waits about 9 s
+on telemetry per `dotnet` process here; Fickl 0.5.1 opts its own processes out). Wall clock, median of 5
+(`harness/fair.tsv`, image `harness/fickl-0.5.1.png`):
+
+| Project | Fable 5.22 | Fable 5.22, opted out | Fickl, package cache off | Fickl, cache hit | Hit vs opted out |
+| --- | --- | --- | --- | --- | --- |
+| Python bench | 17.5 s | 12.4 s | 9.0 s | 3.1 s | 4.0× |
+| BEAM bench | 15.5 s | 11.6 s | 8.9 s | 3.0 s | 3.9× |
+| Sutil | 18.2 s | 9.8 s | 5.7 s | 3.8 s | 2.6× |
+| Fantomas tools | 14.5 s | 8.4 s | 4.2 s | 2.9 s | 2.9× |
+| Ionide | 18.6 s | 7.5 s | 4.8 s | 4.0 s | 1.9× |
+| JS suite (`--exclude Fable.Core`) | 50.8 s | 13.4 s | 7.0 s | 5.3 s | 2.5× |
+
+Project loading on a hit is now 0.6–1.9 s (was 2.2–6.8 s; JS suite 28 s).
+
 ## End to end against upstream (Fickl 0.4.0, 2026-10-21)
 
 The compile phase overstates what a user sees: project cracking and process startup are outside it. Wall clock from
