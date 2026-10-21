@@ -39229,6 +39229,48 @@ Get the signature for the value&apos;s XML documentation
  Clears parse and typecheck caches.
 </summary>
 </member>
+<member name="T:FSharp.Compiler.SourceCodeServices.GraphCheckOutcome.Replaced">
+<summary>
+ The file was checked, and its dependents see the new result.
+</summary>
+</member>
+<member name="T:FSharp.Compiler.SourceCodeServices.GraphCheckOutcome.Kept">
+<summary>
+ The file changed but its signature did not, and none of the files it depends on was replaced. The earlier
+ finisher stays, so the file&apos;s dependents can be reused; the new implementation is reported.
+</summary>
+</member>
+<member name="T:FSharp.Compiler.SourceCodeServices.GraphCheckOutcome.Reused">
+<summary>
+ The file is unchanged, and none of the files it depends on, now or in the earlier check, was replaced.
+</summary>
+</member>
+<member name="T:FSharp.Compiler.SourceCodeServices.GraphCheckOutcome">
+<summary>
+ How a file&apos;s result was obtained in a check over the dependency graph.
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SourceCodeServices.GraphCheckEntry.implFile">
+<summary>
+ The implementation to report, from the latest check of the file.
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SourceCodeServices.GraphCheckEntry.finisher">
+<summary>
+ Adds the file&apos;s signature to the state its dependents are checked in. Kept from an earlier check while later
+ checks of the file give the same signature, so the dependents&apos; results stay valid.
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SourceCodeServices.GraphCheckEntry.dependencyGenerations">
+<summary>
+ The files this one depends on, with the generations of the finishers it was checked against.
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SourceCodeServices.GraphCheckEntry.generation">
+<summary>
+ Identifies the finisher: a new one gets a new generation.
+</summary>
+</member>
 <member name="T:FSharp.Compiler.SourceCodeServices.GraphCheckEntry">
 <summary>
  The result of checking one file over the dependency graph, kept for reuse while
@@ -39247,6 +39289,24 @@ Get the signature for the value&apos;s XML documentation
  dependents are checked again. Fills the check cache with the same per-file entries a sequential check would
  leave. The subscriber gets the files in project order, each as soon as it and all files before it are checked,
  because Fable expects every earlier file to be known, not only the file&apos;s dependencies.
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SourceCodeServices.ParseAndCheck.signatureCutoff">
+<summary>
+ Whether a changed file whose signature is the same keeps its dependents&apos; results (FICKL_FCS_SIGNATURE_CUTOFF=0 turns it off).
+</summary>
+</member>
+<member name="P:FSharp.Compiler.SourceCodeServices.ParseAndCheck.lastGraphCheckGeneration">
+<summary>
+ The last generation given to a graph check finisher; 0 is never given.
+</summary>
+</member>
+<member name="T:FSharp.Compiler.SourceCodeServices.SignatureFingerprint">
+<summary>
+ What the files that depend on a file see of it: the types, values, members and attributes its signature declares,
+ without ranges or stamps, and with type parameters numbered by position. Equal fingerprints mean the dependents
+ would check the same against either signature. Anything it cannot describe exactly gives None, so the file
+ always counts as changed.
 </summary>
 </member>
 <member name="P:FSharp.Compiler.CodeAnalysis.ILegacyReferenceResolver.DotNetFrameworkReferenceAssembliesRootDirectory">
