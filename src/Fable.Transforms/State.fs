@@ -339,6 +339,10 @@ type PrecompiledInfo =
     abstract TryGetRootModule: normalizedFullPath: string -> string option
     abstract TryGetInlineExpr: memberUniqueName: string -> InlineExpr option
 
+// fickl: precompiled info whose declarations are spread over several assemblies (the package cache) lists them all
+type PrecompiledAssemblies =
+    abstract DllPaths: string list
+
 let private removeAll keys map =
     (map, keys) ||> Seq.fold (fun map key -> Map.remove key map)
 
@@ -573,7 +577,13 @@ type CompilerImpl
                 |> Option.bind (fun file -> ReadOnlyDictionary.tryFind entRef.FullName file.Entities)
                 |> Option.orElseWith (fun () ->
                     // Check also the precompiled dll because this may come from a precompiled inline expr
-                    project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entRef.FullName)
+                    match project.PrecompiledInfo with
+                    | :? PrecompiledAssemblies as info ->
+                        info.DllPaths
+                        |> List.tryPick (fun dllPath ->
+                            project.Assemblies.TryGetEntityByAssemblyPath(dllPath, entRef.FullName)
+                        )
+                    | info -> project.Assemblies.TryGetEntityByAssemblyPath(info.DllPath, entRef.FullName)
                 )
 
         member this.GetInlineExpr(memberUniqueName) =

@@ -67,7 +67,7 @@ project's own files.
 | Lever | Status | Notes |
 | --- | --- | --- |
 | Cache type-checked package sources across runs | done | `src/Fable.Cli/PackageCache.fs`; results below. |
-| Package sets that cannot be one assembly | open | Sutil's packages declare both a module and a type `Feliz.Util`; FCS type-checks that but cannot emit it. Needs several precompiled libs per compilation. |
+| Package sets that cannot be one assembly | done | Sutil's packages declare both a module and a type `Feliz.Util`; FCS type-checks that but cannot emit it. Such sets are now cached as one assembly per package (`Fable.Precompiled.<n>.dll`, each referencing the ones before it), with one merged precompiled info. Sutil compile 4.8 → 2.1 s on a hit. |
 | Package-like sources outside `fable_modules` | open | Ionide's VS Code bindings come from `paket-files` as plain `Compile` items and are not cached. |
 | Cache build blocks the watcher on a miss | open | ~3.5 s once per package set and options; could run in the background. |
 | Files waiting on `Promise.fs` at the start of checking | explained | Fable.Promise's `PromiseImpl.fs` is a root-level `[<AutoOpen>] module` that calls `Promise.PromiseBuilder()`, so the graph correctly makes every later file depend on it and, through it, on `Promise.fs`. A package cache hit removes it: in Ionide checking starts at 0 ms instead of 1.0 s and the check wall goes 2.55 → 2.19 s; the critical path is then `Fable.Import.VSCode.fs` (1.07 s, from `paket-files`). |
@@ -122,7 +122,9 @@ On by default for JavaScript and TypeScript; `--noPackageCache` turns it off, `F
   referenced assembly's size and timestamp, and every package source's path from `fable_modules` on and its content.
 - Miss: after a successful compile, an FCS compile of the package sources alone (under its own project name, so its
   signature data is not named like the consumer's) plus their inline bodies and JS, written to a temporary folder and
-  moved into place. Package sets FCS cannot emit as one assembly are marked `<key>.uncacheable`.
+  moved into place. Package sets FCS cannot emit as one assembly are compiled again as one assembly per package
+  (listed in `<key>/groups.txt`, named apart because FCS identifies an assembly by its name); only when that fails
+  too is the key marked `<key>.uncacheable`.
 - Hit: reference the cached assembly, drop the package sources, copy their JS into `outDir/fable_modules`, rewrite out
   paths and the fable-library dir, and point inline bodies at this project's copies of their files, so imports resolve
   as in a source compile.
@@ -130,7 +132,9 @@ On by default for JavaScript and TypeScript; `--noPackageCache` turns it off, `F
   unique name, and `fable precompile` keeps whichever inline body comes last in completion order; the cache keeps the
   last one in file order, as a source compile does.
 
-Cold `--noCache` compile phase, one run each, output compared file by file with a source compile (identical for all):
+Cold `--noCache` compile phase, one run each, output compared file by file with a source compile (identical for all
+but Sutil, where one eta-expanded lambda's parameter is named after the cached member's parameter, `value_2` instead of
+`children`):
 
 | Project | Package files | Miss (compile + one-time cache build) | Hit |
 | --- | --- | --- | --- |
@@ -138,7 +142,7 @@ Cold `--noCache` compile phase, one run each, output compared file by file with 
 | Glutinum | 37 | 4.2 s + 1.5 s | 3.7 s |
 | Ionide | 10 | 2.6 s + 0.9 s | 2.3 s |
 | `tests/Js/Main` | 1 | 3.1 s + 0.4 s | 3.2 s |
-| Sutil | 60 | uncacheable (see above) | — |
+| Sutil | 31 | 4.8 s + 6.6–7.4 s (11 assemblies) | 2.1 s |
 
 Also checked: runs without `--noCache` (cached project options, a skipped up-to-date compile, an edit), a hit after
 the folder that built the entry was deleted, and watch mode (miss, then hit: identical output, 240–275 ms rebuilds).

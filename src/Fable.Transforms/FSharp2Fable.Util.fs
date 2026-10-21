@@ -399,7 +399,12 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
                 // When compiling with netcoreapp target, netstandard only contains redirects
                 // We can find the actual assembly name from the entity qualified name
                 | "netstandard" -> ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
-                | Naming.fablePrecompile ->
+                // fickl: the package cache names its further assemblies Fable.Precompiled.<n>, as assemblies loaded
+                // together need distinct names
+                | dllName when
+                    dllName = Naming.fablePrecompile
+                    || dllName.StartsWith(Naming.fablePrecompile + ".", StringComparison.Ordinal)
+                    ->
                     let sourcePath = FsEnt.SourcePath ent
                     Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
                 | dllName when Compiler.CoreAssemblyNames.Contains(dllName) -> Fable.CoreAssemblyName dllName
