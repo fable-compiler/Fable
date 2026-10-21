@@ -155,4 +155,7 @@ let report (totalMs: int64) =
             + $"  Compilation total (wall)         %8d{totalMs} ms{nl}"
             + $"  Allocated                        %8.0f{allocatedMb} MB{nl}"
             + $"  GC collections gen0/gen1/gen2    %d{gcs[0]}/%d{gcs[1]}/%d{gcs[2]}{nl}"
+            // Process totals, cracking included: JIT cost and CPU time stay comparable on a busy machine
+            + $"  JIT (process)                    %8.0f{Runtime.JitInfo.GetCompilationTime(false).TotalMilliseconds} ms over %d{Runtime.JitInfo.GetCompiledMethodCount false} methods{nl}"
+            + $"  CPU time (process)               %8.0f{Process.GetCurrentProcess().TotalProcessorTime.TotalMilliseconds} ms{nl}"
         )
