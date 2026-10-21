@@ -569,6 +569,8 @@ type FableCompilerState =
         }
 
 and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fableProj: Project) =
+    let activeReplyChannel: ReplyChannel option ref = ref None
+
     let agent =
         MailboxProcessor<FableCompilerMsg>.Start(fun agent ->
             let postTo toMsg work =
@@ -677,6 +679,8 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                                        isTriggeredByDependency,
                                        getSignatureDependents,
                                        replyChannel) ->
+                        activeReplyChannel.Value <- Some replyChannel
+
                         let state =
                             FableCompilerState.Create(
                                 state.FableProj,
@@ -871,6 +875,12 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                 }
 
             FableCompilerState.Create(fableProj, [||]) |> loop
+        )
+
+    do
+        agent.Error.Add(fun e ->
+            activeReplyChannel.Value
+            |> Option.iter (fun channel -> Error e |> channel.Reply)
         )
 
     member _.GetFableProject() =
