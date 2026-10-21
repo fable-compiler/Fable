@@ -391,7 +391,7 @@ type Result =
 let isFailed (r: Result) = match r with Failed _ -> true | Ok _ -> false
 """
       compile source
-      |> Assert.Exists.errorWith "share a tag value and cannot be told apart by their fields. Add a CaseTest attribute"
+      |> Assert.Exists.errorWith "of 'Result' share the tag value \"done\" and have the same fields. Add a CaseTest attribute to"
       |> ignore
 
     testCase "TypeScriptTaggedUnion cases sharing a tag compile when the other case has a CaseTest" <| fun _ ->
@@ -425,7 +425,7 @@ type Job =
 let isOther (j: Job) = j.IsOther
 """
       compile source
-      |> Assert.Exists.errorWith "Cases 'Other' and 'Test' of 'Job' share a tag value and cannot be told apart by their fields. Add a CaseTest attribute to 'Other' or 'Test'."
+      |> Assert.Exists.errorWith "Cases 'Other' and 'Test' of 'Job' share the tag value \"run\" and have the same fields. Add a CaseTest attribute to 'Other' or 'Test'."
       |> ignore
 
     testCase "TypeScriptTaggedUnion cases sharing a tag emit error when one field type includes the other" <| fun _ ->
@@ -442,8 +442,8 @@ let isObject (l: Log) = l.IsLogObject
 let isString (l: Log) = l.IsLogString
 """
       compile source
-      |> Assert.Exists.errorWith "Cases 'LogObject' and 'LogString' of 'Log' share a tag value and cannot be told apart by their fields."
-      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogObject' of 'Log' share a tag value and cannot be told apart by their fields."
+      |> Assert.Exists.errorWith "Cases 'LogObject' and 'LogString' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'obj', which can hold any value. Add a CaseTest attribute to 'LogObject' or 'LogString'."
+      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogObject' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'obj', which can hold any value. Add a CaseTest attribute to 'LogString' or 'LogObject'."
       |> ignore
 
     testCase "TypeScriptTaggedUnion cases sharing a tag emit error when one field type is a base class of the other" <| fun _ ->
@@ -463,8 +463,8 @@ let isAnimal (p: Pet) = p.IsPetAnimal
 let isDog (p: Pet) = p.IsPetDog
 """
       compile source
-      |> Assert.Exists.errorWith "Cases 'PetAnimal' and 'PetDog' of 'Pet' share a tag value and cannot be told apart by their fields."
-      |> Assert.Exists.errorWith "Cases 'PetDog' and 'PetAnimal' of 'Pet' share a tag value and cannot be told apart by their fields."
+      |> Assert.Exists.errorWith "Cases 'PetAnimal' and 'PetDog' of 'Pet' share the tag value \"pet\" and cannot be told apart at runtime: field 'pet' has types 'Animal' and 'Dog', and 'Dog' is a subtype of 'Animal'. Add a CaseTest attribute to 'PetAnimal' or 'PetDog'."
+      |> Assert.Exists.errorWith "Cases 'PetDog' and 'PetAnimal' of 'Pet' share the tag value \"pet\" and cannot be told apart at runtime: field 'pet' has types 'Dog' and 'Animal', and 'Dog' is a subtype of 'Animal'. Add a CaseTest attribute to 'PetDog' or 'PetAnimal'."
       |> ignore
 
     testCase "TypeScriptTaggedUnion cases sharing a tag compile when a CaseTest narrows a base class field" <| fun _ ->
@@ -509,8 +509,8 @@ let isOptions (l: Log) = l.IsLogOptions
 let isString (l: Log) = l.IsLogString
 """
       compile source
-      |> Assert.Exists.errorWith "Cases 'LogOptions' and 'LogString' of 'Log' share a tag value and cannot be told apart by their fields."
-      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogOptions' of 'Log' share a tag value and cannot be told apart by their fields."
+      |> Assert.Exists.errorWith "Cases 'LogOptions' and 'LogString' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'Options', a Pojo that is a plain object at runtime. Add a CaseTest attribute to 'LogOptions' or 'LogString'."
+      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogOptions' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'Options', a Pojo that is a plain object at runtime. Add a CaseTest attribute to 'LogString' or 'LogOptions'."
       |> ignore
 
     testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only interfaces tell them apart" <| fun _ ->
@@ -529,9 +529,9 @@ type Shape =
     | [<CompiledName("shape")>] Circle of shape: Circle
     | [<CompiledName("shape")>] Rect of shape: Rect
 
-let isRect (s: Shape) = match s with Rect _ -> true | Circle _ -> false
+let isRect (s: Shape) = s.IsRect
 """
       compile source
-      |> Assert.Exists.errorWith "share a tag value and cannot be told apart by their fields. Add a CaseTest attribute"
+      |> Assert.Exists.errorWith "Cases 'Rect' and 'Circle' of 'Shape' share the tag value \"shape\" and cannot be told apart at runtime: field 'shape' has type 'Rect', an interface that does not exist at runtime. Add a CaseTest attribute to 'Rect' or 'Circle'."
       |> ignore
   ]

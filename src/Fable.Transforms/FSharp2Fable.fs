@@ -659,8 +659,10 @@ let private transformUnionCaseTest
                     | None ->
                         match deriveTaggedUnionCaseTests com tdef rule unionCase with
                         | Ok tests -> tests |> List.map (fun test unionExpr -> makeDerivedTest unionExpr test)
-                        | Error other ->
-                            $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' share a tag value and cannot be told apart by their fields. Add a CaseTest attribute to '%s{unionCase.Name}' or '%s{other.Name}'."
+                        | Error(other, reason) ->
+                            let tag = taggedUnionTagDisplay rule unionCase
+
+                            $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' share the tag value %s{tag} and %s{reason}. Add a CaseTest attribute to '%s{unionCase.Name}' or '%s{other.Name}'."
                             |> addError com ctx.InlinePath r
 
                             []

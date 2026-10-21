@@ -3319,6 +3319,20 @@ module Util =
         | Fable.Value(Fable.NumberConstant(v, _), _) -> Some("n:" + string v)
         | _ -> None
 
+    let taggedUnionTagDisplay (rule: CaseRules) (unionCase: FSharpUnionCase) =
+        match transformStringEnum rule unionCase with
+        | Fable.Value(Fable.StringConstant s, _) -> $"\"%s{s}\""
+        | Fable.Value(Fable.BoolConstant b, _) -> (string b).ToLowerInvariant()
+        | Fable.Value(Fable.NumberConstant(v, _), _) -> string v
+        | _ -> "the same tag"
+
+    type private TaggedUnionField =
+        {
+            Name: string
+            Type: Fable.Type
+            Display: string
+        }
+
     /// Keep in sync with Fable2Babel.Reflection.transformTypeTest: equal keys are the same runtime test, None is untestable
     let rec private tryRuntimeTypeTestKey (com: Compiler) (typ: Fable.Type) : string option =
         match typ with
@@ -3376,44 +3390,87 @@ module Util =
 
     let private tryDistinguishTaggedUnionCase
         (com: Compiler)
-        (mine: (string * Fable.Type) list)
-        (other: (string * Fable.Type) list)
+        (mine: TaggedUnionField list)
+        (other: TaggedUnionField list)
         =
-        let isRequired (_, t) =
-            match t with
+        let isRequired (f: TaggedUnionField) =
+            match f.Type with
             | Fable.Option _ -> false
             | _ -> true
 
-        let hasName name fields =
-            fields |> List.exists (fun (n, _) -> n = name)
+        let hasName name (fields: TaggedUnionField list) =
+            fields |> List.exists (fun f -> f.Name = name)
 
         let byPresence =
             mine
-            |> List.tryFind (fun ((name, _) as f) -> isRequired f && not (hasName name other))
-            |> Option.map (fun (name, _) -> TaggedUnionCaseTest.HasField name)
+            |> List.tryFind (fun f -> isRequired f && not (hasName f.Name other))
+            |> Option.map (fun f -> TaggedUnionCaseTest.HasField f.Name)
 
         let byAbsence () =
             other
-            |> List.tryFind (fun ((name, _) as f) -> isRequired f && not (hasName name mine))
-            |> Option.map (fun (name, _) -> TaggedUnionCaseTest.LacksField name)
+            |> List.tryFind (fun f -> isRequired f && not (hasName f.Name mine))
+            |> Option.map (fun f -> TaggedUnionCaseTest.LacksField f.Name)
 
         let byType () =
             mine
-            |> List.tryPick (fun (name, typ) ->
-                match List.tryFind (fun (n, _) -> n = name) other with
+            |> List.tryPick (fun f ->
+                match List.tryFind (fun (o: TaggedUnionField) -> o.Name = f.Name) other with
                 | None -> None
-                | Some(_, otherTyp) ->
-                    match tryRuntimeTypeTestKey com typ, tryRuntimeTypeTestKey com otherTyp with
+                | Some o ->
+                    match tryRuntimeTypeTestKey com f.Type, tryRuntimeTypeTestKey com o.Type with
                     | Some myKey, Some otherKey when
                         myKey <> otherKey
-                        && not (passesTestOf com typ otherTyp)
-                        && not (passesTestOf com otherTyp typ)
+                        && not (passesTestOf com f.Type o.Type)
+                        && not (passesTestOf com o.Type f.Type)
                         ->
-                        Some(TaggedUnionCaseTest.FieldOfType(name, typ))
+                        Some(TaggedUnionCaseTest.FieldOfType(f.Name, f.Type))
                     | _ -> None
             )
 
         byPresence |> Option.orElseWith byAbsence |> Option.orElseWith byType
+
+    let private describeUntestableType (com: Compiler) (f: TaggedUnionField) =
+        let kind =
+            match f.Type with
+            | Fable.Any -> "which can hold any value"
+            | Fable.GenericParam _ -> "a generic parameter unknown at runtime"
+            | Fable.DeclaredType(entRef, _) ->
+                match com.TryGetEntity entRef with
+                | Some ent when isPojoDefinedByConsArgsEntity ent -> "a Pojo that is a plain object at runtime"
+                | Some ent when ent.IsInterface -> "an interface that does not exist at runtime"
+                | Some ent when isErasedOrStringEnumEntity ent -> "an erased type"
+                | _ -> "a type that cannot be tested at runtime"
+            | _ -> "a type that cannot be tested at runtime"
+
+        $"field '%s{f.Name}' has type '%s{f.Display}', %s{kind}"
+
+    /// Why no field of `mine` tells it apart from `other` at runtime
+    let private explainIndistinguishable (com: Compiler) (mine: TaggedUnionField list) (other: TaggedUnionField list) =
+        let shared =
+            mine
+            |> List.choose (fun f -> other |> List.tryFind (fun o -> o.Name = f.Name) |> Option.map (fun o -> f, o))
+
+        match shared |> List.tryFind (fun (f, o) -> f.Type <> o.Type) with
+        | None when List.length shared = List.length mine && List.length shared = List.length other ->
+            "have the same fields"
+        | None -> "differ only by optional fields"
+        | Some(f, o) ->
+            let reason =
+                match tryRuntimeTypeTestKey com f.Type, tryRuntimeTypeTestKey com o.Type with
+                | None, _ -> describeUntestableType com f
+                | _, None -> describeUntestableType com o
+                | Some myKey, Some otherKey when myKey = otherKey ->
+                    $"field '%s{f.Name}' has types '%s{f.Display}' and '%s{o.Display}', which look the same at runtime"
+                | _ ->
+                    let sub, super =
+                        if passesTestOf com f.Type o.Type then
+                            o, f
+                        else
+                            f, o
+
+                    $"field '%s{f.Name}' has types '%s{f.Display}' and '%s{o.Display}', and '%s{sub.Display}' is a subtype of '%s{super.Display}'"
+
+            "cannot be told apart at runtime: " + reason
 
     /// One check per other case with the same tag value, or the case the fields cannot exclude
     let deriveTaggedUnionCaseTests
@@ -3421,11 +3478,17 @@ module Util =
         (tdef: FSharpEntity)
         (rule: CaseRules)
         (unionCase: FSharpUnionCase)
-        : Result<TaggedUnionCaseTest list, FSharpUnionCase>
+        : Result<TaggedUnionCaseTest list, FSharpUnionCase * string>
         =
         let fieldsOf (uc: FSharpUnionCase) =
             uc.Fields
-            |> Seq.map (fun fi -> FsField.FSharpFieldName fi, makeType Map.empty fi.FieldType)
+            |> Seq.map (fun fi ->
+                {
+                    Name = FsField.FSharpFieldName fi
+                    Type = makeType Map.empty fi.FieldType
+                    Display = fi.FieldType.Format(FSharpDisplayContext.Empty.WithShortTypeNames(true))
+                }
+            )
             |> List.ofSeq
 
         match tryTaggedUnionTagKey rule unionCase with
@@ -3440,15 +3503,17 @@ module Util =
                     match acc with
                     | Error _ -> acc
                     | Ok tests ->
+                        let otherFields = fieldsOf other
+
                         let byCaseTest () =
                             FsUnionCase.CaseTest other |> Option.map TaggedUnionCaseTest.NotCaseTest
 
                         match
-                            tryDistinguishTaggedUnionCase com myFields (fieldsOf other)
+                            tryDistinguishTaggedUnionCase com myFields otherFields
                             |> Option.orElseWith byCaseTest
                         with
                         | Some test -> Ok(tests @ [ test ])
-                        | None -> Error other
+                        | None -> Error(other, explainIndistinguishable com myFields otherFields)
                 )
                 (Ok [])
             |> Result.map List.distinct
