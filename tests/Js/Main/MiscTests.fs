@@ -1484,6 +1484,7 @@ let tests =
     testCaseAsync "Stopwatch.StartNew and Elapsed work" <| fun () ->
         async {
             let sw = Diagnostics.Stopwatch.StartNew()
+            box sw :? Diagnostics.Stopwatch |> equal true
             sw.IsRunning |> equal true
             do! Async.Sleep 50
             sw.ElapsedMilliseconds >= 40L |> equal true

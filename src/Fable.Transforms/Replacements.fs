@@ -853,6 +853,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     // | Naming.EndsWith "Exception" _ -> makeImportLib com Any "Exception" "Util" |> Some
     | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
     | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
+    | "System.Diagnostics.Stopwatch" -> makeImportLib com Any "Stopwatch" "Stopwatch" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" ->
         makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
     | "Microsoft.FSharp.Control.FSharpEvent`1" -> makeImportLib com Any "Event" "Event" |> Some
@@ -3805,7 +3806,6 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | _ -> None
 
 let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // Elapsed and GetElapsedTime are measured in milliseconds and converted to a TimeSpan
     let toTimeSpan (ms: Expr) =
         Helper.LibCall(com, timeSpanModule com, "fromMilliseconds", t, [ ms ], ?loc = r)
 
