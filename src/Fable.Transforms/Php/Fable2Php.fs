@@ -1509,11 +1509,11 @@ and convertValue (com: IPhpCompiler) (value: Fable.ValueKind) range =
                 | RegexMultiline -> "m"
                 | RegexSingleline -> "s"
                 | RegexGlobal ->
-                    addWarning com [] range "Regex global flag is not supported in Php"
+                    WarningCodes.regexFlagUnsupported "global" |> addWarningWithCode com [] range
 
                     ""
                 | RegexSticky ->
-                    addWarning com [] range "Regex sticky flag is not supported in Php"
+                    WarningCodes.regexFlagUnsupported "sticky" |> addWarningWithCode com [] range
 
                     ""
             )

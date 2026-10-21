@@ -2038,8 +2038,8 @@ module Util =
 
                 args
         | Some(Fable.Value _ as e) ->
-            $"Ignoring base call for %s{classDecl.Entity.FullName}"
-            |> addWarning com [] e.Range
+            WarningCodes.baseCallIgnored classDecl.Entity.FullName
+            |> addWarningWithCode com [] e.Range
 
             []
         | Some e ->

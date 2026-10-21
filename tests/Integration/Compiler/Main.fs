@@ -9,6 +9,7 @@ let allTests =
         CodeServicesApi.tests
         WarningSuppression.tests
         IgnoredArgument.tests
+        BehaviorWarning.tests
         AnonRecordInInterface.tests
         CompilerHelpers.tests
         Inflate.tests

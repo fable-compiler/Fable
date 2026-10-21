@@ -1338,8 +1338,8 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "GetTypeCode", Some c, [] -> makeLibCall com r t i "Char" "GetTypeCode" [ c ] |> Some
     | ("TryParse" | "Parse") as meth, None, _ -> makeLibCall com r t i "Char" meth args |> Some
     | ("IsSurrogate" | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogatePair") as meth, None, _ ->
-        $"Rust chars are Unicode scalar values, so surrogate tests will be false."
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.charSurrogateTestsAreFalse
+        |> addWarningWithCode com ctx.InlinePath r
 
         let meth = getMethodName meth args
 
@@ -1403,13 +1403,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             ExprType(Number(Int32, _)) ] -> libCall com r t "String" "compareOrdinal2" args |> Some
         | _ -> None
     | "CompareTo", Some c, [ ExprTypeAs(String, arg) ] ->
-        $"String.CompareTo will be compiled as String.CompareOrdinal"
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.stringCompareIsOrdinal "CompareTo"
+        |> addWarningWithCode com ctx.InlinePath r
 
         libCall com r t "String" "compareOrdinal" [ c; arg ] |> Some
     | "Compare", None, _ ->
-        $"String.Compare will be compiled as String.CompareOrdinal"
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.stringCompareIsOrdinal "Compare"
+        |> addWarningWithCode com ctx.InlinePath r
 
         match args with
         | [ ExprType String; ExprType String ] -> libCall com r t "String" "compareOrdinal" args |> Some
@@ -3093,7 +3093,8 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     match i.CompiledName with
     // TODO: Throw error for RunSynchronously
     | "Start" ->
-        "Async.Start will behave as StartImmediate" |> addWarning com ctx.InlinePath r
+        WarningCodes.asyncStartBehavesAsStartImmediate
+        |> addWarningWithCode com ctx.InlinePath r
 
         makeLibCall com r t i "Async" "start" args |> Some
     // Make sure cancellationToken is called as a function and not a getter

@@ -1733,8 +1733,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
-            "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.getTypeOnObj |> addWarningWithCode com ctx.InlinePath r
 
         makeTypeInfo (changeRangeToCallSite ctx.InlinePath r) arg.Type |> Some
     | _ -> None
@@ -3348,7 +3347,7 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "get_Out" -> Helper.GlobalIdent("console", "log", t) |> Some
     | "get_Error" -> Helper.GlobalIdent("console", "error", t) |> Some
     | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
+        WarningCodes.writeBehavesAsWriteLine |> addWarningWithCode com ctx.InlinePath r
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | _ -> None
@@ -3363,7 +3362,7 @@ let textWriter (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
+        WarningCodes.writeBehavesAsWriteLine |> addWarningWithCode com ctx.InlinePath r
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
@@ -4270,7 +4269,8 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Start" ->
-        "Async.Start will behave as StartImmediate" |> addWarning com ctx.InlinePath r
+        WarningCodes.asyncStartBehavesAsStartImmediate
+        |> addWarningWithCode com ctx.InlinePath r
 
         Helper.LibCall(com, "Async", "start", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
@@ -4342,8 +4342,7 @@ let tasks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     match thisArg, i.CompiledName with
     | Some x, "GetAwaiter" -> Some x
     | Some x, ("GetResult" | "get_Result" | "Result") ->
-        "Task.Result and GetAwaiter().GetResult() return the task itself in JS/TS, as there's no way to block until it completes. Use let! in task { } or Async.AwaitTask instead."
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.taskResultReturnsTask |> addWarningWithCode com ctx.InlinePath r
 
         Some x
     | None, "Delay" ->

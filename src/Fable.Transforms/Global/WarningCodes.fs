@@ -76,6 +76,60 @@ let privateRepresentationFlagIgnored =
 let base64ArgumentsIgnored =
     "FABLE0107", "Base64 offset, length and formatting arguments are ignored"
 
+/// `Console.Write` and `Debug.Write`: the target cannot print without a line break.
+let writeBehavesAsWriteLine = "FABLE0108", "Write will behave as WriteLine"
+
+/// `Async.Start`: there is no thread pool, so the computation starts on the current thread.
+let asyncStartBehavesAsStartImmediate =
+    "FABLE0109", "Async.Start will behave as StartImmediate"
+
+/// `Task.Result` or `GetAwaiter().GetResult()` on JS/TS, where a task is a promise and nothing can block on it.
+let taskResultReturnsTask =
+    "FABLE0110",
+    "Task.Result and GetAwaiter().GetResult() return the task itself in JS/TS, as there's no way to block until it completes. Use let! in task { } or Async.AwaitTask instead."
+
+/// `GetType()` on a value typed `obj`: Fable resolves types at compile time only.
+let getTypeOnObj =
+    "FABLE0111", "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
+
+/// A `:?` test against a type with no runtime representation (interface, erased type, Pojo class).
+let typeTestEvalsToFalse (typeName: string) =
+    "FABLE0112", $"Cannot type test (evals to false): %s{typeName}"
+
+/// An `inherit` call whose arguments the target cannot forward to the base constructor.
+let baseCallIgnored (entityFullName: string) =
+    "FABLE0113", $"Ignoring base call for %s{entityFullName}"
+
+/// An `inherit` through a secondary constructor (`new(...) = ...`).
+let nonPrimaryBaseConstructor =
+    "FABLE0114", "Only inheriting from primary constructors is supported"
+
+/// An argument of an inlined function that is captured by a closure and also used elsewhere in the body.
+let inlinedArgumentDoubleEvaluation (argName: string) =
+    "FABLE0115",
+    $"Inlined argument %s{argName} is being captured but is also used somewhere else. There's a risk of double evaluation."
+
+/// A `CaseTest` attribute on a case of a union that is not a `TypeScriptTaggedUnion`.
+let caseTestIgnored (caseName: string) =
+    "FABLE0116", $"CaseTest attribute on '%s{caseName}' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+
+/// Rust: `String.Compare` and `String.CompareTo` are compiled as ordinal comparisons.
+let stringCompareIsOrdinal (methodName: string) =
+    "FABLE0117", $"String.%s{methodName} will be compiled as String.CompareOrdinal"
+
+/// Rust: a `char` is a Unicode scalar value, so it can never be a surrogate.
+let charSurrogateTestsAreFalse =
+    "FABLE0118", "Rust chars are Unicode scalar values, so surrogate tests will be false."
+
+/// Rust: static and module `do` bindings are skipped unless the `static_do_bindings` feature is enabled.
+let staticDoBindingsDisabled =
+    "FABLE0119",
+    "For Rust, support for F# static and module do bindings is disabled by default. It can be enabled with the 'static_do_bindings' feature. Use at your own risk!"
+
+/// PHP: a regex flag with no PCRE modifier, dropped from the pattern.
+let regexFlagUnsupported (flag: string) =
+    "FABLE0120", $"Regex %s{flag} flag is not supported in Php"
+
 /// Every code the compiler can emit, both bands. A directive naming anything else is reported as
 /// a typo, so a new warning MUST be added to this list as well as defined above.
 let knownCodes =
@@ -92,6 +146,19 @@ let knownCodes =
         timeSpanPrecisionIgnored
         privateRepresentationFlagIgnored
         base64ArgumentsIgnored
+        writeBehavesAsWriteLine
+        asyncStartBehavesAsStartImmediate
+        taskResultReturnsTask
+        getTypeOnObj
+        typeTestEvalsToFalse ""
+        baseCallIgnored ""
+        nonPrimaryBaseConstructor
+        inlinedArgumentDoubleEvaluation ""
+        caseTestIgnored ""
+        stringCompareIsOrdinal ""
+        charSurrogateTestsAreFalse
+        staticDoBindingsDisabled
+        regexFlagUnsupported ""
     ]
     |> List.map fst
     |> Set.ofList

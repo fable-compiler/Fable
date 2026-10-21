@@ -2764,7 +2764,7 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName with
     | "get_Out" -> typedObjExpr t [] |> Some // empty object
     | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
+        WarningCodes.writeBehavesAsWriteLine |> addWarningWithCode com ctx.InlinePath r
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | _ -> None
@@ -2772,7 +2772,7 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
+        WarningCodes.writeBehavesAsWriteLine |> addWarningWithCode com ctx.InlinePath r
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
@@ -3551,7 +3551,8 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     match i.CompiledName with
     // TODO: Throw error for RunSynchronously
     | "Start" ->
-        "Async.Start will behave as StartImmediate" |> addWarning com ctx.InlinePath r
+        WarningCodes.asyncStartBehavesAsStartImmediate
+        |> addWarningWithCode com ctx.InlinePath r
 
         Helper.LibCall(com, "Async", "start", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some

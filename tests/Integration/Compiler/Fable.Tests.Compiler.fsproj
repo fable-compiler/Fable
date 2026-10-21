@@ -26,6 +26,7 @@
     <Compile Include="CodeServicesTests.fs" />
     <Compile Include="WarningSuppressionTests.fs" />
     <Compile Include="IgnoredArgumentTests.fs" />
+    <Compile Include="BehaviorWarningTests.fs" />
     <Compile Include="AnonRecordInInterfaceTests.fs" />
     <Compile Include="CompilerHelpersTests.fs" />
     <Compile Include="InflateTests.fs" />

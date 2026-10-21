@@ -340,7 +340,7 @@ let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
 
 let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : Expression * Statement list =
     let warnAndEvalToFalse msg =
-        "Cannot type test (evals to false): " + msg |> addWarning com [] range
+        WarningCodes.typeTestEvalsToFalse msg |> addWarningWithCode com [] range
 
         Expression.boolConstant false
 

@@ -1411,8 +1411,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
-            "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.getTypeOnObj |> addWarningWithCode com ctx.InlinePath r
 
         makeTypeInfo r arg.Type |> Some
     | _ -> None
@@ -2976,7 +2975,7 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "get_Out" -> Helper.ImportedValue(com, "sys", "stdout", t) |> Some
     | "get_Error" -> Helper.ImportedValue(com, "sys", "stderr", t) |> Some
     | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
+        WarningCodes.writeBehavesAsWriteLine |> addWarningWithCode com ctx.InlinePath r
         log com r t i thisArg args |> Some
     | "ReadLine" -> Helper.GlobalCall("input", t, args, ?loc = r) |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
@@ -3009,7 +3008,7 @@ let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Write" ->
-        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
+        WarningCodes.writeBehavesAsWriteLine |> addWarningWithCode com ctx.InlinePath r
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
