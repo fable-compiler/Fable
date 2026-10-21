@@ -531,7 +531,10 @@ module Reflection =
                 |> libCall com ctx range "Util" "isException" []
             | _ ->
                 match com.GetEntity(entRef) with
-                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->
+                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum
+                                                              Atts.erase
+                                                              Atts.tsTaggedUnion
+                                                              Atts.pojoDefinedByConsArgs ]) (att, _) as ent ->
                     match att with
                     | Atts.stringEnum -> jsTypeof "string" expr
                     | Atts.erase when ent.IsFSharpUnion ->
@@ -541,6 +544,7 @@ module Reflection =
                         | cases when cases |> List.forall (fun c -> List.isEmpty c.UnionCaseFields) ->
                             jsTypeof "string" expr
                         | _ -> warnAndEvalToFalse (ent.FullName + " (erased)")
+                    | Atts.pojoDefinedByConsArgs -> warnAndEvalToFalse (ent.FullName + " (pojo)")
                     | _ -> warnAndEvalToFalse (ent.FullName + " (erased)")
 
                 | Patterns.Try (tryJsConstructorFor ActualConsRef com ctx) cons ->

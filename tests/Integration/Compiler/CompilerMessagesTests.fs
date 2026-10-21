@@ -315,4 +315,19 @@ let isError (t: Terminal) = match t with DoneError _ -> true | Done _ -> false
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "Type test against a Pojo class emits warning" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<JS.Pojo>]
+type Options(name: string) =
+    member val name = name
+
+let isOptions (o: obj) = match o with :? Options -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.warningWith "Cannot type test (evals to false): Program.Options (pojo)"
+      |> ignore
   ]
