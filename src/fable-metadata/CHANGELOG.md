@@ -1,5 +1,5 @@
 ---
-last_commit_released: a8661874d60694f0faad235adb7f760fed6f72a5
+last_commit_released: 5ee8bbb832d9677ad702104ded8e00c09619393f
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.2.0 - 2026-10-21
+
+### 🚀 Features
+
+* *(js/ts)* Add CaseTest attribute for TypeScriptTaggedUnion cases that share a tag (#5076) ([5ee8bbb8](https://github.com/fable-compiler/Fable/commit/5ee8bbb832d9677ad702104ded8e00c09619393f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/a8661874d60694f0faad235adb7f760fed6f72a5..5ee8bbb832d9677ad702104ded8e00c09619393f)</small></strong>
 
 ## 2.1.1 - 2026-10-12
 
