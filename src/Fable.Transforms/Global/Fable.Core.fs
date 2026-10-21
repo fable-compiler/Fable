@@ -17,6 +17,10 @@ type CaseRules =
     /// FooBar -> foobar
     | LowerAll = 5
 
+type MangleAttribute(mangle: bool) =
+    inherit Attribute()
+    new() = MangleAttribute(true)
+
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
     inherit Attribute()

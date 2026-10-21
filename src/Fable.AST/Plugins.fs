@@ -43,6 +43,9 @@ type CompilerOptions =
         JsTemporal: bool
     }
 
+#if FABLE_COMPILER
+[<Fable.Core.Mangle>]
+#endif
 type PluginHelper =
     abstract LibraryDir: string
     abstract CurrentFile: string

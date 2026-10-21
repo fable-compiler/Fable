@@ -15,13 +15,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Fable.Core stub: Fable.AST uses its attributes when compiled by Fable -->
+    <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
+
     <!-- Fable.AST -->
     <Compile Include="../../Fable.AST/Common.fs" />
     <Compile Include="../../Fable.AST/Fable.fs" />
     <Compile Include="../../Fable.AST/Plugins.fs" />
 
     <!-- Fable.Transforms -->
-    <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />

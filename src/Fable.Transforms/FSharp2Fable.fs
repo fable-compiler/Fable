@@ -394,9 +394,11 @@ let private getImplementedSignatureInfo
     |> Option.map (fun (ent, memb) ->
         let info = getAbstractMemberInfo com ent memb
 
+        // Rust interface members are dispatched through traits and never collide with class members
         // Setters can have same name as getters, assume there will always be a getter
         let conflicts =
-            not info.isMangled
+            com.Options.Language <> Rust
+            && not info.isMangled
             && not info.isSetter
             && (nonMangledNameConflicts implementingEntityName info.name
                 || implementingEntityFields.Contains(info.name))
