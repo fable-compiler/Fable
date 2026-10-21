@@ -21560,6 +21560,16 @@ Get the signature for the value&apos;s XML documentation
  For dereferencing in the middle of a pattern
 </summary>
 </member>
+<member name="M:FSharp.Compiler.TypedTreeBasics.anonRecdCcuEq(FSharp.Compiler.TypedTree.CcuThunk,FSharp.Compiler.TypedTree.CcuThunk)">
+<summary>
+ Equality on the assemblies of two anonymous record types
+</summary>
+</member>
+<member name="P:FSharp.Compiler.TypedTreeBasics.anonRecdTypesUnifiedAssembly">
+<summary>
+ Assemblies whose anonymous record types are one, as if compiled together (none unless set)
+</summary>
+</member>
 <member name="M:FSharp.Compiler.TypedTreeBasics.ccuEq(FSharp.Compiler.TypedTree.CcuThunk,FSharp.Compiler.TypedTree.CcuThunk)">
 <summary>
  Equality on CCU references, implemented as reference equality except when unresolved
@@ -39179,6 +39189,13 @@ Get the signature for the value&apos;s XML documentation
 <member name="T:FSharp.Compiler.Interactive.Shell.Settings">
 <summary>
  A default implementation of the &apos;fsi&apos; object, used by GetDefaultConfiguration()
+</summary>
+</member>
+<member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.SetAnonRecdTypesUnifiedAssembly(Microsoft.FSharp.Core.FSharpFunc{System.String,System.Boolean})">
+<summary>
+ Treats the anonymous record types of the assemblies `isUnified` accepts as one, as if compiled together, for
+ every checker in the process: for sources checked as assemblies of their own that a compile of the project
+ would check in its assembly.
 </summary>
 </member>
 <member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.ParseAndCheckProject(System.String,System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.Symbols.FSharpImplementationFileContents,Microsoft.FSharp.Core.Unit}})">

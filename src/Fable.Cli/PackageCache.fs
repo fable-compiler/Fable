@@ -45,6 +45,8 @@ type private InUse =
         /// The fable_modules folder the entry was built in, if known
         BuilderModules: string option
         UserModules: string
+        /// Cached sources outside fable_modules, by their path where the entry was built
+        UserSources: IDictionary<string, string>
     }
 
 let mutable private inUse: InUse option = None
@@ -53,6 +55,9 @@ let mutable private inUse: InUse option = None
 let mutable private cachedSources: string[] = [||]
 
 let cachedPackageSources () = cachedSources
+
+/// The name of a cache entry's assembly, and the prefix of the others' (`Fickl.Packages.<n>`)
+let private cacheAssemblyName = "Fickl.Packages"
 
 let private root () =
     match Environment.GetEnvironmentVariable "FICKL_PACKAGE_CACHE" with
@@ -79,12 +84,68 @@ let private isOutputOption (option: string) =
     [ "-o:"; "--out:"; "--doc:"; "--refout:"; "--target:" ]
     |> List.exists (fun prefix -> option.StartsWith(prefix, StringComparison.Ordinal))
 
-let private packageSources (response: CrackerResponse) =
-    let modulesDir = Path.normalizeFullPath response.FableModulesDir + "/"
+/// Paket's GitHub file dependencies (`paket-files/<owner>/<repo>/...`), pinned by paket.lock and compiled as plain
+/// project sources.
+let private isPaketSource (file: string) =
+    file.Contains("/paket-files/", StringComparison.OrdinalIgnoreCase)
 
-    response.ProjectOptions.SourceFiles
-    |> Array.map Path.normalizeFullPath
-    |> Array.filter (fun file -> file.StartsWith(modulesDir, StringComparison.OrdinalIgnoreCase))
+let private isInModules (modulesDir: string) (file: string) =
+    file.StartsWith(modulesDir + "/", StringComparison.OrdinalIgnoreCase)
+
+/// The sources to cache: the package sources in fable_modules and, for JS/TS, the paket-files sources compiled ahead of
+/// the project's own files. JS/TS imports of a cached file resolve through its out path, which for a source outside
+/// fable_modules is derived from its path relative to the project, so that path is part of the key.
+let private packageSources (cliArgs: CliArgs) (response: CrackerResponse) =
+    let modulesDir = Path.normalizeFullPath response.FableModulesDir
+    let files = response.ProjectOptions.SourceFiles |> Array.map Path.normalizeFullPath
+    let modules = files |> Array.filter (isInModules modulesDir)
+
+    let paketApplies =
+        match cliArgs.CompilerOptions.Language with
+        | JavaScript
+        | TypeScript -> true
+        | _ -> false
+
+    let prefix =
+        files
+        |> Array.takeWhile (fun file -> isInModules modulesDir file || isPaketSource file)
+
+    let paket = prefix |> Array.filter (isInModules modulesDir >> not)
+
+    if
+        not paketApplies
+        || Array.isEmpty paket
+        || (prefix |> Array.filter (isInModules modulesDir)).Length <> modules.Length
+    then
+        modules
+    else
+        // A cached file's out dir must be the one a source compile chooses: Fable deduplicates out dirs that two
+        // source dirs map to (`Imports.getTargetAbsolutePath`), and the cached files are not there to claim theirs
+        let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+
+        let targetDir (file: string) =
+            // As `Imports.trimPath`
+            (Imports.getRelativePath projDir (IO.Path.GetDirectoryName file))
+                .Replace("../", "")
+                .Replace("./", "")
+                .Replace(":", "")
+                .ToLowerInvariant()
+
+        let paketDirs = paket |> Array.map targetDir |> set
+        let paketSet = HashSet(paket, StringComparer.OrdinalIgnoreCase)
+
+        let clash =
+            files
+            |> Array.exists (fun file ->
+                not (paketSet.Contains file)
+                && not (isInModules modulesDir file)
+                && paketDirs.Contains(targetDir file)
+            )
+
+        if clash then
+            modules
+        else
+            prefix
 
 /// Everything that can change what the package sources compile to: the compiler, its options, the assemblies they are
 /// checked against, and the sources themselves (by their path from fable_modules on, and their content).
@@ -112,9 +173,18 @@ let private computeKey (cliArgs: CliArgs) (response: CrackerResponse) (sources: 
             add option
 
     let modulesDir = Path.normalizeFullPath response.FableModulesDir
+    let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+
+    // The out paths of sources outside fable_modules, and their imports, depend on whether there is an out dir
+    if sources |> Array.exists (isInModules modulesDir >> not) then
+        add $"outDir {cliArgs.OutDir.IsSome}"
 
     for source in sources do
-        add (IO.Path.GetRelativePath(modulesDir, source).Replace('\\', '/'))
+        if isInModules modulesDir source then
+            add (IO.Path.GetRelativePath(modulesDir, source).Replace('\\', '/'))
+        else
+            add ("project " + IO.Path.GetRelativePath(projDir, source).Replace('\\', '/'))
+
         hash.AppendData(File.ReadAllBytes source)
 
     Convert.ToHexString(hash.GetHashAndReset()).Substring(0, 32).ToLowerInvariant()
@@ -136,6 +206,32 @@ let private groupDllPath (entry: string) (index: int) =
     IO.Path.Combine(entry, "groups", $"{Naming.fablePrecompile}.{index}.dll")
     |> Path.normalizeFullPath
 
+/// Output of cached sources outside fable_modules (out paths relative to fable_modules that start with `../`), stored
+/// apart so copying the entry's fable_modules cannot write outside the project's.
+let private outsideDir (entry: string) = IO.Path.Combine(entry, "outside")
+
+let private upSegment = "_up_/"
+
+let private encodeOutside (relative: string) =
+    let mutable relative = relative
+    let mutable prefix = ""
+
+    while relative.StartsWith("../", StringComparison.Ordinal) do
+        relative <- relative.Substring 3
+        prefix <- prefix + upSegment
+
+    prefix + relative
+
+let private decodeOutside (stored: string) =
+    let mutable stored = stored
+    let mutable prefix = ""
+
+    while stored.StartsWith(upSegment, StringComparison.Ordinal) do
+        stored <- stored.Substring upSegment.Length
+        prefix <- prefix + "../"
+
+    prefix + stored
+
 let private isCacheMetadata (modulesDir: string) (file: string) =
     let relative = IO.Path.GetRelativePath(modulesDir, file).Replace('\\', '/')
 
@@ -154,7 +250,7 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
     if not (isApplicable cliArgs) then
         response
     else
-        let sources = packageSources response
+        let sources = packageSources cliArgs response
 
         if Array.isEmpty sources then
             response
@@ -205,6 +301,17 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
 
                         let entry = IO.Path.Combine(root (), key)
 
+                        let outside = outsideDir entry
+
+                        if Directory.Exists outside then
+                            for file in Directory.EnumerateFiles(outside, "*", SearchOption.AllDirectories) do
+                                let relative =
+                                    IO.Path.GetRelativePath(outside, file).Replace('\\', '/') |> decodeOutside
+
+                                let target = IO.Path.Combine(userModules, relative) |> IO.Path.GetFullPath
+                                Directory.CreateDirectory(IO.Path.GetDirectoryName target) |> ignore
+                                File.Copy(file, target, true)
+
                         let groupDlls =
                             if File.Exists(groupsFile entry) then
                                 File.ReadAllLines(groupsFile entry)
@@ -231,11 +338,20 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
             | Some(info, groupDlls) ->
                 Log.always $"Using precompiled package sources ({sources.Length} files) from the package cache"
 
+                // The cached assemblies' anonymous record types are the project's, as in a compile of the sources
+                let projectAssembly =
+                    IO.Path.GetFileNameWithoutExtension response.ProjectOptions.ProjectFileName
+
+                InteractiveChecker.SetAnonRecdTypesUnifiedAssembly(fun name ->
+                    name = projectAssembly
+                    || name = cacheAssemblyName
+                    || name.StartsWith(cacheAssemblyName + ".", StringComparison.Ordinal)
+                )
+
                 // Sources are keyed by where the entry was built: <builder>/fable_modules/<package>/...
                 let builderModules =
                     info.Files
-                    |> Seq.tryHead
-                    |> Option.bind (fun (KeyValue(file, _)) ->
+                    |> Seq.tryPick (fun (KeyValue(file, _)) ->
                         let marker = "/" + Naming.fableModules + "/"
                         let i = file.IndexOf(marker, StringComparison.OrdinalIgnoreCase)
 
@@ -247,6 +363,31 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
 
                 let dllPaths = info.DllPath :: groupDlls
 
+                // The key holds each outside source's path relative to the project, so the builder's file with the
+                // same path from its paket-files folder on is this project's
+                let userSources =
+                    let paketPath (file: string) =
+                        let i = file.LastIndexOf("/paket-files/", StringComparison.OrdinalIgnoreCase)
+                        file.Substring(i).ToLowerInvariant()
+
+                    let byPaketPath = Dictionary<string, string>()
+
+                    for file in sources do
+                        if not (isInModules userModules file) then
+                            byPaketPath.TryAdd(paketPath file, file) |> ignore
+
+                    let map = Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+
+                    for KeyValue(file, _) in info.Files do
+                        let file = Path.normalizeFullPath file
+
+                        if isPaketSource file && not (file.Contains("/" + Naming.fableModules + "/")) then
+                            match byPaketPath.TryGetValue(paketPath file) with
+                            | true, userFile -> map[file] <- userFile
+                            | _ -> ()
+
+                    map :> IDictionary<_, _>
+
                 inUse <-
                     Some
                         {
@@ -254,6 +395,7 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
                             DllPaths = dllPaths
                             BuilderModules = builderModules
                             UserModules = userModules
+                            UserSources = userSources
                         }
 
                 cachedSources <- sources
@@ -307,7 +449,10 @@ let asPrecompiledInfo (info: PrecompiledInfoImpl) : Fable.Transforms.State.Preco
                         expr.FileName.StartsWith(builderModules + "/", StringComparison.OrdinalIgnoreCase)
                         ->
                         { expr with FileName = used.UserModules + expr.FileName.Substring(builderModules.Length) }
-                    | _ -> expr
+                    | _ ->
+                        match used.UserSources.TryGetValue(Path.normalizeFullPath expr.FileName) with
+                        | true, userFile -> { expr with FileName = userFile }
+                        | _ -> expr
                 )
           interface Fable.Transforms.State.PrecompiledAssemblies with
               member _.DllPaths = used.DllPaths
@@ -397,7 +542,7 @@ let private compileAssemblies (response: CrackerResponse) (sources: string[]) (t
         let mainDll = PrecompiledInfoImpl.GetDllPath tempModules
 
         let! diagnostics, result =
-            compileAssembly response "Fickl.Packages" [] sources mainDll
+            compileAssembly response cacheAssemblyName [] sources mainDll
 
         match result with
         | None -> return Ok []
@@ -437,7 +582,7 @@ let private compileAssemblies (response: CrackerResponse) (sources: string[]) (t
                                     mainDll :: (dlls |> List.map (fun relative -> IO.Path.Combine(temp, relative)))
 
                             let! diagnostics, result =
-                                compileAssembly response $"Fickl.Packages.{index}" dllRefs group dllPath
+                                compileAssembly response $"{cacheAssemblyName}.{index}" dllRefs group dllPath
 
                             match result with
                             | Some e -> return Error(e.Message, errorSummary diagnostics)
@@ -507,7 +652,12 @@ let save (cliArgs: CliArgs) (compiled: CompiledFile list) =
                             |> Array.map (fun source ->
                                 let f = byFile[source]
                                 let relative = IO.Path.GetRelativePath(userModules, f.OutPath).Replace('\\', '/')
-                                let outPath = IO.Path.Combine(tempModules, relative)
+
+                                let outPath =
+                                    if relative.StartsWith("../", StringComparison.Ordinal) then
+                                        IO.Path.Combine(outsideDir temp, encodeOutside relative)
+                                    else
+                                        IO.Path.Combine(tempModules, relative)
 
                                 // Empty files are not written to disk
                                 if File.Exists f.OutPath then

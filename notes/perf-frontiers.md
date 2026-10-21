@@ -14,6 +14,24 @@ Runtime sweeps use cold `--noCache` runs, configurations interleaved, 4–5 runs
 ("Fable compilation finished in"), which excludes project cracking. Glutinum's compile times range 4.2–6.8 s within one
 configuration, so it is not used to rank settings; the JS test suite stays within ±0.2 s.
 
+## End to end against upstream (Fickl 0.4.0, 2026-10-21)
+
+The compile phase overstates what a user sees: project cracking and process startup are outside it. Wall clock from
+process start to exit, `--noCache`, the installed 0.4.0 win-x64 tool package against upstream Fable 5.22, interleaved
+in one session, median of 5 (`harness/fairbench.sh`, results in `harness/fair.tsv`):
+
+| Project | Fable 5.22 | Fickl, package cache off | Fickl, cache hit | Cracking (both) |
+| --- | --- | --- | --- | --- |
+| Python bench | 12.9 s | 9.7 s | 3.7 s (3.5×) | 2.0 s |
+| BEAM bench | 11.7 s | 9.3 s | 3.6 s (3.2×) | 2.1 s |
+| Sutil | 11.7 s | 7.3 s | 5.1 s (2.3×) | 2.8 s |
+| Fantomas tools | 8.8 s | 4.5 s | 4.0 s (2.2×) | 2.0 s |
+| Ionide | 10.4 s | 7.7 s | 7.9 s (1.3×) | 5.4 s |
+
+A cache miss costs 9.7–19.8 s once (compile plus building the entry). Glutinum and `tests/Js/Main` failed to compile
+with both compilers in this setup (Glutinum's own `CssModules.fs`; `Fable.Core.Quotations` for the test suite outside
+the build script), so they are left out. On a hit, cracking is now the largest part of every project's time.
+
 ## 1. Host and runtime configuration (no source changes)
 
 | Lever | Status | Notes |
@@ -102,7 +120,8 @@ project's own files.
 | --- | --- | --- |
 | Cache type-checked package sources across runs | done | `src/Fable.Cli/PackageCache.fs`; results below. |
 | Package sets that cannot be one assembly | done | Sutil's packages declare both a module and a type `Feliz.Util`; FCS type-checks that but cannot emit it. Such sets are now cached as one assembly per package (`Fable.Precompiled.<n>.dll`, each referencing the ones before it), with one merged precompiled info. Sutil compile 4.8 → 2.1 s on a hit. |
-| Package-like sources outside `fable_modules` | open | Ionide's VS Code bindings come from `paket-files` as plain `Compile` items and are not cached. |
+| Package-like sources outside `fable_modules` | done | JS/TS: `paket-files` sources compiled ahead of the project's own files are cached with the package sources; their path relative to the project and whether there is an out dir are in the key, their output is stored apart (`<entry>/outside`), and they are left out when another source dir would map to the same out dir. Needed the anonymous record fix below. Ionide compile phase 2.77 → 2.15 s; output identical but for one local named after a cached member's parameter (`uri` for `options`). Python and BEAM not enabled: no `paket-files` project to check them on, and BEAM names modules from source paths. |
+| Anonymous record types across the cached assembly | done | fickle-fsharp `c0e7f8143`. An anonymous record type belongs to its assembly, so a cached API taking an anonymous record no longer accepted the project's own (Ionide: "Two anonymous record types are from different assemblies"), and an overload taking one could silently lose to an `obj` overload. This affected the existing package cache too, for any package with such an API. `InteractiveChecker.SetAnonRecdTypesUnifiedAssembly` makes the project's and the cache's assemblies one for anonymous records (other assemblies unchanged), set on a hit. Edge cases checked against a source compile: an `obj`/anonymous overload pair, a struct anonymous record, a cached function returning one, an annotated binding and a copy-and-update. |
 | Cache build blocks the watcher on a miss | open | ~3.5 s once per package set and options; could run in the background. |
 | Files waiting on `Promise.fs` at the start of checking | explained | Fable.Promise's `PromiseImpl.fs` is a root-level `[<AutoOpen>] module` that calls `Promise.PromiseBuilder()`, so the graph correctly makes every later file depend on it and, through it, on `Promise.fs`. A package cache hit removes it: in Ionide checking starts at 0 ms instead of 1.0 s and the check wall goes 2.55 → 2.19 s; the critical path is then `Fable.Import.VSCode.fs` (1.07 s, from `paket-files`). |
 | Fable.Promise check cost | open | 0.6–1.1 s per project; find what in it is slow to check. |
@@ -213,6 +232,6 @@ A miss costs a one-time 8–9 s entry build on top of the compile.
 | Lever | Status | Notes |
 | --- | --- | --- |
 | Fable transforms and printing | open, low | Runs beside FCS on spare cores; not on the critical path with many cores. |
-| Project cracking on a cold cache | open | 2–3 s per first run (MSBuild design-time build); cached afterwards. |
+| Project cracking on a cold cache | partial | 2–5 s per first run (MSBuild design-time build); cached afterwards. The main project's TargetFramework query was a `dotnet msbuild` process ahead of the design-time build; when the project file states one unconditional TargetFramework the two now run side by side, and the design-time build reruns with the queried value if they differ (checked: a Directory.Build.targets override, multi-targeting, a conditional TargetFramework). Ionide 7.6 → 3.9 s, Fantomas tools and Sutil −0.5 s. Remaining: one design-time build process per project reference (12–13 s for Glutinum and the JS suite), restore on every cold run. |
 | Watch mode fixed overhead | open | ~230–300 ms rebuilds on small edits; find what the floor is made of. |
 | Process startup and assembly loading | open | Measure. |

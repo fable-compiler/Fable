@@ -263,6 +263,86 @@ Exception:
                     }
         }
 
+    /// fickl: the TargetFramework a project file states: one unconditional literal, and no TargetFrameworks.
+    let private tryStatedTargetFramework (fsproj: FileInfo) =
+        try
+            let doc = System.Xml.Linq.XDocument.Load fsproj.FullName
+
+            let named name =
+                doc.Root.Descendants()
+                |> Seq.filter (fun el -> el.Name.LocalName = name)
+                |> Seq.toList
+
+            let isUnconditional (el: System.Xml.Linq.XElement) =
+                Seq.append [ el ] (el.Ancestors())
+                |> Seq.forall (fun el -> isNull (el.Attribute(System.Xml.Linq.XName.Get "Condition")))
+
+            match named "TargetFramework", named "TargetFrameworks" with
+            | [ el ], [] when isUnconditional el ->
+                let value = el.Value.Trim()
+
+                if value = "" || value.Contains("$(") || value.Contains(";") then
+                    None
+                else
+                    Some value
+            | _ -> None
+        with _ ->
+            None
+
+    /// fickl: querying the TargetFramework is a `dotnet msbuild` process of its own ahead of the design-time build. When
+    /// the project file states it, the design-time build starts with that one while the query runs beside it, and runs
+    /// again with the queried one if they differ (e.g. a Directory.Build.targets setting it).
+    let mkOptionsFromDesignTimeBuild
+        (referenceTargetFrameworks: ConcurrentDictionary<string, string>)
+        (isMain: bool)
+        (fsproj: FileInfo)
+        (options: CrackerOptions)
+        : Async<ProjectOptionsResponse>
+        =
+        async {
+            match referenceTargetFrameworks.ContainsKey fsproj.FullName, tryStatedTargetFramework fsproj with
+            | true, _
+            | _, None -> return! mkOptionsFromDesignTimeBuildAux referenceTargetFrameworks isMain fsproj options
+            | false, Some stated ->
+                let configurationProperty =
+                    if String.IsNullOrWhiteSpace options.Configuration then
+                        ""
+                    else
+                        $"/p:Configuration=%s{options.Configuration}"
+
+                let! query =
+                    queryTargetFramework fsproj options configurationProperty
+                    |> Async.Catch
+                    |> Async.StartChild
+
+                referenceTargetFrameworks[fsproj.FullName] <- stated
+
+                let! guessed =
+                    mkOptionsFromDesignTimeBuildAux referenceTargetFrameworks isMain fsproj options
+                    |> Async.Catch
+
+                let! queried = query
+
+                let! targetFramework =
+                    match queried with
+                    | Choice1Of2 targetFramework -> async.Return targetFramework
+                    // The evaluation may have read a file the design-time build's restore was writing
+                    | Choice2Of2 _ -> queryTargetFramework fsproj options configurationProperty
+
+                match guessed with
+                | Choice1Of2 response when targetFramework = stated -> return response
+                | Choice2Of2 e when targetFramework = stated ->
+                    Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
+                    return Unchecked.defaultof<_>
+                | _ ->
+                    Log.verbose (
+                        lazy $"%s{fsproj.Name} states TargetFramework %s{stated} but evaluates to %s{targetFramework}"
+                    )
+
+                    referenceTargetFrameworks[fsproj.FullName] <- targetFramework
+                    return! mkOptionsFromDesignTimeBuildAux referenceTargetFrameworks isMain fsproj options
+        }
+
 type MSBuildCrackerResolver() =
     let referenceTargetFrameworks = ConcurrentDictionary<string, string>()
 
@@ -275,7 +355,7 @@ type MSBuildCrackerResolver() =
 
             // Bad I know...
             let result =
-                MSBuildCrackerResolver.mkOptionsFromDesignTimeBuildAux referenceTargetFrameworks isMain fsproj options
+                MSBuildCrackerResolver.mkOptionsFromDesignTimeBuild referenceTargetFrameworks isMain fsproj options
                 |> Async.RunSynchronously
 
             result
