@@ -403,6 +403,19 @@ let tests =
         dict.[decimal "0.05"] <- "a"
         dict.ContainsKey(0.1M / 2.M) |> equal true
 
+    testCase "Decimal hash ignores trailing zeros and the sign of zero" <| fun () ->
+        (decimal "1.0").GetHashCode() |> equal ((decimal "1").GetHashCode())
+        (decimal "0.050").GetHashCode() |> equal ((0.1M / 2.M).GetHashCode())
+        (decimal "0.00").GetHashCode() |> equal ((decimal "0").GetHashCode())
+        (-(0.M)).GetHashCode() |> equal ((0.M).GetHashCode())
+        let set = Collections.Generic.HashSet<decimal>([ 1.M ])
+        set.Contains 1.0M |> equal true
+        set.Add 0.M |> equal true
+        set.Add(Math.Truncate -0.0836M) |> equal false
+        let dict = Collections.Generic.Dictionary<decimal, string>()
+        dict.[0.050M] <- "a"
+        dict.ContainsKey(0.1M / 2.M) |> equal true
+
     testCase "Decimal parsing rounds to 28 places and keeps the scale of zero" <| fun () ->
         string (decimal "0.0000000000000000000000000000004") |> equal "0.0000000000000000000000000000"
         string (decimal "0.00000000000000000000000000005") |> equal "0.0000000000000000000000000000"
