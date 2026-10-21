@@ -5,7 +5,7 @@ import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
 import { InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
-import { Exception, IDisposable } from "./Util.ts";
+import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
 import type { Option } from "./Option.ts";
 
 function emptyContinuation<T>(_x: T) {
@@ -55,14 +55,7 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
-// Cancelling a token from a timer or a child's continuation leaves no caller
-// to report a failing cancellation callback to
-function cancelQuietly(token: CancellationToken) {
-  try { token.cancel(); } catch { /* Ignore errors from cancellation callbacks. */ }
-}
-
-// A token that is cancelled when the parent is but can also be cancelled on its own,
-// like CancellationTokenSource.CreateLinkedTokenSource. Call unlink once it's no longer needed.
+// The parent keeps the listener until unlink is called
 function createLinkedToken(parent: CancellationToken): [token: CancellationToken, unlink: () => void] {
   const token = new CancellationToken();
   const id = parent.addListener(() => token.cancel());
@@ -71,40 +64,36 @@ function createLinkedToken(parent: CancellationToken): [token: CancellationToken
 
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
   return protectedCont((ctx) => {
-    // Cancelling the parent cancels the child, like .NET Async.StartChild.
-    // With a timeout the child gets its own linked token, so that the timeout
-    // can cancel the child without cancelling the parent.
-    const [childToken, unlink] = ms
-      ? createLinkedToken(ctx.cancelToken)
-      : [ctx.cancelToken, () => { /* NOP */ }];
+    const timeout = ms == null || ms === -1 ? undefined : ms;
+    const [childToken, unlink] = timeout === undefined
+      ? [ctx.cancelToken, () => { /* NOP */ }]
+      : createLinkedToken(ctx.cancelToken);
     const promise = startAsPromise(computation, childToken);
-    let promiseToRun = promise;
+    let settled = false;
+    const onSettled = () => { settled = true; unlink(); };
 
-    if (ms) {
-      // Race the computation against a timeout: whichever settles first wins,
-      // and if the timeout wins the child is cancelled.
-      promiseToRun = new Promise<T>((resolve, reject) => {
+    // Without a rejection handler an unawaited child's failure is an unhandled rejection
+    promise.then(onSettled, onSettled);
+
+    // Like .NET, the timeout only runs while the result is awaited, not from the start of the child
+    const awaitResult = (): Promise<T> =>
+      timeout === undefined || settled ? promise : new Promise<T>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          unlink();
+          // .NET doesn't cancel the child when the timeout is 0
+          if (timeout !== 0) {
+            try { childToken.cancel(); } catch (error) { reject(error); return; }
+          }
           reject(TimeoutException_$ctor());
-          cancelQuietly(childToken);
-        }, ms);
+        }, timeout);
         promise.then(
-          value => { clearTimeout(timeoutId); unlink(); resolve(value); },
-          error => { clearTimeout(timeoutId); unlink(); reject(error); }
+          value => { clearTimeout(timeoutId); resolve(value); },
+          error => { clearTimeout(timeoutId); reject(error); }
         );
       });
-    }
-
-    // Prevent an unhandled rejection when the child is cancelled or fails
-    // while nobody awaits it (in F# an unobserved child's cancellation or
-    // failure is simply not propagated). awaitPromise attaches its own
-    // handlers to the same promise, so awaiting still observes the result.
-    promiseToRun.catch(emptyContinuation);
 
     // JS Promises are hot, computation has already started
     // but we delay returning the result
-    protectedReturn(awaitPromise(promiseToRun))(ctx);
+    protectedReturn(protectedCont<T>((awaitCtx) => awaitPromise(awaitResult())(awaitCtx)))(ctx);
   });
 }
 
@@ -200,8 +189,6 @@ export function parallel<T>(computations: Iterable<Async<T>>) {
 }
 
 export function choice<T>(computations: Iterable<Async<Option<T>>>): Async<Option<T>> {
-  // Like .NET Async.Choice: the first computation to return Some wins and the others
-  // are cancelled; a failure or cancellation also ends it and cancels the rest
   return protectedCont((ctx: IAsyncContext<Option<T>>) => {
     const works = Array.from(computations);
     let remaining = works.length;
@@ -215,7 +202,7 @@ export function choice<T>(computations: Iterable<Async<Option<T>>>): Async<Optio
       if (done) { return; }
       done = true;
       unlink();
-      cancelQuietly(token);
+      try { token.cancel(); } catch (error) { ctx.onError(ensureErrorOrException(error)); return; }
       report();
     };
     for (const work of works) {
@@ -243,19 +230,18 @@ export function onCancel(interruption: () => void): Async<IDisposable> {
     const interrupt = () => {
       if (!interrupted) {
         interrupted = true;
-        interruption();
+        try { interruption(); } catch { /* Ignored, like .NET Async.OnCancel */ }
       }
     };
     const id = token.addListener(interrupt);
+    let disposed = false;
     ctx.onSuccess({
       Dispose() {
+        if (disposed) { return; }
+        disposed = true;
         token.removeListener(id);
-        // decision: cancellation continues synchronously in JS (e.g. from Async.Sleep), so with
-        // `use! _ = Async.OnCancel ...` the registration is disposed while the token is still running
-        // its callbacks, before this one; run it now so the interruption still happens, as on .NET
-        if (token.isCancelled) {
-          try { interrupt(); } catch { /* Cancellation takes precedence. */ }
-        }
+        // With use! Dispose runs inside cancel() before this listener gets its turn
+        if (token.isCancelled) { interrupt(); }
       },
     });
   });
@@ -335,7 +321,6 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
       cancellationToken ? cancellationToken : defaultCancellationToken));
 }
 
-// Task<T> is Promise<T> in JS/TS. TaskCreationOptions has no meaning here and is ignored.
 export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
   return startAsPromise(computation, cancellationToken);
 }

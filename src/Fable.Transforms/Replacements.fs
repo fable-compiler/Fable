@@ -4274,8 +4274,7 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
         )
         |> Some
 
-// The overloads in TaskBuilderExtensions.MediumPriority bind an Async<'T> inside task { }.
-// Like .NET, start the Async with the default token and bind the resulting task (a promise).
+// .NET implements these overloads with Async.StartImmediateAsTask
 let taskBuilderAsync (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let startAsPromise (computation: Expr) =
         Helper.LibCall(com, "Async", "startAsPromise", Any, [ computation ], ?loc = r)
@@ -4291,7 +4290,7 @@ let tasks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | Some x, ("GetResult" | "get_Result" | "Result") ->
         "Task.Result and GetAwaiter().GetResult() return the task itself in JS/TS, as there's no way to block until it completes. Use let! in task { } or Async.AwaitTask instead."
         |> addWarning com ctx.InlinePath r
-        // Task<T> = Promise<T>; return the promise - callers use Async.AwaitTask to extract the value
+
         Some x
     | None, "Delay" ->
         // Without Temporal, a TimeSpan is already a number of milliseconds

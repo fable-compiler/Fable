@@ -26,7 +26,7 @@ export function zero(): Promise<void> {
   return Promise.resolve();
 }
 
-// Task.Delay: a timeout of -1 waits indefinitely, like .NET, until the token is cancelled
+// Like .NET, -1 waits until the token is cancelled
 export function delay(millisecondsDelay: number, cancellationToken?: CancellationToken): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     if (cancellationToken?.isCancelled) {

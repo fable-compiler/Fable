@@ -1390,6 +1390,102 @@ let tests =
             equal false token.IsCancellationRequested
         }
 
+    testCaseAsync "Async.StartChild timeout only runs while the result is awaited" <| fun () ->
+        async {
+            let child = async {
+                do! Async.Sleep 150
+                return 42
+            }
+            let! childResult = Async.StartChild(child, 100)
+            do! Async.Sleep 250
+            let! result = childResult
+            equal 42 result
+        }
+
+    testCaseAsync "Async.StartChild with a timeout of -1 never times out" <| fun () ->
+        async {
+            let child = async {
+                do! Async.Sleep 50
+                return 42
+            }
+            let! childResult = Async.StartChild(child, -1)
+            let! result = childResult
+            equal 42 result
+        }
+
+    testCaseAsync "Async.StartChild with a timeout of 0 returns an available result" <| fun () ->
+        async {
+            let child = async {
+                do! Async.Sleep 50
+                return 42
+            }
+            let! childResult = Async.StartChild(child, 0)
+            do! Async.Sleep 200
+            let! result = childResult
+            equal 42 result
+        }
+
+    testCaseAsync "Async.StartChild with a timeout of 0 raises when the result isn't available and leaves the child running" <| fun () ->
+        async {
+            let mutable completed = false
+            let child = async {
+                do! Async.Sleep 300
+                completed <- true
+            }
+            let mutable timedOut = false
+            try
+                let! childResult = Async.StartChild(child, 0)
+                do! childResult
+            with
+            | :? TimeoutException -> timedOut <- true
+            do! Async.Sleep 400
+            equal true timedOut
+            equal true completed
+        }
+
+    testCaseAsync "Async.StartChild with timeout raises the child's cancellation callback failure" <| fun () ->
+        async {
+            let child = async {
+                let! token = Async.CancellationToken
+                token.Register(fun () -> failwith "cleanup") |> ignore
+                do! Async.Sleep 300
+            }
+            let mutable errors = -1
+            try
+                let! childResult = Async.StartChild(child, 100)
+                do! childResult
+            with error ->
+#if FABLE_COMPILER
+                errors <- Runtime.cancellationErrorCount error
+#else
+                errors <- (error :?> AggregateException).InnerExceptions.Count
+#endif
+            equal 1 errors
+        }
+
+    testCaseAsync "Async.OnCancel ignores a failing interruption" <| fun () ->
+        async {
+            let mutable interrupted = false
+            let mutable cancelled = false
+            let cts = new CancellationTokenSource()
+            Async.StartWithContinuations(
+                async {
+                    use! _ = Async.OnCancel(fun () ->
+                        interrupted <- true
+                        failwith "interruption")
+                    do! Async.Sleep 300
+                },
+                ignore,
+                ignore,
+                (fun _ -> cancelled <- true),
+                cts.Token)
+            do! Async.Sleep 50
+            cts.Cancel()
+            do! Async.Sleep 50
+            equal true interrupted
+            equal true cancelled
+        }
+
     testCaseAsync "Async.Choice returns the first Some and cancels the others" <| fun () ->
         async {
             let mutable completed = false
@@ -1459,6 +1555,21 @@ let tests =
             let cts = new CancellationTokenSource()
             Async.StartImmediate(async {
                 let! registration = Async.OnCancel(fun () -> interrupted <- true)
+                registration.Dispose()
+                do! Async.Sleep 300
+            }, cts.Token)
+            do! Async.Sleep 50
+            cts.Cancel()
+            do! Async.Sleep 50
+            equal false interrupted
+        }
+
+    testCaseAsync "Async.OnCancel doesn't run the interruption when disposed before the cancellation and again by use!" <| fun () ->
+        async {
+            let mutable interrupted = false
+            let cts = new CancellationTokenSource()
+            Async.StartImmediate(async {
+                use! registration = Async.OnCancel(fun () -> interrupted <- true)
                 registration.Dispose()
                 do! Async.Sleep 300
             }, cts.Token)
