@@ -20,6 +20,47 @@
         <Version>0.3.0</Version>
     </PropertyGroup>
 
+    <!--
+        Tool packages per runtime, each one ReadyToRun-compiled as a single composite image, plus a portable `any`
+        package for other platforms; the SDK installs the one matching the machine (.NET SDK 10+).
+        Only `dotnet pack` sets _IsPacking, so builds and tests keep the plain IL output.
+    -->
+    <!--
+        Hot ReadyToRun methods otherwise pass through an instrumented tier before the optimised one, which on
+        compiler workloads costs more than the profile gains (see notes/perf-frontiers.md).
+    -->
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.Cli'">
+        <TieredPGO>false</TieredPGO>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.Cli' AND '$(_IsPacking)' == 'true'">
+        <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;osx-x64;osx-arm64;any</RuntimeIdentifiers>
+        <ToolPackageRuntimeIdentifiers>$(RuntimeIdentifiers)</ToolPackageRuntimeIdentifiers>
+        <SelfContained>false</SelfContained>
+    </PropertyGroup>
+
+    <PropertyGroup
+        Condition="'$(MSBuildProjectName)' == 'Fable.Cli' AND '$(_IsPacking)' == 'true' AND '$(RuntimeIdentifier)' != '' AND '$(RuntimeIdentifier)' != 'any'">
+        <PublishReadyToRun>true</PublishReadyToRun>
+    </PropertyGroup>
+
+    <!-- The pointer package holds no assemblies, so it has no symbols package either -->
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.Cli' AND '$(_IsPacking)' == 'true' AND '$(RuntimeIdentifier)' == ''">
+        <IncludeSymbols>false</IncludeSymbols>
+    </PropertyGroup>
+
+    <!--
+        One composite image of the app's own assemblies lets crossgen inline FSharp.Core into FCS and Fable. The SDK
+        turns composite off for framework-dependent apps at evaluation time, so it is set again here; the framework
+        stays outside the composite, and an image the runtime rejects falls back to the JIT.
+    -->
+    <Target Name="FicklReadyToRunComposite" BeforeTargets="_PrepareForReadyToRunCompilation"
+        Condition="'$(MSBuildProjectName)' == 'Fable.Cli' AND '$(PublishReadyToRun)' == 'true'">
+        <PropertyGroup>
+            <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
+        </PropertyGroup>
+    </Target>
+
     <!-- Fable.Cli sets GenerateAssemblyInfo=false, so the Fickl version reaches the code as a generated module -->
     <Target Name="FicklWriteVersion" BeforeTargets="CoreCompile" Condition="'$(MSBuildProjectName)' == 'Fable.Cli'">
         <PropertyGroup>

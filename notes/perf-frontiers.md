@@ -20,16 +20,50 @@ configuration, so it is not used to rank settings; the JS test suite stays withi
 | --- | --- | --- |
 | Server GC | done | Already set upstream. |
 | `TieredCompilation.CallCountingDelayMs=0` | done | Fork setting. |
-| ReadyToRun FCS | measured-no-gain | Same wall time; jitting runs on idle cores. |
+| ReadyToRun FCS | superseded | Same wall time on its own; jitting runs on idle cores. See the composite row. |
 | GC gen0 budget (`GCgen0size=256 MB`) | measured-worse | JS suite compile 3.6 → 5.2 s despite 49 → 21 gen0 GCs. |
 | DATAS off (`GCDynamicAdaptationMode=0`) | measured-no-gain | 49 → 4 GCs, compile 3.60 → 3.47 s (noise). GC count is not what costs time. |
 | Concurrent (background) GC off | measured-no-gain | Within noise. |
 | Invariant globalization | measured-no-gain | Within noise on the JS suite. |
-| TieredPGO off | measured-mixed | Compile phase, median of 5: JS suite 3.83 → 3.19 s, Python suite 3.16 → 2.62 s, Sutil 4.88 → 4.63 s, Ionide 3.02 → 3.06 s, Fantomas tools 4.47 → 4.85 s (slower in every run). Not made the default. |
+| TieredPGO off (alone) | measured-mixed | Compile phase, median of 5: JS suite 3.83 → 3.19 s, Python suite 3.16 → 2.62 s, Sutil 4.88 → 4.63 s, Ionide 3.02 → 3.06 s, Fantomas tools 4.47 → 4.85 s (slower in every run). Not made the default. |
 | TieredPGO off + DATAS off | measured-mixed | Best on four projects, Fantomas tools 4.47 → 5.22 s. |
 | Full JIT up front (`TieredCompilation=0`) | measured-worse | JS suite 3.83 → 3.39 s, Ionide 3.02 → 3.90 s. Exposed an output-dir race, fixed in `cbd6e3fc7`. |
 | QuickJitForLoops off (with PGO off) | measured-no-gain | No better than PGO off alone. |
 | Native AOT | open, low | Reflection-heavy (FCS, plugins); JIT is off the critical path. |
+| Composite ReadyToRun + TieredPGO off | done | Per-runtime tool packages (see below). |
+
+### Composite ReadyToRun with TieredPGO off
+
+With the package cache most compilations are short, and JIT becomes a large part of them: a Python cache hit spent
+5.4 s of JIT (summed over threads) on a 2.2 s compile phase. `--timings` now prints process JIT time and CPU time,
+which stay comparable while other work loads the machine (it did during these runs: 50–65% CPU from other processes).
+
+Variants, interleaved, median of 4–6 runs, compile phase (process CPU in brackets):
+
+| Workload | IL (shipped 0.3.0) | IL, PGO off | Composite R2R | Composite R2R, PGO off |
+| --- | --- | --- | --- | --- |
+| JS suite, `--noPackageCache` | 4.19 s (39.6) | 3.34 s (32.0) | 4.91 s (45.8) | 3.18 s (29.4) |
+| Fantomas tools, `--noPackageCache` | 3.73 s (18.2) | 3.53 s (16.0) | 4.11 s (17.2) | 2.78 s (13.3) |
+| Fantomas tools, cache hit | 1.61 s (12.3) | 1.50 s (10.9) | 1.09 s (9.1) | 0.90 s (7.7) |
+| Python bench, cache hit | 2.60 s (7.1) | 2.27 s (5.6) | 1.19 s (4.4) | 1.06 s (3.7) |
+| Sutil, cache hit | 2.76 s (18.2) | 2.62 s (15.8) | 3.27 s (18.6) | 2.33 s (13.0) |
+
+Second set, IL against composite R2R with PGO off: Ionide hit 3.42 → 2.38 s, BEAM bench hit 1.95 → 0.90 s, Python
+bench `--noPackageCache` 9.0 → 8.5 s; Glutinum hit 6.9 → 5.7 s and `--noPackageCache` 4.7 → 5.9 s, with CPU lower in
+both (Glutinum's spread within one configuration is wider than these differences).
+
+- R2R alone loses on long compilations: hot R2R methods are rejitted through an instrumented tier before the optimised
+  one, so they run slow code for longer. With PGO off they go straight to the optimised tier.
+- Per-assembly R2R without FCS (`PublishReadyToRunExclude`) kept most of the JIT: FCS is where the startup JIT is.
+- Composite (one image of the app's assemblies, framework outside it) beat per-assembly R2R: crossgen can inline
+  FSharp.Core into FCS and Fable within the image.
+- Shipping: `dotnet pack` builds one package per runtime (`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`,
+  `linux-musl-x64`, `osx-x64`, `osx-arm64`), each one composite R2R, a portable IL `any` package, and the `Fickl`
+  pointer package; the .NET 10 SDK installs the one for the machine (`src/Fickl.Branding.targets`). The SDK turns
+  composite off for framework-dependent apps, so a target sets it again before crossgen runs. Each runtime package is
+  ~28 MB (IL package 13.5 MB). Publish the runtime packages before the pointer package.
+- Output of the installed `win-x64` package is identical to an IL source compile (Fantomas tools). The other runtime
+  packages were built (crossgen cross-compiles) but not run here.
 
 ## 2. FSharp.Core (compiler runtime)
 
