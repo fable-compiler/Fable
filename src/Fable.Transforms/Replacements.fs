@@ -2839,6 +2839,13 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
 
         Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | ("ToByte" | "ToSByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToSingle" | "ToDouble"),
+      [ _ ] ->
+        match t with
+        | Number(BigIntegers _, _) -> toLong com ctx r t args |> Some
+        | Number(Integers _, _) -> toInt com ctx r t args |> Some
+        | Number(Floats _, _) -> toFloat com ctx r t args |> Some
+        | _ -> None
     | "ToString", [ ExprTypeAs(String, format) ]
     | "ToString", [ ExprTypeAs(String, format); _ (* Culture info *) ] ->
         numericStringFormat com ctx r t i thisArg format

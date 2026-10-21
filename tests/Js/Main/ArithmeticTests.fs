@@ -583,6 +583,23 @@ let tests =
         string (Math.Max(1.0M, 1.00M)) |> equal "1.0"
         string (Math.Min(1.0M, 1.00M)) |> equal "1.00"
 
+    testCase "Decimal static conversions truncate and check the range" <| fun () ->
+        Decimal.ToInt32 2.9M |> equal 2
+        Decimal.ToInt32 -2.9M |> equal -2
+        Decimal.ToInt64 -2.9M |> equal -2L
+        Decimal.ToInt64 9223372036854775807.5M |> equal 9223372036854775807L
+        Decimal.ToUInt64 18446744073709551615M |> equal 18446744073709551615UL
+        Decimal.ToInt16 32767.5M |> equal 32767s
+        Decimal.ToUInt16 65535.9M |> equal 65535us
+        Decimal.ToByte 255.9M |> equal 255uy
+        Decimal.ToSByte -128.9M |> equal -128y
+        Decimal.ToUInt32 4294967295.9M |> equal 4294967295u
+        Decimal.ToDouble 0.1M |> equal 0.1
+        Decimal.ToSingle 1.5M |> equal 1.5f
+        (fun () -> Decimal.ToInt32 2147483648M) |> throwsError ""
+        (fun () -> Decimal.ToByte -1M) |> throwsError ""
+        Decimal.ToUInt64 -0.5M |> equal 0UL
+
     testCase "Decimal rounding keeps the requested scale" <| fun () ->
         string (Math.Round(1.20001M, 2)) |> equal "1.20"
         string (Math.Round(1.2M, 3)) |> equal "1.2"
