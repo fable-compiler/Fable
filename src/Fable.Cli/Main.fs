@@ -1025,7 +1025,16 @@ type State =
                 // as some OS use case insensitive paths
                 let importDir = importDir.ToLower()
 
-                this.DeduplicateDic.GetOrAdd(importDir, (fun _ -> set this.DeduplicateDic.Values |> addTargetDir))
+                lock
+                    this.DeduplicateDic
+                    (fun () ->
+                        match this.DeduplicateDic.TryGetValue(importDir) with
+                        | true, targetDir -> targetDir
+                        | false, _ ->
+                            let targetDir = set this.DeduplicateDic.Values |> addTargetDir
+                            this.DeduplicateDic[importDir] <- targetDir
+                            targetDir
+                    )
         }
 
     static member Create(cliArgs, ?watchDelay, ?recompileAllFiles) =
