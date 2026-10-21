@@ -27,7 +27,7 @@
     "concurrently": "^10.0.6",
     "ghreleases": "^3.0.2",
     "nodemon": "^3.1.14",
-    "rollup": "^4.64.5",
+    "rollup": "^4.64.9",
     "terser": "^5.51.2",
     "typescript": "^7.0.2"
   },
