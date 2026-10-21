@@ -357,18 +357,21 @@ open System.Globalization
         """
 open Fable.Core
 
+type Payload(x: int) =
+    member _.X = x
+
 [<TypeScriptTaggedUnion("state")>]
 type Terminal =
     | [<CompiledName("done")>] Done of value: float
     | [<CompiledName("done")>] DoneError of error: string
     | [<CompiledName("log")>] LogString of message: string
-    | [<CompiledName("log")>] LogObject of message: obj
+    | [<CompiledName("log")>] LogPayload of message: Payload
 
 let describe (t: Terminal) =
     match t with
     | DoneError _ -> "error"
     | LogString _ -> "string"
-    | LogObject _ -> "object"
+    | LogPayload _ -> "payload"
     | Done _ -> "done"
 """
       compile source
@@ -423,6 +426,69 @@ let isOther (j: Job) = j.IsOther
 """
       compile source
       |> Assert.Exists.errorWith "Cases 'Other' and 'Test' of 'Job' share a tag value and cannot be told apart by their fields. Add a CaseTest attribute to 'Other' or 'Test'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when one field type includes the other" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Log =
+    | [<CompiledName("log")>] LogString of message: string
+    | [<CompiledName("log")>] LogObject of message: obj
+
+let isObject (l: Log) = l.IsLogObject
+let isString (l: Log) = l.IsLogString
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'LogObject' and 'LogString' of 'Log' share a tag value and cannot be told apart by their fields."
+      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogObject' of 'Log' share a tag value and cannot be told apart by their fields."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when one field type is a base class of the other" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Animal() = class end
+type Dog() = inherit Animal()
+
+[<TypeScriptTaggedUnion("kind")>]
+type Pet =
+    | [<CompiledName("pet")>] PetAnimal of pet: Animal
+    | [<CompiledName("pet")>] PetDog of pet: Dog
+
+let isAnimal (p: Pet) = p.IsPetAnimal
+let isDog (p: Pet) = p.IsPetDog
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'PetAnimal' and 'PetDog' of 'Pet' share a tag value and cannot be told apart by their fields."
+      |> Assert.Exists.errorWith "Cases 'PetDog' and 'PetAnimal' of 'Pet' share a tag value and cannot be told apart by their fields."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag compile when a CaseTest narrows a base class field" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Animal() = class end
+
+[<AttachMembers>]
+type Dog() =
+    inherit Animal()
+    member _.Bark() = "woof"
+
+[<TypeScriptTaggedUnion("kind")>]
+type Pet =
+    | [<CompiledName("pet")>] PetAnimal of pet: Animal
+    | [<CompiledName("pet"); CaseTest("'Bark' in $0.pet")>] PetDog of pet: Dog
+
+let isAnimal (p: Pet) = p.IsPetAnimal
+let isDog (p: Pet) = p.IsPetDog
+"""
+      compile source
+      |> Assert.Is.strictSuccess
       |> ignore
 
     testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only interfaces tell them apart" <| fun _ ->

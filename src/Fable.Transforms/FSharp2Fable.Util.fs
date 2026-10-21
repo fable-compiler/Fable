@@ -3310,7 +3310,6 @@ module Util =
         | HasField of name: string
         | LacksField of name: string
         | FieldOfType of name: string * typ: Fable.Type
-        | FieldNotOfType of name: string * typ: Fable.Type
         | NotCaseTest of macro: string
 
     let private tryTaggedUnionTagKey (rule: CaseRules) (unionCase: FSharpUnionCase) =
@@ -3399,14 +3398,13 @@ module Util =
                 match List.tryFind (fun (n, _) -> n = name) other with
                 | None -> None
                 | Some(_, otherTyp) ->
-                    let myKey = tryRuntimeTypeTestKey com typ
-                    let otherKey = tryRuntimeTypeTestKey com otherTyp
-
-                    match myKey, otherKey with
-                    | Some _, _ when myKey <> otherKey && not (passesTestOf com typ otherTyp) ->
+                    match tryRuntimeTypeTestKey com typ, tryRuntimeTypeTestKey com otherTyp with
+                    | Some myKey, Some otherKey when
+                        myKey <> otherKey
+                        && not (passesTestOf com typ otherTyp)
+                        && not (passesTestOf com otherTyp typ)
+                        ->
                         Some(TaggedUnionCaseTest.FieldOfType(name, typ))
-                    | _, Some _ when myKey <> otherKey && not (passesTestOf com otherTyp typ) ->
-                        Some(TaggedUnionCaseTest.FieldNotOfType(name, otherTyp))
                     | _ -> None
             )
 

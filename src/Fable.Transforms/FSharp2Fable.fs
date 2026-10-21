@@ -651,11 +651,6 @@ let private transformUnionCaseTest
                             Fable.Get(unionExpr, Fable.FieldInfo.Create(name, fieldType = typ), typ, r)
 
                         Fable.Test(field, Fable.TypeTest typ, r)
-                    | TaggedUnionCaseTest.FieldNotOfType(name, typ) ->
-                        let field =
-                            Fable.Get(unionExpr, Fable.FieldInfo.Create(name, fieldType = typ), typ, r)
-
-                        makeUnOp r Fable.Boolean (Fable.Test(field, Fable.TypeTest typ, r)) UnaryNot
                     | TaggedUnionCaseTest.NotCaseTest macro -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})"
 
                 let caseTests: (Fable.Expr -> Fable.Expr) list =
