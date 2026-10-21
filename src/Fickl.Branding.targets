@@ -17,7 +17,7 @@
         <Description>Fickl: a performance-focused fork of the Fable F# compiler</Description>
         <!-- Fickl's own version; the CHANGELOG version EasyBuild would set is Fable's -->
         <EasyBuildPackageReleaseNotes_DisableSetVersion>true</EasyBuildPackageReleaseNotes_DisableSetVersion>
-        <Version>0.1.0</Version>
+        <Version>0.2.0</Version>
     </PropertyGroup>
 
     <!-- Fable.Cli sets GenerateAssemblyInfo=false, so the Fickl version reaches the code as a generated module -->
