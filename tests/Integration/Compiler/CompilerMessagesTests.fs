@@ -288,7 +288,6 @@ type MyClass() =
       let source =
         """
 open Fable.Core
-open Fickl.Core
 
 [<Erase>]
 type Id =
@@ -305,7 +304,6 @@ let isName (id: Id) = match id with Name _ -> true | Slug _ -> false
       let source =
         """
 open Fable.Core
-open Fickl.Core
 
 [<TypeScriptTaggedUnion("state")>]
 type Terminal =

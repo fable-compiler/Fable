@@ -2,7 +2,7 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "5.22.0"
+    let VERSION = "5.23.0"
 
     [<Literal>]
     let JS_LIBRARY_VERSION = "2.9.0"

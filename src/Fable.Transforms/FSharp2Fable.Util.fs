@@ -144,6 +144,10 @@ type FsUnionCase(uci: FSharpUnionCase) =
         |> List.tryPick (fun fullName -> Helpers.tryFindAttrib fullName uci.Attributes)
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string<obj>)
 
+    // static member HasNamedFields(uci: FSharpUnionCase) =
+    //     not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
+    //     true
+
     interface Fable.UnionCase with
         member _.Name = uci.Name
         member _.FullName = FsUnionCase.FullName uci

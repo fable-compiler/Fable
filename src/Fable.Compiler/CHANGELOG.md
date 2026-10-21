@@ -1,5 +1,5 @@
 ---
-last_commit_released: e33c57870454fea189a3eb33519f583a5003f8c3
+last_commit_released: 5ee8bbb832d9677ad702104ded8e00c09619393f
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.22.0 - 2026-10-21
+
+### 🚀 Features
+
+* *(js/ts)* Add CaseTest attribute for TypeScriptTaggedUnion cases that share a tag (#5076) ([5ee8bbb8](https://github.com/fable-compiler/Fable/commit/5ee8bbb832d9677ad702104ded8e00c09619393f))
+
+### 🐞 Bug Fixes
+
+* *(standalone)* Warn and skip plugins instead of throwing (#5114) ([021ab65c](https://github.com/fable-compiler/Fable/commit/021ab65c6d3adfe57cffb9f5ba6f595b034ac8bd))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/e33c57870454fea189a3eb33519f583a5003f8c3..5ee8bbb832d9677ad702104ded8e00c09619393f)</small></strong>
 
 ## 5.21.0 - 2026-10-16
 
