@@ -26904,6 +26904,11 @@ Get the signature for the value&apos;s XML documentation
  Get the available methods of a type (both declared and inherited)
 </summary>
 </member>
+<member name="M:FSharp.Compiler.NameResolution.IntrinsicMethInfosOfType(FSharp.Compiler.InfoReader.InfoReader,Microsoft.FSharp.Core.FSharpOption{System.String},FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.TypeHierarchy.AllowMultiIntfInstantiations,FSharp.Compiler.InfoReader.FindMemberFlag,FSharp.Compiler.Text.Range,FSharp.Compiler.TypedTree.TType)">
+<summary>
+ Get the intrinsic methods of a type (both declared and inherited), without extension methods
+</summary>
+</member>
 <member name="M:FSharp.Compiler.NameResolution.ExtensionPropInfosOfTypeInScope(FSharp.Compiler.NameResolution.ResultCollectionSettings,FSharp.Compiler.InfoReader.InfoReader,FSharp.Compiler.NameResolution.NameResolutionEnv,Microsoft.FSharp.Core.FSharpOption{System.String},FSharp.Compiler.NameResolution.LookupIsInstance,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Text.Range,FSharp.Compiler.TypedTree.TType)">
 <summary>
  Get all the available properties of a type (only extension)

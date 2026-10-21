@@ -72,6 +72,8 @@ project's own files.
 | Cache build blocks the watcher on a miss | open | ~3.5 s once per package set and options; could run in the background. |
 | Files waiting on `Promise.fs` at the start of checking | explained | Fable.Promise's `PromiseImpl.fs` is a root-level `[<AutoOpen>] module` that calls `Promise.PromiseBuilder()`, so the graph correctly makes every later file depend on it and, through it, on `Promise.fs`. A package cache hit removes it: in Ionide checking starts at 0 ms instead of 1.0 s and the check wall goes 2.55 → 2.19 s; the critical path is then `Fable.Import.VSCode.fs` (1.07 s, from `paket-files`). |
 | Fable.Promise check cost | open | 0.6–1.1 s per project; find what in it is slow to check. |
+| IWSAM-as-type check collecting extension methods | done | fickle-fsharp `594a55f8b`. `CheckIWSAM` runs for every interface named in a signature and gathered all methods in scope, extension methods included, only to drop extension members: 44% of checking Glutinum's 18.7k-line `TypeScript.fs` (stock `fsc` spends the same 3.0 s on it). Now intrinsic methods only; same warnings. `TypeScript.fs` 3.2–3.5 → 1.9–2.0 s, Glutinum compile 4.4–5.0 → 3.4 s, Ionide 3.0–3.5 → 2.5 s, Sutil −0.2 s, JS suite unchanged; output identical. Upstreamable to dotnet/fsharp. |
+| Large binding files: what remains | open | After the fix, `TypeScript.fs`'s profile is IL metadata reads for imported generic parameters (~12%), attribute checking (~12%), post-inference checks (~10%). |
 | Codegen witness allocation | done | `7687bf609`. |
 | Parallel cold type check over the file graph | done | `ac0a7b8c5`. Gain depends on how wide the project's graph is. |
 | Symbol API caching | done | `7d83faa66`. |
