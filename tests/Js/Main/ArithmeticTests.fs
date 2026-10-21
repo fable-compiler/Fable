@@ -1,6 +1,7 @@
 module Fable.Tests.Arithmetic
 
 open System
+open System.Globalization
 open Util.Testing
 open Fable.Tests.Util
 
@@ -504,6 +505,83 @@ let tests =
         (fun () -> decimal "79228162514264337593543950335.5") |> throwsError ""
         string (decimal "79228162514264337593543950335.4") |> equal "79228162514264337593543950335"
         (fun () -> decimal 1e30) |> throwsError ""
+
+    testCase "Decimal from float rounds to 15 significant digits" <| fun () ->
+        let inv = CultureInfo.InvariantCulture
+        string (decimal 0.1) |> equal "0.1"
+        string (decimal (0.1 + 0.2)) |> equal "0.3"
+        string (decimal 123456789.123456789) |> equal "123456789.123457"
+        string (decimal (1.0 / 3.0)) |> equal "0.333333333333333"
+        string (decimal 123456789012345.6789) |> equal "123456789012346"
+        string (decimal 123456789012345678.0) |> equal "123456789012346000"
+        string (decimal 1e20) |> equal "100000000000000000000"
+        string (decimal 1e28) |> equal "10000000000000000000000000000"
+        string (decimal 1e-10) |> equal "0.0000000001"
+        string (decimal 1.5e-28) |> equal "0.0000000000000000000000000002"
+        string (decimal 5e-29) |> equal "0"
+        string (decimal 1e-30) |> equal "0"
+        string (decimal -0.0) |> equal "0"
+        string (decimal 100000000000001.5) |> equal "100000000000002"
+        string (decimal 100000000000002.5) |> equal "100000000000002"
+        (fun () -> decimal 1e29) |> throwsError ""
+        (fun () -> decimal nan) |> throwsError ""
+        (fun () -> decimal infinity) |> throwsError ""
+
+    testCase "Decimal from float32 rounds to 7 significant digits" <| fun () ->
+        let inv = CultureInfo.InvariantCulture
+        string (decimal 1.1f) |> equal "1.1"
+        string (decimal (0.1f + 0.2f)) |> equal "0.3"
+        string (decimal 16777216.f) |> equal "16777220"
+        string (decimal 1.23456789f) |> equal "1.234568"
+        string (decimal 123456.789f) |> equal "123456.8"
+        string (decimal 1000001.5f) |> equal "1000002"
+        string (decimal 1000002.5f) |> equal "1000002"
+        string (decimal 1e-30f) |> equal "0"
+        (fun () -> decimal 3.4e38f) |> throwsError ""
+
+    testCase "Decimal.Parse follows NumberStyles" <| fun () ->
+        let inv = CultureInfo.InvariantCulture
+        Decimal.Parse("+5", inv) |> equal 5M
+        Decimal.Parse(" 5 ", inv) |> equal 5M
+        Decimal.Parse("5-", inv) |> equal -5M
+        Decimal.Parse("1,234.5", inv) |> equal 1234.5M
+        Decimal.Parse("1,23,4", inv) |> equal 1234M
+        Decimal.Parse(".5", inv) |> equal 0.5M
+        Decimal.Parse("5.", inv) |> equal 5M
+        string (Decimal.Parse("-0.00", inv)) |> equal "0.00"
+        (fun () -> Decimal.Parse("1e3", inv)) |> throwsError ""
+        (fun () -> Decimal.Parse(",5", inv)) |> throwsError ""
+        (fun () -> Decimal.Parse("1,234.5,6", inv)) |> throwsError ""
+        (fun () -> Decimal.Parse("(5)", inv)) |> throwsError ""
+        (fun () -> Decimal.Parse("", inv)) |> throwsError ""
+        Decimal.Parse("1.5E+2", NumberStyles.Float, inv) |> equal 150M
+        string (Decimal.Parse("1.50e1", NumberStyles.Float, inv)) |> equal "15.0"
+        Decimal.Parse("1e3", NumberStyles.Any, inv) |> equal 1000M
+        Decimal.Parse("(5)", NumberStyles.Any, inv) |> equal -5M
+        (fun () -> Decimal.Parse("1,234", NumberStyles.Float, inv)) |> throwsError ""
+        (fun () -> Decimal.Parse("1e30", NumberStyles.Float, inv)) |> throwsError ""
+        let ok1, v1 = Decimal.TryParse("1,5", NumberStyles.Number, inv)
+        ok1 |> equal true
+        v1 |> equal 15M
+        let ok2, _ = Decimal.TryParse("1e3", NumberStyles.Number, inv)
+        ok2 |> equal false
+
+    testCase "Decimal G format keeps the scale without a precision" <| fun () ->
+        let inv = CultureInfo.InvariantCulture
+        (1.10M).ToString("G", inv) |> equal "1.10"
+        (0.00M).ToString("G", inv) |> equal "0.00"
+        (1.10M).ToString("G5", inv) |> equal "1.1"
+        (123456M).ToString("G3", inv) |> equal "1.23E+05"
+        (0.0001234M).ToString("G3", inv) |> equal "0.000123"
+        (2.5M).ToString("G1", inv) |> equal "3"
+        (1.5M).ToString("G1", inv) |> equal "2"
+
+    testCase "Decimal max returns the first of two equal values" <| fun () ->
+        let inv = CultureInfo.InvariantCulture
+        string (max 1.0M 1.00M) |> equal "1.0"
+        string (min 1.0M 1.00M) |> equal "1.00"
+        string (Math.Max(1.0M, 1.00M)) |> equal "1.0"
+        string (Math.Min(1.0M, 1.00M)) |> equal "1.00"
 
     testCase "Decimal rounding keeps the requested scale" <| fun () ->
         string (Math.Round(1.20001M, 2)) |> equal "1.20"
