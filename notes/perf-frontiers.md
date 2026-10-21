@@ -70,7 +70,7 @@ project's own files.
 | Package sets that cannot be one assembly | open | Sutil's packages declare both a module and a type `Feliz.Util`; FCS type-checks that but cannot emit it. Needs several precompiled libs per compilation. |
 | Package-like sources outside `fable_modules` | open | Ionide's VS Code bindings come from `paket-files` as plain `Compile` items and are not cached. |
 | Cache build blocks the watcher on a miss | open | ~3.5 s once per package set and options; could run in the background. |
-| Files waiting on `Promise.fs` at the start of checking | open | In Ionide and Glutinum every file starts only when `Promise.fs` (1.0 s) finishes, including files that cannot depend on it; the graph's root rule does not explain it. |
+| Files waiting on `Promise.fs` at the start of checking | explained | Fable.Promise's `PromiseImpl.fs` is a root-level `[<AutoOpen>] module` that calls `Promise.PromiseBuilder()`, so the graph correctly makes every later file depend on it and, through it, on `Promise.fs`. A package cache hit removes it: in Ionide checking starts at 0 ms instead of 1.0 s and the check wall goes 2.55 → 2.19 s; the critical path is then `Fable.Import.VSCode.fs` (1.07 s, from `paket-files`). |
 | Fable.Promise check cost | open | 0.6–1.1 s per project; find what in it is slow to check. |
 | Codegen witness allocation | done | `7687bf609`. |
 | Parallel cold type check over the file graph | done | `ac0a7b8c5`. Gain depends on how wide the project's graph is. |
