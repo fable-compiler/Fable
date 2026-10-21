@@ -2,9 +2,10 @@
 /// Fable compiles the F# sources that packages ship (copied to fable_modules) on every cold compile, and type-checking
 /// them is often most of the compilation. A package version's sources never change, so after a successful compile the
 /// package sources are precompiled once, as `fable precompile` does: an assembly with their signatures, their inline
-/// bodies and their JavaScript. Later compiles with the same packages and options reference that assembly instead of
-/// type-checking the sources again, and get the package JavaScript copied into their own fable_modules.
-/// JavaScript and TypeScript only: imports of precompiled files are only rewritten for those targets.
+/// bodies and their compiled output. Later compiles with the same packages and options reference that assembly instead
+/// of type-checking the sources again, and get the package output copied into their own fable_modules.
+/// JavaScript, TypeScript, Python and Erlang/BEAM: the targets whose imports of precompiled files resolve in this
+/// project (JS/TS/Python rewrite them to this project's copies, BEAM names modules by their path within the package).
 module Fable.Cli.PackageCache
 
 open System
@@ -48,6 +49,11 @@ type private InUse =
 
 let mutable private inUse: InUse option = None
 
+/// The package sources the cached entry in use stands for, which this compilation does not compile.
+let mutable private cachedSources: string[] = [||]
+
+let cachedPackageSources () = cachedSources
+
 let private root () =
     match Environment.GetEnvironmentVariable "FICKL_PACKAGE_CACHE" with
     | null
@@ -60,8 +66,14 @@ let private isApplicable (cliArgs: CliArgs) =
     && not cliArgs.Precompile
     && Option.isNone cliArgs.PrecompiledLib
     && not cliArgs.SourceMaps
-    && (cliArgs.CompilerOptions.Language = JavaScript
-        || cliArgs.CompilerOptions.Language = TypeScript)
+    && (
+        match cliArgs.CompilerOptions.Language with
+        | JavaScript
+        | TypeScript
+        | Python
+        | Beam -> true
+        | _ -> false
+    )
 
 let private isOutputOption (option: string) =
     [ "-o:"; "--out:"; "--doc:"; "--refout:"; "--target:" ]
@@ -85,6 +97,8 @@ let private computeKey (cliArgs: CliArgs) (response: CrackerResponse) (sources: 
     add $"fickl {Fickl.Version.VERSION} fable {Literals.VERSION}"
     add $"%A{cliArgs.CompilerOptions}"
     add $"lib {cliArgs.FableLibraryPath} exclude %A{cliArgs.Exclude} replace %A{cliArgs.Replace}"
+    // Python declares a library's exports (__all__), in package sources too
+    add $"output {response.OutputType}"
 
     for option in response.ProjectOptions.OtherOptions do
         if option.StartsWith("-r:", StringComparison.Ordinal) then
@@ -135,6 +149,7 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
     pending <- None
     pendingSources <- HashSet()
     inUse <- None
+    cachedSources <- [||]
 
     if not (isApplicable cliArgs) then
         response
@@ -177,6 +192,16 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
 
                                 Directory.CreateDirectory(IO.Path.GetDirectoryName target) |> ignore
                                 File.Copy(file, target, true)
+
+                                // A Python library makes each folder of compiled files a package, as Pipeline does
+                                if
+                                    cliArgs.CompilerOptions.Language = Python
+                                    && response.OutputType = OutputType.Library
+                                then
+                                    let initFile = IO.Path.Combine(IO.Path.GetDirectoryName target, "__init__.py")
+
+                                    if not (File.Exists initFile) then
+                                        File.WriteAllText(initFile, "")
 
                         let entry = IO.Path.Combine(root (), key)
 
@@ -231,6 +256,7 @@ let apply (cliArgs: CliArgs) (response: CrackerResponse) : CrackerResponse =
                             UserModules = userModules
                         }
 
+                cachedSources <- sources
                 let sourceSet = HashSet(sources, StringComparer.OrdinalIgnoreCase)
 
                 { response with
@@ -443,7 +469,12 @@ let save (cliArgs: CliArgs) (compiled: CompiledFile list) =
                 |> dict
                 |> Dictionary
 
-            match p.PackageSources |> Array.tryFind (byFile.ContainsKey >> not) with
+            // Signature files are type-checked (and go into the assembly) but compile to nothing
+            let implementations =
+                p.PackageSources
+                |> Array.filter (fun source -> not (source.EndsWith(".fsi", StringComparison.OrdinalIgnoreCase)))
+
+            match implementations |> Array.tryFind (byFile.ContainsKey >> not) with
             | Some missing -> Log.verbose (lazy $"Not caching package sources: {missing} was not compiled in this run")
             | None ->
                 let entry = IO.Path.Combine(root (), p.Key)
@@ -472,7 +503,7 @@ let save (cliArgs: CliArgs) (compiled: CompiledFile list) =
                                 ()
                     | Ok groupDlls ->
                         let files =
-                            p.PackageSources
+                            implementations
                             |> Array.map (fun source ->
                                 let f = byFile[source]
                                 let relative = IO.Path.GetRelativePath(userModules, f.OutPath).Replace('\\', '/')
@@ -496,7 +527,7 @@ let save (cliArgs: CliArgs) (compiled: CompiledFile list) =
                         let inlineExprs =
                             let byName = Dictionary<string, Fable.InlineExpr>()
 
-                            for source in p.PackageSources do
+                            for source in implementations do
                                 for name, expr in byFile[source].InlineExprs do
                                     byName[name] <- expr
 

@@ -1567,6 +1567,8 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
             if cliArgs.CompilerOptions.Language = Beam then
                 projCracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
+                // fickl: package sources from the package cache still name modules this project's must not clash with
+                |> Array.append (PackageCache.cachedPackageSources ())
                 |> checkBeamModuleNames cliArgs
 
             let! fableCompiler =

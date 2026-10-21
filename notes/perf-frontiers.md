@@ -115,7 +115,7 @@ How upstream's precompile works (for building on it):
 
 ### Package cache (`PackageCache.fs`)
 
-On by default for JavaScript and TypeScript; `--noPackageCache` turns it off, `FICKL_PACKAGE_CACHE` moves it
+On by default for JavaScript, TypeScript, Python and BEAM; `--noPackageCache` turns it off, `FICKL_PACKAGE_CACHE` moves it
 (default `%LOCALAPPDATA%/fickl/packages`, `~/.local/share/fickl/packages` on Linux).
 
 - Key: Fickl and Fable versions, compiler options, fable-library path, exclude/replace, the F# options with each
@@ -146,6 +146,33 @@ but Sutil, where one eta-expanded lambda's parameter is named after the cached m
 
 Also checked: runs without `--noCache` (cached project options, a skipped up-to-date compile, an edit), a hit after
 the folder that built the entry was deleted, and watch mode (miss, then hit: identical output, 240–275 ms rebuilds).
+
+#### Python and BEAM
+
+- Python: imports of a cached file resolve through its out path in this project (`Pipeline.fs`, `PythonFileWriter`),
+  as JS does, because the entities of a cached assembly record the source path where the entry was built. A Python
+  library's `__init__.py` files are written on a hit. The project's output type is in the key: Python declares a
+  library's `__all__` in package sources too.
+- BEAM: module names come from a source's path within its package, so imports need no rewriting. The module-name
+  clash check also covers cached package sources.
+- Package `.fsi` files are type-checked but compile to nothing; they no longer stop an entry from being saved (this
+  affected JS too, e.g. FSharp.Data.Adaptive).
+- Output checked against a `--noPackageCache` compile for a miss, a hit from another folder and a hit in place: BEAM
+  byte-identical; Python identical once the `_arrowN` / `ObjectExprN` numbering is ignored, which also differs
+  between two source compiles (a counter shared by files compiled in parallel). A hit from another folder can order
+  Python imports differently: they are sorted by their raw path, which for cached entities is the builder's. Python
+  output ran with the same results; BEAM output was not run (no Erlang on the machine).
+- Python test suite: 2602 passed.
+
+Bench projects (scratchpad): Python = FsToolkit.ErrorHandling, Hedgehog, Thoth.Json.Core, Fable.Python (104 package
+files); BEAM = FsToolkit.ErrorHandling, Hedgehog (65). Cold `--noCache`, 5 alternating runs, median:
+
+| Target | Upstream Fable 5.22: wall / compile phase | Fickl, no package cache | Fickl, cache hit |
+| --- | --- | --- | --- |
+| Python | 16.2 s / 13.7 s | 12.0 s / 9.3 s | 4.9 s / 2.1 s |
+| BEAM | 14.3 s / 11.3 s | 12.3 s / 9.4 s | 5.1 s / 2.1 s |
+
+A miss costs a one-time 8–9 s entry build on top of the compile.
 
 ## 4. Fable
 

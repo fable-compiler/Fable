@@ -199,7 +199,7 @@ module Python =
         let fileName = normalizeFileName targetPath
         Path.Combine(targetDir, fileName + fileExt)
 
-    type PythonFileWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
+    type PythonFileWriter(com: Compiler, cliArgs: CliArgs, pathResolver: PathResolver, targetPath: string) =
         let stream = new IO.StreamWriter(targetPath)
         let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
         let sourcePath = com.CurrentFile
@@ -323,7 +323,26 @@ module Python =
                     else
                         path
 
-                if path.Contains('/') then
+                // fickl: a file precompiled by the package cache may have been compiled elsewhere, so the path its
+                // entities record is where it was compiled: import its out path in this project instead
+                let precompiledImport =
+                    if path.Contains('/') && not isFableLibrary then
+                        pathResolver.TryPrecompiledOutPath(IO.Path.GetDirectoryName(sourcePath), path)
+                        |> Option.map (fun outPath ->
+                            let targetDir = IO.Path.GetDirectoryName(targetPathForResolution)
+                            let parts = (Imports.getRelativePath targetDir outPath).Split('/')
+
+                            if usePyPIForFableLibrary && parts |> Array.contains "fable_library" then
+                                packagePath parts
+                            else
+                                relativePath parts
+                        )
+                    else
+                        None
+
+                if precompiledImport.IsSome then
+                    precompiledImport.Value
+                elif path.Contains('/') then
                     // If inside fable-library then use relative path
                     if isFableLibrary then
                         "." + normalizeFileName path
