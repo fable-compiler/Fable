@@ -3320,11 +3320,14 @@ module Util =
         | _ -> None
 
     let taggedUnionTagDisplay (rule: CaseRules) (unionCase: FSharpUnionCase) =
-        match transformStringEnum rule unionCase with
-        | Fable.Value(Fable.StringConstant s, _) -> $"\"%s{s}\""
-        | Fable.Value(Fable.BoolConstant b, _) -> (string b).ToLowerInvariant()
-        | Fable.Value(Fable.NumberConstant(v, _), _) -> string v
-        | _ -> "the same tag"
+        match FsUnionCase.CompiledValue unionCase with
+        | Some(CompiledValue.Integer i) -> string i
+        | Some(CompiledValue.Float f) -> string f
+        | Some(CompiledValue.Boolean b) -> (string b).ToLowerInvariant()
+        | None ->
+            match transformStringEnum rule unionCase with
+            | Fable.Value(Fable.StringConstant s, _) -> $"\"%s{s}\""
+            | _ -> "the same tag"
 
     type private TaggedUnionField =
         {

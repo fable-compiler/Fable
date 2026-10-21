@@ -443,6 +443,14 @@ module TaggedUnion =
         | [<CompiledName("run")>] Other of kind: string
         | [<CompiledName("idle")>] Idle
 
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("code")>]
+    type NumberTag =
+        | [<CompiledValue(1)>] Text of text: string
+        | [<CompiledValue(1)>] Count of count: int
+        | [<CompiledValue(2)>] On of flag: bool
+        | [<CompiledValue(2); CaseTest("$0.flag === false")>] Off of flag: bool
+        | [<CompiledValue(3)>] Idle
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1250,6 +1258,27 @@ let tests =
         (TaggedUnion.Job.Test "test").IsTest |> equal true
         (TaggedUnion.Job.Test "test").IsOther |> equal false
 
+    testCase "Case testing with TS tagged unions whose cases share a number tag works" <| fun () ->
+        let describe = function
+            | TaggedUnion.NumberTag.Text t -> "text: " + t
+            | TaggedUnion.NumberTag.Count c -> sprintf "count: %i" c
+            | TaggedUnion.NumberTag.On _ -> "on"
+            | TaggedUnion.NumberTag.Off _ -> "off"
+            | TaggedUnion.NumberTag.Idle -> "idle"
+        TaggedUnion.NumberTag.Text "hi" |> describe |> equal "text: hi"
+        TaggedUnion.NumberTag.Count 3 |> describe |> equal "count: 3"
+        TaggedUnion.NumberTag.On true |> describe |> equal "on"
+        TaggedUnion.NumberTag.Off false |> describe |> equal "off"
+        TaggedUnion.NumberTag.Idle |> describe |> equal "idle"
+        (TaggedUnion.NumberTag.Text "hi").IsText |> equal true
+        (TaggedUnion.NumberTag.Text "hi").IsCount |> equal false
+        (TaggedUnion.NumberTag.Count 3).IsCount |> equal true
+        (TaggedUnion.NumberTag.Count 3).IsText |> equal false
+        (TaggedUnion.NumberTag.On true).IsOn |> equal true
+        (TaggedUnion.NumberTag.On true).IsOff |> equal false
+        (TaggedUnion.NumberTag.Off false).IsOff |> equal true
+        (TaggedUnion.NumberTag.Off false).IsOn |> equal false
+
 #if FABLE_COMPILER
     testCase "Case testing with TS tagged unions whose cases share a tag works on raw JS objects" <| fun () ->
         let describeShared = function
@@ -1274,6 +1303,12 @@ let tests =
             | TaggedUnion.Job.Build k -> "build: " + k
             | TaggedUnion.Job.Test k -> "test: " + k
             | TaggedUnion.Job.Idle -> "idle"
+        let describeNumber = function
+            | TaggedUnion.NumberTag.Text t -> "text: " + t
+            | TaggedUnion.NumberTag.Count c -> sprintf "count: %i" c
+            | TaggedUnion.NumberTag.On _ -> "on"
+            | TaggedUnion.NumberTag.Off _ -> "off"
+            | TaggedUnion.NumberTag.Idle -> "idle"
         !!{| state = "done"; error = "raw" |} |> describeShared |> equal "error: raw"
         !!{| state = "done"; error = "raw" |} |> describeDerived |> equal "error: raw"
         !!{| state = "log"; message = 1 |} |> describeDerived |> equal "number: 1.0"
@@ -1284,6 +1319,11 @@ let tests =
         !!{| state = "done"; ok = false |} |> describeOutcome |> equal "failed"
         !!{| state = "run"; kind = "deploy" |} |> describeJob |> equal "other: deploy"
         !!{| state = "run"; kind = "test" |} |> describeJob |> equal "test: test"
+        !!{| code = 1; count = 2 |} |> describeNumber |> equal "count: 2"
+        !!{| code = 1; text = "raw" |} |> describeNumber |> equal "text: raw"
+        !!{| code = 2; flag = true |} |> describeNumber |> equal "on"
+        !!{| code = 2; flag = false |} |> describeNumber |> equal "off"
+        !!{| code = 3 |} |> describeNumber |> equal "idle"
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

@@ -534,4 +534,36 @@ let isRect (s: Shape) = s.IsRect
       compile source
       |> Assert.Exists.errorWith "Cases 'Rect' and 'Circle' of 'Shape' share the tag value \"shape\" and cannot be told apart at runtime: field 'shape' has type 'Rect', an interface that does not exist at runtime. Add a CaseTest attribute to 'Rect' or 'Circle'."
       |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a number tag emit error showing the tag value" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("code")>]
+type Status =
+    | [<CompiledValue(1)>] Ok of value: string
+    | [<CompiledValue(1)>] Failed of value: string
+
+let isOk (s: Status) = s.IsOk
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Ok' and 'Failed' of 'Status' share the tag value 1 and have the same fields. Add a CaseTest attribute to 'Ok' or 'Failed'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a boolean tag emit error showing the tag value" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("ok")>]
+type Status =
+    | [<CompiledValue(true)>] Ok of value: string
+    | [<CompiledValue(true)>] Warn of value: string
+
+let isOk (s: Status) = s.IsOk
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Ok' and 'Warn' of 'Status' share the tag value true and have the same fields. Add a CaseTest attribute to 'Ok' or 'Warn'."
+      |> ignore
   ]
