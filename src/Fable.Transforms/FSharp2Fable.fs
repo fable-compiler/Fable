@@ -578,14 +578,6 @@ let private transformUnionCaseTest
         let! unionExpr = transformExpr com ctx [] unionExpr
         let unionPattern = getUnionPattern fsType unionCase
 
-        do
-            match unionPattern, FsUnionCase.CaseTest unionCase with
-            | TypeScriptTaggedUnion _, _
-            | _, None -> ()
-            | _, Some _ ->
-                WarningCodes.caseTestIgnored unionCase.Name
-                |> addWarningWithCode com ctx.InlinePath r
-
         match unionPattern with
         | ErasedUnionCase -> return "Cannot test erased union cases" |> addErrorAndReturnNull com ctx.InlinePath r
 
@@ -2244,11 +2236,20 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
         | FSharpImplementationFileDeclaration.InitAction _ -> usedNames
     )
 
+let private warnIgnoredCaseTests (com: FableCompiler) ctx (ent: FSharpEntity) =
+    if ent.IsFSharpUnion && not (hasAttrib Atts.tsTaggedUnion ent.Attributes) then
+        for uci in ent.UnionCases do
+            if (FsUnionCase.CaseTest uci).IsSome then
+                WarningCodes.caseTestIgnored uci.Name
+                |> addWarningWithCode (com :> Compiler) ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
+
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls
     |> List.collect (fun fsDecl ->
         match fsDecl with
         | FSharpImplementationFileDeclaration.Entity(fsEnt, sub) ->
+            warnIgnoredCaseTests com ctx fsEnt
+
             match sub with
             | [] when isIgnoredLeafEntity fsEnt -> []
             | [] ->

@@ -296,11 +296,10 @@ open Fable.Core
 type Id =
     | [<CaseTest("$0.startsWith('n:')")>] Name of string
     | [<CaseTest("$0.startsWith('s:')")>] Slug of string
-
-let isName (id: Id) = match id with Name _ -> true | Slug _ -> false
 """
       compile source
-      |> Assert.Exists.warningWith "is ignored: it is only supported on TypeScriptTaggedUnion cases"
+      |> Assert.Exists.warningWith "CaseTest attribute on 'Name' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+      |> Assert.Exists.warningWith "CaseTest attribute on 'Slug' is ignored: it is only supported on TypeScriptTaggedUnion cases"
       |> ignore
 
     testCase "CaseTest in a TypeScriptTaggedUnion does not emit warning" <| fun _ ->
