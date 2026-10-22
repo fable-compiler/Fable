@@ -104,7 +104,6 @@ orZero (Some(System.Random().Next())) |> ignore
         """
 open Fable.Core
 
-[<Erase>]
 type Id =
     | [<CaseTest("$0.startsWith('n:')")>] Name of string
     | [<CaseTest("$0.startsWith('s:')")>] Slug of string

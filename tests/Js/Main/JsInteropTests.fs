@@ -451,6 +451,32 @@ module TaggedUnion =
         | [<CompiledValue(2); CaseTest("$0.flag === false")>] Off of flag: bool
         | [<CompiledValue(3)>] Idle
 
+module ErasedCaseTest =
+    type Circle =
+        abstract radius: float
+
+    type Rect =
+        abstract width: float
+
+    [<Erase; RequireQualifiedAccess>]
+    type Shape =
+        | [<CaseTest("'radius' in $0")>] Circle of Circle
+        | [<CaseTest("'width' in $0")>] Rect of Rect
+
+    [<Erase; RequireQualifiedAccess>]
+    type Id =
+        | [<CaseTest("$0.startsWith('n:')")>] Name of string
+        | Slug of string
+        | Count of int
+
+    let circle r =
+        { new Circle with
+            member _.radius = r }
+
+    let rect w =
+        { new Rect with
+            member _.width = w }
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1279,6 +1305,22 @@ let tests =
         (TaggedUnion.NumberTag.Off false).IsOff |> equal true
         (TaggedUnion.NumberTag.Off false).IsOn |> equal false
 
+    testCase "Erased union cases of interface type use their CaseTest" <| fun () ->
+        let describe = function
+            | ErasedCaseTest.Shape.Circle c -> sprintf "circle %.1f" c.radius
+            | ErasedCaseTest.Shape.Rect r -> sprintf "rect %.1f" r.width
+        ErasedCaseTest.Shape.Circle (ErasedCaseTest.circle 1.5) |> describe |> equal "circle 1.5"
+        ErasedCaseTest.Shape.Rect (ErasedCaseTest.rect 2.5) |> describe |> equal "rect 2.5"
+
+    testCase "Erased union cases of the same type use the CaseTest of the other case" <| fun () ->
+        let describe = function
+            | ErasedCaseTest.Id.Slug s -> "slug " + s
+            | ErasedCaseTest.Id.Name n -> "name " + n
+            | ErasedCaseTest.Id.Count c -> sprintf "count %i" c
+        ErasedCaseTest.Id.Name "n:x" |> describe |> equal "name n:x"
+        ErasedCaseTest.Id.Slug "s:y" |> describe |> equal "slug s:y"
+        ErasedCaseTest.Id.Count 3 |> describe |> equal "count 3"
+
 #if FABLE_COMPILER
     testCase "Case testing with TS tagged unions whose cases share a tag works on raw JS objects" <| fun () ->
         let describeShared = function
@@ -1324,6 +1366,18 @@ let tests =
         !!{| code = 2; flag = true |} |> describeNumber |> equal "on"
         !!{| code = 2; flag = false |} |> describeNumber |> equal "off"
         !!{| code = 3 |} |> describeNumber |> equal "idle"
+        let describeShape = function
+            | ErasedCaseTest.Shape.Circle c -> sprintf "circle %.1f" c.radius
+            | ErasedCaseTest.Shape.Rect r -> sprintf "rect %.1f" r.width
+        let describeId = function
+            | ErasedCaseTest.Id.Slug s -> "slug " + s
+            | ErasedCaseTest.Id.Name n -> "name " + n
+            | ErasedCaseTest.Id.Count c -> sprintf "count %i" c
+        !!{| radius = 3.0 |} |> describeShape |> equal "circle 3.0"
+        !!{| width = 4.0 |} |> describeShape |> equal "rect 4.0"
+        !!"n:raw" |> describeId |> equal "name n:raw"
+        !!"raw" |> describeId |> equal "slug raw"
+        !!7 |> describeId |> equal "count 7"
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

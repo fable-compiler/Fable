@@ -3432,18 +3432,25 @@ module Util =
 
         byPresence |> Option.orElseWith byAbsence |> Option.orElseWith byType
 
+    /// Why a type is known to have no runtime test, None when it has one or when this is unknown
+    let private tryUntestableKind (com: Compiler) (typ: Fable.Type) =
+        match typ with
+        | Fable.Any -> Some "which can hold any value"
+        | Fable.GenericParam _ -> Some "a generic parameter unknown at runtime"
+        | Fable.DeclaredType(entRef, _) when (tryRuntimeTypeTestKey com typ).IsNone ->
+            match com.TryGetEntity entRef with
+            | Some ent when isPojoDefinedByConsArgsEntity ent -> Some "a Pojo that is a plain object at runtime"
+            | Some ent when ent.IsInterface -> Some "an interface that does not exist at runtime"
+            | Some ent when isErasedOrStringEnumEntity ent -> Some "an erased type"
+            | _ -> None
+        | _ -> None
+
+    let isUntestableType (com: Compiler) (typ: Fable.Type) = (tryUntestableKind com typ).IsSome
+
     let private describeUntestableType (com: Compiler) (f: TaggedUnionField) =
         let kind =
-            match f.Type with
-            | Fable.Any -> "which can hold any value"
-            | Fable.GenericParam _ -> "a generic parameter unknown at runtime"
-            | Fable.DeclaredType(entRef, _) ->
-                match com.TryGetEntity entRef with
-                | Some ent when isPojoDefinedByConsArgsEntity ent -> "a Pojo that is a plain object at runtime"
-                | Some ent when ent.IsInterface -> "an interface that does not exist at runtime"
-                | Some ent when isErasedOrStringEnumEntity ent -> "an erased type"
-                | _ -> "a type that cannot be tested at runtime"
-            | _ -> "a type that cannot be tested at runtime"
+            tryUntestableKind com f.Type
+            |> Option.defaultValue "a type that cannot be tested at runtime"
 
         $"field '%s{f.Name}' has type '%s{f.Display}', %s{kind}"
 
@@ -3520,3 +3527,56 @@ module Util =
                 )
                 (Ok [])
             |> Result.map List.distinct
+
+    /// Checks added to the type test of an erased union case, or why the type test is not enough
+    [<RequireQualifiedAccess>]
+    type ErasedUnionCaseTests =
+        | NotCaseTests of macros: string list
+        | Untestable of reason: string
+        | Ambiguous of other: FSharpUnionCase * reason: string
+
+    /// Negated CaseTests of the other cases whose values pass this case's type test
+    let deriveErasedUnionCaseTests
+        (com: Compiler)
+        (tdef: FSharpEntity)
+        (unionCase: FSharpUnionCase)
+        (payloadType: FSharpUnionCase -> Fable.Type option)
+        : ErasedUnionCaseTests
+        =
+        let display (uc: FSharpUnionCase) =
+            uc.Fields[0].FieldType.Format(FSharpDisplayContext.Empty.WithShortTypeNames(true))
+
+        match payloadType unionCase with
+        | None -> ErasedUnionCaseTests.NotCaseTests []
+        | Some myType ->
+            match tryUntestableKind com myType with
+            | Some kind -> ErasedUnionCaseTests.Untestable $"type '%s{display unionCase}' is %s{kind}"
+            | None ->
+                let myKey = tryRuntimeTypeTestKey com myType
+
+                tdef.UnionCases
+                |> Seq.filter (fun uc -> uc.Name <> unionCase.Name)
+                |> Seq.fold
+                    (fun acc other ->
+                        match acc, payloadType other with
+                        | ErasedUnionCaseTests.NotCaseTests macros, Some otherType ->
+                            let isSubtype = passesTestOf com myType otherType
+
+                            if not isSubtype && (myKey.IsNone || myKey <> tryRuntimeTypeTestKey com otherType) then
+                                acc
+                            else
+                                match FsUnionCase.CaseTest other with
+                                | Some macro -> ErasedUnionCaseTests.NotCaseTests(macros @ [ macro ])
+                                | None ->
+                                    let reason =
+                                        if isSubtype then
+                                            $"'%s{display other}' is a subtype of '%s{display unionCase}'"
+                                        elif display unionCase = display other then
+                                            $"both have type '%s{display unionCase}'"
+                                        else
+                                            $"types '%s{display unionCase}' and '%s{display other}' look the same at runtime"
+
+                                    ErasedUnionCaseTests.Ambiguous(other, reason)
+                        | _ -> acc
+                    )
+                    (ErasedUnionCaseTests.NotCaseTests [])

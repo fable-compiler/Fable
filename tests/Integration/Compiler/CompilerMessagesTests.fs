@@ -287,19 +287,18 @@ type MyClass() =
       |> Assert.Is.success
       |> ignore
 
-    testCase "CaseTest outside a TypeScriptTaggedUnion emits warning" <| fun _ ->
+    testCase "CaseTest on a regular union emits warning" <| fun _ ->
       let source =
         """
 open Fable.Core
 
-[<Erase>]
 type Id =
     | [<CaseTest("$0.startsWith('n:')")>] Name of string
     | [<CaseTest("$0.startsWith('s:')")>] Slug of string
 """
       compile source
-      |> Assert.Exists.warningWith "CaseTest attribute on 'Name' is ignored: it is only supported on TypeScriptTaggedUnion cases"
-      |> Assert.Exists.warningWith "CaseTest attribute on 'Slug' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+      |> Assert.Exists.warningWith "CaseTest attribute on 'Name' is ignored: it is only supported on TypeScriptTaggedUnion and Erase union cases"
+      |> Assert.Exists.warningWith "CaseTest attribute on 'Slug' is ignored: it is only supported on TypeScriptTaggedUnion and Erase union cases"
       |> ignore
 
     testCase "CaseTest in a TypeScriptTaggedUnion does not emit warning" <| fun _ ->
@@ -564,5 +563,145 @@ let isOk (s: Status) = s.IsOk
 """
       compile source
       |> Assert.Exists.errorWith "Cases 'Ok' and 'Warn' of 'Status' share the tag value true and have the same fields. Add a CaseTest attribute to 'Ok' or 'Warn'."
+      |> ignore
+
+    testCase "Erased union case of interface type emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Circle =
+    abstract radius: float
+
+type Rect =
+    abstract width: float
+
+[<Erase>]
+type Shape =
+    | Circle of Circle
+    | Rect of Rect
+
+let isRect (s: Shape) = match s with Rect _ -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "Case 'Rect' of 'Shape' cannot be tested at runtime: type 'Rect' is an interface that does not exist at runtime. Add a CaseTest attribute to 'Rect'."
+      |> ignore
+
+    testCase "Erased union cases of the same type emit error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Id =
+    | Name of string
+    | Slug of string
+
+let isName (id: Id) = match id with Name _ -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Name' and 'Slug' of 'Id' cannot be told apart at runtime: both have type 'string'. Add a CaseTest attribute to 'Name' or 'Slug'."
+      |> ignore
+
+    testCase "Erased union cases of types with the same runtime test emit error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Quantity =
+    | Count of int
+    | Amount of float
+
+let isCount (q: Quantity) = match q with Count _ -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Count' and 'Amount' of 'Quantity' cannot be told apart at runtime: types 'int' and 'float' look the same at runtime. Add a CaseTest attribute to 'Count' or 'Amount'."
+      |> ignore
+
+    testCase "Erased union case whose type includes another case emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Animal() =
+    member _.Kind = "animal"
+
+type Dog() =
+    inherit Animal()
+
+[<Erase>]
+type Pet =
+    | Animal of Animal
+    | Dog of Dog
+
+let isAnimal (p: Pet) = match p with Animal _ -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Animal' and 'Dog' of 'Pet' cannot be told apart at runtime: 'Dog' is a subtype of 'Animal'. Add a CaseTest attribute to 'Animal' or 'Dog'."
+      |> ignore
+
+    testCase "Erased union cases of distinct types do not emit error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Animal() =
+    member _.Kind = "animal"
+
+type Dog() =
+    inherit Animal()
+
+[<Erase>]
+type Pet =
+    | Animal of Animal
+    | Dog of Dog
+
+[<Erase>]
+type Value =
+    | Str of string
+    | Num of float
+    | Flag of bool
+    | Many of float[]
+
+let isDog (p: Pet) = match p with Dog _ -> true | _ -> false
+let describe (v: Value) = match v with Str _ -> "str" | Num _ -> "num" | Flag _ -> "flag" | Many _ -> "many"
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased union cases with CaseTest do not emit error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Circle =
+    abstract radius: float
+
+type Rect =
+    abstract width: float
+
+[<Erase>]
+type Shape =
+    | [<CaseTest("'radius' in $0")>] Circle of Circle
+    | [<CaseTest("'width' in $0")>] Rect of Rect
+
+[<Erase>]
+type Id =
+    | [<CaseTest("$0.startsWith('n:')")>] Name of string
+    | Slug of string
+
+[<Erase>]
+type Raw =
+    | [<CaseTest("typeof $0 === 'object'")>] Obj of obj
+    | Text of string
+
+let describe (s: Shape) = match s with Circle _ -> "circle" | Rect _ -> "rect"
+let kind (id: Id) = match id with Name _ -> "name" | Slug _ -> "slug"
+let raw (r: Raw) = match r with Obj _ -> "obj" | Text _ -> "text"
+"""
+      compile source
+      |> Assert.Is.strictSuccess
       |> ignore
   ]
