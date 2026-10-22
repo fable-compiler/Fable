@@ -2,7 +2,7 @@
     "type": "module",
     "name": "@fable-org/fable-compiler-js",
     "private": false,
-    "version": "4.1.0",
+    "version": "4.2.0",
     "main": "index.js",
     "bin": {
         "fable": "index.js"
@@ -25,7 +25,7 @@
     "homepage": "https://github.com/fable-compiler/Fable#readme",
     "dependencies": {
         "@fable-org/fable-metadata": "^2.2.0",
-        "@fable-org/fable-standalone": "^4.0.0-beta.2-beta.1"
+        "@fable-org/fable-standalone": "^4.0.0-beta.3"
     },
     "devDependencies": {
         "esbuild": "^0.28.1",

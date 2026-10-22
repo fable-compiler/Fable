@@ -5,7 +5,7 @@ updaters:
       file: package.json
   - regex:
       file: ../fable-compiler-js/package.json
-      pattern: '(?<="@fable-org/fable-metadata": "\^)\d+\.\d+\.\d+'
+      pattern: '(?<="@fable-org/fable-metadata": "\^)[^"]+'
 ---
 
 # Changelog

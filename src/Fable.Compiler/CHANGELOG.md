@@ -1,5 +1,5 @@
 ---
-last_commit_released: 5ee8bbb832d9677ad702104ded8e00c09619393f
+last_commit_released: 2098f64a25e96385306ef19ed8c289f3b6c84db9
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.23.0 - 2026-10-22
+
+### 🚀 Features
+
+* *(all)* Support suppressing warnings via `// fable-disable` comments (#4808) ([f4a1a8cd](https://github.com/fable-compiler/Fable/commit/f4a1a8cdae2e8ac81edbdc6eba36cc140234170b))
+* *(all)* Warn on duplicate CompiledName on union cases ([2098f64a](https://github.com/fable-compiler/Fable/commit/2098f64a25e96385306ef19ed8c289f3b6c84db9))
+* *(js/ts)* Map static Decimal conversion methods (#5129) ([cd63e57e](https://github.com/fable-compiler/Fable/commit/cd63e57e909393ab493a1d8bfedbea9a50a377c9))
+* *(js/ts)* Support System.Diagnostics.Stopwatch (#5100) ([eb68225f](https://github.com/fable-compiler/Fable/commit/eb68225ff74d1b455765d99998faa6fd3be32383))
+* *(js/ts)* Add `JSX.spread` for `JSX.create` props (#5141) ([28427d62](https://github.com/fable-compiler/Fable/commit/28427d621b4e256fdcda83dd8340ed6817e0e60c))
+* *(js/ts)* Derive case tests for TypeScriptTaggedUnion cases sharing a tag (#5130) ([3b8a9e21](https://github.com/fable-compiler/Fable/commit/3b8a9e218d27a47074b894f4768466f74c5a0f8e))
+* *(js/ts)* Support CaseTest on Erase union cases (#5131) ([8cc21077](https://github.com/fable-compiler/Fable/commit/8cc210773e7b30bcf1071388d603b5c115cccd85))
+* *(js/ts)* Derive erased union tests from interfaces (#5133) ([3a295308](https://github.com/fable-compiler/Fable/commit/3a2953087fd6749f211263b049d94eafd289472d))
+
+### 🐞 Bug Fixes
+
+* *(all)* Kill --run process on SIGTERM everywhere (#5140) ([09158b05](https://github.com/fable-compiler/Fable/commit/09158b05acf4c35b54111f4f1d72b96930bce18e))
+* *(js/ts)* Round decimals below 0.1 correctly ([fca4c408](https://github.com/fable-compiler/Fable/commit/fca4c408a64e33c58293f12869975e5b61bcb96a))
+* *(js/ts)* Keep decimal zero scale without leading zeros ([3076b45a](https://github.com/fable-compiler/Fable/commit/3076b45acacf39b8c99ec57025560ad355ab74db))
+* *(js/ts)* Hash decimals by value in collections ([32a69e0d](https://github.com/fable-compiler/Fable/commit/32a69e0d00f567c9a838307e9ed51b3b1d519473))
+* *(js/ts)* Keep .NET decimal scale through arithmetic (#5126) ([bdf0a6c8](https://github.com/fable-compiler/Fable/commit/bdf0a6c8cb56151a5431b5e3703f7ee165b26dba))
+* *(js/ts)* Warn on type test against Pojo class (#5128) ([798df101](https://github.com/fable-compiler/Fable/commit/798df10179576a28f602fad58e204881792a0aef))
+* *(js/ts)* Accept decimal integers up to 2^96 ([c9feb339](https://github.com/fable-compiler/Fable/commit/c9feb339fb8a4e98bebf17b3facdc42ecd22d628))
+* *(js/ts)* Align decimal conversion, parsing and G format ([6430cdac](https://github.com/fable-compiler/Fable/commit/6430cdacec34e6327434af649eb0c9427d65608c))
+* *(js/ts)* Add missing Async and Task members, cancel timed-out StartChild, bind Async in task { } (#5097) ([d063630d](https://github.com/fable-compiler/Fable/commit/d063630d58d62db21603d45a6bf54b172378c66e))
+* *(js/ts)* Respect maxDegreeOfParallelism and cancel on failure in Async.Parallel (#5098) ([5de3271d](https://github.com/fable-compiler/Fable/commit/5de3271d8b47f1752c4e74c010e4314cf40bbcbe))
+* *(js/ts)* Inline interface cases of TypeScriptTaggedUnion (#5146) ([2be66611](https://github.com/fable-compiler/Fable/commit/2be66611d884cd564fa3f7b06fd4a015add1cefd))
+
+### ⚡ Performance Improvements
+
+* *(all)* Faster project cracking (#5136) ([ba042783](https://github.com/fable-compiler/Fable/commit/ba0427839107c157436479958898688952df05c3))
+* *(all)* Disable .NET telemetry for dotnet build (#5137) ([e9ffc41e](https://github.com/fable-compiler/Fable/commit/e9ffc41e5f53df018d4c141b9bfaa51ca76e0be5))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/5ee8bbb832d9677ad702104ded8e00c09619393f..2098f64a25e96385306ef19ed8c289f3b6c84db9)</small></strong>
 
 ## 5.22.0 - 2026-10-21
 

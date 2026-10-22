@@ -1,5 +1,5 @@
 ---
-last_commit_released: e33c57870454fea189a3eb33519f583a5003f8c3
+last_commit_released: 2098f64a25e96385306ef19ed8c289f3b6c84db9
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.10.0 - 2026-10-22
+
+### 🚀 Features
+
+* *(js/ts)* Support System.Diagnostics.Stopwatch (#5100) ([eb68225f](https://github.com/fable-compiler/Fable/commit/eb68225ff74d1b455765d99998faa6fd3be32383))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Round decimals below 0.1 correctly ([fca4c408](https://github.com/fable-compiler/Fable/commit/fca4c408a64e33c58293f12869975e5b61bcb96a))
+* *(js/ts)* Keep decimal zero scale without leading zeros ([3076b45a](https://github.com/fable-compiler/Fable/commit/3076b45acacf39b8c99ec57025560ad355ab74db))
+* *(js/ts)* Hash decimals by value in collections ([32a69e0d](https://github.com/fable-compiler/Fable/commit/32a69e0d00f567c9a838307e9ed51b3b1d519473))
+* *(js/ts)* Keep .NET decimal scale through arithmetic (#5126) ([bdf0a6c8](https://github.com/fable-compiler/Fable/commit/bdf0a6c8cb56151a5431b5e3703f7ee165b26dba))
+* *(js/ts)* Accept decimal integers up to 2^96 ([c9feb339](https://github.com/fable-compiler/Fable/commit/c9feb339fb8a4e98bebf17b3facdc42ecd22d628))
+* *(js/ts)* Align decimal conversion, parsing and G format ([6430cdac](https://github.com/fable-compiler/Fable/commit/6430cdacec34e6327434af649eb0c9427d65608c))
+* *(js/ts)* Add missing Async and Task members, cancel timed-out StartChild, bind Async in task { } (#5097) ([d063630d](https://github.com/fable-compiler/Fable/commit/d063630d58d62db21603d45a6bf54b172378c66e))
+* *(js/ts)* Respect maxDegreeOfParallelism and cancel on failure in Async.Parallel (#5098) ([5de3271d](https://github.com/fable-compiler/Fable/commit/5de3271d8b47f1752c4e74c010e4314cf40bbcbe))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/e33c57870454fea189a3eb33519f583a5003f8c3..2098f64a25e96385306ef19ed8c289f3b6c84db9)</small></strong>
 
 ## 2.9.0 - 2026-10-16
 
