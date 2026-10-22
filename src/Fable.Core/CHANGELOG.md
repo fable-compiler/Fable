@@ -1,5 +1,5 @@
 ---
-last_commit_released: 5ee8bbb832d9677ad702104ded8e00c09619393f
+last_commit_released: 2098f64a25e96385306ef19ed8c289f3b6c84db9
 ---
 
 # Changelog
@@ -8,6 +8,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.6.0 - 2026-10-22
+
+### 🚀 Features
+
+* *(js/ts)* Add `JSX.spread` for `JSX.create` props (#5141) ([28427d62](https://github.com/fable-compiler/Fable/commit/28427d621b4e256fdcda83dd8340ed6817e0e60c))
+* *(js/ts)* Derive case tests for TypeScriptTaggedUnion cases sharing a tag (#5130) ([3b8a9e21](https://github.com/fable-compiler/Fable/commit/3b8a9e218d27a47074b894f4768466f74c5a0f8e))
+* *(js/ts)* Support CaseTest on Erase union cases (#5131) ([8cc21077](https://github.com/fable-compiler/Fable/commit/8cc210773e7b30bcf1071388d603b5c115cccd85))
+* *(js/ts)* Derive erased union tests from interfaces (#5133) ([3a295308](https://github.com/fable-compiler/Fable/commit/3a2953087fd6749f211263b049d94eafd289472d))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/5ee8bbb832d9677ad702104ded8e00c09619393f..2098f64a25e96385306ef19ed8c289f3b6c84db9)</small></strong>
 
 ## 5.5.0 - 2026-10-21
 
