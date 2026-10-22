@@ -30,9 +30,6 @@ module private MSBuildCrackerResolver =
 
     type FullPath = string
 
-    [<Literal>]
-    let private TelemetryOptOutVariable = "DOTNET_CLI_TELEMETRY_OPTOUT"
-
     let private run_dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) (defines: string list) =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
@@ -52,9 +49,8 @@ module private MSBuildCrackerResolver =
             // https://github.com/fable-compiler/Fable/issues/4014
             psi.Environment.Add("DOTNET_NOLOGO", "1")
 
-            // The dotnet CLI blocks on sending telemetry at exit, which can take seconds on a restricted network
-            if not (psi.Environment.ContainsKey TelemetryOptOutVariable) then
-                psi.Environment.Add(TelemetryOptOutVariable, "1")
+            for key, value in Fable.Compiler.Util.Process.dotnetEnvVars () do
+                psi.Environment[key] <- value
 
             if not (List.isEmpty defines) then
                 let definesValue = defines |> String.concat ";"

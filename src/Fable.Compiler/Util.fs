@@ -474,12 +474,23 @@ module Process =
     let runSync (workingDir: string) (exePath: string) (args: string list) =
         runSyncWithEnv [] workingDir exePath args
 
-    let runSyncWithOutput workingDir exePath args =
-        let p = startProcess true [] workingDir exePath args
+    /// Environment for the `dotnet` processes Fable starts for itself, not for the user's --run commands
+    let dotnetEnvVars () =
+        // The dotnet CLI blocks on sending telemetry at exit, which can take seconds on a restricted network
+        if isNull (Environment.GetEnvironmentVariable "DOTNET_CLI_TELEMETRY_OPTOUT") then
+            [ "DOTNET_CLI_TELEMETRY_OPTOUT", "1" ]
+        else
+            []
+
+    let runSyncWithOutputEnv envVars workingDir exePath args =
+        let p = startProcess true envVars workingDir exePath args
         // Don't wait indefinitely to run process
         // This call is used to build local plugins, if the binary is used by another process this process will never end.
         p.WaitForExit 7000 |> ignore
         p.StandardOutput.ReadToEnd()
+
+    let runSyncWithOutput workingDir exePath args =
+        runSyncWithOutputEnv [] workingDir exePath args
 
 [<RequireQualifiedAccess>]
 module Async =

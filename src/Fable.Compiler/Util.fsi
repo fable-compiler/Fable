@@ -94,6 +94,11 @@ module Process =
 
     val runSyncWithOutput: string -> string -> string list -> string
 
+    val runSyncWithOutputEnv: envVars: (string * string) list -> string -> string -> string list -> string
+
+    /// Environment for the `dotnet` processes Fable starts for itself, not for the user's --run commands
+    val dotnetEnvVars: unit -> (string * string) list
+
 type PathResolver =
     abstract TryPrecompiledOutPath: sourceDir: string * relativePath: string -> string option
 
