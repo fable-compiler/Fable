@@ -7,6 +7,7 @@ let allTests =
     [
         CompilerMessages.tests
         CodeServicesApi.tests
+        IwsamWarnings.tests
         AnonRecordInInterface.tests
         CompilerHelpers.tests
         Inflate.tests

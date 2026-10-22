@@ -157,6 +157,92 @@ project's own files.
 | Remaining allocation (`FSharpExprConvert`, type hashing) | open | 2.9 GB in `FSharpExprConvert` before the symbol caches. |
 | Parser static-constructor contention | ruled out | At most ~0.1 s. |
 
+### Binding-file follow-up (2026-10-22, Windows)
+
+An isolated project checks Glutinum CLI's unchanged 18,721-line `src/Glutinum.Converter/TypeScript.fs`
+at `acfa66e39c79d6a608e030b5f60fd6536596e190`, with Fable.Core 5.4.0 and Glutinum.Types 1.0.0-beta.2.
+Local fixtures, scripts and raw measurements are under ignored `temp/binding-probe/`.
+
+Installed Fickl 0.5.1, `--noCache --noPackageCache`: the net10.0 fixture's first unprofiled run spent
+1,476 ms in parse/check, 27 ms in Fable per-file work, and allocated 1,719 MB during compilation.
+Attaching dotnet-trace by PID (avoiding inherited diagnostic-port suspension in MSBuild) gave these
+inclusive sampled checking-stack shares. These are single profiles, not speedup measurements:
+
+| Fixture target | CheckIWSAM | Attribute checking | Post-inference checks |
+| --- | --- | --- | --- |
+| net10.0 | 22.1% | 15.0% | 13.3% |
+| netstandard2.1, matching Glutinum | 21.3% | 16.1% | 16.9% |
+
+Generic-parameter metadata reading was not prominent in either isolated profile. This does not invalidate
+the earlier full-project profile: the isolated project has fewer references and a different checking context.
+The strongest remaining leads here are repeated intrinsic interface-member traversal and attribute checking.
+
+Dictionary insertion/locking also appeared hot, so two independent changes were tried against FCS
+`667b537e2`. These comparisons used matching **IL** CLI builds, not the installed composite R2R package.
+Five alternating runs per variant after warm-up, `--noCache --noRestore --noPackageCache`; binding fixture
+targets net10.0. Values below are median compilation wall milliseconds (excluding cracking):
+
+| Experiment | Binding baseline → candidate | JS suite baseline → candidate | Allocation change |
+| --- | --- | --- | --- |
+| Call-local PropertyCollector: Dictionary instead of ConcurrentDictionary | 1,979 → 1,995 | 2,325 → 2,257 | Binding −7 MB; JS −36 MB |
+| TranslateTopArgSynInfo: allocate/store only on a cache miss | 2,016 → 1,975 | 2,187 → 2,327 | Binding −1 MB; JS −2 MB |
+
+Neither was retained: the first did not improve the target binding workload, and the second's small binding
+improvement did not carry across to the JS suite. Run-to-run spreads also caution against treating these
+small differences as reliable wins. Every run produced byte-identical JS against its baseline (67 files
+including the runtime for the binding fixture, 141 for the JS suite). This is output-equivalence evidence,
+not a full compiler conformance test.
+
+Build/validation limitations: a fresh FCS build failed in the netstandard2.0 dependencies with FS0074
+(`System.Array` unavailable). Reusing existing dependency binaries and building FCS with
+`BuildProjectReferences=false; ProduceReferenceAssembly=false` succeeded for baseline and candidates;
+all three builds emitted the same four existing FS3261 symbol-API nullness warnings. The prebuilt compiler
+test runner was stale relative to current source: its baseline failed `CaseTest in a TypeScriptTaggedUnion
+does not emit warning`, `InlineInterface on a case without an interface field emits error`, and
+`InlineInterface on a case with an interface field does not emit error`, referring to obsolete namespace
+`Fickle` instead of current `Fickl.Core`. No passing-suite claim is made from that runner.
+
+### Static-abstract interface warning fast path (2026-10-22)
+
+The binding profile's `CheckIWSAM` subtree spent about half its samples filtering overrides and another
+17% excluding hidden methods. Ordinary interfaces cannot trigger this warning, but previously paid for
+those signature comparisons at every checked use. `InfoReader.HasIntrinsicStaticAbstractMethod` now
+first scans the raw intrinsic method sets for a static dispatch slot. If none exists it returns false;
+otherwise it runs exactly the previous override/hiding filters. It introduces no cache or invalidation rule.
+
+Source changes are in the sibling `fickle-fsharp` checkout (`fickle_slim`, commit `c32d52e92`), in
+`InfoReader.fs`, `InfoReader.fsi`, and `Expressions/CheckExpressions.fs`. The rebuilt FCS DLL and XML are
+vendored in `lib/fcs`. The dependency-build workaround described above was still required.
+
+Five alternating measured runs after warm-up, with cache and package cache disabled:
+
+| Build / workload | Median compile ms, baseline → candidate | Median allocation MB |
+| --- | --- | --- |
+| IL / binding | 1,963 → 1,773 (−9.7%) | 1,715 → 1,219 (−28.9%) |
+| IL / JS suite | 2,197 → 2,250 (+2.4%; variable) | 7,815 → 7,811 |
+| Composite R2R / binding | 1,467 → 1,242 (−15.3%) | 1,719 → 1,225 (−28.7%) |
+| Composite R2R / JS suite | 1,933 → 1,979 (+2.4%; variable) | 7,819 → 7,819 |
+
+R2R binding process wall time fell 2,853 → 2,634 ms (−7.7%). JS-suite R2R paired compile deltas were
+−8, −18, +108, +10, and −23 ms: these measurements support a binding-heavy workload improvement, not a
+general compiler speedup. Every measured run had byte-identical JS to its baseline (68 binding output
+files, including runtime and an existing helper, and 141 JS-suite files). The R2R outputs were regenerated
+after clearing stale crossgen intermediates; the initial accidentally identical publishes were discarded.
+Raw results: `temp/binding-probe/iwsam-il-comparison.csv` and `iwsam-r2r-comparison.csv`.
+
+The fresh compiler test runner passed all 140 tests, including seven warning cases: ordinary inherited
+generic interfaces, repeated static-abstract uses, inherited slots, concrete static members, recursive
+declarations, imported `IParsable`, and a concrete static member hiding an inherited slot. Baseline and
+candidate diagnostic snapshots for these cases were identical. The previous stale runner failures above
+do not recur after rebuilding. Static review found no actionable issue; diagnostic timing/location for
+malformed imported metadata and type-provider callbacks have not been dynamically tested.
+
+The generated JS-suite output passed all 3,162 Node tests. The broader `test integration` command
+stopped after 41/42 integration tests passed: `pathMap` expects a forward slash in `CallerFilePath`,
+but Windows emits a backslash. The same focused test fails identically with the baseline FCS DLL.
+No snapshot was changed. The command therefore did not reach its later project-configuration tests;
+the separate 140-test compiler run above passed with the candidate DLL.
+
 ### Experiment: Fantomas tools against precompiled packages
 
 A stub project with Fantomas tools' package references and one empty file, `fable precompile`d (9.3 s, once), then

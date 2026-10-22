@@ -25882,6 +25882,12 @@ Get the signature for the value&apos;s XML documentation
  Determine if a type has a static abstract method with the given name somewhere in its hierarchy
 </summary>
 </member>
+<member name="M:FSharp.Compiler.InfoReader.InfoReader.HasIntrinsicStaticAbstractMethod(FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Text.Range,FSharp.Compiler.TypedTree.TType)">
+<summary>
+ Tests for a visible intrinsic static abstract method, including inherited methods.
+ Override and hiding checks are skipped when the raw hierarchy has no candidate slots.
+</summary>
+</member>
 <member name="M:FSharp.Compiler.InfoReader.InfoReader.GetTraitInfosInType(Microsoft.FSharp.Core.FSharpOption{System.String},FSharp.Compiler.TypedTree.TType)">
 <summary>
  Get the trait infos for a type variable (empty for everything else)
