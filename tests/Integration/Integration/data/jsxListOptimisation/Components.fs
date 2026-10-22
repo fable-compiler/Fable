@@ -40,6 +40,8 @@ type prop =
 
     static member inline className (cls : string) : JSX_IReactProperty = "className", cls
 
+    static member inline title (value : string) : JSX_IReactProperty = "title", value
+
 [<Erase>]
 type Html =
 
@@ -197,3 +199,20 @@ let divWithLongClassName =
     Html.div [
         prop.className "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     ]
+
+let spreadProps: obj =
+    createObj [ "data-testid" ==> "spread-target"; "title" ==> "from-spread" ]
+
+let divWithSpread = Html.div [ JSX.spread spreadProps ]
+
+let divWithSpreadBetweenProps =
+    Html.div [ prop.className "before"; JSX.spread spreadProps; prop.title "after" ]
+
+let divWithSpreadOverridingProps =
+    Html.div [ prop.title "before"; JSX.spread spreadProps ]
+
+let divWithTwoSpreads =
+    Html.div [ JSX.spread spreadProps; JSX.spread (createObj [ "title" ==> "second" ]) ]
+
+let divWithSpreadAndChildren =
+    Html.div [ JSX.spread spreadProps; prop.children [ Html.div "Child" ] ]

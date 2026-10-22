@@ -26,7 +26,7 @@ type AssignmentOperator =
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
     | CommentedExpression of comment: string * expr: Expression
-    | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
+    | JsxElement of componentOrTag: Expression * props: JsxProp list * children: Expression list
     | JsxTemplate of parts: string array * values: Expression array
     | Literal of Literal
     | Identifier of Identifier
@@ -534,6 +534,11 @@ type TypeAnnotation =
 type TypeParameter = | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotation option
 
 type FunctionTypeParam = | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotation * isOptional: bool
+
+[<RequireQualifiedAccess>]
+type JsxProp =
+    | KeyValue of key: string * value: Expression
+    | Spread of value: Expression
 
 [<AutoOpen>]
 module Helpers =

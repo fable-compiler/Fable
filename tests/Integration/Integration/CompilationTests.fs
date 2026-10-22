@@ -93,7 +93,7 @@ let tests =
                 // Compile project
                 let exitCode =
                     Array.append
-                        [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual" |]
+                        [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual"; "--exclude"; "Fable.Core" |]
                         precompiledLibArgs
                     |> Fable.Cli.Entry.main
 

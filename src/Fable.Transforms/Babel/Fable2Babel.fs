@@ -2128,6 +2128,11 @@ module Util =
             |> List.append thisArg
             |> emitExpression range macro
 
+    [<RequireQualifiedAccess>]
+    type JsxPropExpr =
+        | KeyValue of key: string * value: Fable.Expr
+        | Spread of value: Fable.Expr
+
     let transformJsxProps (com: IBabelCompiler) props =
         (Some([], []), props)
         ||> List.fold (fun propsAndChildren prop ->
@@ -2139,7 +2144,7 @@ module Util =
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
                     | value -> Some(props, [ value ])
                 else
-                    Some((key, value) :: props, children)
+                    Some(JsxPropExpr.KeyValue(key, value) :: props, children)
             // When the string value exceeds ~100 chars, Fable wraps it in a Let binding.
             // The Let body still contains the tuple with the prop key and a reference to the bound var;
             // we use the bound value (letValue) as the actual prop value.
@@ -2150,7 +2155,15 @@ module Util =
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
                     | _ -> Some(props, [ letValue ])
                 else
-                    Some((key, letValue) :: props, children)
+                    Some(JsxPropExpr.KeyValue(key, letValue) :: props, children)
+            | Some(props, children),
+              MaybeCasted(Fable.Call(_,
+                                     {
+                                         Tags = Fable.Tags.Contains "jsx-spread"
+                                         Args = [ value ]
+                                     },
+                                     _,
+                                     _)) -> Some(JsxPropExpr.Spread value :: props, children)
             | Some _, e ->
                 addError com [] e.Range "Cannot detect JSX prop key at compile time"
 
@@ -2304,7 +2317,13 @@ but thanks to the optimisation done below we get
                 |> List.concat
 
             let props =
-                props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
+                props
+                |> List.rev
+                |> List.map (
+                    function
+                    | JsxPropExpr.KeyValue(key, value) -> JsxProp.KeyValue(key, transformAsExpr com ctx value)
+                    | JsxPropExpr.Spread value -> JsxProp.Spread(transformAsExpr com ctx value)
+                )
 
             Expression.jsxElement (componentOrTag, props, children)
 
@@ -2362,6 +2381,10 @@ but thanks to the optimisation done below we get
             transformJsxEl com ctx componentOrTag props |> Some
         | Fable.Tags.Contains "jsx", _ ->
             "Expecting a static list or array literal (no generator) for JSX props"
+            |> addErrorAndReturnNull com range
+            |> Some
+        | Fable.Tags.Contains "jsx-spread", _ ->
+            "JSX.spread can only be used as an element of the props list passed to JSX.create"
             |> addErrorAndReturnNull com range
             |> Some
         | Fable.Tags.Contains "jsx-template", args ->

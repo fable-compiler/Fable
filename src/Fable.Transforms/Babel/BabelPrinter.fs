@@ -447,9 +447,7 @@ module PrinterExtensions =
 
                 printer.Print(Array.last parts |> escape)
 
-        member printer.PrintJsxElement
-            (componentOrTag: Expression, props: (string * Expression) list, children: Expression list)
-            =
+        member printer.PrintJsxElement(componentOrTag: Expression, props: JsxProp list, children: Expression list) =
             let printTag =
                 function
                 | StringConstant tag -> printer.Print(tag)
@@ -475,11 +473,18 @@ module PrinterExtensions =
                 props
                 |> List.iter (
                     function
-                    | _, NullOrUndefinedOrVoid -> ()
-                    | key, StringConstant value -> printProp (fun () -> printer.Print($"%s{key}=\"%s{value}\""))
-                    | key, value ->
+                    | JsxProp.KeyValue(_, NullOrUndefinedOrVoid) -> ()
+                    | JsxProp.KeyValue(key, StringConstant value) ->
+                        printProp (fun () -> printer.Print($"%s{key}=\"%s{value}\""))
+                    | JsxProp.KeyValue(key, value) ->
                         printProp (fun () ->
                             printer.Print(key + "={")
+                            printer.Print(value)
+                            printer.Print("}")
+                        )
+                    | JsxProp.Spread value ->
+                        printProp (fun () ->
+                            printer.Print("{...")
                             printer.Print(value)
                             printer.Print("}")
                         )
