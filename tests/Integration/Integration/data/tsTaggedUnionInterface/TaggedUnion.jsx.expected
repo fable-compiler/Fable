@@ -1,0 +1,19 @@
+
+
+export function make(t) {
+    return t;
+}
+
+export function describe(c) {
+    switch (c.type) {
+        case "edit":
+            return c.edit.text.length | 0;
+        case "save":
+            return 0;
+        default: {
+            const t = c;
+            return (t.fromIndex + t.toIndex) | 0;
+        }
+    }
+}
+

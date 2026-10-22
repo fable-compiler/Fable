@@ -794,4 +794,76 @@ let raw (r: Raw) = match r with Obj _ -> "obj" | Text _ -> "text"
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+  
+    testCase "TS tagged union case with an interface field compiles when the interface declares the tag" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Take =
+    abstract ``type``: string
+    abstract fromIndex: int
+
+[<TypeScriptTaggedUnion("type")>]
+type Command =
+    | Take of Take
+    | Save
+
+let fromIndex (c: Command) = match c with Take t -> t.fromIndex | Save -> 0
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TS tagged union case with an interface field reports an interface without the tag member" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Take =
+    abstract fromIndex: int
+
+[<TypeScriptTaggedUnion("type")>]
+type Command =
+    | Take of Take
+    | Save
+"""
+      compile source
+      |> Assert.Exists.errorWith "Case 'Take' of 'Command' compiles to its 'Take' value, so the interface must declare a 'type' member"
+      |> ignore
+
+    testCase "TS tagged union case with a named interface field does not need the tag member" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Take =
+    abstract fromIndex: int
+
+[<TypeScriptTaggedUnion("type")>]
+type Command =
+    | Take of take: Take
+    | Save
+
+let fromIndex (c: Command) = match c with Take t -> t.fromIndex | Save -> 0
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TS tagged union case with a single primitive field compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("type")>]
+type AuthState =
+    | Zero
+    | One of string
+
+let one = AuthState.One "a"
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
   ]

@@ -947,6 +947,16 @@ module AST =
             | _ -> ValueNone
         | _ -> ValueNone
 
+    /// The field type of a TypeScriptTaggedUnion case that compiles to its value: a single unnamed field of an interface type
+    let tryInlinedTaggedUnionCaseType (com: Compiler) (uci: UnionCase) =
+        match uci.UnionCaseFields with
+        | [ field ] when field.Name = "Item" ->
+            match field.FieldType with
+            | DeclaredType(entRef, _) when com.TryGetEntity(entRef) |> Option.exists _.IsInterface ->
+                Some field.FieldType
+            | _ -> None
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
     // as a side effects too (because we don't want to duplicate or change the order of execution)

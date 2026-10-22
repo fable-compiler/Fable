@@ -110,8 +110,8 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         | argExprs -> makeTuple r false argExprs
 
     | TypeScriptTaggedUnion(_, _, tagName, rule) ->
-        match argExprs with
-        // | [ argExpr ] when not (FsUnionCase.HasNamedFields unionCase) -> argExpr
+        match tryInlinedTaggedUnionCase com unionCase, argExprs with
+        | Some _, [ argExpr ] -> Fable.TypeCast(argExpr, makeType ctx.GenericArgs fsType)
         | _ ->
             let isCompiledValue, tagExpr =
                 match FsUnionCase.CompiledValue unionCase with
@@ -1429,16 +1429,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                     return Fable.Get(unionExpr, Fable.TupleIndex index, fieldType, r)
             | TypeScriptTaggedUnion _ ->
-                // if not (FsUnionCase.HasNamedFields unionCase) then
-                //     return unionExpr
-                // else
-                let kind =
-                    Fable.FieldInfo.Create(
-                        FsField.FSharpFieldName field,
-                        fieldType = makeType Map.empty field.FieldType
-                    )
+                match tryInlinedTaggedUnionCase com unionCase with
+                | Some _ -> return Fable.TypeCast(unionExpr, fieldType)
+                | None ->
+                    let kind =
+                        Fable.FieldInfo.Create(
+                            FsField.FSharpFieldName field,
+                            fieldType = makeType Map.empty field.FieldType
+                        )
 
-                return Fable.Get(unionExpr, kind, fieldType, r)
+                    return Fable.Get(unionExpr, kind, fieldType, r)
             | StringEnum _ ->
                 return
                     "StringEnum types cannot have fields"
@@ -2310,12 +2310,40 @@ let private warnIgnoredCaseTests (com: FableCompiler) ctx (ent: FSharpEntity) =
                 WarningCodes.caseTestIgnored uci.Name reason
                 |> addWarningWithCode (com :> Compiler) ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
 
+/// Values built in F# only carry the tag if the interface of an inlined case declares the tag member
+let private checkInlinedTaggedUnionCases (com: FableCompiler) ctx (ent: FSharpEntity) =
+    let tagName =
+        if ent.IsFSharpUnion then
+            ent.Attributes
+            |> tryFindAttrib Atts.tsTaggedUnion
+            |> Option.bind (fun att ->
+                match Seq.tryHead att.ConstructorArguments with
+                | Some(_, (:? string as name)) -> Some name
+                | _ -> None
+            )
+        else
+            None
+
+    match tagName with
+    | None -> ()
+    | Some tagName ->
+        for uci in ent.UnionCases do
+            match inlinedTaggedUnionCaseHasTag com tagName uci with
+            | Some false ->
+                let typeName =
+                    uci.Fields[0].FieldType.Format(FSharpDisplayContext.Empty.WithShortTypeNames(true))
+
+                $"Case '%s{uci.Name}' of '%s{ent.DisplayName}' compiles to its '%s{typeName}' value, so the interface must declare a '%s{tagName}' member to carry the tag. Add the member, or name the field to compile the case as an object holding the tag and the field."
+                |> addError (com :> Compiler) ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
+            | _ -> ()
+
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls
     |> List.collect (fun fsDecl ->
         match fsDecl with
         | FSharpImplementationFileDeclaration.Entity(fsEnt, sub) ->
             warnIgnoredCaseTests com ctx fsEnt
+            checkInlinedTaggedUnionCases com ctx fsEnt
 
             match sub with
             | [] when isIgnoredLeafEntity fsEnt -> []

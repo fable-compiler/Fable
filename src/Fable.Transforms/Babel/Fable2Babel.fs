@@ -922,16 +922,16 @@ module Annotation =
 
                 AbstractMember.abstractProperty (prop, tagType, isComputed = isComputed)
 
-            match uci.UnionCaseFields with
-            // | [ field ] when field.Name = "Item" ->
-            //     IntersectionTypeAnnotation
-            //         [|
-            //             field.FieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
-            //             ObjectTypeAnnotation [| tagMember |]
-            //         |]
-            | fields ->
+            match tryInlinedTaggedUnionCaseType com uci with
+            | Some fieldType ->
+                IntersectionTypeAnnotation
+                    [|
+                        fieldType |> resolveInlineType genArgs |> makeFieldAnnotation com ctx
+                        ObjectTypeAnnotation [| tagMember |]
+                    |]
+            | None ->
                 let names, types =
-                    fields |> List.map (fun fi -> fi.Name, fi.FieldType) |> List.unzip
+                    uci.UnionCaseFields |> List.map (fun fi -> fi.Name, fi.FieldType) |> List.unzip
 
                 makeAnonymousRecordTypeAnnotation com ctx (List.toArray names) types
                 |> function
@@ -1631,10 +1631,17 @@ module Util =
 
                 match e.Type with
                 | Fable.DeclaredType(sourceEntRef, _) when com.IsTypeScript ->
-                    let sourceEntRef = com.GetEntity(sourceEntRef)
+                    let sourceEnt = com.GetEntity(sourceEntRef)
                     // Because we use a wrapper type for multi-case unions, TypeScript
                     // won't automatically cast them to implementing interfaces
-                    if sourceEntRef.IsFSharpUnion && List.isMultiple sourceEntRef.UnionCases then
+                    let fromUnion = sourceEnt.IsFSharpUnion && List.isMultiple sourceEnt.UnionCases
+
+                    // The interface value of an inlined case is not assignable to the literal tag type
+                    let toTaggedUnion =
+                        com.TryGetEntity(entRef)
+                        |> Option.exists (fun ent -> hasAttribute Atts.tsTaggedUnion ent.Attributes)
+
+                    if fromUnion || toTaggedUnion then
                         AsExpression(jsExpr, makeTypeAnnotation com ctx typ)
                     else
                         jsExpr

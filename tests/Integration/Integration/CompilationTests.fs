@@ -90,17 +90,27 @@ let tests =
                     else
                         [||]
 
+                let outputArgs =
+                    if Directory.GetFileSystemEntries(testCaseDir, "*.ts.expected") |> Array.isEmpty then
+                        [| "-e"; ".jsx.actual" |]
+                    else
+                        [| "--lang"; "ts"; "-e"; ".ts.actual" |]
+
                 // Compile project
                 let exitCode =
-                    Array.append
-                        [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual"; "--exclude"; "Fable.Core" |]
-                        precompiledLibArgs
+                    Array.concat
+                        [
+                            [| project; "--cwd"; $"'%s{testCaseDir}'" |]
+                            outputArgs
+                            [| "--exclude"; "Fable.Core" |]
+                            precompiledLibArgs
+                        ]
                     |> Fable.Cli.Entry.main
 
                 Expect.equal exitCode 0 "Expected exit code to be 0"
 
                 let normalize content =
-                    Regex.Replace(content, @"(/fable-library-js)[^/]+", "$1")
+                    Regex.Replace(content, @"(/fable-library-(?:js|ts))[^/]+", "$1")
                     |> fun c -> Regex.Replace(c, @"[^""]*/precompiled/", "precompiled/")
                     |> _.ReplaceLineEndings()
                     |> _.Trim()
