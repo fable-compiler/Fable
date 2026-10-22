@@ -1,0 +1,50 @@
+ascending
+attribute:Test.AAttribute|[(type Microsoft.FSharp.Core.int, 1)]|[]
+descending
+attribute:Test.AAttribute|[]|[]
+equal-arity
+attribute:Test.AAttribute|[(type Microsoft.FSharp.Core.int, 1)]|[]
+named-property
+attribute:Test.AAttribute|[(type Microsoft.FSharp.Core.int, 1)]|[(type Microsoft.FSharp.Core.string, "Name", true, "named")]
+private
+501|Error|9:2-9:6|The object constructor 'AAttribute' takes 0 argument(s) but is here given 1. The required signature is 'new: unit -> AAttribute'.
+501|Error|9:2-9:6|The object constructor 'AAttribute' takes 0 argument(s) but is here given 1. The required signature is 'new: unit -> AAttribute'.
+bad-argument
+41|Error|9:2-9:9|No overloads match for method 'AAttribute'.
+
+Known type of argument: bool
+
+Available overloads:
+ - new: x: int -> AAttribute // Argument 'x' doesn't match
+ - new: x: string -> AAttribute // Argument 'x' doesn't match
+41|Error|9:2-9:9|No overloads match for method 'AAttribute'.
+
+Known type of argument: bool
+
+Available overloads:
+ - new: x: int -> AAttribute // Argument 'x' doesn't match
+ - new: x: string -> AAttribute // Argument 'x' doesn't match
+bad-arity
+505|Error|9:2-9:6|The member or object constructor 'AAttribute' does not take 1 argument(s). An overload was found taking 0 arguments.
+505|Error|9:2-9:6|The member or object constructor 'AAttribute' does not take 1 argument(s). An overload was found taking 0 arguments.
+ambiguous
+41|Error|9:2-9:9|A unique overload for method 'AAttribute' could not be determined based on type information prior to this program point. A type annotation may be needed.
+
+Known type of argument: 'a0 when 'a0: null
+
+Candidates:
+ - new: x: Type -> AAttribute
+ - new: x: string -> AAttribute
+41|Error|9:2-9:9|A unique overload for method 'AAttribute' could not be determined based on type information prior to this program point. A type annotation may be needed.
+
+Known type of argument: 'a0 when 'a0: null
+
+Candidates:
+ - new: x: Type -> AAttribute
+ - new: x: string -> AAttribute
+three-constructors
+attribute:Test.AAttribute|[(type Microsoft.FSharp.Core.string, "str")]|[]
+imported
+44|Warning|4:10-4:16|This construct is deprecated. message
+attribute:System.ObsoleteAttribute|[(type Microsoft.FSharp.Core.string, "message");
+ (type Microsoft.FSharp.Core.bool, false)]|[]

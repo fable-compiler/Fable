@@ -1,0 +1,31 @@
+--- a/src/Compiler/Checking/NameResolution.fs
++++ b/src/Compiler/Checking/NameResolution.fs
+@@ -2536,12 +2536,14 @@
+ //-------------------------------------------------------------------------
+ 
+ let private ResolveObjectConstructorPrim (ncenv: NameResolver) edenv resInfo m ad ty =
++    let debugStart = System.Diagnostics.Stopwatch.GetTimestamp()
+     let g = ncenv.g
+     let amap = ncenv.amap
+     if isDelegateTy g ty then
+         success (resInfo, Item.DelegateCtor ty)
+     else
+         let ctorInfos = GetIntrinsicConstructorInfosOfType ncenv.InfoReader m ty
++        let debugLookup = System.Diagnostics.Stopwatch.GetTimestamp()
+         if isNil ctorInfos && isInterfaceTy g ty then
+             let tcref = tcrefOfAppTy g ty
+             success (resInfo, Item.Types(tcref.DisplayName, [ty]))
+@@ -2559,7 +2561,12 @@
+             else
+                 let ctorInfos = ctorInfos |> List.filter (IsMethInfoAccessible amap m ad)
+                 let metadataTy = convertToTypeWithMetadataIfPossible g ty
+-                success (resInfo, Item.MakeCtorGroup ((tcrefOfAppTy g metadataTy).LogicalName, (defaultStructCtorInfo@ctorInfos)))
++                let debugSortStart = System.Diagnostics.Stopwatch.GetTimestamp()
++                let tcref = tcrefOfAppTy g metadataTy
++                let item = Item.MakeCtorGroup (tcref.LogicalName, (defaultStructCtorInfo@ctorInfos))
++                let debugEnd = System.Diagnostics.Stopwatch.GetTimestamp()
++                System.Console.Error.WriteLine(sprintf "[DEBUG-CTOR]|%s|%b|%s|%d|%d|%d|%d|%d" tcref.LogicalName tcref.IsLocalRef m.FileName m.StartLine ctorInfos.Length (debugLookup-debugStart) (debugSortStart-debugLookup) (debugEnd-debugSortStart))
++                success (resInfo, item)
+ 
+ /// Perform name resolution for an identifier which must resolve to be an object constructor.
+ let ResolveObjectConstructor (ncenv: NameResolver) denv m ad ty =

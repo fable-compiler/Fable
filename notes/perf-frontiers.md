@@ -1,12 +1,13 @@
 # Performance frontiers
 
-Fickl owns the whole stack it runs on: the Fable compiler, FCS (fickle-fsharp `fickle_slim`), the FSharp.Core the
-compiler itself runs on, and the .NET 10 host configuration. This file lists every place left to look, not only the
-ones the current profile points at, so priorities can be set from measurements.
+Fickl controls the Fable compiler, FCS (fickle-fsharp `fickle_slim`), and the .NET 10 host configuration.
+FSharp.Core is also an optimization frontier, but the 0.5.3 tool currently resolves its runtime from
+NuGet (`FSharp.Core/10.1.203`), not the older unsigned DLL in `lib/fcs`. This file lists every place
+left to look, not only the ones the current profile points at, so priorities can be set from measurements.
 
-The FSharp.Core here is the compiler's own runtime. User projects type-check against the FSharp.Core they reference
-from NuGet, so ours can change freely, provided its public surface stays binary-compatible: Fable plugins load into
-the compiler process and bind against it.
+The FSharp.Core discussed here is the compiler's runtime. User projects type-check against the
+FSharp.Core they reference from NuGet. A runtime fork must preserve the actual shipped assembly
+identity, API and behavior: Fable plugins also load into the compiler process and bind against it.
 
 Status: done, open (not tried), measured-no-gain, or ruled out (with the reason).
 
@@ -147,12 +148,210 @@ both (Glutinum's spread within one configuration is wider than these differences
 
 ## 2. FSharp.Core (compiler runtime)
 
+**Status: partially explored.** Paused at the user's request after the TypeToken-array
+experiment below. No experimental Core or FCS replacement has been adopted.
+
+### Cold loading and startup checkpoint (2026-10-22)
+
+Before moving to FSharp.Core, the packaged 0.5.3 win-x64 executable was measured in fresh
+processes, with five measured runs after warmup. This is cold Fickl project-option loading
+(`--noCache`), not cold OS pages or an empty NuGet cache. Package caching was disabled.
+All comparison runs produced identical JS within each workload.
+
+| Workload / mode | Process wall median ms | Project loading median ms |
+| --- | --- | --- |
+| `--version` | 130 | — |
+| Tiny project, restore | 1,455 | 799 |
+| Tiny project, `--noRestore` | 1,195 | 562 |
+| JS suite, restore | 4,383 | 1,559 |
+| JS suite, `--noRestore` | 4,149 | 1,252 |
+
+The version path is only a lower-bound startup probe: it does not initialize everything needed
+to compile. Process wall includes the RTK launcher. Restore and MSBuild evaluation are material
+costs, but removing them would change behavior for edited imports, framework overrides and
+package state. `--noRestore` remains an explicit caller choice, not a proposed default.
+
+A separate interleaved runtime experiment set `DOTNET_TieredPGO=0` for the process tree.
+The packaged compiler already sets TieredPGO false in its runtime configuration; this explored
+the runtime work of its MSBuild/build subprocesses without omitting any targets or restore.
+Tiny loading was 799 → 807 ms and JS loading 1,527 → 1,579 ms. Process wall medians were
+1,428 → 1,440 ms and 4,295 → 4,467 ms respectively. There is no measured improvement, so
+no environment default or loading behavior was changed. A larger loader redesign is not
+justified by this limited experiment; these results do not close all cold-loading frontiers.
+
+Raw timings, tiny fixture and drivers are in `notes/benchmarks/cold-start/`. The drivers use
+the existing validated 0.5.3 package under `temp/release-0.5.3/verified-package/`; run them from
+the worktree root. Watch latency remains deferred. The next priority is FSharp.Core changes
+that reduce measured FCS work while preserving assembly identity and semantics.
+
 | Lever | Status | Notes |
 | --- | --- | --- |
 | Target net10.0 instead of netstandard2.x | open | Unlocks span/vectorised BCL paths under `String`, `Array`, hashing. |
 | Generic equality / comparison / hashing fast paths | open | FCS leans on structural equality; check its share in a profile. |
 | `Map` / `Set` implementation | open | Used throughout FCS name-resolution environments. |
 | `List` / `Seq` / `Array` hot functions | open | Profile-driven. |
+
+### Runtime source alignment prerequisite (2026-10-22)
+
+The first Core experiment added only `AggressiveInlining` hints to `MapTree.mk` and
+`MapTree.rebalance`. The algorithm, comparator calls, insertion order and balancing rules were
+unchanged. The local Core source built successfully for netstandard2.1; the unchanged upstream
+MapModule/MapType tests passed all 49 cases for both baseline and candidate in an isolated
+test project. The full upstream test project could not reach tests because its dependency-manager
+project failed with the existing FS0074 missing `System.Array` reference error.
+
+Before a timing comparison, the FCS process rejected the replacement Core DLL. Inspection found:
+
+- The tool's `fable.deps.json` resolves `FSharp.Core/10.1.203`, with signed assembly identity
+  `10.1.0.0`, public-key token `b03f5f7f11d50a3a`.
+- `lib/fcs/FSharp.Core.dll` and the sibling checkout's default build are unsigned `10.0.0.0`.
+- The CLI disables its implicit Core reference, but Thoth.Json.Core 0.10.0,
+  Thoth.Json.Core.Auto 0.2.0 and Thoth.Json.System.Text.Json 0.5.0 require Core 10.1.203
+  transitively. That package wins dependency resolution over the vendored reference.
+
+An isolated public-signed build with version 10.1.0.0 allowed an identity-matched API inspection;
+this was not adopted as a release configuration. The shipped Core exposed 3,156 reflected API
+entries versus 3,140 in the local source build. The differences are in the LINQ `AnonymousObject`
+types: the shipped types are sealed and override equality/hashing; the older source types do not.
+A concrete probe confirmed that two `AnonymousObject<int>(42)` instances compare equal with the
+shipped runtime and unequal with the local build. The map inlining hints are not responsible
+for this difference; the baseline source is older. Merely changing version/signing would therefore
+introduce an unrelated behavioral regression.
+
+The package nuspec identifies its source as dotnet/dotnet commit
+`c23858a6d860abe3ca94f9ac630c3e61b2625664`; its
+[MutableTuple.fs](https://raw.githubusercontent.com/dotnet/dotnet/c23858a6d860abe3ca94f9ac630c3e61b2625664/src/fsharp/src/FSharp.Core/MutableTuple.fs)
+contains the newer equality/hashing implementation. **Align Core source to the runtime package
+before pursuing or shipping a Core optimization.** Preserve all runtime behavior, not just reflected
+API entries; this inspection is a useful gate, not an exhaustive compatibility proof.
+
+No Core performance result is claimed. The inlining changes were removed from source and no
+vendored or packaged runtime DLL was replaced. The existing unsigned local build output was
+restored. `notes/benchmarks/core-runtime/` saves the API delta, rejected experiment patch and
+an executable equality probe. From the worktree root:
+
+```powershell
+rtk dotnet run --project notes/benchmarks/core-runtime -c Release -- temp/release-0.5.3/verified-package/tools/net10.0/win-x64/FSharp.Core.dll temp/core-runtime-api.txt true
+```
+
+Passing the older local build as the first argument with expected result `true` must fail.
+This prerequisite was subsequently resolved by the source-aligned experiment below.
+
+### Source-aligned Core baseline and map experiment (2026-10-22)
+
+The VMR source manifest maps the runtime package to dotnet/fsharp commit
+`7d0437e8bcf9ead9483483eaa556f1998af8806b`. The Core source directory's Git object IDs
+were compared with the VMR directory at the package commit: every entry matched.
+An isolated checkout of that commit builds netstandard2.1 Core with assembly version
+10.1.0.0 and the runtime public key. Public signing is only for local experiments;
+this is not a release configuration or a Microsoft-signed replacement.
+
+The saved preparation script was run successfully from the worktree root:
+
+```powershell
+rtk proxy python notes/benchmarks/core-runtime/prepare-aligned-core.py
+```
+
+It requires an unchanged pinned checkout, builds the baseline, checks its assembly identity,
+compares all 3,156 reflected API entries with the packaged runtime, checks anonymous-object
+equality, and records hashes and source commits in `temp/core-runtime-baseline/manifest.json`.
+These are targeted compatibility checks, not an exhaustive equivalence proof.
+
+The two `AggressiveInlining` hints on `MapTree.mk` and `MapTree.rebalance` were then rebuilt
+on this aligned source. Both baseline and candidate passed all 49 unchanged upstream
+MapModule/MapType tests and all ten saved full compiler diagnostic/attribute snapshots.
+The broader upstream Core test project was blocked by an FS0074 dependency build error
+in FSharp.DependencyManager.Nuget; no full-suite pass is claimed.
+
+Five interleaved measured fresh processes after warmups, identical CLI/FCS IL with only Core
+changed, `--noCache --noRestore --noPackageCache`:
+
+| Workload | Compile median ms, baseline → candidate | Process wall median ms | Allocation median MB |
+| --- | --- | --- | --- |
+| Binding | 1,794 → 1,811 (+0.9%) | 3,494 → 3,486 | 1,220 → 1,219 |
+| JS suite | 2,176 → 2,273 (+4.5%) | 4,185 → 4,342 | 7,813 → 7,812 |
+
+Every run produced byte-identical JS (67 binding files and 141 JS-suite files).
+[Raw results](benchmarks/core-runtime/aligned-map-comparison.csv) include round zero warmups.
+The hints did not establish a useful gain and were removed. No production source, vendored
+binary or packaged runtime was changed. These are IL experiments, not R2R release timings.
+The next Core lead should come from allocation/call profiles of this aligned runtime;
+plugin compatibility and broader Core tests remain gates before adopting a replacement.
+
+### Aligned Core allocation and call profiles (2026-10-22)
+
+Two fresh processes per workload were traced with sampled thread time and GC allocation ticks.
+The experimental CLI/FCS IL baseline is the same as the map comparison above (its executable
+banner still reports 0.5.1); this is not the packaged 0.5.3 R2R executable. Its loaded Core file
+is byte-identical to the verified aligned baseline, SHA-256
+`0d62ab9aed739975537e55caa4536a9e8fc7a2fcf11d9e6cb5135e23cfda5b9e`.
+
+The analyzer selects stacks containing CheckExpressions, CheckDeclarations or
+PostInferenceChecks. CPU summaries count only `CPU_TIME`, exclude unmanaged/wait samples,
+and exclude Core frames above the innermost FCS frame so compiler callbacks are not charged
+to collection or async wrappers. These are sampled sums across threads, not elapsed time or
+predicted speedups. Allocation ticks estimate allocated bytes by sampled type and stack;
+they are not exact object counts or retained heap sizes. All four traces report zero lost
+events; each JS trace has one allocation tick without a stack, excluded from checking totals.
+
+| Lead | Binding, two runs | JS suite, two runs | Interpretation |
+| --- | --- | --- | --- |
+| Entity-name table map-node allocations | 166.4 / 166.0 MiB | 3.2 / 4.1 MiB | Rebuilding persistent name tables in FCS dominates this binding-specific allocation lead. |
+| `TypeToken` boxing under structural array hashing/equality | 2.5 / 1.8 MiB | 143.9 / 145.9 MiB | A repeatable Core/FCS boundary cost for the JS workload. |
+| `MapTree.mk` sampled self time | 135 / 153 ms | 187 / 161 ms | Allocation/construction is visible; the previously rejected inlining hints did not solve it. |
+| Generic arbitrary-array hashing/equality sampled inclusive time | not a leading cost | 514 / 706 ms | Includes runtime work below Core; the two operations' totals are added here, not nested Core helper totals. |
+
+Total estimated checking-stack allocation was 1,080 / 1,081 MiB for binding and
+3,909 / 3,903 MiB for JS. The final profiled outputs match the preceding baseline outputs
+byte for byte: 67 binding JS files and 141 JS-suite files. No production changes were made.
+
+The most focused next experiment is typed structural hashing/equality for FCS's struct
+`TypeToken[]` boundary. `Array.GetValue` boxes its elements today. Replacing it with ordinary
+.NET equality would not establish equivalence: retain F# element equality semantics, hash
+combination and truncation, element traversal order, and any supplied comparer behavior.
+A general Core array fast path must additionally preserve nonzero lower bounds, ranks,
+null handling, NaN ER/PER behavior, short-circuiting, and exception order. Characterize these
+before implementing a candidate. The entity-name map lead is primarily an FCS construction
+strategy investigation; mutating existing map nodes would violate persistent-map semantics.
+
+Saved [profile summaries](benchmarks/core-runtime/profile-results.json), collection driver
+`notes/benchmarks/core-runtime/profile.ps1`, CPU analyzer and allocation parser make the
+investigation repeatable. The CPU analyzer's synthetic check verifies callback exclusion,
+wait exclusion, checking scope and self-time accounting. Raw traces stay in `temp/core-profile`.
+The driver attaches by PID: launching the compiler under dotnet-trace stalled its MSBuild
+children in this environment, so that abandoned run was stopped and is not included.
+
+### TypeToken-array experiment — partially explored, paused (2026-10-22)
+
+The experiment specialized only the FCS type-subsumption cache comparer. The initial
+wrapper preserved the ordinary structural comparer's hash results and equality over
+23,785 checks (788 keys, 47 token values), including all token cases, Stable/Unstable tags,
+both coercion flags, null arrays, and lengths around the 19-element hash prefix. All ten
+diagnostic/attribute snapshots matched; all benchmark runs produced identical JS (67/141 files).
+Missing-candidate and deliberately corrupted-hash checks failed as intended.
+
+Five measured runs per variant after warmups gave allocation medians of 1,219 → 1,218 MB
+for binding and 7,800 → 7,721 MB for JS. **No speedup is established.** Background language
+servers were active, and binding compile times alone varied from about 2 to 10 seconds.
+[Raw wrapper results](benchmarks/type-token-arrays/wrapper-comparison.csv) are retained for
+allocation/output evidence, not reliable timing comparison.
+
+Source review found that the wrapper could leave generated hashing on Core's arbitrary-array
+path. A direct typed comparer was drafted to avoid that path and cache-key boxing, but its
+build was stopped when the user paused this frontier. It is **unvalidated**, saved only as
+an experiment patch. The original source and local FCS output DLL were restored; neither
+vendored binaries nor packages changed.
+
+The expanded harness additionally checks all boundary-array pairs and default-key exception
+behavior; it passed 62,594 checks against the initial wrapper. A default TTypeCacheKey with null structures throws NullReferenceException when
+hashed by both the baseline and initial wrapper. The unvalidated direct draft's null handling
+would return a hash instead: this is an observable behavior difference to resolve before any
+future adoption, even though normal cache-key construction does not produce that value.
+
+Resume from `notes/benchmarks/type-token-arrays/`: characterize exception behavior first,
+validate a corrected direct comparer against the live structural oracle, then rerun allocation
+and end-to-end measurements under quieter conditions. Broader compiler/plugin and R2R
+validation remain outstanding. Do not treat either saved patch as release-ready.
 
 ## 3. FCS
 
@@ -287,6 +486,119 @@ stopped after 41/42 integration tests passed: `pathMap` expects a forward slash 
 but Windows emits a backslash. The same focused test fails identically with the baseline FCS DLL.
 No snapshot was changed. The command therefore did not reach its later project-configuration tests;
 the separate 140-test compiler run above passed with the candidate DLL.
+
+### Next investigation: attribute constructor checking (2026-10-22)
+
+Watch latency remains deferred. Two fresh profiles of the unchanged binding fixture using the
+validated 0.5.3 win-x64 package confirm attribute checking as the next focused investigation.
+Both runs used `--noCache --noRestore --noPackageCache --timings` and attached dotnet-trace by PID.
+Profiled parse/check wall times were 1,470 and 1,557 ms, with 1,223 MB allocated in each run.
+These instrumented runs establish a profile, not an optimization benchmark.
+
+Attribute checking accounted for 18.0–18.1% of sampled checking stacks, post-inference checks
+19.7–21.0%, and `CheckIWSAM` 6.8–8.0%. Within attribute checking, `TcMethodApplication`
+accounted for 62–66% and `ResolveObjectConstructorPrim` 21–27%. Stable sorting appeared in
+19–23% of attribute samples, with array cloning underneath it. These inclusive shares overlap.
+
+Next: trace constructor-group sorting and overload resolution to determine whether repeated
+work can be avoided while preserving overload order, accessibility checks, and diagnostics.
+Test any candidate against overloaded and named attribute arguments, then compare alternating
+binding and JS-suite runs with output equivalence. No compiler change or speedup is claimed yet.
+Cold project loading and process startup remain subsequent candidates; the previously rejected
+dictionary experiments are not being repeated solely because locks still appear in profiles.
+
+Local traces and analysis are in ignored `temp/binding-probe/attributes-053*.speedscope.json`,
+`profile.ps1`, and `attribute-profile.py`. Cleanup verified no leftover MSBuild workers after
+the runs, excluding active Rider evaluations.
+
+#### Two-constructor stable-sort experiment: not retained
+
+`Item.MakeCtorGroup` sorts by total argument count before resolution. The candidate specialized
+exactly two constructors: evaluate the first key and then the second once each, swap only for
+`firstCount > secondCount`, otherwise preserve the original order. All other group sizes used
+the existing stable sort. This preserved tie order, accessibility filtering, and key-evaluation
+order; it added no cache. Removing sorting or using an unstable sort would change the intent
+and was not attempted. Method groups were left unchanged.
+
+Matched Release IL FCS builds from `c32d52e92`, five interleaved measured runs plus warmups,
+`--noCache --noRestore --noPackageCache` ([raw results](benchmarks/attribute-constructors/comparison.csv)):
+
+| Workload | Compile median ms, baseline → candidate | Process wall median ms | Allocation median MB |
+| --- | --- | --- | --- |
+| Binding | 2,220 → 2,158 (−2.8%) | 4,354 → 4,434 | 1,219 → 1,219 |
+| JS suite | 2,443 → 2,514 (+2.9%) | 4,725 → 4,973 | 7,806 → 7,809 |
+
+Binding baseline compile times ranged 1,943–3,327 ms and candidate 1,938–2,314 ms.
+The results do not establish a useful improvement, so the source change was removed and no
+vendored compiler binary was replaced. Every measured run produced byte-identical JS to its
+baseline (68 binding files, 141 JS-suite files). These were IL experiments, not release-package
+R2R measurements; no claim is made about an R2R speedup.
+
+The saved characterization harness in `notes/benchmarks/attribute-constructors` covers ascending
+and descending constructor arity, equal-arity overloads, named properties, private constructors,
+bad arguments and arity, ambiguity, three constructors, and imported attributes. It compares
+complete diagnostic snapshots (including duplicate errors, order, text and ranges), plus emitted
+attribute constructor and named arguments from the checked assembly signature. All ten cases
+matched for baseline and candidate. A deliberately altered expected diagnostic signature was
+rejected, verifying the snapshot comparison is active. This is not a compiler mutation test or
+exhaustive proof of semantic equivalence. No full compiler suite was run for this rejected candidate.
+
+Run the saved harness against the vendored baseline:
+
+```powershell
+rtk dotnet run --project notes/benchmarks/attribute-constructors -c Release -- temp/attribute-observed.txt notes/benchmarks/attribute-constructors/baseline.txt
+```
+
+Both FCS builds used `BUILDING_USING_DOTNET=true`, `BuildProjectReferences=false`, and
+`ProduceReferenceAssembly=false`; both reported the same four existing FS3261 nullness warnings.
+The next investigation should distinguish actual repeated constructor-resolution work from
+sorting samples before expanding the optimization scope. Watch latency remains deferred.
+
+#### Constructor-resolution instrumentation: cache not justified
+
+Temporary instrumentation of `ResolveObjectConstructorPrim` measured lookup, default-constructor
+handling/accessibility filtering, and constructor-group creation separately. Three fresh IL
+processes checked the binding fixture after one uninstrumented baseline run. Each recorded
+4,591 successful constructor groups, comprising 3,757 distinct `(type name, source file, line)`
+locations. Every recorded type was imported (`IsLocalRef = false`). Line-based locations may
+combine different attributes on the same line; they are not proof of identical checking context.
+
+| Instrumented run | Lookup ms | Filtering/default handling ms | Group creation/sort ms |
+| --- | --- | --- | --- |
+| 1 | 35.156 | 34.863 | 9.110 |
+| 2 | 10.514 | 13.262 | 6.376 |
+| 3 | 11.453 | 13.964 | 15.867 |
+
+The repeated bulk work is small: 910 `AllowNullLiteralAttribute` lookups cost 0.6–1.2 ms
+per run, and 749 `EmitAttribute` lookups cost 0.4–1.2 ms. `AbstractClassAttribute` accounts for
+a large part of the first run's lookup/filter time despite only 12 calls. Timers include
+first-use/JIT, GC and scheduling effects; stderr logging is outside the timed sections but
+still perturbs execution. These measurements are diagnostic evidence, not speedup predictions.
+They do not support adding a constructor cache or treating the earlier sampling share as
+removable work. The measurement covers successful ordinary constructor-group construction;
+delegate and no-constructor early returns are not included.
+
+The repeated type-attribute checks have documented intent. `TcTyconDefnCore_Phase1B_EstablishBasicKind`
+first checks against broad `TyconDecl` targets to infer the type kind, then rechecks against the
+actual class/struct/interface/enum target under `EnforceAttributeTargets`. Separately,
+`TcAttributesCanFail` retries failures after members in a recursive group become available.
+Skipping repeated source locations could therefore lose target errors, change duplicate-error
+behavior, or retain an early failed lookup. Caching raw imported constructors would still need
+to preserve source-range-specific metadata diagnostics, accessibility and type instantiations;
+the measured benefit does not justify that added complexity.
+
+All 67 JS files in a fresh output directory were byte-identical between the baseline and all
+three instrumented runs (the earlier 68-file directory contained an existing extra helper).
+The ten saved attribute cases also matched full diagnostics and checked attribute arguments.
+Instrumentation was removed from compiler source, and the local build output DLL was restored
+to the matching uninstrumented baseline. No vendored binary was changed.
+
+[Measurements](benchmarks/constructor-resolution/measurements.json) and the
+[temporary instrumentation patch](benchmarks/constructor-resolution/instrumentation.patch)
+are saved for audit. Timers use `Stopwatch.GetTimestamp`; frequency was verified as 10,000,000 Hz.
+Local driver and raw stderr are under ignored `temp/binding-probe/ctor-resolution/`.
+This closes constructor lookup/caching as a low-priority lead on this fixture; it does not rule
+out other workloads or the broader argument-checking and post-inference costs.
 
 ### Experiment: Fantomas tools against precompiled packages
 

@@ -1,0 +1,46 @@
+{
+  "runtime_package": "FSharp.Core/10.1.203",
+  "local_source_commit": "c32d52e92",
+  "missing_or_changed": [
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`1 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`1 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`2 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`2 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`3 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`3 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`4 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`4 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`5 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`5 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`6 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`6 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`7 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`7 Method Int32 GetHashCode()",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`8 Method Boolean Equals(System.Object)",
+    "MEMBER Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`8 Method Int32 GetHashCode()",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`1 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`2 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`3 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`4 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`5 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`6 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`7 Public, Sealed, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`8 Public, Sealed, Serializable, BeforeFieldInit System.Object"
+  ],
+  "additional_or_changed": [
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`1 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`2 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`3 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`4 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`5 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`6 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`7 Public, Serializable, BeforeFieldInit System.Object",
+    "TYPE Microsoft.FSharp.Linq.RuntimeHelpers.AnonymousObject`8 Public, Serializable, BeforeFieldInit System.Object"
+  ],
+  "probe": {
+    "separate_AnonymousObject_int_42_equality": {
+      "shipped": true,
+      "local_source": false
+    }
+  }
+}

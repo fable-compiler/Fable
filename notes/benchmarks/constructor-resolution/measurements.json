@@ -1,0 +1,475 @@
+[
+  {
+    "variant": "../attribute-base",
+    "identical_files": 67,
+    "groups": []
+  },
+  {
+    "variant": "instrumented",
+    "identical_files": 67,
+    "groups": [
+      {
+        "name": "OptionalArgumentAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 1041,
+        "unique_locations": 561,
+        "lookup_ms": 4.8265,
+        "filter_ms": 3.671,
+        "sort_ms": 0.1974
+      },
+      {
+        "name": "AllowNullLiteralAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 910,
+        "unique_locations": 910,
+        "lookup_ms": 1.2198,
+        "filter_ms": 2.349,
+        "sort_ms": 2.7149
+      },
+      {
+        "name": "InterfaceAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 910,
+        "unique_locations": 910,
+        "lookup_ms": 0.9563,
+        "filter_ms": 1.4054,
+        "sort_ms": 0.1155
+      },
+      {
+        "name": "EmitAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 749,
+        "unique_locations": 684,
+        "lookup_ms": 1.1659,
+        "filter_ms": 2.9208,
+        "sort_ms": 2.5649
+      },
+      {
+        "name": "RequireQualifiedAccessAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 262,
+        "unique_locations": 131,
+        "lookup_ms": 0.3483,
+        "filter_ms": 0.5895,
+        "sort_ms": 0.0298
+      },
+      {
+        "name": "CompiledNameAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 244,
+        "unique_locations": 244,
+        "lookup_ms": 0.3396,
+        "filter_ms": 0.8014,
+        "sort_ms": 0.0274
+      },
+      {
+        "name": "StringEnumAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 150,
+        "unique_locations": 75,
+        "lookup_ms": 0.1646,
+        "filter_ms": 0.3473,
+        "sort_ms": 0.4008
+      },
+      {
+        "name": "ObsoleteAttribute",
+        "local": "false",
+        "constructors": 3,
+        "calls": 130,
+        "unique_locations": 130,
+        "lookup_ms": 1.1133,
+        "filter_ms": 0.7629,
+        "sort_ms": 0.4842
+      },
+      {
+        "name": "ParamObjectAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 130,
+        "unique_locations": 65,
+        "lookup_ms": 0.2066,
+        "filter_ms": 0.3807,
+        "sort_ms": 0.3075
+      },
+      {
+        "name": "EraseAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 22,
+        "unique_locations": 11,
+        "lookup_ms": 0.3705,
+        "filter_ms": 0.0581,
+        "sort_ms": 0.8791
+      },
+      {
+        "name": "ParamArrayAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 16,
+        "unique_locations": 16,
+        "lookup_ms": 0.0727,
+        "filter_ms": 0.0196,
+        "sort_ms": 0.0013
+      },
+      {
+        "name": "AbstractClassAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 12,
+        "unique_locations": 6,
+        "lookup_ms": 24.0103,
+        "filter_ms": 21.4695,
+        "sort_ms": 1.025
+      },
+      {
+        "name": "EmitIndexerAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 10,
+        "unique_locations": 10,
+        "lookup_ms": 0.2749,
+        "filter_ms": 0.0362,
+        "sort_ms": 0.0016
+      },
+      {
+        "name": "CompiledValueAttribute",
+        "local": "false",
+        "constructors": 4,
+        "calls": 3,
+        "unique_locations": 3,
+        "lookup_ms": 0.0631,
+        "filter_ms": 0.0313,
+        "sort_ms": 0.36
+      },
+      {
+        "name": "ImportAllAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 2,
+        "unique_locations": 1,
+        "lookup_ms": 0.024,
+        "filter_ms": 0.02,
+        "sort_ms": 0.0005
+      }
+    ]
+  },
+  {
+    "variant": "instrumented",
+    "identical_files": 67,
+    "groups": [
+      {
+        "name": "OptionalArgumentAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 1041,
+        "unique_locations": 561,
+        "lookup_ms": 0.9167,
+        "filter_ms": 1.3635,
+        "sort_ms": 0.086
+      },
+      {
+        "name": "AllowNullLiteralAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 910,
+        "unique_locations": 910,
+        "lookup_ms": 0.9529,
+        "filter_ms": 1.1683,
+        "sort_ms": 2.442
+      },
+      {
+        "name": "InterfaceAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 910,
+        "unique_locations": 910,
+        "lookup_ms": 0.8012,
+        "filter_ms": 1.2592,
+        "sort_ms": 0.0844
+      },
+      {
+        "name": "EmitAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 749,
+        "unique_locations": 684,
+        "lookup_ms": 0.4157,
+        "filter_ms": 0.9928,
+        "sort_ms": 0.8703
+      },
+      {
+        "name": "RequireQualifiedAccessAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 262,
+        "unique_locations": 131,
+        "lookup_ms": 0.2487,
+        "filter_ms": 0.3306,
+        "sort_ms": 0.024
+      },
+      {
+        "name": "CompiledNameAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 244,
+        "unique_locations": 244,
+        "lookup_ms": 0.1781,
+        "filter_ms": 0.279,
+        "sort_ms": 0.018
+      },
+      {
+        "name": "StringEnumAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 150,
+        "unique_locations": 75,
+        "lookup_ms": 0.1363,
+        "filter_ms": 0.3061,
+        "sort_ms": 0.3842
+      },
+      {
+        "name": "ObsoleteAttribute",
+        "local": "false",
+        "constructors": 3,
+        "calls": 130,
+        "unique_locations": 130,
+        "lookup_ms": 0.8816,
+        "filter_ms": 0.5091,
+        "sort_ms": 0.2527
+      },
+      {
+        "name": "ParamObjectAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 130,
+        "unique_locations": 65,
+        "lookup_ms": 0.1453,
+        "filter_ms": 0.276,
+        "sort_ms": 0.2596
+      },
+      {
+        "name": "EraseAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 22,
+        "unique_locations": 11,
+        "lookup_ms": 0.326,
+        "filter_ms": 0.0479,
+        "sort_ms": 1.5005
+      },
+      {
+        "name": "ParamArrayAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 16,
+        "unique_locations": 16,
+        "lookup_ms": 0.0358,
+        "filter_ms": 0.0135,
+        "sort_ms": 0.0012
+      },
+      {
+        "name": "AbstractClassAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 12,
+        "unique_locations": 6,
+        "lookup_ms": 5.3888,
+        "filter_ms": 6.6441,
+        "sort_ms": 0.2072
+      },
+      {
+        "name": "EmitIndexerAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 10,
+        "unique_locations": 10,
+        "lookup_ms": 0.0303,
+        "filter_ms": 0.0362,
+        "sort_ms": 0.0015
+      },
+      {
+        "name": "CompiledValueAttribute",
+        "local": "false",
+        "constructors": 4,
+        "calls": 3,
+        "unique_locations": 3,
+        "lookup_ms": 0.0328,
+        "filter_ms": 0.0145,
+        "sort_ms": 0.2441
+      },
+      {
+        "name": "ImportAllAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 2,
+        "unique_locations": 1,
+        "lookup_ms": 0.0234,
+        "filter_ms": 0.0213,
+        "sort_ms": 0.0004
+      }
+    ]
+  },
+  {
+    "variant": "instrumented",
+    "identical_files": 67,
+    "groups": [
+      {
+        "name": "OptionalArgumentAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 1041,
+        "unique_locations": 561,
+        "lookup_ms": 1.0087,
+        "filter_ms": 1.8469,
+        "sort_ms": 0.1191
+      },
+      {
+        "name": "AllowNullLiteralAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 910,
+        "unique_locations": 910,
+        "lookup_ms": 0.6145,
+        "filter_ms": 0.7647,
+        "sort_ms": 11.0046
+      },
+      {
+        "name": "InterfaceAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 910,
+        "unique_locations": 910,
+        "lookup_ms": 0.5218,
+        "filter_ms": 0.6235,
+        "sort_ms": 0.0608
+      },
+      {
+        "name": "EmitAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 749,
+        "unique_locations": 684,
+        "lookup_ms": 0.9551,
+        "filter_ms": 2.4774,
+        "sort_ms": 1.6103
+      },
+      {
+        "name": "RequireQualifiedAccessAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 262,
+        "unique_locations": 131,
+        "lookup_ms": 0.1825,
+        "filter_ms": 0.2196,
+        "sort_ms": 0.0214
+      },
+      {
+        "name": "CompiledNameAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 244,
+        "unique_locations": 244,
+        "lookup_ms": 0.2627,
+        "filter_ms": 0.3136,
+        "sort_ms": 0.0236
+      },
+      {
+        "name": "StringEnumAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 150,
+        "unique_locations": 75,
+        "lookup_ms": 0.1148,
+        "filter_ms": 0.1846,
+        "sort_ms": 0.2929
+      },
+      {
+        "name": "ObsoleteAttribute",
+        "local": "false",
+        "constructors": 3,
+        "calls": 130,
+        "unique_locations": 130,
+        "lookup_ms": 0.6473,
+        "filter_ms": 0.5511,
+        "sort_ms": 0.336
+      },
+      {
+        "name": "ParamObjectAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 130,
+        "unique_locations": 65,
+        "lookup_ms": 0.1752,
+        "filter_ms": 0.3456,
+        "sort_ms": 1.1762
+      },
+      {
+        "name": "EraseAttribute",
+        "local": "false",
+        "constructors": 2,
+        "calls": 22,
+        "unique_locations": 11,
+        "lookup_ms": 0.3343,
+        "filter_ms": 0.0425,
+        "sort_ms": 0.7458
+      },
+      {
+        "name": "ParamArrayAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 16,
+        "unique_locations": 16,
+        "lookup_ms": 0.0406,
+        "filter_ms": 0.0116,
+        "sort_ms": 0.0013
+      },
+      {
+        "name": "AbstractClassAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 12,
+        "unique_locations": 6,
+        "lookup_ms": 6.5112,
+        "filter_ms": 6.526,
+        "sort_ms": 0.2912
+      },
+      {
+        "name": "EmitIndexerAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 10,
+        "unique_locations": 10,
+        "lookup_ms": 0.0261,
+        "filter_ms": 0.0225,
+        "sort_ms": 0.0011
+      },
+      {
+        "name": "CompiledValueAttribute",
+        "local": "false",
+        "constructors": 4,
+        "calls": 3,
+        "unique_locations": 3,
+        "lookup_ms": 0.0308,
+        "filter_ms": 0.0105,
+        "sort_ms": 0.1824
+      },
+      {
+        "name": "ImportAllAttribute",
+        "local": "false",
+        "constructors": 1,
+        "calls": 2,
+        "unique_locations": 1,
+        "lookup_ms": 0.0277,
+        "filter_ms": 0.0237,
+        "sort_ms": 0.0004
+      }
+    ]
+  }
+]

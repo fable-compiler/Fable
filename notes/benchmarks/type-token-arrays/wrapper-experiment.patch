@@ -1,0 +1,60 @@
+diff --git a/src/Compiler/Checking/TypeRelations.fs b/src/Compiler/Checking/TypeRelations.fs
+index 4122f1407..ca361e564 100644
+--- a/src/Compiler/Checking/TypeRelations.fs
++++ b/src/Compiler/Checking/TypeRelations.fs
+@@ -38,12 +38,53 @@ type TTypeCacheKey =
+         (tryGetTypeStructure ty1, tryGetTypeStructure ty2)
+         ||> ValueOption.map2(fun t1 t2 -> TTypeCacheKey(t1, t2, canCoerce))
+ 
++// Keep the structural cache-key contract while avoiding Array.GetValue boxing for
++// the TypeToken vectors. This comparer is private to this cache; arbitrary arrays
++// and user-supplied comparers continue to use the ordinary Core implementation.
++let private typeTokenArrayComparer =
++    let tokenComparer = HashIdentity.Structural<TypeToken>
++    { new System.Collections.IEqualityComparer with
++        member this.Equals(x, y) =
++            match x, y with
++            | (:? (TypeToken[]) as xs), (:? (TypeToken[]) as ys) ->
++                let mutable equal = xs.Length = ys.Length
++                let mutable i = 0
++                while equal && i < xs.Length do
++                    equal <- tokenComparer.Equals(xs[i], ys[i])
++                    i <- i + 1
++                equal
++            | null, _ -> isNull y
++            | _, null -> false
++            | (:? System.Collections.IStructuralEquatable as value), _ -> value.Equals(y, this)
++            | _ -> LanguagePrimitives.GenericEqualityComparer.Equals(x, y)
++        member this.GetHashCode(x) =
++            match x with
++            | :? (TypeToken[]) as tokens ->
++                // Core's one-dimensional array hash visits indices min(length-1,18)
++                // down to zero, even for arrays longer than the hashed prefix.
++                let mutable i = min (tokens.Length - 1) 18
++                let mutable acc = 0
++                while i >= 0 do
++                    acc <- (acc <<< 1) + tokenComparer.GetHashCode(tokens[i]) + 631 * i
++                    i <- i - 1
++                acc
++            | null -> 0
++            | :? System.Collections.IStructuralEquatable as value -> value.GetHashCode(this)
++            | _ -> LanguagePrimitives.GenericEqualityComparer.GetHashCode(x) }
++
++let private typeCacheKeyComparer =
++    { new System.Collections.Generic.IEqualityComparer<TTypeCacheKey> with
++        member _.Equals(x, y) =
++            (x :> System.Collections.IStructuralEquatable).Equals(y, typeTokenArrayComparer)
++        member _.GetHashCode(x) =
++            (x :> System.Collections.IStructuralEquatable).GetHashCode(typeTokenArrayComparer) }
++
+ let getTypeSubsumptionCache =
+     let factory (g: TcGlobals) =
+         let options =
+             match g.compilationMode with
+-            | CompilationMode.OneOff -> Caches.CacheOptions.getDefault HashIdentity.Structural |> Caches.CacheOptions.withNoEviction
+-            | _ -> { Caches.CacheOptions.getDefault HashIdentity.Structural with TotalCapacity = 65536; HeadroomPercentage = 75 }
++            | CompilationMode.OneOff -> Caches.CacheOptions.getDefault typeCacheKeyComparer |> Caches.CacheOptions.withNoEviction
++            | _ -> { Caches.CacheOptions.getDefault typeCacheKeyComparer with TotalCapacity = 65536; HeadroomPercentage = 75 }
+         new Caches.Cache<TTypeCacheKey, bool>(options, "typeSubsumptionCache")
+     Extras.WeakMap.getOrCreate factory     
+ 

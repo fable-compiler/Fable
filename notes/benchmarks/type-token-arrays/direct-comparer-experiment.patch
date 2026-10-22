@@ -1,0 +1,71 @@
+diff --git a/src/Compiler/Checking/TypeRelations.fs b/src/Compiler/Checking/TypeRelations.fs
+index 4122f1407..15ba9118a 100644
+--- a/src/Compiler/Checking/TypeRelations.fs
++++ b/src/Compiler/Checking/TypeRelations.fs
+@@ -38,12 +38,64 @@ type TTypeCacheKey =
+         (tryGetTypeStructure ty1, tryGetTypeStructure ty2)
+         ||> ValueOption.map2(fun t1 t2 -> TTypeCacheKey(t1, t2, canCoerce))
+ 
++// This cache uses only these internal token vectors, not arbitrary arrays or
++// user-supplied comparers. Keep the ordinary F# structural equality/hash contract
++// while avoiding Array.GetValue boxing and boxing of the cache-key struct.
++let private typeCacheKeyComparer =
++    let tokenComparer = HashIdentity.Structural<TypeToken>
++    let equalTokens (xs: TypeToken[]) (ys: TypeToken[]) =
++        if isNull xs then isNull ys
++        elif isNull ys then false
++        else
++            let mutable equal = xs.Length = ys.Length
++            let mutable i = 0
++            while equal && i < xs.Length do
++                equal <- tokenComparer.Equals(xs[i], ys[i])
++                i <- i + 1
++            equal
++    let equalStructure x y =
++        if obj.ReferenceEquals(x, null) then obj.ReferenceEquals(y, null)
++        elif obj.ReferenceEquals(y, null) then false
++        else
++            match x, y with
++            | Stable xs, Stable ys | Unstable xs, Unstable ys -> equalTokens xs ys
++            | PossiblyInfinite, PossiblyInfinite -> true
++            | _ -> false
++    let hashTokens (tokens: TypeToken[]) =
++        if isNull tokens then 0
++        else
++            // Core hashes indices min(length-1,18) down to zero. Equality above
++            // still checks the entire array, including elements after this prefix.
++            let mutable i = min (tokens.Length - 1) 18
++            let mutable acc = 0
++            while i >= 0 do
++                acc <- (acc <<< 1) + tokenComparer.GetHashCode(tokens[i]) + 631 * i
++                i <- i - 1
++            acc
++    // Match generated union hashing: case tag seed, fields in reverse order.
++    // See AugmentWithHashCompare.mkCombineHashGenerators and mkUnionHashWithComparer.
++    let combine acc value = -1640531527 + value + (acc <<< 6) + (acc >>> 2)
++    let hashStructure structure =
++        if obj.ReferenceEquals(structure, null) then 0
++        else
++            match structure with
++            | Stable tokens -> combine 0 (hashTokens tokens)
++            | Unstable tokens -> combine 1 (hashTokens tokens)
++            | PossiblyInfinite -> 2
++    { new System.Collections.Generic.IEqualityComparer<TTypeCacheKey> with
++        member _.Equals(TTypeCacheKey(x1, x2, xc), TTypeCacheKey(y1, y2, yc)) =
++            equalStructure x1 y1 && equalStructure x2 y2 && xc = yc
++        member _.GetHashCode(TTypeCacheKey(x1, x2, canCoerce)) =
++            let acc = combine 0 (hash canCoerce)
++            let acc = combine acc (hashStructure x2)
++            combine acc (hashStructure x1) }
++
+ let getTypeSubsumptionCache =
+     let factory (g: TcGlobals) =
+         let options =
+             match g.compilationMode with
+-            | CompilationMode.OneOff -> Caches.CacheOptions.getDefault HashIdentity.Structural |> Caches.CacheOptions.withNoEviction
+-            | _ -> { Caches.CacheOptions.getDefault HashIdentity.Structural with TotalCapacity = 65536; HeadroomPercentage = 75 }
++            | CompilationMode.OneOff -> Caches.CacheOptions.getDefault typeCacheKeyComparer |> Caches.CacheOptions.withNoEviction
++            | _ -> { Caches.CacheOptions.getDefault typeCacheKeyComparer with TotalCapacity = 65536; HeadroomPercentage = 75 }
+         new Caches.Cache<TTypeCacheKey, bool>(options, "typeSubsumptionCache")
+     Extras.WeakMap.getOrCreate factory     
+ 

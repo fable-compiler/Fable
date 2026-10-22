@@ -1,0 +1,18 @@
+--- a/src/FSharp.Core/map.fs
++++ b/src/FSharp.Core/map.fs
+@@ -104,6 +104,7 @@
+     [<Literal>]
+     let tolerance = 2
+ 
++    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+     let mk l k v r : MapTree<'Key, 'Value> =
+         let hl = height l
+         let hr = height r
+@@ -114,6 +115,7 @@
+         else
+             MapTreeNode(k, v, l, r, m + 1) :> MapTree<'Key, 'Value> // new map is higher by 1 than the highest
+ 
++    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+     let rebalance t1 (k: 'Key) (v: 'Value) t2 : MapTree<'Key, 'Value> =
+         let t1h = height t1
+         let t2h = height t2

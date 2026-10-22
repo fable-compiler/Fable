@@ -1,0 +1,1422 @@
+[
+  {
+    "trace": "temp/core-profile/binding-1.speedscope.json",
+    "sampled_check_ms": 1208.1846427370524,
+    "core_inclusive_ms": 379.0841250739213,
+    "inclusive": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        143.65248368045604
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        135.15696580449094
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Add",
+        33.931391630938606
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.ToList",
+        33.6991983999892
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.FoldBack",
+        30.401890382303918
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        25.946894441577342
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        17.305899144225805
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        13.76509958808515
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        13.254399213236866
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filter",
+        12.377099827157963
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.Operators.op_Append",
+        11.772899438155264
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filterToFreshConsTail",
+        9.806099830627772
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.add",
+        7.723396279591725
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2ToFreshConsTail",
+        6.862299403849647
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.foldBackOpt",
+        6.580299945062052
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.mk",
+        6.564099859639555
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.choose",
+        6.337999368785177
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.Fold",
+        6.332399835889873
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+revamp@726[System.__Canon,System.__Canon].Invoke",
+        6.11989964215627
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.rebalance",
+        5.337579854752676
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.Array.stableSortWithKeysAndComparer",
+        5.18599986467143
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.Array.stableSortInPlaceBy",
+        5.18599986467143
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapFold",
+        4.973799695449088
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Create",
+        4.950499788860725
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.ofSeq",
+        4.8725997949522935
+      ]
+    ],
+    "leaf": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        135.15696580449094
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.ToList",
+        32.319598409897026
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        24.430296858213296
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        13.450499709368387
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        13.135699492611366
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        11.631594988628876
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filterToFreshConsTail",
+        9.806099830627772
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.Operators.op_Append",
+        7.602899778485153
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.mk",
+        6.564099859639555
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        5.356099856994206
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.choose",
+        5.296899392197702
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapFold",
+        4.71289970098951
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zipToFreshConsTail",
+        4.170199651614439
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.PrivateListHelpers.appendToFreshConsTail",
+        4.169999659670111
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.add",
+        4.033096308571203
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Add",
+        4.032499936892691
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.toArray",
+        3.7100994460176935
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.appendToFreshConsTail",
+        3.327895674460933
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].System.Collections.Generic.IEnumerable<'T>.GetEnumerator",
+        3.2652997344011965
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`3[System.__Canon,System.__Canon,System.__Canon].Invoke",
+        3.205499971367317
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.FSharpOption`1[System.__Canon].Some",
+        2.834498608823651
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2ToFreshConsTail",
+        2.6453997367116244
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`3[System.__Canon,System.__Canon,System.__Canon].Adapt",
+        2.5259984011295273
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.ofArray",
+        2.428999939477535
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mapiOpt",
+        2.3247998710103275
+      ]
+    ],
+    "callers": [
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTree+addEntityByMangledName@2090.Invoke",
+        100.24297168907492
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.PostTypeCheckSemanticChecks.CheckDefnInModule",
+        30.7964983693837
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.loop@233-46",
+        23.05939592664845
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.GetTopTauTypeInFSharpForm",
+        12.118499240885285
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader.GetImmediateIntrinsicMethInfosOfTypeAux",
+        10.00999988938247
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTree+ModuleOrNamespaceType.get_AllValsAndMembersByPartialLinkageKey",
+        9.00169371992888
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader+IndexedList`1[System.__Canon].AddItems",
+        7.323199672177907
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader+clo@433-298.Invoke",
+        7.023999907286907
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.stripTyEqnsA",
+        6.871599649811287
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution.AddTyconRefsToNameEnv",
+        5.341299766731709
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Library.NameMultiMap+chooseRange@1263[System.__Canon,System.__Canon].Invoke",
+        5.138299417010785
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution.ResolveObjectConstructorPrim",
+        4.919699880138978
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls+CalledMeth`1[System.__Canon]..ctor",
+        4.87539991176709
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTree+ModuleOrNamespaceType.get_TypesByMangledName",
+        4.720499360888425
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.CheckExpressions.PublishArguments",
+        4.047099117618927
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.TypeHashing+StructuralUtilities+TypeStructure.GetHashCode",
+        3.657699920665891
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.addFreeInModuleTy",
+        3.3038992623696686
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution+AddTyconByAccessNames@865.Invoke",
+        3.1904998609188624
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps+allValsOfModDef@6450.GenerateNext",
+        2.985500034486904
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Collections.QueueList.foldBack",
+        2.913298859328279
+      ]
+    ],
+    "allocations": {
+      "trace": "temp/core-profile/binding-1.nettrace",
+      "ticks": 12692,
+      "missingStacks": 0,
+      "eventsLost": 0,
+      "totalSampledBytes": 1369289664,
+      "checkingSampledBytes": 1132151472,
+      "selected": [
+        {
+          "name": "Map nodes under entity-name table construction",
+          "estimatedMB": 166.44747924804688
+        },
+        {
+          "name": "TypeToken boxing under array hashing",
+          "estimatedMB": 1.3201370239257812
+        },
+        {
+          "name": "TypeToken boxing under array equality",
+          "estimatedMB": 1.2147979736328125
+        }
+      ],
+      "types": [
+        {
+          "name": "Microsoft.FSharp.Collections.MapTreeNode`2[System.String,FSharp.Compiler.TypedTree+Entity]",
+          "estimatedMB": 167.46409606933594
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+TType]",
+          "estimatedMB": 38.102684020996094
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.Infos+MethInfo]",
+          "estimatedMB": 27.51305389404297
+        },
+        {
+          "name": "System.Tuple`4[Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+Typar],Microsoft.FSharp.Collections.FSharpList`1[Microsoft.FSharp.Collections.FSharpList`1[System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]]],FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]",
+          "estimatedMB": 22.868865966796875
+        },
+        {
+          "name": "TType_app",
+          "estimatedMB": 20.72332000732422
+        },
+        {
+          "name": "System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]",
+          "estimatedMB": 19.009361267089844
+        },
+        {
+          "name": "System.Tuple`2[Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+TType],FSharp.Compiler.TypedTree+TType]",
+          "estimatedMB": 18.396697998046875
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpMap`2[System.String,FSharp.Compiler.TypedTree+Entity]",
+          "estimatedMB": 15.836067199707031
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[Microsoft.FSharp.Collections.FSharpList`1[System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]]]",
+          "estimatedMB": 15.443016052246094
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.MapTreeNode`2[System.Int64,FSharp.Compiler.TypedTree+ValRef]",
+          "estimatedMB": 14.429847717285156
+        }
+      ]
+    }
+  },
+  {
+    "trace": "temp/core-profile/binding-2.speedscope.json",
+    "sampled_check_ms": 1286.0530778489808,
+    "core_inclusive_ms": 421.33399304339787,
+    "inclusive": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        158.8813844943145
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        153.04348557205662
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        34.02549861235411
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Add",
+        33.74258881461492
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.FoldBack",
+        32.299788182053135
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        30.549965146614113
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2ToFreshConsTail",
+        22.694399795398112
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+revamp@726[System.__Canon,System.__Canon].Invoke",
+        16.56819905485736
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        15.548069614537098
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.Operators.op_Append",
+        13.475499673725835
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.choose",
+        13.43439816514865
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filter",
+        12.922998551206092
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        12.867999188244994
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers+mkConcatSeq@348[System.__Canon,System.__Canon].Invoke",
+        12.606499525714298
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers+ConcatEnumerator`2[System.__Canon,System.__Canon]..ctor",
+        12.233999545258484
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.add",
+        12.217848022200542
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.foldBackOpt",
+        11.693399946589352
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+Map2@763[System.__Canon,System.__Canon,System.__Canon].Invoke",
+        11.36369978042876
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filterToFreshConsTail",
+        11.023399557862376
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ArrayModule.Fold",
+        7.879799076050631
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.rebalance",
+        7.817299022344969
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.ofSeq",
+        6.3833996963549
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Create",
+        6.3833996963549
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.collect",
+        6.1199988497169215
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.mk",
+        5.844548182027893
+      ]
+    ],
+    "leaf": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        153.04348557205662
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        21.7544909433675
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2ToFreshConsTail",
+        18.660000269317152
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        14.15599554010305
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        13.935769675158099
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+Map2@763[System.__Canon,System.__Canon,System.__Canon].Invoke",
+        11.36369978042876
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filterToFreshConsTail",
+        10.996799562899014
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.choose",
+        10.369298206484473
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.Operators.op_Append",
+        9.488299969066247
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.add",
+        9.061699796339099
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        8.562099375110392
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        6.779798867858517
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.mk",
+        5.844548182027893
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].Cons",
+        5.079399194379903
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.appendToFreshConsTail",
+        4.7306988634918525
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zipToFreshConsTail",
+        4.305899813134602
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.ToList",
+        4.139399224877252
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`3[System.__Canon,System.__Canon,System.__Canon].Adapt",
+        4.091899820733033
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.FSharpOption`1[System.__Canon].Some",
+        4.040699861610165
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.PrivateListHelpers.appendToFreshConsTail",
+        3.987199704659588
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.ofArray",
+        3.8736999408483825
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.exists",
+        3.584599935864844
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.tryGetValue",
+        3.467799946665764
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.toArray",
+        3.4280958776530497
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`3[System.__Canon,System.__Canon,System.__Canon].Invoke",
+        3.4202998399255193
+      ]
+    ],
+    "callers": [
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTree+addEntityByMangledName@2090.Invoke",
+        111.20358635916159
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.GetTopTauTypeInFSharpForm",
+        30.256298674475147
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.loop@233-46",
+        25.78574738708903
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.CheckExpressions.PublishArguments",
+        15.353999387562908
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader.GetImmediateIntrinsicMethInfosOfTypeAux",
+        12.969599873548304
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTree+ModuleOrNamespaceType.get_AllValsAndMembersByPartialLinkageKey",
+        9.16819432722923
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Library.NameMultiMap+chooseRange@1263[System.__Canon,System.__Canon].Invoke",
+        8.565198281807625
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader+IndexedList`1[System.__Canon].AddItems",
+        8.376599622498361
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader+clo@433-298.Invoke",
+        7.342399852053859
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution.AddTyconRefsToNameEnv",
+        4.319199113280092
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Collections.QueueList.foldBack",
+        4.065099396013466
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.GetImmediateInterfacesOfMetadataType",
+        3.9537998715936737
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution+AddTyconByAccessNames@865.Invoke",
+        3.9351998588881543
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.stripTyEqnsA",
+        3.9086998408652107
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Library.Extras+Graph`2[System.__Canon,System.Int64]..ctor",
+        3.8414999183937653
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodOverrides+DispatchSlotChecking.CheckDispatchSlotsAreImplemented",
+        3.761199771957763
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.CheckDeclarations+TyconConstraintInference.InferSetOfTyconsSupportingEquatable",
+        3.597199384689702
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Library.MultiMap.find",
+        3.3710999488830566
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps+OfList@100-3[System.__Canon].Invoke",
+        2.979699859901757
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution.ResolveObjectConstructorPrim",
+        2.9326999290042295
+      ]
+    ],
+    "allocations": {
+      "trace": "temp/core-profile/binding-2.nettrace",
+      "ticks": 12697,
+      "missingStacks": 0,
+      "eventsLost": 0,
+      "totalSampledBytes": 1369926552,
+      "checkingSampledBytes": 1133264872,
+      "selected": [
+        {
+          "name": "Map nodes under entity-name table construction",
+          "estimatedMB": 166.0443572998047
+        },
+        {
+          "name": "TypeToken boxing under array hashing",
+          "estimatedMB": 1.217498779296875
+        },
+        {
+          "name": "TypeToken boxing under array equality",
+          "estimatedMB": 0.6132278442382812
+        }
+      ],
+      "types": [
+        {
+          "name": "Microsoft.FSharp.Collections.MapTreeNode`2[System.String,FSharp.Compiler.TypedTree+Entity]",
+          "estimatedMB": 166.75598907470703
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+TType]",
+          "estimatedMB": 37.475860595703125
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.Infos+MethInfo]",
+          "estimatedMB": 29.033035278320312
+        },
+        {
+          "name": "TType_app",
+          "estimatedMB": 24.575180053710938
+        },
+        {
+          "name": "System.Tuple`2[Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+TType],FSharp.Compiler.TypedTree+TType]",
+          "estimatedMB": 19.207077026367188
+        },
+        {
+          "name": "System.Tuple`4[Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+Typar],Microsoft.FSharp.Collections.FSharpList`1[Microsoft.FSharp.Collections.FSharpList`1[System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]]],FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]",
+          "estimatedMB": 18.697891235351562
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]]",
+          "estimatedMB": 16.773605346679688
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpMap`2[System.String,FSharp.Compiler.TypedTree+Entity]",
+          "estimatedMB": 15.550086975097656
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[Microsoft.FSharp.Collections.FSharpList`1[System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]]]",
+          "estimatedMB": 15.546333312988281
+        },
+        {
+          "name": "System.Tuple`2[FSharp.Compiler.TypedTree+TType,FSharp.Compiler.TypedTree+ArgReprInfo]",
+          "estimatedMB": 15.134849548339844
+        }
+      ]
+    }
+  },
+  {
+    "trace": "temp/core-profile/js-1.speedscope.json",
+    "sampled_check_ms": 14977.691974704958,
+    "core_inclusive_ms": 3241.7098442886745,
+    "inclusive": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.LanguagePrimitives+HashCompare.GenericHashArbArray",
+        318.5735941078592
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        278.50758409627724
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        237.7560636980993
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        211.2907963554958
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].Cons",
+        196.39419567187906
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.LanguagePrimitives+HashCompare.GenericEqualityArbArray",
+        195.10229739444094
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.ToArray",
+        187.1279955554669
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        186.91345378959977
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.LanguagePrimitives+HashCompare.check@1623-2",
+        185.5726975403404
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Add",
+        144.85646738609148
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.toArray$cont@1026",
+        105.70529618573619
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.Fold",
+        97.9692773233296
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.Array.stableSortInPlaceBy",
+        91.38459929389319
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.Array.stableSortWithKeysAndComparer",
+        90.14799925975194
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.FoldBack2",
+        87.00320022665255
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.SortBy",
+        77.59519954655798
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.CompilerServices.ListCollector`1[System.__Canon].Add",
+        72.97429827791211
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        71.73779921582991
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpSet`1[System.Int64].Add",
+        68.46159769084761
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        66.14349858313881
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.FSharpOption`1[System.__Canon].Some",
+        65.98857681830941
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.FoldBack",
+        61.456089719289594
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+Truncate@1081[Internal.Utilities.TypeHashing+StructuralUtilities+TypeToken].GetFreshEnumerator",
+        61.27999979051492
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].System.Collections.Generic.IEnumerable<'T>.GetEnumerator",
+        53.35869874832406
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filter",
+        50.05509859929316
+      ]
+    ],
+    "leaf": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].Cons",
+        196.39419567187906
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        186.91345378959977
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        178.68938675278332
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        176.6361972102295
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.toArray$cont@1026",
+        99.28279642469079
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.Fold",
+        92.68799782226142
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        80.2456865028571
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.CompilerServices.ListCollector`1[System.__Canon].Add",
+        72.97429827791211
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.FSharpOption`1[System.__Canon].Some",
+        65.98857681830941
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+Truncate@1081[Internal.Utilities.TypeHashing+StructuralUtilities+TypeToken].GetFreshEnumerator",
+        61.27999979051492
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        61.129198664999876
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].System.Collections.Generic.IEnumerable<'T>.GetEnumerator",
+        53.35869874832406
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.exists",
+        45.758197967433716
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.Truncate",
+        45.06209933171067
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.PrivateListHelpers.appendToFreshConsTail",
+        32.64797915709096
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapFold",
+        30.670898888080956
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Add",
+        30.579298845585072
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zipToFreshConsTail",
+        29.329499361177568
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        29.055699767711758
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.add",
+        27.624699405334468
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpSet`1[System.Int64].Add",
+        25.571698973340062
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.mk",
+        22.908898751999004
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filterToFreshConsTail",
+        22.335399629818767
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filter",
+        22.139199042573637
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.toArray",
+        20.76908643986053
+      ]
+    ],
+    "callers": [
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.TypeHashing+StructuralUtilities+TypeStructure.GetHashCode",
+        318.5735941078592
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.TypeHashing+StructuralUtilities.getTypeStructureOfStrippedType",
+        230.4173948876064
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeRelations+TTypeCacheKey.Equals",
+        188.3129974920139
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.stripTyEqnsA",
+        104.42589870282791
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.loop@233-46",
+        96.96079431720909
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.CheckIncrementalClasses.MakeCtorForIncrClassConstructionPhase2C",
+        85.3609981443883
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.bindLocalVals",
+        83.51580017471315
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls+CalledMeth`1[System.__Canon]..ctor",
+        71.25409894499853
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.Library.LayeredMultiMap`2[System.__Canon,System.__Canon].Add",
+        62.062793114325814
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps+TyconRefMultiMap`1[System.__Canon].Add",
+        47.94078617525474
+      ],
+      [
+        "FSharp.Compiler.Service!<StartupCode$FSharp-Compiler-Service>.$Caches+post@339[FSharp.Compiler.TypeRelations+TTypeCacheKey,System.Boolean].Invoke",
+        46.90409873546787
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.GetImmediateInterfacesOfMetadataType",
+        46.75959827152292
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls.AdjustCallerArgs",
+        44.9401992248695
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution.AddValRefToNameEnv",
+        43.460699363313324
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.GetImmediateInterfacesOfType",
+        38.929299221003475
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.InfoReader+AddItems@340[System.__Canon].Invoke",
+        38.69509726876868
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.stripFunTyN",
+        37.24709994654813
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeBasics.mkNestedNonLocalEntityRef",
+        37.23949429549339
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.applyForallTy",
+        35.987399365770216
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls.ExamineMethodForLambdaPropagation",
+        28.320999101214966
+      ]
+    ],
+    "allocations": {
+      "trace": "temp/core-profile/js-1.nettrace",
+      "ticks": 77842,
+      "missingStacks": 1,
+      "eventsLost": 0,
+      "totalSampledBytes": 8334499192,
+      "checkingSampledBytes": 4098897200,
+      "selected": [
+        {
+          "name": "TypeToken boxing under array equality",
+          "estimatedMB": 91.07167053222656
+        },
+        {
+          "name": "TypeToken boxing under array hashing",
+          "estimatedMB": 52.83619689941406
+        },
+        {
+          "name": "Map nodes under entity-name table construction",
+          "estimatedMB": 3.1508560180664062
+        }
+      ],
+      "types": [
+        {
+          "name": "emitTType@443",
+          "estimatedMB": 283.9960174560547
+        },
+        {
+          "name": "TType_app",
+          "estimatedMB": 195.40137481689453
+        },
+        {
+          "name": "TypeToken",
+          "estimatedMB": 143.90786743164062
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+TType]",
+          "estimatedMB": 108.02005004882812
+        },
+        {
+          "name": "System.Tuple`6[System.Int32,System.Int32,System.Int32,FSharp.Compiler.AbstractIL.ILBinaryReader+TaggedIndex`1[FSharp.Compiler.AbstractIL.BinaryConstants+TypeDefOrRefTag],System.Int32,System.Int32]",
+          "estimatedMB": 107.30239868164062
+        },
+        {
+          "name": "System.Tuple`5[System.Int32,System.UInt16,System.UInt16,FSharp.Compiler.AbstractIL.ILBinaryReader+TaggedIndex`1[FSharp.Compiler.AbstractIL.BinaryConstants+TypeOrMethodDefTag],System.Int32]",
+          "estimatedMB": 103.43575286865234
+        },
+        {
+          "name": "emitNullness@418",
+          "estimatedMB": 99.64474487304688
+        },
+        {
+          "name": "ILTypeRef",
+          "estimatedMB": 60.13648986816406
+        },
+        {
+          "name": "TypeToken[]",
+          "estimatedMB": 55.377601623535156
+        },
+        {
+          "name": "ImportILType@304",
+          "estimatedMB": 46.42084503173828
+        }
+      ]
+    }
+  },
+  {
+    "trace": "temp/core-profile/js-2.speedscope.json",
+    "sampled_check_ms": 18442.8809626989,
+    "core_inclusive_ms": 4039.167344406349,
+    "inclusive": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        469.2797816696693
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.LanguagePrimitives+HashCompare.GenericHashArbArray",
+        420.72832146278733
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.LanguagePrimitives+HashCompare.GenericEqualityArbArray",
+        285.62085108778683
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.LanguagePrimitives+HashCompare.check@1623-2",
+        261.0286513814708
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        249.86628997868775
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.ToArray",
+        243.4633934490339
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        194.01515136501303
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].Cons",
+        168.13547585381048
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.Fold",
+        165.43218709566054
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        160.96245236605318
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.toArray$cont@1026",
+        147.68649500379934
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.exists",
+        133.30099402065207
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpMap`2[System.__Canon,System.__Canon].Add",
+        120.85925836791239
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.Array.stableSortWithKeysAndComparer",
+        110.10888360346644
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.Array.stableSortInPlaceBy",
+        108.265498593355
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        105.83909788244046
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.Map",
+        100.26579984273985
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        100.1541983287234
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.SortBy",
+        93.72459899022579
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Control.Mailbox`1[FSharp.Compiler.Caches.EvictionQueueMessage`2[System.__Canon,System.__Canon]].Post",
+        81.96319646931988
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Control.FSharpMailboxProcessor`1[FSharp.Compiler.Caches.EvictionQueueMessage`2[System.__Canon,System.__Canon]].Post",
+        80.71059645702735
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.CompilerServices.ListCollector`1[System.__Canon].Add",
+        77.46119832397972
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.FoldBack2",
+        76.66400323007156
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.Int32].Cons",
+        76.28800012982492
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.FSharpOption`1[System.__Canon].Some",
+        76.11819622728353
+      ]
+    ],
+    "leaf": [
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map",
+        239.46458613958475
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zip",
+        194.38319122103303
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].Cons",
+        168.13547585381048
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.mk",
+        160.96245236605318
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.ListModule.Fold",
+        153.6107023306372
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.toArray$cont@1026",
+        142.8224950976878
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.exists",
+        133.30099402065207
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapToFreshConsTail",
+        103.16229794069204
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.CompilerServices.ListCollector`1[System.__Canon].Add",
+        77.46119832397972
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.Int32].Cons",
+        76.28800012982492
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Core.FSharpOption`1[System.__Canon].Some",
+        76.11819622728353
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.MapTreeModule.add",
+        64.2927971426484
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+Truncate@1081[Internal.Utilities.TypeHashing+StructuralUtilities+TypeToken].GetFreshEnumerator",
+        54.18659922770121
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.FSharpList`1[System.__Canon].System.Collections.Generic.IEnumerable<'T>.GetEnumerator",
+        54.174497549676744
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.zipToFreshConsTail",
+        53.724598798472016
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.mapFold",
+        51.45769626698166
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule.Truncate",
+        43.358799487307806
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filter",
+        42.072499214205436
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.choose",
+        35.8372978991506
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SeqModule+Truncate@1081[Internal.Utilities.TypeHashing+StructuralUtilities+TypeToken].GenerateNext",
+        34.65809932987622
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.map2",
+        34.18549927694585
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.forall",
+        27.89040215909472
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Collections.SetTreeModule.mk",
+        24.955597100999057
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.rev",
+        23.69919886070602
+      ],
+      [
+        "FSharp.Core!Microsoft.FSharp.Primitives.Basics.List.filterToFreshConsTail",
+        22.567697390302328
+      ]
+    ],
+    "callers": [
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.TypeHashing+StructuralUtilities+TypeStructure.GetHashCode",
+        421.1036214466226
+      ],
+      [
+        "FSharp.Compiler.Service!Internal.Utilities.TypeHashing+StructuralUtilities.getTypeStructureOfStrippedType",
+        285.3314929863145
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeRelations+TTypeCacheKey.Equals",
+        263.61745132523174
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.CheckIncrementalClasses.MakeCtorForIncrClassConstructionPhase2C",
+        152.98410232028937
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.stripTyEqnsA",
+        134.8714933675392
+      ],
+      [
+        "FSharp.Compiler.Service!<StartupCode$FSharp-Compiler-Service>.$Caches+post@339[FSharp.Compiler.TypeRelations+TTypeCacheKey,System.Boolean].Invoke",
+        83.43699641324383
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls.BuildFSharpMethodApp",
+        74.97760034636258
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.bindLocalVals",
+        74.46530329191683
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.CheckDeclarations+AddAugmentationDeclarations.AddGenericEqualityBindings$cont@884",
+        74.22199729003887
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.loop@233-46",
+        73.37619140961851
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypeHierarchy.GetImmediateInterfacesOfMetadataType",
+        59.12099778760785
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls.AdjustCallerArgs",
+        54.395699605772734
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls+CalledMeth`1[System.__Canon]..ctor",
+        52.76969915767904
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps+TyconRefMultiMap`1[System.__Canon].Add",
+        52.33259791507362
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.GetTopTauTypeInFSharpForm",
+        51.86739932809178
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.applyForallTy",
+        51.43339851814335
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeBasics.mkNestedNonLocalEntityRef",
+        43.55512265962625
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.MethodCalls+argSetInfos@578-1[System.__Canon].Invoke",
+        43.36459915781188
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.NameResolution.AddTyconByAccessNames",
+        38.678199606272756
+      ],
+      [
+        "FSharp.Compiler.Service!FSharp.Compiler.TypedTreeOps.destForallTy",
+        38.15679949852938
+      ]
+    ],
+    "allocations": {
+      "trace": "temp/core-profile/js-2.nettrace",
+      "ticks": 77857,
+      "missingStacks": 1,
+      "eventsLost": 0,
+      "totalSampledBytes": 8335642456,
+      "checkingSampledBytes": 4092520992,
+      "selected": [
+        {
+          "name": "TypeToken boxing under array equality",
+          "estimatedMB": 100.06058502197266
+        },
+        {
+          "name": "TypeToken boxing under array hashing",
+          "estimatedMB": 45.88446807861328
+        },
+        {
+          "name": "Map nodes under entity-name table construction",
+          "estimatedMB": 4.06427001953125
+        }
+      ],
+      "types": [
+        {
+          "name": "emitTType@443",
+          "estimatedMB": 278.43419647216797
+        },
+        {
+          "name": "TType_app",
+          "estimatedMB": 202.35404205322266
+        },
+        {
+          "name": "TypeToken",
+          "estimatedMB": 145.94505310058594
+        },
+        {
+          "name": "Microsoft.FSharp.Collections.FSharpList`1[FSharp.Compiler.TypedTree+TType]",
+          "estimatedMB": 115.58814239501953
+        },
+        {
+          "name": "System.Tuple`6[System.Int32,System.Int32,System.Int32,FSharp.Compiler.AbstractIL.ILBinaryReader+TaggedIndex`1[FSharp.Compiler.AbstractIL.BinaryConstants+TypeDefOrRefTag],System.Int32,System.Int32]",
+          "estimatedMB": 103.71931457519531
+        },
+        {
+          "name": "emitNullness@418",
+          "estimatedMB": 100.49309539794922
+        },
+        {
+          "name": "System.Tuple`5[System.Int32,System.UInt16,System.UInt16,FSharp.Compiler.AbstractIL.ILBinaryReader+TaggedIndex`1[FSharp.Compiler.AbstractIL.BinaryConstants+TypeOrMethodDefTag],System.Int32]",
+          "estimatedMB": 98.86675262451172
+        },
+        {
+          "name": "TypeToken[]",
+          "estimatedMB": 60.84674835205078
+        },
+        {
+          "name": "ILTypeRef",
+          "estimatedMB": 59.223060607910156
+        },
+        {
+          "name": "Truncate@1081[Internal.Utilities.TypeHashing+StructuralUtilities+TypeToken]",
+          "estimatedMB": 46.733673095703125
+        }
+      ]
+    }
+  }
+]

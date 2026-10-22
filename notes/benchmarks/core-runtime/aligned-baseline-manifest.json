@@ -1,0 +1,10 @@
+{
+  "source_commit": "7d0437e8bcf9ead9483483eaa556f1998af8806b",
+  "dotnet_source_commit": "c23858a6d860abe3ca94f9ac630c3e61b2625664",
+  "runtime_package": "FSharp.Core/10.1.203",
+  "target_framework": "netstandard2.1",
+  "public_signed": true,
+  "runtime_sha256": "c71c2b7fde9cd3af4be358929ec65d4633f41aabf019e27b012c5f4701594dc8",
+  "baseline_sha256": "0d62ab9aed739975537e55caa4536a9e8fc7a2fcf11d9e6cb5135e23cfda5b9e",
+  "api_and_anonymous_object_equality_match": true
+}
