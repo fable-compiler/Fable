@@ -10,9 +10,53 @@ the compiler process and bind against it.
 
 Status: done, open (not tried), measured-no-gain, or ruled out (with the reason).
 
+Fickl's NuGet release uses `dotnet run --project src/Fickl.Build -- publish` with `FICKL_NUGET_KEY`
+provided in the environment (`--pack-only` builds and validates without uploading). The single
+`FicklVersion` property in `src/Fickl.Branding.targets` versions Fickl.Core, Fickl.AST, Fickl.Compiler,
+Fickl.PublishUtils and the CLI packages together, while retaining upstream assembly versions for binary
+compatibility with existing plugins. EasyBuild's changelog-derived package version is overridden after its
+version target runs. Generated runtime libraries are rebuilt before packing, and
+every tool runtime package is checked for all bundled language libraries. Companion packages and all runtime packages are pushed before
+the tool pointer package. Compiler symbols are embedded; its empty separate symbol archive is not pushed.
+
+The initial 0.5.2 release incorrectly applied the package version to companion assembly versions, which
+broke existing Feliz plugins. The local 0.5.3 correction preserves those assembly identities and restores
+the missing Rust and Dart runtime payloads. Validation includes 141 compiler tests, the assembly-qualified
+AST reference used by older plugins, a consumer of all four companion packages, and a Fantomas tools
+compile using its existing Feliz plugins. Fickl.Core is the separate `src/Fickl.Core` project containing
+Fickl-specific attributes, not a renamed Fable.Core package; its consumer check resolves
+`Fickl.Core.CaseTestAttribute`. The mistaken rename in 0.5.2 also caused duplicate project identities when
+restoring the JS suite. Publication of the corrective release is pending.
+
 Runtime sweeps use cold `--noCache` runs, configurations interleaved, 4–5 runs each, and compare the compile phase
 ("Fable compilation finished in"), which excludes project cracking. Glutinum's compile times range 4.2–6.8 s within one
 configuration, so it is not used to rank settings; the JS test suite stays within ±0.2 s.
+
+## End to end against upstream (Fickl 0.5.3 candidate, 2026-10-22)
+
+[Comparison image](benchmarks/fickl-0.5.3.png), [raw timings](benchmarks/fickl-0.5.3.csv),
+[package hashes and environment](benchmarks/fickl-0.5.3-manifest.json). Wall clock from process start to exit,
+five interleaved runs per configuration, fresh output directories and `--noCache`, including restores.
+Cache hits are warmed; the CSV separately records warmups and one first-use cache build per workload.
+All 120 measured runs succeeded. These measurements compare the full fork with upstream, not just the
+incremental effect of the IWSAM optimization.
+
+| Project | Fable 5.22 | Fable, telemetry opted out | Fickl, cache off | Fickl, cache hit | Hit vs opted out |
+| --- | --- | --- | --- | --- | --- |
+| Sutil | 9.20 s | 7.28 s | 3.99 s | 2.39 s | 3.0× |
+| Fantomas tools | 7.62 s | 6.29 s | 2.68 s | 1.92 s | 3.3× |
+| Ionide | 12.22 s | 5.60 s | 2.91 s | 2.84 s | 2.0× |
+| JS suite (`--exclude Fable.Core`) | 28.28 s | 8.87 s | 4.07 s | 3.94 s | 2.3× |
+| Python bench | 11.24 s | 9.89 s | 7.43 s | 1.80 s | 5.5× |
+| BEAM bench | 10.58 s | 9.17 s | 7.09 s | 1.52 s | 6.0× |
+
+The previous harness was recovered from the local Claude scratchpad. Its Windows replacement is
+`notes/benchmarks/benchmark-0.5.3.py --scratch <scratchpad> --tool <packaged-fable.exe>`;
+`plot-0.5.3.py` renders the CSV with matplotlib. The JS workload was resumed after correcting the
+Fickl.Core project identity; packaged tool files were verified byte-identical after repacking.
+Cleanup stopped leftover MSBuild workers and verified none remained; active Rider project evaluations
+are excluded because Rider immediately launches replacements. Telemetry/network overhead varies by
+machine and session, so the previous day's default-upstream timings are not reused.
 
 ## End to end against upstream (Fickl 0.5.1, 2026-10-21)
 

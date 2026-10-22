@@ -13,5 +13,5 @@ let main argv =
         name "fickl-build"
         description "Fickl build CLI. Run a command with --help for its options, or --explain to dry-run it"
         workingDir Paths.root
-        addCommands [ yield! Forwarded.commands; Fickl.timings; Fickl.fcsFork ]
+        addCommands [ yield! Forwarded.commands; Fickl.timings; Fickl.fcsFork; Release.publish ]
     }

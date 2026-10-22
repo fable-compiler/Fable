@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Forwarded.fs" />
     <Compile Include="Fickl.fs" />
+    <Compile Include="Release.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

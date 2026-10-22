@@ -1,0 +1,25 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "dotnet_sdk": "10.0.113",
+  "compiler_commit": "4194dcca6c37895bbb431ace58690a5ac4a0711e",
+  "candidate": "Fickl 0.5.3, local corrected packages",
+  "packages": {
+    "Fickl.0.5.3.nupkg": "d5e114261d198c64099b80a927e6d8b9df756f75b263f9b6012c696b0cc7957e",
+    "Fickl.any.0.5.3.nupkg": "b87cb5f5665b7c8ff0f7179ba92e3c2df9616f8fcbbd40fa0cdb267708c42b80",
+    "Fickl.AST.0.5.3.nupkg": "4d0de0ff8bc049bd475e39427bae9e499a01bf415fa00b361139ddf3c78ac903",
+    "Fickl.Compiler.0.5.3.nupkg": "ad0aa763a54e293202b18eb44e6967efdf611fe981c7b5e6dad2a48f081e1e51",
+    "Fickl.Core.0.5.3.nupkg": "e203a58a719980245bd72b633c477fd9085b14eb6e6817835f622ed53a64eb54",
+    "Fickl.linux-arm64.0.5.3.nupkg": "1b4461862f333a0dd85f6aabe063c3288f2ff869b08878b16c55dc99f538a0b0",
+    "Fickl.linux-musl-x64.0.5.3.nupkg": "9e08a989f5bde829963ced77e7be0b91a4e21919768e2229ba1ea291fa2c1475",
+    "Fickl.linux-x64.0.5.3.nupkg": "ec24d3a0d7f1f5f9c6aaa70b2cb509268f4a2aabcb47079b7cb32ef54c40ea3e",
+    "Fickl.osx-arm64.0.5.3.nupkg": "ad639cbfb616adedeff39fe98d4c95ec799c7c431ca710f39fd3cbf7203e80e7",
+    "Fickl.osx-x64.0.5.3.nupkg": "f3b9df7e5beab695645af06e3eb473e4a29fa12d9a57e84908df59e6d2977b97",
+    "Fickl.PublishUtils.0.5.3.nupkg": "c825633aa109f075ea3e809a5611761dbf19654e1149a5ed979b19a357a9a613",
+    "Fickl.win-arm64.0.5.3.nupkg": "bea7068c889b1c87c3929352b3d46e6290933480e387eb8c41eba7ee797eb33d",
+    "Fickl.win-x64.0.5.3.nupkg": "2fd56b914b9683933565b8f5f720e22ec39283ce05228c8c18f23e26907a6561"
+  },
+  "resumed_workloads": [
+    "jssuite"
+  ],
+  "resume_reason": "Correct Fickl.Core project identity; packaged tool files byte-identical after repack"
+}

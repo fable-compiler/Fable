@@ -5,6 +5,7 @@
         Namespaces and assembly names are deliberately left as Fable.* to keep upstream merges cheap.
     -->
     <PropertyGroup>
+        <FicklVersion>0.5.3</FicklVersion>
         <PackageProjectUrl>https://github.com/shayanhabibi/fickl</PackageProjectUrl>
         <RepositoryUrl>https://github.com/shayanhabibi/fickl.git</RepositoryUrl>
         <PackageTags>fsharp;fickl;fable;javascript;typescript;python;f#;js</PackageTags>
@@ -17,8 +18,25 @@
         <Description>Fickl: a performance-focused fork of the Fable F# compiler</Description>
         <!-- Fickl's own version; the CHANGELOG version EasyBuild would set is Fable's -->
         <EasyBuildPackageReleaseNotes_DisableSetVersion>true</EasyBuildPackageReleaseNotes_DisableSetVersion>
-        <Version>0.5.1</Version>
+        <Version>$(FicklVersion)</Version>
     </PropertyGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fable.Cli' OR '$(MSBuildProjectName)' == 'Fickl.Core' OR '$(MSBuildProjectName)' == 'Fable.AST' OR '$(MSBuildProjectName)' == 'Fable.Compiler' OR '$(MSBuildProjectName)' == 'Fable.PublishUtils'">
+        <!-- Keep upstream assembly versions for binary plugin compatibility. -->
+        <PackageVersion>$(FicklVersion)</PackageVersion>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Fickl.Core'">
+        <PackageId>Fickl.Core</PackageId>
+    </PropertyGroup>
+
+    <!-- EasyBuild assigns both Version and PackageVersion from upstream changelogs during the build. -->
+    <Target Name="FicklRestorePackageVersion" AfterTargets="SetVersionFromCurrentRelease"
+        Condition="'$(MSBuildProjectName)' == 'Fable.Cli' OR '$(MSBuildProjectName)' == 'Fickl.Core' OR '$(MSBuildProjectName)' == 'Fable.AST' OR '$(MSBuildProjectName)' == 'Fable.Compiler' OR '$(MSBuildProjectName)' == 'Fable.PublishUtils'">
+        <PropertyGroup>
+            <PackageVersion>$(FicklVersion)</PackageVersion>
+        </PropertyGroup>
+    </Target>
 
     <!--
         Tool packages per runtime, each one ReadyToRun-compiled as a single composite image, plus a portable `any`

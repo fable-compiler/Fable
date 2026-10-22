@@ -7,6 +7,10 @@ open Fable.Tests.Compiler.Util.Compiler
 
 let tests =
     testList "Compiler Helpers" [
+        testCase "Fable 5 plugins can resolve their AST assembly reference" <| fun _ ->
+            let assembly = System.Reflection.Assembly.Load "Fable.AST, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null"
+            assembly.GetType("Fable.AST.Fable.Expr", throwOnError = true) |> equal typeof<Fable.AST.Fable.Expr>
+
         testCase "expectedVersionMatchesActual works for same major version" <| fun _ ->
             Fable.CompilerExt.expectedVersionMatchesActual "5.0.0" "5.0.0" |> equal true
             Fable.CompilerExt.expectedVersionMatchesActual "5.0.0" "5.0.1" |> equal true
