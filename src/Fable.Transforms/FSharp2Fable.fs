@@ -393,16 +393,20 @@ let private getImplementedSignatureInfo
     )
     |> Option.map (fun (ent, memb) ->
         let info = getAbstractMemberInfo com ent memb
+
+        // Rust interface members are dispatched through traits and never collide with class members
         // Setters can have same name as getters, assume there will always be a getter
-        if
-            not info.isMangled
+        let conflicts =
+            com.Options.Language <> Rust
+            && not info.isMangled
             && not info.isSetter
             && (nonMangledNameConflicts implementingEntityName info.name
                 || implementingEntityFields.Contains(info.name))
-        then
+
+        // Calls through an emitted or imported member never reach the attached implementation
+        if conflicts && not (isEmittedOrImportedMember memb) then
             $"Member %s{info.name} is duplicated, use Mangle attribute to prevent conflicts with interfaces"
-            // TODO: Temporarily emitting a warning, because this errors in old libraries, like Fable.React.HookBindings
-            |> addWarning com ctx.InlinePath r
+            |> addError com ctx.InlinePath r
 
         {|
             name = info.name

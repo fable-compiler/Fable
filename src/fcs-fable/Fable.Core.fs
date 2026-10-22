@@ -1,5 +1,9 @@
 namespace Fable.Core
 
+type MangleAttribute(mangle: bool) =
+    inherit System.Attribute()
+    new() = MangleAttribute(true)
+
 module JS =
 
     type Map<'K, 'V> =

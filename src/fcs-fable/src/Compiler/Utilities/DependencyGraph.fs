@@ -21,6 +21,9 @@ let insert key value (dict: Dictionary<_, _>) =
     | true, _ -> dict[key] <- value
     | false, _ -> dict.Add(key, value)
 
+#if FABLE_COMPILER
+[<Fable.Core.Mangle>]
+#endif
 type IDependencyGraph<'Id, 'Val when 'Id: equality> =
 
     abstract member AddOrUpdateNode: id: 'Id * value: 'Val -> unit

@@ -8,6 +8,7 @@ open Fable.AST.Php
 open Fable.Core
 open System.Collections.Generic
 
+[<Fable.Core.Mangle>]
 type IPhpCompiler =
     inherit Compiler
 
