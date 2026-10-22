@@ -144,10 +144,6 @@ type FsUnionCase(uci: FSharpUnionCase) =
         |> Helpers.tryFindAttrib Atts.caseTest
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments[0] |> snd |> string<obj>)
 
-    // static member HasNamedFields(uci: FSharpUnionCase) =
-    //     not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
-    //     true
-
     interface Fable.UnionCase with
         member _.Name = uci.Name
         member _.FullName = FsUnionCase.FullName uci
@@ -3487,52 +3483,6 @@ module Util =
 
             "cannot be told apart at runtime: " + reason
 
-    /// One check per other case with the same tag value, or the case the fields cannot exclude
-    let deriveDerivedCaseTests
-        (com: Compiler)
-        (tdef: FSharpEntity)
-        (rule: CaseRules)
-        (unionCase: FSharpUnionCase)
-        : Result<DerivedCaseTest list, FSharpUnionCase * string>
-        =
-        let fieldsOf (uc: FSharpUnionCase) =
-            uc.Fields
-            |> Seq.map (fun fi ->
-                {
-                    Name = FsField.FSharpFieldName fi
-                    Type = makeType Map.empty fi.FieldType
-                    Display = fi.FieldType.Format(FSharpDisplayContext.Empty.WithShortTypeNames(true))
-                }
-            )
-            |> List.ofSeq
-
-        match tryTaggedUnionTagKey rule unionCase with
-        | None -> Ok []
-        | Some myTag ->
-            let myFields = fieldsOf unionCase
-
-            tdef.UnionCases
-            |> Seq.filter (fun uc -> uc.Name <> unionCase.Name && tryTaggedUnionTagKey rule uc = Some myTag)
-            |> Seq.fold
-                (fun acc other ->
-                    match acc with
-                    | Error _ -> acc
-                    | Ok tests ->
-                        let otherFields = fieldsOf other
-
-                        let byCaseTest () =
-                            FsUnionCase.CaseTest other |> Option.map DerivedCaseTest.NotCaseTest
-
-                        match
-                            tryDistinguishTaggedUnionCase com myFields otherFields
-                            |> Option.orElseWith byCaseTest
-                        with
-                        | Some test -> Ok(tests @ [ test ])
-                        | None -> Error(other, explainIndistinguishable com myFields otherFields)
-                )
-                (Ok [])
-            |> Result.map List.distinct
-
     /// Required members of an interface and the interfaces it inherits, with the names they have at runtime
     let private tryInterfaceMembers (com: Compiler) (typ: Fable.Type) : TaggedUnionField list option =
         let hasRuntimeName (m: Fable.MemberFunctionOrValue) =
@@ -3589,6 +3539,65 @@ module Util =
                 |> Some
             | _ -> None
         | _ -> None
+
+    /// The interface type a TypeScriptTaggedUnion case compiles to: a single unnamed field of an interface type
+    let tryInlinedTaggedUnionCase (com: Compiler) (unionCase: FSharpUnionCase) =
+        tryInlinedTaggedUnionCaseType com (FsUnionCase unionCase)
+
+    /// Whether the interface of an inlined TypeScriptTaggedUnion case declares the tag member, None when the case is not inlined or the members are unknown
+    let inlinedTaggedUnionCaseHasTag (com: Compiler) (tagName: string) (unionCase: FSharpUnionCase) =
+        tryInlinedTaggedUnionCase com unionCase
+        |> Option.bind (tryInterfaceMembers com)
+        |> Option.map (List.exists (fun m -> m.Name = tagName))
+
+    /// One check per other case with the same tag value, or the case the fields cannot exclude
+    let deriveDerivedCaseTests
+        (com: Compiler)
+        (tdef: FSharpEntity)
+        (rule: CaseRules)
+        (unionCase: FSharpUnionCase)
+        : Result<DerivedCaseTest list, FSharpUnionCase * string>
+        =
+        let fieldsOf (uc: FSharpUnionCase) =
+            match tryInlinedTaggedUnionCase com uc with
+            | Some typ -> tryInterfaceMembers com typ |> Option.defaultValue []
+            | None ->
+                uc.Fields
+                |> Seq.map (fun fi ->
+                    {
+                        Name = FsField.FSharpFieldName fi
+                        Type = makeType Map.empty fi.FieldType
+                        Display = fi.FieldType.Format(FSharpDisplayContext.Empty.WithShortTypeNames(true))
+                    }
+                )
+                |> List.ofSeq
+
+        match tryTaggedUnionTagKey rule unionCase with
+        | None -> Ok []
+        | Some myTag ->
+            let myFields = fieldsOf unionCase
+
+            tdef.UnionCases
+            |> Seq.filter (fun uc -> uc.Name <> unionCase.Name && tryTaggedUnionTagKey rule uc = Some myTag)
+            |> Seq.fold
+                (fun acc other ->
+                    match acc with
+                    | Error _ -> acc
+                    | Ok tests ->
+                        let otherFields = fieldsOf other
+
+                        let byCaseTest () =
+                            FsUnionCase.CaseTest other |> Option.map DerivedCaseTest.NotCaseTest
+
+                        match
+                            tryDistinguishTaggedUnionCase com myFields otherFields
+                            |> Option.orElseWith byCaseTest
+                        with
+                        | Some test -> Ok(tests @ [ test ])
+                        | None -> Error(other, explainIndistinguishable com myFields otherFields)
+                )
+                (Ok [])
+            |> Result.map List.distinct
 
     /// Checks added to the type test of an erased union case, or why the type test is not enough
     [<RequireQualifiedAccess>]

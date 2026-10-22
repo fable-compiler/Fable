@@ -1,0 +1,35 @@
+
+import { int32 } from "./fable_modules/fable-library-ts.5.23.0/Int32.ts";
+
+export interface Take {
+    get fromIndex(): int32,
+    get toIndex(): int32,
+    get type(): string
+}
+
+export interface Edit {
+    get text(): string
+}
+
+export type Command = 
+    | Take & { type: "take" }
+    | { type: "edit", edit: Edit }
+    | { type: "save" }
+
+export function make(t: Take): Command {
+    return t as Command;
+}
+
+export function describe(c: Command): int32 {
+    switch (c.type) {
+        case "edit":
+            return c.edit.text.length | 0;
+        case "save":
+            return 0;
+        default: {
+            const t = c as Take;
+            return (t.fromIndex + t.toIndex) | 0;
+        }
+    }
+}
+

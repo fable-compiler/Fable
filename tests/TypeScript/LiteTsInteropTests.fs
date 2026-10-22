@@ -26,6 +26,21 @@ module PojoInterface =
         member val name = name
         member val breed = breed
         member val age = age with get, set
+
+module TaggedUnion =
+    type Take =
+        abstract ``type``: string
+        abstract fromIndex: int
+        abstract toIndex: int
+
+    type Edit =
+        abstract text: string
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("type")>]
+    type Command =
+        | Take of Take
+        | Edit of edit: Edit
+        | Save
 #endif
 
 let tests =
@@ -60,5 +75,22 @@ let tests =
         dog.age |> equal None
         dog.age <- Some 5
         dog.age |> equal (Some 5)
+
+    testCase "TS tagged union case with an interface field compiles to the value itself" <| fun () ->
+        let take =
+            { new TaggedUnion.Take with
+                member _.``type`` = "take"
+                member _.fromIndex = 1
+                member _.toIndex = 3 }
+        let describe = function
+            | TaggedUnion.Command.Take t -> sprintf "take: %d-%d" t.fromIndex t.toIndex
+            | TaggedUnion.Command.Edit e -> sprintf "edit: %s" e.text
+            | TaggedUnion.Command.Save -> "save"
+        let command = TaggedUnion.Command.Take take
+        obj.ReferenceEquals(command, take) |> equal true
+        command |> describe |> equal "take: 1-3"
+        TaggedUnion.Command.Edit { new TaggedUnion.Edit with member _.text = "hi" } |> describe |> equal "edit: hi"
+        TaggedUnion.Command.Save |> describe |> equal "save"
+        !!{| ``type`` = "take"; fromIndex = 2; toIndex = 5 |} |> describe |> equal "take: 2-5"
     #endif
   ]

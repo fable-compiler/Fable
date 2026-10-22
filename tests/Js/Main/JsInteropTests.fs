@@ -451,6 +451,48 @@ module TaggedUnion =
         | [<CompiledValue(2); CaseTest("$0.flag === false")>] Off of flag: bool
         | [<CompiledValue(3)>] Idle
 
+    type Take =
+        abstract ``type``: string
+        abstract fromIndex: int
+        abstract toIndex: int
+
+    type Edit =
+        abstract text: string
+
+    type TakeRange(fromIndex: int, toIndex: int) =
+        let mutable toIndex = toIndex
+        member _.Extend(n: int) = toIndex <- toIndex + n
+        interface Take with
+            member _.``type`` = "take"
+            member _.fromIndex = fromIndex
+            member _.toIndex = toIndex
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("type")>]
+    type Command =
+        | Take of Take
+        | Edit of edit: Edit
+        | Save
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("type")>]
+    type AuthState =
+        | Zero
+        | One of string
+        | Two of string * string
+
+    type Circle =
+        abstract ``type``: string
+        abstract radius: float
+
+    type Rect =
+        abstract ``type``: string
+        abstract width: float
+        abstract height: float
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("type")>]
+    type Shape =
+        | [<CompiledName("shape")>] Circle of Circle
+        | [<CompiledName("shape")>] Rect of Rect
+
 module ErasedCaseTest =
     type Circle =
         abstract radius: float
@@ -1445,6 +1487,58 @@ let tests =
         !!"n:raw" |> describeId |> equal "name n:raw"
         !!"raw" |> describeId |> equal "slug raw"
         !!7 |> describeId |> equal "count 7"
+
+    testCase "TS tagged union case with an interface field compiles to the value itself" <| fun () ->
+        let range = TaggedUnion.TakeRange(1, 3)
+        let command = TaggedUnion.Command.Take range
+        obj.ReferenceEquals(command, range) |> equal true
+        jsTypeof command?Item |> equal "undefined"
+        command?``type`` |> equal "take"
+        command.IsTake |> equal true
+        command.IsSave |> equal false
+        range.Extend 2
+        match command with
+        | TaggedUnion.Command.Take t -> t.toIndex |> equal 5
+        | _ -> failwith "expected Take"
+
+    testCase "TS tagged union case with an interface field reads raw JS objects" <| fun () ->
+        let describe = function
+            | TaggedUnion.Command.Take t -> sprintf "take: %d-%d" t.fromIndex t.toIndex
+            | TaggedUnion.Command.Edit e -> sprintf "edit: %s" e.text
+            | TaggedUnion.Command.Save -> "save"
+        !!{| ``type`` = "take"; fromIndex = 2; toIndex = 5 |} |> describe |> equal "take: 2-5"
+        !!{| ``type`` = "edit"; edit = {| text = "hi" |} |} |> describe |> equal "edit: hi"
+        !!{| ``type`` = "save" |} |> describe |> equal "save"
+
+    testCase "TS tagged union case with a named interface field compiles to an object" <| fun () ->
+        let edit = { new TaggedUnion.Edit with member _.text = "hi" }
+        let command = TaggedUnion.Command.Edit edit
+        obj.ReferenceEquals(command, edit) |> equal false
+        command?``type`` |> equal "edit"
+        obj.ReferenceEquals(command?edit, edit) |> equal true
+        match command with
+        | TaggedUnion.Command.Edit e -> e.text |> equal "hi"
+        | _ -> failwith "expected Edit"
+
+    // See #3837
+    testCase "TS tagged union case with a single primitive field carries the tag" <| fun () ->
+        let one = TaggedUnion.AuthState.One "a"
+        one?``type`` |> equal "one"
+        one?Item |> equal "a"
+        let describe = function
+            | TaggedUnion.AuthState.Zero -> "zero"
+            | TaggedUnion.AuthState.One s -> "one: " + s
+            | TaggedUnion.AuthState.Two(a, b) -> "two: " + a + b
+        one |> describe |> equal "one: a"
+        TaggedUnion.AuthState.Two("a", "b") |> describe |> equal "two: ab"
+        TaggedUnion.AuthState.Zero |> describe |> equal "zero"
+
+    testCase "TS tagged union cases with interface fields sharing a tag are told apart by the interface members" <| fun () ->
+        let describe = function
+            | TaggedUnion.Shape.Circle c -> sprintf "circle: %.1f" c.radius
+            | TaggedUnion.Shape.Rect r -> sprintf "rect: %.1f x %.1f" r.width r.height
+        !!{| ``type`` = "shape"; radius = 2.0 |} |> describe |> equal "circle: 2.0"
+        !!{| ``type`` = "shape"; width = 2.0; height = 3.0 |} |> describe |> equal "rect: 2.0 x 3.0"
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

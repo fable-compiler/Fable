@@ -37,6 +37,7 @@ let private testProjectConfig (projectDirName: string) (configuration: string op
 
 let handle (args: string list) =
     BuildFableLibraryJavaScript().Run()
+    BuildFableLibraryTypeScript().Run()
 
     Command.Run("dotnet", "run -c Release", workingDirectory = integrationProjectDir)
 
