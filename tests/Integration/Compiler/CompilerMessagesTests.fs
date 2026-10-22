@@ -565,7 +565,7 @@ let isOk (s: Status) = s.IsOk
       |> Assert.Exists.errorWith "Cases 'Ok' and 'Warn' of 'Status' share the tag value true and have the same fields. Add a CaseTest attribute to 'Ok' or 'Warn'."
       |> ignore
 
-    testCase "Erased union case of interface type emits error" <| fun _ ->
+    testCase "Erased union cases of interface type are told apart by their members" <| fun _ ->
       let source =
         """
 open Fable.Core
@@ -575,6 +575,53 @@ type Circle =
 
 type Rect =
     abstract width: float
+    abstract area: unit -> float
+
+type Animal =
+    abstract name: string
+
+type Dog =
+    inherit Animal
+    abstract bark: string
+
+type Marker = interface end
+
+[<Erase>]
+type Shape =
+    | Circle of Circle
+    | Rect of Rect
+    | Count of int
+    | Label of string
+
+[<Erase>]
+type Pet =
+    | Animal of Animal
+    | Dog of Dog
+
+[<Erase>]
+type Tagged =
+    | Mark of Marker
+    | Name of string
+
+let describe (s: Shape) = match s with Circle _ -> "circle" | Rect _ -> "rect" | Count _ -> "count" | Label _ -> "label"
+let pet (p: Pet) = match p with Animal _ -> "animal" | Dog _ -> "dog"
+let tagged (t: Tagged) = match t with Mark _ -> "mark" | Name _ -> "name"
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased union cases of interfaces with the same members emit error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Circle =
+    abstract size: float
+
+type Rect =
+    abstract size: float
+    abstract label: string option
 
 [<Erase>]
 type Shape =
@@ -584,7 +631,50 @@ type Shape =
 let isRect (s: Shape) = match s with Rect _ -> true | _ -> false
 """
       compile source
-      |> Assert.Exists.errorWith "Case 'Rect' of 'Shape' cannot be tested at runtime: type 'Rect' is an interface that does not exist at runtime. Add a CaseTest attribute to 'Rect'."
+      |> Assert.Exists.errorWith "Cases 'Rect' and 'Circle' of 'Shape' cannot be told apart at runtime: interfaces 'Rect' and 'Circle' have no required member that tells them apart. Add a CaseTest attribute to 'Rect' or 'Circle'."
+      |> ignore
+
+    testCase "Erased union case of mangled interface type emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Mangle>]
+type Circle =
+    abstract radius: float
+
+[<Erase>]
+type Shape =
+    | Circle of Circle
+    | Count of int
+
+let isCircle (s: Shape) = match s with Circle _ -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "Case 'Circle' of 'Shape' cannot be tested at runtime: type 'Circle' is an interface that does not exist at runtime. Add a CaseTest attribute to 'Circle'."
+      |> ignore
+
+    testCase "Erased union case of interface type next to a Pojo case emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Circle =
+    abstract radius: float
+
+[<JS.Pojo>]
+type Options(name: string) =
+    member val name = name
+
+[<Erase>]
+type Shape =
+    | Circle of Circle
+    | Opts of Options
+
+let isCircle (s: Shape) = match s with Circle _ -> true | _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Circle' and 'Opts' of 'Shape' cannot be told apart at runtime: type 'Options' is a Pojo that is a plain object at runtime. Add a CaseTest attribute to 'Circle' or 'Opts'."
       |> ignore
 
     testCase "Erased union cases of the same type emit error" <| fun _ ->
