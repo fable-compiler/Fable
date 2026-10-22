@@ -159,6 +159,10 @@ Arguments:
    When set to '1' or 'true', Fable watch will poll the file system for
    changes. This is required for some file systems, such as network shares,
    Docker mounted volumes, and other virtual file systems.
+
+   DOTNET_TieredPGO
+   When set to '0', non-watch compilations can run 10 to 20%% faster
+   depending on the project, at the cost of slower rebuilds in watch mode.
 """
 
 let generateHelpWithPrefix prefixText =
