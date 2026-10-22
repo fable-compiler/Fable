@@ -348,5 +348,7 @@ open System.Globalization
 
       match formatted with
       | [] -> failwith "Expected a FABLE0100 warning"
-      | messages -> equal true (messages |> List.forall (fun m -> m.Contains "warning FABLE FABLE0100:"))
+      | messages ->
+        equal true (messages |> List.forall (fun m -> m.Contains "warning FABLE0100:"))
+        equal false (messages |> List.exists (fun m -> m.Contains "FABLE FABLE"))
   ]

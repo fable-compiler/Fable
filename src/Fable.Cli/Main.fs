@@ -79,12 +79,10 @@ module Util =
                 | Severity.Error -> "error"
                 | Severity.Info -> "info"
 
-            // MSBuild-style `<severity> <tag> <code>`: without the code there is no way to
-            // discover what to put in a `// fable-disable-line` comment, and rendering it here
-            // also makes Fable warnings parseable by IDEs and MSBuild loggers.
+            // MSBuild-style `<severity> <code>`: the code carries the FABLE prefix, so it replaces the tag
             let tag =
                 match log.Code with
-                | Some code -> $"%s{log.Tag} %s{code}"
+                | Some code -> code
                 | None -> log.Tag
 
             match log.Range with
