@@ -182,11 +182,14 @@ Exception:
                 && cache.Configuration = options.Configuration
                 && set cache.FableOptions.Define = set options.FableOptions.Define
 
-            let assets =
-                FileInfo(System.IO.Path.Combine(fsproj.DirectoryName, "obj", "project.assets.json"))
+            let assetsOf (project: string) =
+                FileInfo(System.IO.Path.Combine(System.IO.Path.GetDirectoryName project, "obj", "project.assets.json"))
+
+            let assets = assetsOf fsproj.FullName
 
             let restoredAfterInputs (project: string) =
                 File.Exists project
+                && (assetsOf project).Exists
                 && restoreInputs project
                    |> List.forall (fun input -> File.GetLastWriteTimeUtc input < assets.LastWriteTimeUtc)
 
