@@ -130,6 +130,10 @@ let staticDoBindingsDisabled =
 let regexFlagUnsupported (flag: string) =
     "FABLE0120", $"Regex %s{flag} flag is not supported in Php"
 
+/// Two cases of a union compile to the same name, so the output cannot tell them apart.
+let duplicateCompiledName (unionName: string) (caseName: string) (otherCaseName: string) (compiledName: string) =
+    "FABLE0121", $"Cases '%s{caseName}' and '%s{otherCaseName}' of '%s{unionName}' both compile to '%s{compiledName}'"
+
 /// Every code the compiler can emit, both bands. A directive naming anything else is reported as
 /// a typo, so a new warning MUST be added to this list as well as defined above.
 let knownCodes =
@@ -159,6 +163,7 @@ let knownCodes =
         charSurrogateTestsAreFalse
         staticDoBindingsDisabled
         regexFlagUnsupported ""
+        duplicateCompiledName "" "" "" ""
     ]
     |> List.map fst
     |> Set.ofList

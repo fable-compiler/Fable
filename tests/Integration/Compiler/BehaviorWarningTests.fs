@@ -113,4 +113,67 @@ let isName (id: Id) = match id with Name _ -> true | Slug _ -> false
       compile source
       |> Assert.Code.warning "FABLE0116"
       |> ignore
+
+    testCase "Duplicate CompiledName on union cases is reported" <| fun _ ->
+      let source =
+        """
+type Prop =
+    | [<CompiledName("ref")>] RefHook of int
+    | [<CompiledName("ref")>] RefValue of string
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0121"
+      |> Assert.Exists.warningWith "Cases 'RefValue' and 'RefHook' of 'Prop' both compile to 'ref'"
+      |> ignore
+
+    testCase "CompiledName clashing with another case name is reported" <| fun _ ->
+      let source =
+        """
+type Id =
+    | [<CompiledName("Slug")>] Name
+    | Slug
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0121"
+      |> ignore
+
+    testCase "StringEnum values clashing through the case rule are reported" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<StringEnum>]
+type Kind =
+    | [<CompiledName("small")>] S
+    | Small
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0121"
+      |> Assert.Exists.warningWith "Cases 'Small' and 'S' of 'Kind' both compile to 'small'"
+      |> ignore
+
+    testCase "Duplicate CompiledName can be suppressed by code" <| fun _ ->
+      let source =
+        """
+type Prop =
+    | [<CompiledName("ref")>] RefHook of int
+    | [<CompiledName("ref")>] RefValue of string // fable-disable-line FABLE0121
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag are not reported as duplicates" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Terminal =
+    | [<CompiledName("done")>] Done of value: float
+    | [<CompiledName("done")>] DoneError of error: string
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
   ]

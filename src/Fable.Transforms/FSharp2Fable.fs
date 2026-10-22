@@ -2337,6 +2337,30 @@ let private checkInlinedTaggedUnionCases (com: FableCompiler) ctx (ent: FSharpEn
                 |> addError (com :> Compiler) ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
             | _ -> ()
 
+let private warnDuplicateCompiledNames (com: FableCompiler) ctx (ent: FSharpEntity) =
+    let compiledName (uci: FSharpUnionCase) =
+        match getUnionPattern (ent.AsType()) uci with
+        | StringEnum(_, rule) ->
+            match transformStringEnum rule uci with
+            | Fable.Value(Fable.StringConstant name, _) -> Some name
+            | _ -> None
+        | DiscriminatedUnion _ -> FsUnionCase.CompiledName uci |> Option.defaultValue uci.Name |> Some
+        // TypeScriptTaggedUnion cases sharing a tag are supported and checked separately
+        | _ -> None
+
+    // Beam reports collisions on the Erlang atom itself, see `reportUnionCaseTagCollisions`
+    if ent.IsFSharpUnion && (com :> Compiler).Options.Language <> Beam then
+        ent.UnionCases
+        |> Seq.choose (fun uci -> compiledName uci |> Option.map (fun name -> name, uci))
+        |> Seq.groupBy fst
+        |> Seq.iter (fun (name, cases) ->
+            let _, first = Seq.head cases
+
+            for _, uci in Seq.tail cases do
+                WarningCodes.duplicateCompiledName ent.DisplayName uci.Name first.Name name
+                |> addWarningWithCode com ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
+        )
+
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls
     |> List.collect (fun fsDecl ->
@@ -2344,6 +2368,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
         | FSharpImplementationFileDeclaration.Entity(fsEnt, sub) ->
             warnIgnoredCaseTests com ctx fsEnt
             checkInlinedTaggedUnionCases com ctx fsEnt
+            warnDuplicateCompiledNames com ctx fsEnt
 
             match sub with
             | [] when isIgnoredLeafEntity fsEnt -> []
