@@ -93,4 +93,36 @@ Jest.describe("JSX API tests (using React)", fun () ->
     Jest.test("Test that properties can be defined using `unbox`", fun () ->
         matchSnapshot Components.propsCanUseUnbox
     )
+
+    Jest.test("Spread props are applied to the element", fun () ->
+        let elem = RTL.render Components.divWithSpread
+        let target = elem.getByTestId "spread-target"
+        Jest.expect(target).toHaveAttribute("title", "from-spread")
+    )
+
+    Jest.test("Props after a spread override the spread props", fun () ->
+        let elem = RTL.render Components.divWithSpreadBetweenProps
+        let target = elem.getByTestId "spread-target"
+        Jest.expect(target).toHaveClass("before")
+        Jest.expect(target).toHaveAttribute("title", "after")
+    )
+
+    Jest.test("Spread props override the props before the spread", fun () ->
+        let elem = RTL.render Components.divWithSpreadOverridingProps
+        let target = elem.getByTestId "spread-target"
+        Jest.expect(target).toHaveAttribute("title", "from-spread")
+    )
+
+    Jest.test("Several spreads are applied in order", fun () ->
+        let elem = RTL.render Components.divWithTwoSpreads
+        let target = elem.getByTestId "spread-target"
+        Jest.expect(target).toHaveAttribute("title", "second")
+    )
+
+    Jest.test("Spread props can be combined with children", fun () ->
+        let elem = RTL.render Components.divWithSpreadAndChildren
+        let target = elem.getByTestId "spread-target"
+        Jest.expect(target).toHaveAttribute("title", "from-spread")
+        Jest.expect(target).toHaveTextContent("Child")
+    )
 )

@@ -1,7 +1,8 @@
+
 import * as react from "react";
-import { empty, map, singleton, append, delay, toList } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Seq.js";
-import { int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Util.js";
-import { rangeDouble } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Range.js";
+import { empty, map, singleton, append, delay, toList } from "./fable_modules/fable-library-js.5.23.0/Seq.js";
+import { int32ToString } from "./fable_modules/fable-library-js.5.23.0/Util.js";
+import { rangeDouble } from "./fable_modules/fable-library-js.5.23.0/Range.js";
 
 export const React = react;
 
@@ -152,3 +153,29 @@ export function divWithElementBeforeMatchContainingForLoop(counter) {
 }
 
 export const divWithLongClassName = <div className="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" />;
+
+export const spreadProps = {
+    "data-testid": "spread-target",
+    title: "from-spread",
+};
+
+export const divWithSpread = <div {...spreadProps} />;
+
+export const divWithSpreadBetweenProps = <div className="before"
+    {...spreadProps}
+    title="after" />;
+
+export const divWithSpreadOverridingProps = <div title="before"
+    {...spreadProps} />;
+
+export const divWithTwoSpreads = <div {...spreadProps}
+    {...{
+        title: "second",
+    }} />;
+
+export const divWithSpreadAndChildren = <div {...spreadProps}>
+    <div>
+        Child
+    </div>
+</div>;
+

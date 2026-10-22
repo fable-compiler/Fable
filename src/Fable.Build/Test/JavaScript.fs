@@ -24,6 +24,7 @@ let private testReact (isWatch: bool) =
                 Command.WatchFableAsync(
                     CmdLine.appendRaw "watch"
                     >> CmdLine.appendRaw "--noCache"
+                    >> CmdLine.appendPrefix "--exclude" "Fable.Core"
                     // There seems to be some strange console Log writting
                     >> CmdLine.appendRaw "--verbose"
                     >> CmdLine.appendRaw "--runWatch"
@@ -42,7 +43,10 @@ let private testReact (isWatch: bool) =
         |> Async.RunSynchronously
         |> ignore
     else
-        Command.Fable(CmdLine.appendRaw "--noCache", workingDirectory = workingDirectory)
+        Command.Fable(
+            CmdLine.appendRaw "--noCache" >> CmdLine.appendPrefix "--exclude" "Fable.Core",
+            workingDirectory = workingDirectory
+        )
 
         Command.Run("npx", "jest", workingDirectory = workingDirectory)
 

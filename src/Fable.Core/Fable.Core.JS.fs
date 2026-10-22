@@ -33,6 +33,10 @@ module JSX =
     /// that can be resolved at compile-time.
     let create (componentOrTag: ElementType) (props: Prop list) : Element = nativeOnly
 
+    /// Spreads an object into the props of a JSX Element: `<div {...props} />`.
+    /// Can only be used as an element of the `props` list passed to `JSX.create`.
+    let spread (props: obj) : Prop = nativeOnly
+
     /// Creates a JSX Element directly from a string template, which can be interpolated.
     /// When using interpolation note the holes must follow JSX syntax rules.
     /// E.g. holes in the middle of a string or in the position of a prop key are not valid.
