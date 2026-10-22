@@ -37,7 +37,7 @@ plt.rcParams.update(
 fig, axes = plt.subplots(6, 1, figsize=(13, 11.5))
 fig.patch.set_facecolor("#fafbf9")
 fig.subplots_adjust(top=0.82, bottom=0.16, left=0.245, right=0.88, hspace=0.42)
-fig.text(0.035, 0.956, "Fickl 0.5.3 candidate against Fable 5.22", fontsize=25, fontweight="bold")
+fig.text(0.035, 0.956, "Fickl 0.5.3 against Fable 5.22", fontsize=27, fontweight="bold")
 fig.text(
     0.035,
     0.919,

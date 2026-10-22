@@ -20,19 +20,20 @@ every tool runtime package is checked for all bundled language libraries. Compan
 the tool pointer package. Compiler symbols are embedded; its empty separate symbol archive is not pushed.
 
 The initial 0.5.2 release incorrectly applied the package version to companion assembly versions, which
-broke existing Feliz plugins. The local 0.5.3 correction preserves those assembly identities and restores
+broke existing Feliz plugins. The published 0.5.3 correction preserves those assembly identities and restores
 the missing Rust and Dart runtime payloads. Validation includes 141 compiler tests, the assembly-qualified
 AST reference used by older plugins, a consumer of all four companion packages, and a Fantomas tools
 compile using its existing Feliz plugins. Fickl.Core is the separate `src/Fickl.Core` project containing
 Fickl-specific attributes, not a renamed Fable.Core package; its consumer check resolves
 `Fickl.Core.CaseTestAttribute`. The mistaken rename in 0.5.2 also caused duplicate project identities when
-restoring the JS suite. Publication of the corrective release is pending.
+restoring the JS suite. All 13 corrected packages were published on 2026-10-22. NuGet rejected the
+publishing key's unlist request with HTTP 403; 0.5.2 remains listed by the maintainer's decision.
 
 Runtime sweeps use cold `--noCache` runs, configurations interleaved, 4–5 runs each, and compare the compile phase
 ("Fable compilation finished in"), which excludes project cracking. Glutinum's compile times range 4.2–6.8 s within one
 configuration, so it is not used to rank settings; the JS test suite stays within ±0.2 s.
 
-## End to end against upstream (Fickl 0.5.3 candidate, 2026-10-22)
+## End to end against upstream (Fickl 0.5.3, 2026-10-22)
 
 [Comparison image](benchmarks/fickl-0.5.3.png), [raw timings](benchmarks/fickl-0.5.3.csv),
 [package hashes and environment](benchmarks/fickl-0.5.3-manifest.json). Wall clock from process start to exit,

@@ -2,7 +2,7 @@
   "platform": "Windows-11-10.0.26200-SP0",
   "dotnet_sdk": "10.0.113",
   "compiler_commit": "4194dcca6c37895bbb431ace58690a5ac4a0711e",
-  "candidate": "Fickl 0.5.3, local corrected packages",
+  "candidate": "Fickl 0.5.3, published 2026-10-22 from the validated packages below",
   "packages": {
     "Fickl.0.5.3.nupkg": "d5e114261d198c64099b80a927e6d8b9df756f75b263f9b6012c696b0cc7957e",
     "Fickl.any.0.5.3.nupkg": "b87cb5f5665b7c8ff0f7179ba92e3c2df9616f8fcbbd40fa0cdb267708c42b80",
