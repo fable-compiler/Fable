@@ -61,7 +61,10 @@ type Stream =
             return! areStreamsEqual memoryStream fileStream
         }
 
-    static member WriteToFileIfChanged(memoryStream: IO.Stream, targetPath: string) : Async<bool> =
+    static member WriteToFileIfChanged
+        (memoryStream: IO.Stream, targetPath: string, refreshUnchanged: bool)
+        : Async<bool>
+        =
         async {
             if memoryStream.Length = 0 then
                 return false
@@ -75,7 +78,11 @@ type Stream =
                 else
                     match! Stream.IsEqualToFile(memoryStream, targetPath) with
                     | false -> return! Stream.WriteToFile(memoryStream, targetPath)
-                    | true -> return false
+                    | true ->
+                        if refreshUnchanged then
+                            IO.File.SetLastWriteTimeUtc(targetPath, DateTime.UtcNow)
+
+                        return false
         }
 
 module Js =
@@ -102,7 +109,8 @@ module Js =
 
                 do! stream.FlushAsync() |> Async.AwaitTask
 
-                let! written = Stream.WriteToFileIfChanged(memoryStream, targetPath)
+                let! written =
+                    Stream.WriteToFileIfChanged(memoryStream, targetPath, not cliArgs.IsWatch)
 
                 if written && cliArgs.SourceMaps then
                     use fs = IO.File.Open(targetPath + ".map", IO.FileMode.Create)
