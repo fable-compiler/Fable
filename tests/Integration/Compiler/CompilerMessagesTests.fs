@@ -296,11 +296,10 @@ open Fable.Core
 type Id =
     | [<CaseTest("$0.startsWith('n:')")>] Name of string
     | [<CaseTest("$0.startsWith('s:')")>] Slug of string
-
-let isName (id: Id) = match id with Name _ -> true | Slug _ -> false
 """
       compile source
-      |> Assert.Exists.warningWith "is ignored: it is only supported on TypeScriptTaggedUnion cases"
+      |> Assert.Exists.warningWith "CaseTest attribute on 'Name' is ignored: it is only supported on TypeScriptTaggedUnion cases"
+      |> Assert.Exists.warningWith "CaseTest attribute on 'Slug' is ignored: it is only supported on TypeScriptTaggedUnion cases"
       |> ignore
 
     testCase "CaseTest in a TypeScriptTaggedUnion does not emit warning" <| fun _ ->
@@ -351,4 +350,219 @@ open System.Globalization
       | messages ->
         equal true (messages |> List.forall (fun m -> m.Contains "warning FABLE0100:"))
         equal false (messages |> List.exists (fun m -> m.Contains "FABLE FABLE"))
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag compile when their fields tell them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Payload(x: int) =
+    member _.X = x
+
+[<TypeScriptTaggedUnion("state")>]
+type Terminal =
+    | [<CompiledName("done")>] Done of value: float
+    | [<CompiledName("done")>] DoneError of error: string
+    | [<CompiledName("log")>] LogString of message: string
+    | [<CompiledName("log")>] LogPayload of message: Payload
+
+let describe (t: Terminal) =
+    match t with
+    | DoneError _ -> "error"
+    | LogString _ -> "string"
+    | LogPayload _ -> "payload"
+    | Done _ -> "done"
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when their fields cannot tell them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Result =
+    | [<CompiledName("done")>] Ok of ok: bool
+    | [<CompiledName("done")>] Failed of ok: bool
+
+let isFailed (r: Result) = match r with Failed _ -> true | Ok _ -> false
+"""
+      compile source
+      |> Assert.Exists.errorWith "of 'Result' share the tag value \"done\" and have the same fields. Add a CaseTest attribute to"
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag compile when the other case has a CaseTest" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Result =
+    | [<CompiledName("done")>] Ok of ok: bool
+    | [<CompiledName("done"); CaseTest("$0.ok === false")>] Failed of ok: bool
+
+let isOk (r: Result) = r.IsOk
+let isFailed (r: Result) = match r with Failed _ -> true | Ok _ -> false
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when more than one case has no CaseTest" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Job =
+    | [<CompiledName("run"); CaseTest("$0.kind === 'build'")>] Build of kind: string
+    | [<CompiledName("run")>] Test of kind: string
+    | [<CompiledName("run")>] Other of kind: string
+
+let isOther (j: Job) = j.IsOther
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Other' and 'Test' of 'Job' share the tag value \"run\" and have the same fields. Add a CaseTest attribute to 'Other' or 'Test'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when one field type includes the other" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("state")>]
+type Log =
+    | [<CompiledName("log")>] LogString of message: string
+    | [<CompiledName("log")>] LogObject of message: obj
+
+let isObject (l: Log) = l.IsLogObject
+let isString (l: Log) = l.IsLogString
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'LogObject' and 'LogString' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'obj', which can hold any value. Add a CaseTest attribute to 'LogObject' or 'LogString'."
+      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogObject' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'obj', which can hold any value. Add a CaseTest attribute to 'LogString' or 'LogObject'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when one field type is a base class of the other" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Animal() = class end
+type Dog() = inherit Animal()
+
+[<TypeScriptTaggedUnion("kind")>]
+type Pet =
+    | [<CompiledName("pet")>] PetAnimal of pet: Animal
+    | [<CompiledName("pet")>] PetDog of pet: Dog
+
+let isAnimal (p: Pet) = p.IsPetAnimal
+let isDog (p: Pet) = p.IsPetDog
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'PetAnimal' and 'PetDog' of 'Pet' share the tag value \"pet\" and cannot be told apart at runtime: field 'pet' has types 'Animal' and 'Dog', and 'Dog' is a subtype of 'Animal'. Add a CaseTest attribute to 'PetAnimal' or 'PetDog'."
+      |> Assert.Exists.errorWith "Cases 'PetDog' and 'PetAnimal' of 'Pet' share the tag value \"pet\" and cannot be told apart at runtime: field 'pet' has types 'Dog' and 'Animal', and 'Dog' is a subtype of 'Animal'. Add a CaseTest attribute to 'PetDog' or 'PetAnimal'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag compile when a CaseTest narrows a base class field" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Animal() = class end
+
+[<AttachMembers>]
+type Dog() =
+    inherit Animal()
+    member _.Bark() = "woof"
+
+[<TypeScriptTaggedUnion("kind")>]
+type Pet =
+    | [<CompiledName("pet")>] PetAnimal of pet: Animal
+    | [<CompiledName("pet"); CaseTest("'Bark' in $0.pet")>] PetDog of pet: Dog
+
+let isAnimal (p: Pet) = p.IsPetAnimal
+let isDog (p: Pet) = p.IsPetDog
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only a Pojo field type tells them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<JS.Pojo>]
+type Options(name: string) =
+    member val name = name
+
+[<TypeScriptTaggedUnion("state")>]
+type Log =
+    | [<CompiledName("log")>] LogString of message: string
+    | [<CompiledName("log")>] LogOptions of message: Options
+
+let isOptions (l: Log) = l.IsLogOptions
+let isString (l: Log) = l.IsLogString
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'LogOptions' and 'LogString' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'Options', a Pojo that is a plain object at runtime. Add a CaseTest attribute to 'LogOptions' or 'LogString'."
+      |> Assert.Exists.errorWith "Cases 'LogString' and 'LogOptions' of 'Log' share the tag value \"log\" and cannot be told apart at runtime: field 'message' has type 'Options', a Pojo that is a plain object at runtime. Add a CaseTest attribute to 'LogString' or 'LogOptions'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a tag emit error when only interfaces tell them apart" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+type Circle =
+    abstract radius: float
+
+type Rect =
+    abstract width: float
+
+[<TypeScriptTaggedUnion("kind")>]
+type Shape =
+    | [<CompiledName("shape")>] Circle of shape: Circle
+    | [<CompiledName("shape")>] Rect of shape: Rect
+
+let isRect (s: Shape) = s.IsRect
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Rect' and 'Circle' of 'Shape' share the tag value \"shape\" and cannot be told apart at runtime: field 'shape' has type 'Rect', an interface that does not exist at runtime. Add a CaseTest attribute to 'Rect' or 'Circle'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a number tag emit error showing the tag value" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("code")>]
+type Status =
+    | [<CompiledValue(1)>] Ok of value: string
+    | [<CompiledValue(1)>] Failed of value: string
+
+let isOk (s: Status) = s.IsOk
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Ok' and 'Failed' of 'Status' share the tag value 1 and have the same fields. Add a CaseTest attribute to 'Ok' or 'Failed'."
+      |> ignore
+
+    testCase "TypeScriptTaggedUnion cases sharing a boolean tag emit error showing the tag value" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<TypeScriptTaggedUnion("ok")>]
+type Status =
+    | [<CompiledValue(true)>] Ok of value: string
+    | [<CompiledValue(true)>] Warn of value: string
+
+let isOk (s: Status) = s.IsOk
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cases 'Ok' and 'Warn' of 'Status' share the tag value true and have the same fields. Add a CaseTest attribute to 'Ok' or 'Warn'."
+      |> ignore
   ]

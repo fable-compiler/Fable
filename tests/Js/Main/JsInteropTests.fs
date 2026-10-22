@@ -398,6 +398,59 @@ module TaggedUnion =
         | [<CompiledName("done"); CaseTest("$0.ok === false")>] DoneFailed of ok: bool
         | Pending
 
+    type Payload(x: int) =
+        member _.X = x
+
+    type Animal() =
+        member _.Kind = "animal"
+
+    [<AttachMembers>]
+    type Dog() =
+        inherit Animal()
+        member _.Kind = "dog"
+        member _.Bark() = "woof"
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type DerivedTag =
+        | [<CompiledName("done")>] Done of value: float
+        | [<CompiledName("done")>] DoneError of error: string
+        | [<CompiledName("done")>] DoneWithExtra of value: float * extra: string
+        | [<CompiledName("log")>] LogString of message: string
+        | [<CompiledName("log")>] LogNumber of message: float
+        | [<CompiledName("log")>] LogPayload of message: Payload
+        | [<CompiledName("pet")>] PetAnimal of pet: Animal
+        | [<CompiledName("pet"); CaseTest("'Bark' in $0.pet")>] PetDog of pet: Dog
+        | Pending
+
+    [<JS.Pojo>]
+    type Options(name: string) =
+        member val name = name
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type PojoField =
+        | [<CompiledName("log")>] LogString of message: string
+        | [<CompiledName("log"); CaseTest("typeof $0.message === 'object'")>] LogOptions of message: Options
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type Outcome =
+        | [<CompiledName("done")>] Ok of ok: bool
+        | [<CompiledName("done"); CaseTest("$0.ok === false")>] Failed of ok: bool
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("state")>]
+    type Job =
+        | [<CompiledName("run"); CaseTest("$0.kind === 'build'")>] Build of kind: string
+        | [<CompiledName("run"); CaseTest("$0.kind === 'test'")>] Test of kind: string
+        | [<CompiledName("run")>] Other of kind: string
+        | [<CompiledName("idle")>] Idle
+
+    [<RequireQualifiedAccess; TypeScriptTaggedUnion("code")>]
+    type NumberTag =
+        | [<CompiledValue(1)>] Text of text: string
+        | [<CompiledValue(1)>] Count of count: int
+        | [<CompiledValue(2)>] On of flag: bool
+        | [<CompiledValue(2); CaseTest("$0.flag === false")>] Off of flag: bool
+        | [<CompiledValue(3)>] Idle
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -1098,6 +1151,8 @@ let tests =
 
         equal (TaggedUnion.FooGeneric.Bar 10) fooGeneric
 
+#endif
+
     testCase "Case testing with TS tagged unions whose cases share a tag works" <| fun () ->
         let describe = function
             | TaggedUnion.SharedTag.Done v -> sprintf "done: %.1f" v
@@ -1108,7 +1163,6 @@ let tests =
         TaggedUnion.SharedTag.DoneError "oops" |> describe |> equal "error: oops"
         TaggedUnion.SharedTag.DoneFailed false |> describe |> equal "failed"
         TaggedUnion.SharedTag.Pending |> describe |> equal "pending"
-        !!{| state = "done"; error = "raw" |} |> describe |> equal "error: raw"
         (TaggedUnion.SharedTag.DoneError "oops").IsDoneError |> equal true
         (TaggedUnion.SharedTag.Done 1.5).IsDoneError |> equal false
 
@@ -1119,6 +1173,157 @@ let tests =
             TaggedUnion.SharedTag.DoneError "oops"
         (next ()).IsDoneError |> equal true
         calls |> equal 1
+
+    testCase "Case testing with TS tagged unions whose cases share a tag is derived from the fields" <| fun () ->
+        let describe = function
+            | TaggedUnion.DerivedTag.Done v -> sprintf "done: %.1f" v
+            | TaggedUnion.DerivedTag.DoneError e -> sprintf "error: %s" e
+            | TaggedUnion.DerivedTag.DoneWithExtra (v, e) -> sprintf "extra: %.1f %s" v e
+            | TaggedUnion.DerivedTag.LogString m -> sprintf "string: %s" m
+            | TaggedUnion.DerivedTag.LogNumber n -> sprintf "number: %.1f" n
+            | TaggedUnion.DerivedTag.LogPayload p -> sprintf "payload: %i" p.X
+            | TaggedUnion.DerivedTag.PetAnimal a -> "animal: " + a.Kind
+            | TaggedUnion.DerivedTag.PetDog d -> "dog: " + d.Kind
+            | TaggedUnion.DerivedTag.Pending -> "pending"
+        TaggedUnion.DerivedTag.Done 1.5 |> describe |> equal "done: 1.5"
+        TaggedUnion.DerivedTag.DoneError "oops" |> describe |> equal "error: oops"
+        TaggedUnion.DerivedTag.DoneWithExtra (2.5, "e") |> describe |> equal "extra: 2.5 e"
+        TaggedUnion.DerivedTag.LogString "hi" |> describe |> equal "string: hi"
+        TaggedUnion.DerivedTag.LogNumber 2.5 |> describe |> equal "number: 2.5"
+        TaggedUnion.DerivedTag.LogPayload (TaggedUnion.Payload 3) |> describe |> equal "payload: 3"
+        TaggedUnion.DerivedTag.Pending |> describe |> equal "pending"
+        (TaggedUnion.DerivedTag.Done 1.5).IsDone |> equal true
+        (TaggedUnion.DerivedTag.Done 1.5).IsDoneError |> equal false
+        (TaggedUnion.DerivedTag.Done 1.5).IsDoneWithExtra |> equal false
+        (TaggedUnion.DerivedTag.DoneWithExtra (2.5, "e")).IsDone |> equal false
+        (TaggedUnion.DerivedTag.DoneWithExtra (2.5, "e")).IsDoneWithExtra |> equal true
+        (TaggedUnion.DerivedTag.LogString "hi").IsLogString |> equal true
+        (TaggedUnion.DerivedTag.LogString "hi").IsLogNumber |> equal false
+        (TaggedUnion.DerivedTag.LogString "hi").IsLogPayload |> equal false
+        (TaggedUnion.DerivedTag.LogNumber 2.5).IsLogNumber |> equal true
+        (TaggedUnion.DerivedTag.LogNumber 2.5).IsLogString |> equal false
+        (TaggedUnion.DerivedTag.LogPayload (TaggedUnion.Payload 3)).IsLogPayload |> equal true
+        (TaggedUnion.DerivedTag.LogPayload (TaggedUnion.Payload 3)).IsLogString |> equal false
+        (TaggedUnion.DerivedTag.LogPayload (TaggedUnion.Payload 3)).IsLogNumber |> equal false
+
+    testCase "Case testing with TS tagged unions whose cases share a tag uses a CaseTest to narrow a base class field" <| fun () ->
+        let describe = function
+            | TaggedUnion.DerivedTag.PetAnimal a -> "animal: " + a.Kind
+            | TaggedUnion.DerivedTag.PetDog d -> "dog: " + d.Kind
+            | _ -> "other"
+        TaggedUnion.DerivedTag.PetAnimal (TaggedUnion.Animal()) |> describe |> equal "animal: animal"
+        TaggedUnion.DerivedTag.PetDog (TaggedUnion.Dog()) |> describe |> equal "dog: dog"
+        (TaggedUnion.DerivedTag.PetAnimal (TaggedUnion.Animal())).IsPetAnimal |> equal true
+        (TaggedUnion.DerivedTag.PetAnimal (TaggedUnion.Animal())).IsPetDog |> equal false
+        (TaggedUnion.DerivedTag.PetDog (TaggedUnion.Dog())).IsPetDog |> equal true
+        (TaggedUnion.DerivedTag.PetDog (TaggedUnion.Dog())).IsPetAnimal |> equal false
+
+    testCase "Case testing with TS tagged unions whose cases share a tag uses a CaseTest for a Pojo field" <| fun () ->
+        let describe = function
+            | TaggedUnion.PojoField.LogOptions o -> "options: " + o.name
+            | TaggedUnion.PojoField.LogString s -> "string: " + s
+        TaggedUnion.PojoField.LogOptions (TaggedUnion.Options "x") |> describe |> equal "options: x"
+        TaggedUnion.PojoField.LogString "hi" |> describe |> equal "string: hi"
+        (TaggedUnion.PojoField.LogOptions (TaggedUnion.Options "x")).IsLogOptions |> equal true
+        (TaggedUnion.PojoField.LogOptions (TaggedUnion.Options "x")).IsLogString |> equal false
+        (TaggedUnion.PojoField.LogString "hi").IsLogString |> equal true
+        (TaggedUnion.PojoField.LogString "hi").IsLogOptions |> equal false
+
+    testCase "Case testing with TS tagged unions whose cases share a tag uses the CaseTest of the other case" <| fun () ->
+        let describe = function
+            | TaggedUnion.Outcome.Failed _ -> "failed"
+            | TaggedUnion.Outcome.Ok _ -> "ok"
+        TaggedUnion.Outcome.Ok true |> describe |> equal "ok"
+        TaggedUnion.Outcome.Failed false |> describe |> equal "failed"
+        (TaggedUnion.Outcome.Ok true).IsOk |> equal true
+        (TaggedUnion.Outcome.Ok true).IsFailed |> equal false
+        (TaggedUnion.Outcome.Failed false).IsFailed |> equal true
+        (TaggedUnion.Outcome.Failed false).IsOk |> equal false
+
+    testCase "Case testing with TS tagged unions whose cases share a tag uses the CaseTest of the other cases" <| fun () ->
+        let describe = function
+            | TaggedUnion.Job.Other k -> "other: " + k
+            | TaggedUnion.Job.Build k -> "build: " + k
+            | TaggedUnion.Job.Test k -> "test: " + k
+            | TaggedUnion.Job.Idle -> "idle"
+        TaggedUnion.Job.Build "build" |> describe |> equal "build: build"
+        TaggedUnion.Job.Test "test" |> describe |> equal "test: test"
+        TaggedUnion.Job.Other "lint" |> describe |> equal "other: lint"
+        TaggedUnion.Job.Idle |> describe |> equal "idle"
+        (TaggedUnion.Job.Other "lint").IsOther |> equal true
+        (TaggedUnion.Job.Other "lint").IsBuild |> equal false
+        (TaggedUnion.Job.Other "lint").IsTest |> equal false
+        (TaggedUnion.Job.Build "build").IsBuild |> equal true
+        (TaggedUnion.Job.Build "build").IsOther |> equal false
+        (TaggedUnion.Job.Test "test").IsTest |> equal true
+        (TaggedUnion.Job.Test "test").IsOther |> equal false
+
+    testCase "Case testing with TS tagged unions whose cases share a number tag works" <| fun () ->
+        let describe = function
+            | TaggedUnion.NumberTag.Text t -> "text: " + t
+            | TaggedUnion.NumberTag.Count c -> sprintf "count: %i" c
+            | TaggedUnion.NumberTag.On _ -> "on"
+            | TaggedUnion.NumberTag.Off _ -> "off"
+            | TaggedUnion.NumberTag.Idle -> "idle"
+        TaggedUnion.NumberTag.Text "hi" |> describe |> equal "text: hi"
+        TaggedUnion.NumberTag.Count 3 |> describe |> equal "count: 3"
+        TaggedUnion.NumberTag.On true |> describe |> equal "on"
+        TaggedUnion.NumberTag.Off false |> describe |> equal "off"
+        TaggedUnion.NumberTag.Idle |> describe |> equal "idle"
+        (TaggedUnion.NumberTag.Text "hi").IsText |> equal true
+        (TaggedUnion.NumberTag.Text "hi").IsCount |> equal false
+        (TaggedUnion.NumberTag.Count 3).IsCount |> equal true
+        (TaggedUnion.NumberTag.Count 3).IsText |> equal false
+        (TaggedUnion.NumberTag.On true).IsOn |> equal true
+        (TaggedUnion.NumberTag.On true).IsOff |> equal false
+        (TaggedUnion.NumberTag.Off false).IsOff |> equal true
+        (TaggedUnion.NumberTag.Off false).IsOn |> equal false
+
+#if FABLE_COMPILER
+    testCase "Case testing with TS tagged unions whose cases share a tag works on raw JS objects" <| fun () ->
+        let describeShared = function
+            | TaggedUnion.SharedTag.Done v -> sprintf "done: %.1f" v
+            | TaggedUnion.SharedTag.DoneError e -> sprintf "error: %s" e
+            | TaggedUnion.SharedTag.DoneFailed _ -> "failed"
+            | TaggedUnion.SharedTag.Pending -> "pending"
+        let describeDerived = function
+            | TaggedUnion.DerivedTag.Done v -> sprintf "done: %.1f" v
+            | TaggedUnion.DerivedTag.DoneError e -> sprintf "error: %s" e
+            | TaggedUnion.DerivedTag.LogString m -> sprintf "string: %s" m
+            | TaggedUnion.DerivedTag.LogNumber n -> sprintf "number: %.1f" n
+            | _ -> "other"
+        let describePojo = function
+            | TaggedUnion.PojoField.LogOptions o -> "options: " + o.name
+            | TaggedUnion.PojoField.LogString s -> "string: " + s
+        let describeOutcome = function
+            | TaggedUnion.Outcome.Failed _ -> "failed"
+            | TaggedUnion.Outcome.Ok _ -> "ok"
+        let describeJob = function
+            | TaggedUnion.Job.Other k -> "other: " + k
+            | TaggedUnion.Job.Build k -> "build: " + k
+            | TaggedUnion.Job.Test k -> "test: " + k
+            | TaggedUnion.Job.Idle -> "idle"
+        let describeNumber = function
+            | TaggedUnion.NumberTag.Text t -> "text: " + t
+            | TaggedUnion.NumberTag.Count c -> sprintf "count: %i" c
+            | TaggedUnion.NumberTag.On _ -> "on"
+            | TaggedUnion.NumberTag.Off _ -> "off"
+            | TaggedUnion.NumberTag.Idle -> "idle"
+        !!{| state = "done"; error = "raw" |} |> describeShared |> equal "error: raw"
+        !!{| state = "done"; error = "raw" |} |> describeDerived |> equal "error: raw"
+        !!{| state = "log"; message = 1 |} |> describeDerived |> equal "number: 1.0"
+        !!{| state = "log"; message = "raw" |} |> describeDerived |> equal "string: raw"
+        !!{| state = "log"; message = {| name = "raw" |} |} |> describePojo |> equal "options: raw"
+        !!{| state = "log"; message = "raw" |} |> describePojo |> equal "string: raw"
+        !!{| state = "done"; ok = true |} |> describeOutcome |> equal "ok"
+        !!{| state = "done"; ok = false |} |> describeOutcome |> equal "failed"
+        !!{| state = "run"; kind = "deploy" |} |> describeJob |> equal "other: deploy"
+        !!{| state = "run"; kind = "test" |} |> describeJob |> equal "test: test"
+        !!{| code = 1; count = 2 |} |> describeNumber |> equal "count: 2"
+        !!{| code = 1; text = "raw" |} |> describeNumber |> equal "text: raw"
+        !!{| code = 2; flag = true |} |> describeNumber |> equal "on"
+        !!{| code = 2; flag = false |} |> describeNumber |> equal "off"
+        !!{| code = 3 |} |> describeNumber |> equal "idle"
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

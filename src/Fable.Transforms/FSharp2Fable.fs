@@ -578,14 +578,6 @@ let private transformUnionCaseTest
         let! unionExpr = transformExpr com ctx [] unionExpr
         let unionPattern = getUnionPattern fsType unionCase
 
-        do
-            match unionPattern, FsUnionCase.CaseTest unionCase with
-            | TypeScriptTaggedUnion _, _
-            | _, None -> ()
-            | _, Some _ ->
-                WarningCodes.caseTestIgnored unionCase.Name
-                |> addWarningWithCode com ctx.InlinePath r
-
         match unionPattern with
         | ErasedUnionCase -> return "Cannot test erased union cases" |> addErrorAndReturnNull com ctx.InlinePath r
 
@@ -622,7 +614,7 @@ let private transformUnionCaseTest
                     + (getFsTypeFullName fsType)
                     |> addErrorAndReturnNull com ctx.InlinePath r
 
-        | TypeScriptTaggedUnion(_, _, tagName, rule) ->
+        | TypeScriptTaggedUnion(tdef, _, tagName, rule) ->
             let isCompiledValue, value =
                 match FsUnionCase.CompiledValue unionCase with
                 | None -> false, transformStringEnum rule unionCase
@@ -640,19 +632,43 @@ let private transformUnionCaseTest
                     let getTag = Fable.Get(unionExpr, Fable.FieldInfo.Create(tagName), value.Type, r)
                     makeEqOp r getTag value BinaryEqual
 
-                match FsUnionCase.CaseTest unionCase with
-                | Some macro ->
-                    // The union value is tested twice, so bind it first if it is not a plain value
-                    let makeTest unionExpr =
-                        let caseTest = emitExpr r Fable.Boolean [ unionExpr ] macro
-                        makeLogOp r (makeTagTest unionExpr) caseTest LogicalAnd
+                let makeDerivedTest unionExpr test =
+                    match test with
+                    | TaggedUnionCaseTest.HasField name ->
+                        emitExpr r Fable.Boolean [ makeStrConst name; unionExpr ] "$0 in $1"
+                    | TaggedUnionCaseTest.LacksField name ->
+                        emitExpr r Fable.Boolean [ makeStrConst name; unionExpr ] "!($0 in $1)"
+                    | TaggedUnionCaseTest.FieldOfType(name, typ) ->
+                        let field =
+                            Fable.Get(unionExpr, Fable.FieldInfo.Create(name, fieldType = typ), typ, r)
 
-                    if canHaveSideEffects com unionExpr then
-                        let ident = getIdentUniqueName com ctx "unionValue" |> makeTypedIdent unionExpr.Type
-                        return Fable.Let(ident, unionExpr, makeTest (Fable.IdentExpr ident))
-                    else
-                        return makeTest unionExpr
-                | None -> return makeTagTest unionExpr
+                        Fable.Test(field, Fable.TypeTest typ, r)
+                    | TaggedUnionCaseTest.NotCaseTest macro -> emitExpr r Fable.Boolean [ unionExpr ] $"!(%s{macro})"
+
+                let caseTests: (Fable.Expr -> Fable.Expr) list =
+                    match FsUnionCase.CaseTest unionCase with
+                    | Some macro -> [ fun unionExpr -> emitExpr r Fable.Boolean [ unionExpr ] macro ]
+                    | None ->
+                        match deriveTaggedUnionCaseTests com tdef rule unionCase with
+                        | Ok tests -> tests |> List.map (fun test unionExpr -> makeDerivedTest unionExpr test)
+                        | Error(other, reason) ->
+                            let tag = taggedUnionTagDisplay rule unionCase
+
+                            $"Cases '%s{unionCase.Name}' and '%s{other.Name}' of '%s{tdef.DisplayName}' share the tag value %s{tag} and %s{reason}. Add a CaseTest attribute to '%s{unionCase.Name}' or '%s{other.Name}'."
+                            |> addError com ctx.InlinePath r
+
+                            []
+
+                let makeTest unionExpr =
+                    (makeTagTest unionExpr, caseTests)
+                    ||> List.fold (fun acc test -> makeLogOp r acc (test unionExpr) LogicalAnd)
+
+                // The union value is read once per test, so bind it first if it is not a plain value
+                if canHaveSideEffects com unionExpr && not (List.isEmpty caseTests) then
+                    let ident = getIdentUniqueName com ctx "unionValue" |> makeTypedIdent unionExpr.Type
+                    return Fable.Let(ident, unionExpr, makeTest (Fable.IdentExpr ident))
+                else
+                    return makeTest unionExpr
 
         | OptionUnion _ ->
             let kind =
@@ -2220,11 +2236,20 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
         | FSharpImplementationFileDeclaration.InitAction _ -> usedNames
     )
 
+let private warnIgnoredCaseTests (com: FableCompiler) ctx (ent: FSharpEntity) =
+    if ent.IsFSharpUnion && not (hasAttrib Atts.tsTaggedUnion ent.Attributes) then
+        for uci in ent.UnionCases do
+            if (FsUnionCase.CaseTest uci).IsSome then
+                WarningCodes.caseTestIgnored uci.Name
+                |> addWarningWithCode (com :> Compiler) ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
+
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls
     |> List.collect (fun fsDecl ->
         match fsDecl with
         | FSharpImplementationFileDeclaration.Entity(fsEnt, sub) ->
+            warnIgnoredCaseTests com ctx fsEnt
+
             match sub with
             | [] when isIgnoredLeafEntity fsEnt -> []
             | [] ->

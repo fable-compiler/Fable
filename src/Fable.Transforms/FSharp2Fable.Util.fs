@@ -3303,3 +3303,220 @@ module Util =
         | Imported com ctx r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
         | _ -> getValueMemberRef v |> memberIdent com ctx r typ v
+
+    /// Runtime checks that tell apart TypeScriptTaggedUnion cases sharing a tag value
+    [<RequireQualifiedAccess>]
+    type TaggedUnionCaseTest =
+        | HasField of name: string
+        | LacksField of name: string
+        | FieldOfType of name: string * typ: Fable.Type
+        | NotCaseTest of macro: string
+
+    let private tryTaggedUnionTagKey (rule: CaseRules) (unionCase: FSharpUnionCase) =
+        match transformStringEnum rule unionCase with
+        | Fable.Value(Fable.StringConstant s, _) -> Some("s:" + s)
+        | Fable.Value(Fable.BoolConstant b, _) -> Some("b:" + string b)
+        | Fable.Value(Fable.NumberConstant(v, _), _) -> Some("n:" + string v)
+        | _ -> None
+
+    let taggedUnionTagDisplay (rule: CaseRules) (unionCase: FSharpUnionCase) =
+        match FsUnionCase.CompiledValue unionCase with
+        | Some(CompiledValue.Integer i) -> string i
+        | Some(CompiledValue.Float f) -> string f
+        | Some(CompiledValue.Boolean b) -> (string b).ToLowerInvariant()
+        | None ->
+            match transformStringEnum rule unionCase with
+            | Fable.Value(Fable.StringConstant s, _) -> $"\"%s{s}\""
+            | _ -> "the same tag"
+
+    type private TaggedUnionField =
+        {
+            Name: string
+            Type: Fable.Type
+            Display: string
+        }
+
+    /// Keep in sync with Fable2Babel.Reflection.transformTypeTest: equal keys are the same runtime test, None is untestable
+    let rec private tryRuntimeTypeTestKey (com: Compiler) (typ: Fable.Type) : string option =
+        match typ with
+        | Fable.String
+        | Fable.Char -> Some "string"
+        | Fable.Boolean -> Some "boolean"
+        | Fable.Number(Decimal, _) -> Some "decimal"
+        | Fable.Number((Int64 | UInt64 | Int128 | UInt128 | BigInt | NativeInt | UNativeInt), _) -> Some "bigint"
+        | Fable.Number _ -> Some "number"
+        | Fable.Regex -> Some "regexp"
+        | Fable.LambdaType _
+        | Fable.DelegateType _ -> Some "function"
+        | Fable.Array _
+        | Fable.Tuple _ -> Some "array"
+        | Fable.List _ -> Some "list"
+        | Fable.Nullable(genArg, _) -> tryRuntimeTypeTestKey com genArg
+        | Fable.DeclaredType(entRef, _) ->
+            match com.TryGetEntity entRef with
+            | None -> None
+            | Some _ when isReplacementCandidate entRef -> None
+            | Some ent when hasAttribute Atts.stringEnum ent -> Some "string"
+            | Some ent when hasAttribute Atts.erase ent && ent.IsFSharpUnion ->
+                match ent.UnionCases with
+                | [ uci ] when List.isSingle uci.UnionCaseFields ->
+                    tryRuntimeTypeTestKey com uci.UnionCaseFields[0].FieldType
+                | cases when cases |> List.forall (fun c -> List.isEmpty c.UnionCaseFields) -> Some "string"
+                | _ -> None
+            | Some ent when
+                ent.IsMeasure
+                || isErasedOrStringEnumEntity ent
+                || isPojoDefinedByConsArgsEntity ent
+                ->
+                None
+            | Some ent when ent.IsInterface && not (isGlobalOrImportedEntity ent) -> None
+            | Some ent -> Some("instanceof:" + ent.FullName)
+        | _ -> None
+
+    let rec private isSubtypeOf (com: Compiler) (baseFullName: string) (entRef: Fable.EntityRef) =
+        entRef.FullName = baseFullName
+        || match com.TryGetEntity entRef with
+           | None -> false
+           | Some ent ->
+               ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = baseFullName)
+               || (
+                   match ent.BaseType with
+                   | Some baseType -> isSubtypeOf com baseFullName baseType.Entity
+                   | None -> false
+               )
+
+    /// Whether every value of `sub` also passes the runtime test of `super`
+    let private passesTestOf (com: Compiler) (super: Fable.Type) (sub: Fable.Type) =
+        match super, sub with
+        | Fable.DeclaredType(superRef, _), Fable.DeclaredType(subRef, _) -> isSubtypeOf com superRef.FullName subRef
+        | _ -> false
+
+    let private tryDistinguishTaggedUnionCase
+        (com: Compiler)
+        (mine: TaggedUnionField list)
+        (other: TaggedUnionField list)
+        =
+        let isRequired (f: TaggedUnionField) =
+            match f.Type with
+            | Fable.Option _ -> false
+            | _ -> true
+
+        let hasName name (fields: TaggedUnionField list) =
+            fields |> List.exists (fun f -> f.Name = name)
+
+        let byPresence =
+            mine
+            |> List.tryFind (fun f -> isRequired f && not (hasName f.Name other))
+            |> Option.map (fun f -> TaggedUnionCaseTest.HasField f.Name)
+
+        let byAbsence () =
+            other
+            |> List.tryFind (fun f -> isRequired f && not (hasName f.Name mine))
+            |> Option.map (fun f -> TaggedUnionCaseTest.LacksField f.Name)
+
+        let byType () =
+            mine
+            |> List.tryPick (fun f ->
+                match List.tryFind (fun (o: TaggedUnionField) -> o.Name = f.Name) other with
+                | None -> None
+                | Some o ->
+                    match tryRuntimeTypeTestKey com f.Type, tryRuntimeTypeTestKey com o.Type with
+                    | Some myKey, Some otherKey when
+                        myKey <> otherKey
+                        && not (passesTestOf com f.Type o.Type)
+                        && not (passesTestOf com o.Type f.Type)
+                        ->
+                        Some(TaggedUnionCaseTest.FieldOfType(f.Name, f.Type))
+                    | _ -> None
+            )
+
+        byPresence |> Option.orElseWith byAbsence |> Option.orElseWith byType
+
+    let private describeUntestableType (com: Compiler) (f: TaggedUnionField) =
+        let kind =
+            match f.Type with
+            | Fable.Any -> "which can hold any value"
+            | Fable.GenericParam _ -> "a generic parameter unknown at runtime"
+            | Fable.DeclaredType(entRef, _) ->
+                match com.TryGetEntity entRef with
+                | Some ent when isPojoDefinedByConsArgsEntity ent -> "a Pojo that is a plain object at runtime"
+                | Some ent when ent.IsInterface -> "an interface that does not exist at runtime"
+                | Some ent when isErasedOrStringEnumEntity ent -> "an erased type"
+                | _ -> "a type that cannot be tested at runtime"
+            | _ -> "a type that cannot be tested at runtime"
+
+        $"field '%s{f.Name}' has type '%s{f.Display}', %s{kind}"
+
+    /// Why no field of `mine` tells it apart from `other` at runtime
+    let private explainIndistinguishable (com: Compiler) (mine: TaggedUnionField list) (other: TaggedUnionField list) =
+        let shared =
+            mine
+            |> List.choose (fun f -> other |> List.tryFind (fun o -> o.Name = f.Name) |> Option.map (fun o -> f, o))
+
+        match shared |> List.tryFind (fun (f, o) -> f.Type <> o.Type) with
+        | None when List.length shared = List.length mine && List.length shared = List.length other ->
+            "have the same fields"
+        | None -> "differ only by optional fields"
+        | Some(f, o) ->
+            let reason =
+                match tryRuntimeTypeTestKey com f.Type, tryRuntimeTypeTestKey com o.Type with
+                | None, _ -> describeUntestableType com f
+                | _, None -> describeUntestableType com o
+                | Some myKey, Some otherKey when myKey = otherKey ->
+                    $"field '%s{f.Name}' has types '%s{f.Display}' and '%s{o.Display}', which look the same at runtime"
+                | _ ->
+                    let sub, super =
+                        if passesTestOf com f.Type o.Type then
+                            o, f
+                        else
+                            f, o
+
+                    $"field '%s{f.Name}' has types '%s{f.Display}' and '%s{o.Display}', and '%s{sub.Display}' is a subtype of '%s{super.Display}'"
+
+            "cannot be told apart at runtime: " + reason
+
+    /// One check per other case with the same tag value, or the case the fields cannot exclude
+    let deriveTaggedUnionCaseTests
+        (com: Compiler)
+        (tdef: FSharpEntity)
+        (rule: CaseRules)
+        (unionCase: FSharpUnionCase)
+        : Result<TaggedUnionCaseTest list, FSharpUnionCase * string>
+        =
+        let fieldsOf (uc: FSharpUnionCase) =
+            uc.Fields
+            |> Seq.map (fun fi ->
+                {
+                    Name = FsField.FSharpFieldName fi
+                    Type = makeType Map.empty fi.FieldType
+                    Display = fi.FieldType.Format(FSharpDisplayContext.Empty.WithShortTypeNames(true))
+                }
+            )
+            |> List.ofSeq
+
+        match tryTaggedUnionTagKey rule unionCase with
+        | None -> Ok []
+        | Some myTag ->
+            let myFields = fieldsOf unionCase
+
+            tdef.UnionCases
+            |> Seq.filter (fun uc -> uc.Name <> unionCase.Name && tryTaggedUnionTagKey rule uc = Some myTag)
+            |> Seq.fold
+                (fun acc other ->
+                    match acc with
+                    | Error _ -> acc
+                    | Ok tests ->
+                        let otherFields = fieldsOf other
+
+                        let byCaseTest () =
+                            FsUnionCase.CaseTest other |> Option.map TaggedUnionCaseTest.NotCaseTest
+
+                        match
+                            tryDistinguishTaggedUnionCase com myFields otherFields
+                            |> Option.orElseWith byCaseTest
+                        with
+                        | Some test -> Ok(tests @ [ test ])
+                        | None -> Error(other, explainIndistinguishable com myFields otherFields)
+                )
+                (Ok [])
+            |> Result.map List.distinct
