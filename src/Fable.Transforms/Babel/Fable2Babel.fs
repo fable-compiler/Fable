@@ -476,7 +476,7 @@ module Reflection =
 
     let transformTypeTest (com: IBabelCompiler) ctx range expr typ : Expression =
         let warnAndEvalToFalse msg =
-            "Cannot type test (evals to false): " + msg |> addWarning com [] range
+            WarningCodes.typeTestEvalsToFalse msg |> addWarningWithCode com [] range
 
             Expression.booleanLiteral (false)
 
@@ -1845,7 +1845,7 @@ module Util =
             // Some (baseExpr, []) // default base constructor
             let range = baseCall |> Option.bind (fun x -> x.Range)
 
-            $"Ignoring base call for %s{entRef.FullName}" |> addWarning com [] range
+            WarningCodes.baseCallIgnored entRef.FullName |> addWarningWithCode com [] range
 
             None
         | Some _, _ ->
@@ -5065,8 +5065,8 @@ module Compiler =
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
-            member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
-                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
+            member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
+                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
 
     let makeCompiler com = BabelCompiler(com)
 

@@ -43,7 +43,7 @@ let private transformBaseConsCall
         makeCall r Fable.Unit callInfo baseRef
     | None ->
         if not baseCons.IsImplicitConstructor then
-            "Only inheriting from primary constructors is supported" |> addWarning com [] r
+            WarningCodes.nonPrimaryBaseConstructor |> addWarningWithCode com [] r
 
         match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
         | Fable.Call(_baseExpr, info, t, r) when not (com.Options.Language = Rust) ->
@@ -583,8 +583,8 @@ let private transformUnionCaseTest
             | TypeScriptTaggedUnion _, _
             | _, None -> ()
             | _, Some _ ->
-                $"CaseTest attribute on '%s{unionCase.Name}' is ignored: it is only supported on TypeScriptTaggedUnion cases"
-                |> addWarning com ctx.InlinePath r
+                WarningCodes.caseTestIgnored unionCase.Name
+                |> addWarningWithCode com ctx.InlinePath r
 
         match unionPattern with
         | ErasedUnionCase -> return "Cannot test erased union cases" |> addErrorAndReturnNull com ctx.InlinePath r
@@ -2933,9 +2933,8 @@ type FableCompiler(com: Compiler) =
         |> List.filter (fun (i, v) ->
             if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects com v then
                 if isIdentUsed i.Name resolved then
-                    $"Inlined argument %s{i.Name} is being captured but is also used somewhere else. "
-                    + "There's a risk of double evaluation."
-                    |> addWarning com [] i.Range
+                    WarningCodes.inlinedArgumentDoubleEvaluation i.Name
+                    |> addWarningWithCode com [] i.Range
 
                     true
                 else
@@ -2981,8 +2980,8 @@ type FableCompiler(com: Compiler) =
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
-        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
-            com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
+        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
+            com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
 
 
 let rec attachClassMembers (com: FableCompiler) =

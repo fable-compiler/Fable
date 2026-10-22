@@ -221,7 +221,12 @@ module CodeServices =
                     opts,
                     fableLibDir,
                     crackerResponse.OutputType,
-                    ?outDir = cliArgs.OutDir
+                    ?outDir = cliArgs.OutDir,
+                    warningSuppression =
+                        WarningSuppression.Resolver.FromCompilerOptions(
+                            crackerResponse.ProjectOptions.OtherOptions,
+                            sourceReader
+                        )
                 )
 
             // TODO: make it configurable if FableTransforms.transformFile is applied?
@@ -265,6 +270,9 @@ module CodeServices =
                     async {
                         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
 
+                        // No `warningSuppression`: this overload is handed an already type-checked
+                        // project rather than a `SourceReader`, so there is no source to scan for
+                        // `// fable-disable` comments. Not a bug, just a limitation of the entry point.
                         let compiler: CompilerImpl =
                             CompilerImpl(
                                 currentFile,
@@ -361,6 +369,12 @@ module CodeServices =
 
             let opts = cliArgs.CompilerOptions
 
+            let warningSuppression =
+                WarningSuppression.Resolver.FromCompilerOptions(
+                    crackerResponse.ProjectOptions.OtherOptions,
+                    sourceReader
+                )
+
             let! results =
                 dependentFiles
                 |> Array.filter (fun filePath -> not (filePath.EndsWith(".fsi", StringComparison.Ordinal)))
@@ -375,7 +389,8 @@ module CodeServices =
                                 opts,
                                 fableLibDir,
                                 crackerResponse.OutputType,
-                                ?outDir = cliArgs.OutDir
+                                ?outDir = cliArgs.OutDir,
+                                warningSuppression = warningSuppression
                             )
 
                         let outputPath = Path.ChangeExtension(currentFile, ".js")

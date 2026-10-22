@@ -562,7 +562,7 @@ let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType:
             |> Option.map (fun t -> t.Entity.FullName)
             |> Option.defaultValue "unknown type"
 
-        $"Ignoring base call for %s{name}" |> addWarning com [] range
+        WarningCodes.baseCallIgnored name |> addWarningWithCode com [] range
 
         None
     | Some(Fable.Value _), Some baseType ->
@@ -574,8 +574,8 @@ let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType:
         // Some (baseExpr, []) // default base constructor
         let range = baseCall |> Option.bind (fun x -> x.Range)
 
-        $"Ignoring base call for %s{baseType.Entity.FullName}"
-        |> addWarning com [] range
+        WarningCodes.baseCallIgnored baseType.Entity.FullName
+        |> addWarningWithCode com [] range
 
         None
     | Some _, _ ->

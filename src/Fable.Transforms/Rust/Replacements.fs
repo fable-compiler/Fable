@@ -1338,8 +1338,8 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "GetTypeCode", Some c, [] -> makeLibCall com r t i "Char" "GetTypeCode" [ c ] |> Some
     | ("TryParse" | "Parse") as meth, None, _ -> makeLibCall com r t i "Char" meth args |> Some
     | ("IsSurrogate" | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogatePair") as meth, None, _ ->
-        $"Rust chars are Unicode scalar values, so surrogate tests will be false."
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.charSurrogateTestsAreFalse
+        |> addWarningWithCode com ctx.InlinePath r
 
         let meth = getMethodName meth args
 
@@ -1403,13 +1403,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             ExprType(Number(Int32, _)) ] -> libCall com r t "String" "compareOrdinal2" args |> Some
         | _ -> None
     | "CompareTo", Some c, [ ExprTypeAs(String, arg) ] ->
-        $"String.CompareTo will be compiled as String.CompareOrdinal"
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.stringCompareIsOrdinal "CompareTo"
+        |> addWarningWithCode com ctx.InlinePath r
 
         libCall com r t "String" "compareOrdinal" [ c; arg ] |> Some
     | "Compare", None, _ ->
-        $"String.Compare will be compiled as String.CompareOrdinal"
-        |> addWarning com ctx.InlinePath r
+        WarningCodes.stringCompareIsOrdinal "Compare"
+        |> addWarningWithCode com ctx.InlinePath r
 
         match args with
         | [ ExprType String; ExprType String ] -> libCall com r t "String" "compareOrdinal" args |> Some
@@ -1464,8 +1464,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | (ExprType String :: _) -> "sprintf!" |> emitFormat com r t args |> Some
         | (cultureInfo :: restArgs) ->
-            $"String.Format(): Format provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
             "sprintf!" |> emitFormat com r t restArgs |> Some
         | _ -> None
@@ -1647,8 +1646,7 @@ let stringBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Ex
 
             libCall com r t "Util" "sb_Append" [ sb; s ] |> Some
         | (cultureInfo :: restArgs) ->
-            $"StringBuilder.AppendFormat(): Format provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
             let s = "sprintf!" |> emitFormat com None String restArgs
 
@@ -2072,8 +2070,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let intConst = int System.Globalization.NumberStyles.Integer
 
         if style <> hexConst && style <> intConst then
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): NumberStyle %d{style} is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.numberStylesIgnored style
+            |> addWarningWithCode com ctx.InlinePath r
 
         let acceptedArgs =
             if meth = "Parse" then
@@ -2081,10 +2079,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 3
 
-        if List.length args > acceptedArgs then
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ ->
             // e.g. Double.Parse(string, style, IFormatProvider) etc.
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
         parseCall meth str args style |> Some
     | ("Parse" | "TryParse") as meth, _, str :: _ ->
@@ -2094,10 +2095,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 2
 
-        if List.length args > acceptedArgs then
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ ->
             // e.g. Double.Parse(string, IFormatProvider) etc.
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style |> Some
@@ -2498,19 +2502,44 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | _ -> None
     | _ -> None
 
-let ignoreFormatProvider compiledName args =
+/// Drops the `IFormatProvider` (and `DateTimeStyles`, where present) a date/time `Parse` was
+/// given, warning once per discarded argument. `Parse arg` with no extra argument discards
+/// nothing, so it must not warn. `ToString` stays silent here, as it does on every other target.
+let ignoreFormatProvider com (ctx: Context) r compiledName args =
+    // Passing InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+    let warnProvider culture =
+        match culture with
+        | InvariantCulture -> ()
+        | _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+
+    let warnStyles styles =
+        match styles with
+        | NumberConst(NumberValue.Int32 0, _) -> () // DateTimeStyles.None: no special handling
+        | _ -> WarningCodes.dateTimeStylesIgnored |> addWarningWithCode com ctx.InlinePath r
+
     match compiledName, args with
-    // Ignore IFormatProvider
     | "ToString", ExprTypeAs(String, arg) :: _ -> [ arg ]
     | "ToString", _ -> [ makeStrConst "" ] // default (no format string)
+    | "Parse", arg :: culture :: styles :: _ ->
+        warnProvider culture
+        warnStyles styles
+        [ arg ]
+    | "Parse", arg :: culture :: _ ->
+        warnProvider culture
+        [ arg ]
     | "Parse", arg :: _ -> [ arg ]
-    | "TryParse", input :: _culture :: _styles :: defVal :: _ -> [ input; defVal ]
-    | "TryParse", input :: _culture :: defVal :: _ -> [ input; defVal ]
+    | "TryParse", input :: culture :: styles :: defVal :: _ ->
+        warnProvider culture
+        warnStyles styles
+        [ input; defVal ]
+    | "TryParse", input :: culture :: defVal :: _ ->
+        warnProvider culture
+        [ input; defVal ]
     | _ -> args
 
 let makeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
     let memberName = Naming.removeGetSetPrefix memberName |> Naming.lowerFirst
-    let args = ignoreFormatProvider i.CompiledName args
+    let args = ignoreFormatProvider com ctx r i.CompiledName args
 
     match thisArg with
     | Some c -> makeInstanceCall r t i c memberName args
@@ -3064,7 +3093,8 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     match i.CompiledName with
     // TODO: Throw error for RunSynchronously
     | "Start" ->
-        "Async.Start will behave as StartImmediate" |> addWarning com ctx.InlinePath r
+        WarningCodes.asyncStartBehavesAsStartImmediate
+        |> addWarningWithCode com ctx.InlinePath r
 
         makeLibCall com r t i "Async" "start" args |> Some
     // Make sure cancellationToken is called as a function and not a getter

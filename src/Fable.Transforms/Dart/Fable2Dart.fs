@@ -2038,8 +2038,8 @@ module Util =
 
                 args
         | Some(Fable.Value _ as e) ->
-            $"Ignoring base call for %s{classDecl.Entity.FullName}"
-            |> addWarning com [] e.Range
+            WarningCodes.baseCallIgnored classDecl.Entity.FullName
+            |> addWarningWithCode com [] e.Range
 
             []
         | Some e ->
@@ -3210,8 +3210,8 @@ module Compiler =
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
             member _.AddSignatureDependency(fileName) = com.AddSignatureDependency(fileName)
 
-            member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
-                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
+            member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
+                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
 
     let makeCompiler com = DartCompiler(com)
 
