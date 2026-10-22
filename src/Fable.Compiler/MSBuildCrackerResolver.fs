@@ -30,6 +30,9 @@ module private MSBuildCrackerResolver =
 
     type FullPath = string
 
+    [<Literal>]
+    let private TelemetryOptOutVariable = "DOTNET_CLI_TELEMETRY_OPTOUT"
+
     let private run_dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) (defines: string list) =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
@@ -48,6 +51,10 @@ module private MSBuildCrackerResolver =
             // Disable Dotnet Welcome message
             // https://github.com/fable-compiler/Fable/issues/4014
             psi.Environment.Add("DOTNET_NOLOGO", "1")
+
+            // The dotnet CLI blocks on sending telemetry at exit, which can take seconds on a restricted network
+            if not (psi.Environment.ContainsKey TelemetryOptOutVariable) then
+                psi.Environment.Add(TelemetryOptOutVariable, "1")
 
             if not (List.isEmpty defines) then
                 let definesValue = defines |> String.concat ";"
@@ -134,6 +141,68 @@ Exception:
                 return tfs.Split ';' |> Array.head
         }
 
+    let private restoreInputNames =
+        [
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "Directory.Packages.props"
+            "nuget.config"
+            "NuGet.Config"
+            "NuGet.config"
+            "global.json"
+            "packages.lock.json"
+            "paket.dependencies"
+            "paket.lock"
+            "paket.references"
+        ]
+
+    /// Files that can change the package graph of a project: the ones next to it and in every directory above it
+    let private restoreInputs (projectFile: string) =
+        let rec walk (dir: DirectoryInfo) acc =
+            let acc =
+                restoreInputNames
+                |> List.map (fun name -> System.IO.Path.Combine(dir.FullName, name))
+                |> List.filter File.Exists
+                |> List.append acc
+
+            match dir.Parent with
+            | null -> acc
+            | parent -> walk parent acc
+
+        walk (FileInfo(projectFile).Directory) [ projectFile ]
+
+    /// Restore is skipped only when the last crack of this project, with the same defines and configuration,
+    /// left project.assets.json newer than every file the package graph depends on, for it and its references.
+    let private canSkipRestore (fsproj: FileInfo) (options: CrackerOptions) =
+        match options.CacheInfo with
+        | None -> false
+        | Some cache ->
+            let sameProject =
+                cache.ProjectPath = fsproj.FullName
+                && cache.Configuration = options.Configuration
+                && set cache.FableOptions.Define = set options.FableOptions.Define
+
+            let assetsOf (project: string) =
+                FileInfo(System.IO.Path.Combine(System.IO.Path.GetDirectoryName project, "obj", "project.assets.json"))
+
+            let assets = assetsOf fsproj.FullName
+
+            let restoredAfterInputs (project: string) =
+                File.Exists project
+                && (assetsOf project).Exists
+                && restoreInputs project
+                   |> List.forall (fun input -> File.GetLastWriteTimeUtc input < assets.LastWriteTimeUtc)
+
+            sameProject
+            && assets.Exists
+            && fsproj.FullName :: cache.References |> List.forall restoredAfterInputs
+
+    let private declaresTargetFrameworks (fsproj: FileInfo) =
+        try
+            File.ReadAllText(fsproj.FullName).Contains("<TargetFrameworks", StringComparison.Ordinal)
+        with _ ->
+            true
+
     let mkOptionsFromDesignTimeBuildAux
         (referenceTargetFrameworks: ConcurrentDictionary<string, string>)
         (isMain: bool)
@@ -148,21 +217,29 @@ Exception:
                 else
                     $"/p:Configuration=%s{options.Configuration}"
 
-            let! targetFramework =
+            // A single-target project evaluates its own TargetFramework, so the design-time build can report it
+            // and the separate query is only needed when the project multi-targets.
+            let! knownTargetFramework =
                 match referenceTargetFrameworks.TryGetValue fsproj.FullName with
-                | true, targetFramework -> async.Return targetFramework
-                | _ -> queryTargetFramework fsproj options configurationProperty
-
+                | true, targetFramework -> async.Return(Some targetFramework)
+                | _ when declaresTargetFrameworks fsproj ->
+                    async {
+                        let! targetFramework = queryTargetFramework fsproj options configurationProperty
+                        return Some targetFramework
+                    }
+                | _ -> async.Return None
 
             // When CoreCompile does not need a rebuild, MSBuild will skip that target and thus will not populate the FscCommandLineArgs items.
             // To overcome this we want to force a design time build, using the NonExistentFile property helps prevent a cache hit.
             let nonExistentFile = Path.Combine("__NonExistentSubDir__", "__NonExistentFile__")
 
-            let properties =
+            let properties targetFramework =
                 [
                     if not (String.IsNullOrWhiteSpace configurationProperty) then
                         configurationProperty
-                    $"/p:TargetFramework=%s{targetFramework}"
+                    match targetFramework with
+                    | Some targetFramework -> $"/p:TargetFramework=%s{targetFramework}"
+                    | None -> ()
                     "/p:DesignTimeBuild=True"
                     "/p:SkipCompilerExecution=True"
                     "/p:ProvideCommandLineArgs=True"
@@ -177,6 +254,9 @@ Exception:
             // MSBuild ignores the -p properties during restore when -restoreProperty is given, so the restore covers every TargetFramework
             let restoreArg =
                 if options.NoRestore || not isMain then
+                    ""
+                elif canSkipRestore fsproj options then
+                    Log.verbose (lazy $"Skipping restore of %s{fsproj.Name}: project.assets.json is up to date")
                     ""
                 else
                     let restoreProperties =
@@ -197,13 +277,10 @@ Exception:
 
                     $"/restore -restoreProperty:%s{restoreProperties}"
 
-            let arguments =
-                $"%s{restoreArg} /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getItem:_MSBuildProjectReferenceExistent --getProperty:OutputType -warnAsMessage:NU1608"
+            let arguments targetFramework =
+                $"%s{restoreArg} /t:%s{targets} %s{properties targetFramework} --getItem:FscCommandLineArgs --getItem:ProjectReference --getItem:_MSBuildProjectReferenceExistent --getProperty:OutputType --getProperty:TargetFramework --getProperty:TargetFrameworks -warnAsMessage:NU1608"
 
-            let! json =
-                dotnet_msbuild_with_defines options.RootDir fsproj.FullName arguments options.FableOptions.Define
-
-            let jsonDocument =
+            let parse (json: string) =
                 try
                     JsonDocument.Parse json
                 with ex ->
@@ -215,6 +292,41 @@ JSON:
 Exception:
 %O{ex}
 """
+
+            let crack targetFramework =
+                async {
+                    let! json =
+                        dotnet_msbuild_with_defines
+                            options.RootDir
+                            fsproj.FullName
+                            (arguments targetFramework)
+                            options.FableOptions.Define
+
+                    return parse json
+                }
+
+            let evaluatedTargetFramework (doc: JsonDocument) =
+                doc.RootElement.GetProperty("Properties").GetProperty("TargetFramework").GetString()
+
+            let! jsonDocument, targetFramework =
+                async {
+                    match knownTargetFramework with
+                    | Some targetFramework ->
+                        let! doc = crack (Some targetFramework)
+                        return doc, targetFramework
+                    | None ->
+                        // A multi-target project not caught by the fsproj text check fails here or reports no
+                        // framework, and takes the two-call path below.
+                        let! attempt = crack None |> Async.Catch
+
+                        match attempt with
+                        | Choice1Of2 doc when not (String.IsNullOrWhiteSpace(evaluatedTargetFramework doc)) ->
+                            return doc, evaluatedTargetFramework doc
+                        | _ ->
+                            let! targetFramework = queryTargetFramework fsproj options configurationProperty
+                            let! doc = crack (Some targetFramework)
+                            return doc, targetFramework
+                }
 
             let items = jsonDocument.RootElement.GetProperty "Items"
             let properties = jsonDocument.RootElement.GetProperty "Properties"
