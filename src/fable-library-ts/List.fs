@@ -389,7 +389,16 @@ let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     Array.scanBack folder (toArray xs) state |> ofArray
 
 let append (xs: 'T list) (ys: 'T list) =
-    fold (fun acc x -> List.Cons(x, acc)) ys (reverse xs)
+    let root = List.Empty
+    let mutable node = root
+    let mutable rest = xs
+
+    while not rest.IsEmpty do
+        node <- node.AppendConsNoTail rest.Head
+        rest <- rest.Tail
+
+    node.SetConsTail ys
+    root.Tail
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
     let root = List.Empty
