@@ -442,11 +442,12 @@ export function dateHash(x: Date): number {
 
 export function arrayHash<T>(x: ArrayLike<T>): number {
   const len = x.length;
-  const hashes: number[] = new Array(len);
+  let hash = 0;
   for (let i = 0; i < len; i++) {
-    hashes[i] = structuralHash(x[i]);
+    const elementHash = structuralHash(x[i])
+    hash = ((hash << 5) + hash) ^ elementHash;
   }
-  return combineHashCodes(hashes);
+  return hash;
 }
 
 export function structuralHash<T>(x: T): number {
