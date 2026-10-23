@@ -394,13 +394,11 @@ let append (xs: 'T list) (ys: 'T list) =
     let mutable rest = xs
 
     while not rest.IsEmpty do
-        let next = singleton (head rest)
-        node.tail <- Some next
-        node <- next
-        rest <- tail rest
+        node <- node.AppendConsNoTail rest.Head
+        rest <- rest.Tail
 
-    node.tail <- Some ys
-    tail root
+    node.SetConsTail ys
+    root.Tail
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
     let root = List.Empty
