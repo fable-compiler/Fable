@@ -123,8 +123,14 @@ function recordToString<T>(self: T) {
 }
 
 function recordGetHashCode<T>(self: T) {
-  const hashes = Object.values(self as any).map((v) => structuralHash(v));
-  return combineHashCodes(hashes);
+  // Snapshot all values before calling any user-defined hash functions.
+  const values = Object.values(self as any);
+  let hash = 0;
+  for (let i = 0; i < values.length; i++) {
+    const fieldHash = structuralHash(values[i]);
+    hash = ((hash << 5) + hash) ^ fieldHash;
+  }
+  return hash;
 }
 
 function recordEquals<T>(self: T, other: T) {
