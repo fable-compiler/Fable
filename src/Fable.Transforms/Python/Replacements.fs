@@ -3707,6 +3707,9 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "StartChild" ->
+        Helper.LibCall(com, "async_", "start_child_linked", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     // Make sure cancellationToken is called as a function and not a getter
     | "get_CancellationToken" -> Helper.LibCall(com, "async_", "cancellationToken", t, [], ?loc = r) |> Some
     // `catch` cannot be used as a function name in JS
@@ -3806,6 +3809,16 @@ let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     | None, meth, _ ->
         Helper.LibCall(com, "task_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+
+let taskBuilderAsync (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let startAsTask computation =
+        Helper.LibCall(com, "async_", "start_as_task", Any, [ computation ], ?loc = r)
+
+    match i.CompiledName, args with
+    | "TaskBuilderBase.Bind", [ computation; binder ] ->
+        taskBuilder com ctx r t i thisArg [ startAsTask computation; binder ]
+    | "TaskBuilderBase.ReturnFrom", [ computation ] -> taskBuilder com ctx r t i thisArg [ startAsTask computation ]
+    | _ -> None
 
 let guids
     (com: ICompiler)
@@ -4290,6 +4303,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority", taskBuilderAsync
             "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
             Types.guid, guids
             "System.Uri", uris
