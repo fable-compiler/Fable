@@ -1216,18 +1216,15 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // bprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), _ -> fsharpModule com ctx r t i thisArg args
+    | ("Failure" | "FailurePattern" | "InvalidArg" | "InvalidOp" | "LazyPattern" | "NullArg" | "Using"), _ ->
+        fsharpModule com ctx r t i thisArg args
     | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
       _ -> fsharpModule com ctx r t i thisArg args
     | "Lock", _ ->
         Helper.LibCall(com, "util", "lock", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // Exceptions
-    | "FailWith", [ msg ]
-    | "InvalidOp", [ msg ] -> makeThrow r t (error com msg) |> Some
-    | "InvalidArg", [ argName; msg ] ->
-        let msg = add msg (add (add (str " (Parameter '") argName) (str "')"))
-        makeThrow r t (error com msg) |> Some
+    | "FailWith", [ msg ] -> makeThrow r t (error com msg) |> Some
     | "Raise", [ arg ] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
         match ctx.CaughtException with

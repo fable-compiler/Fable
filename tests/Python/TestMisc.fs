@@ -1277,6 +1277,26 @@ let ``test invalidArg formats the message like .NET`` () =
         invalidArg "arg" "This is invalid"
     )
 
+[<Fact>]
+let ``test invalidArg raises ArgumentException`` () =
+    let caught =
+        try
+            invalidArg "arg" "This is invalid"
+        with
+        | :? System.ArgumentException as e -> e.Message
+        | e -> "Unexpected exception: " + e.Message
+    caught |> equal "This is invalid (Parameter 'arg')"
+
+[<Fact>]
+let ``test invalidOp raises InvalidOperationException`` () =
+    let caught =
+        try
+            invalidOp "This is invalid"
+        with
+        | :? System.InvalidOperationException as e -> e.Message
+        | e -> "Unexpected exception: " + e.Message
+    caught |> equal "This is invalid"
+
 # nowarn "26" //  This rule will never be matched (code 26)
 
 [<Fact>]
