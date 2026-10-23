@@ -1260,6 +1260,24 @@ let tests =
             invalidArg "arg" "This is invalid"
         )
 
+    testCase "invalidArg raises ArgumentException" <| fun () ->
+        let caught =
+            try
+                invalidArg "arg" "This is invalid"
+            with
+            | :? System.ArgumentException as e -> e.Message
+            | e -> "Unexpected exception: " + e.Message
+        equal "This is invalid (Parameter 'arg')" caught
+
+    testCase "invalidOp raises InvalidOperationException" <| fun () ->
+        let caught =
+            try
+                invalidOp "This is invalid"
+            with
+            | :? System.InvalidOperationException as e -> e.Message
+            | e -> "Unexpected exception: " + e.Message
+        equal "This is invalid" caught
+
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""
         let i = 4

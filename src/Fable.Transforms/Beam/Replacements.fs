@@ -329,13 +329,16 @@ let private operators
     | ("DefaultArg" | "DefaultValueArg"), [ opt; defValue ] ->
         Helper.LibCall(com, "fable_option", "default_value", _t, [ opt; defValue ])
         |> Some
-    | "FailWith", [ msg ]
-    | "InvalidOp", [ msg ] -> makeThrow r _t msg |> Some
+    | "FailWith", [ msg ] -> makeThrow r _t msg |> Some
+    | "InvalidOp", [ msg ] ->
+        makeThrow r _t (emitExpr r Any [ msg ] "#{exn_type => invalid_operation_exception, message => $0}")
+        |> Some
     | "InvalidArg", [ argName; msg ] ->
         let msg =
             add msg (add (add (Value(StringConstant " (Parameter '", None)) argName) (Value(StringConstant "')", None)))
 
-        makeThrow r _t msg |> Some
+        makeThrow r _t (emitExpr r Any [ msg ] "#{exn_type => argument_exception, message => $0}")
+        |> Some
     | "Raise", [ arg ] -> makeThrow r _t arg |> Some
     | "NullArg", [ arg ] ->
         let msg =

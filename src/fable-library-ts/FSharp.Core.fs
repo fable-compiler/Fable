@@ -41,6 +41,14 @@ module Operators =
     let nullArg (argumentName: string) =
         raise (System.ArgumentNullException(argumentName))
 
+    [<CompiledName("InvalidArg")>]
+    let invalidArg (argumentName: string) (message: string) =
+        raise (System.ArgumentException(message, argumentName))
+
+    [<CompiledName("InvalidOp")>]
+    let invalidOp (message: string) =
+        raise (System.InvalidOperationException(message))
+
     [<CompiledName("Using")>]
     let using<'T, 'R when 'T :> System.IDisposable and 'T: null> (resource: 'T) (action: 'T -> 'R) =
         try
