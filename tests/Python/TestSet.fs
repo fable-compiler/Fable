@@ -1,5 +1,6 @@
 module Fable.Tests.Set
 
+open Fable.Tests.Util
 open Util.Testing
 
 [<Fact>]
@@ -333,3 +334,22 @@ let ``test Comparing large sets works`` () =
     largeSetB.IsSupersetOf(largeSetA) |> equal true
     largeSetA.IsProperSubsetOf(largeSetB) |> equal false
     largeSetA.IsSubsetOf(largeSetB) |> equal true
+
+[<Fact>]
+let ``test Set.minElement and Set.maxElement raise ArgumentException on empty input`` () =
+    let xs = Set.empty<int>
+    raisedExceptionType (fun () -> Set.minElement xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Set.maxElement xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> xs.MinimumElement) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> xs.MaximumElement) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Set.intersectMany raises ArgumentException on empty input`` () =
+    raisedExceptionType (fun () -> Set.intersectMany ([]: Set<int> list)) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Set enumerator Current raises InvalidOperationException outside the enumeration`` () =
+    let e = (set [1] :> seq<_>).GetEnumerator()
+    raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+    while e.MoveNext() do ()
+    raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"

@@ -106,6 +106,18 @@ let doesntThrow (f: unit -> 'a): unit =
     run f
     |> RunResult.wasSuccess
 
+/// Names the exception `f` raises, testing the most specific type first, so a test can
+/// check the exception type without depending on .NET's detailed messages.
+let raisedExceptionType (f: unit -> 'a): string =
+    try
+        f () |> ignore
+        "no exception"
+    with
+    | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? ArgumentException -> "ArgumentException"
+    | :? InvalidOperationException -> "InvalidOperationException"
+    | e -> "Unexpected exception: " + e.Message
+
 let Int32Array = [|1;2|]
 
 module Float64Array =

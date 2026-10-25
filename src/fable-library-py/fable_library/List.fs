@@ -48,12 +48,12 @@ type LinkedList<'T> =
 
     member xs.Head =
         match xs.tail with
-        | None -> invalidArg "list" SR.inputWasEmpty
+        | None -> invalidOp SR.inputWasEmpty
         | Some _ -> xs.head
 
     member xs.Tail =
         match xs.tail with
-        | None -> invalidArg "list" SR.inputWasEmpty
+        | None -> invalidOp SR.inputWasEmpty
         | Some t -> t
 
     member xs.Item
@@ -177,7 +177,10 @@ let isEmpty (xs: 'T list) = xs.IsEmpty
 
 let length (xs: 'T list) = xs.Length
 
-let head (xs: 'T list) = xs.Head
+let head (xs: 'T list) =
+    match xs.tail with
+    | None -> invalidArg "list" SR.inputWasEmpty
+    | Some _ -> xs.head
 
 let tryHead (xs: 'T list) =
     if xs.IsEmpty then
@@ -185,7 +188,10 @@ let tryHead (xs: 'T list) =
     else
         Some xs.Head
 
-let tail (xs: 'T list) = xs.Tail
+let tail (xs: 'T list) =
+    match xs.tail with
+    | None -> invalidArg "list" SR.inputWasEmpty
+    | Some t -> t
 
 let rec tryLast (xs: 'T list) =
     if xs.IsEmpty then
@@ -201,7 +207,7 @@ let rec tryLast (xs: 'T list) =
 let last (xs: 'T list) =
     match tryLast xs with
     | Some x -> x
-    | None -> failwith SR.inputWasEmpty
+    | None -> invalidArg "list" SR.inputWasEmpty
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list) : int =
     let rec loop (xs: 'T list) (ys: 'T list) =
@@ -596,13 +602,13 @@ let replicate n x = initialize n (fun _ -> x)
 
 let reduce f (xs: 'T list) =
     if xs.IsEmpty then
-        invalidOp SR.inputWasEmpty
+        invalidArg "list" SR.inputWasEmpty
     else
         fold f (head xs) (tail xs)
 
 let reduceBack f (xs: 'T list) =
     if xs.IsEmpty then
-        invalidOp SR.inputWasEmpty
+        invalidArg "list" SR.inputWasEmpty
     else
         foldBack f (tail xs) (head xs)
 
@@ -738,7 +744,7 @@ let rec skip count (xs: 'T list) =
     if count <= 0 then
         xs
     elif xs.IsEmpty then
-        invalidArg "list" SR.notEnoughElements
+        raise (System.ArgumentOutOfRangeException("count", "The index is outside the legal range."))
     else
         skip (count - 1) xs.Tail
 
@@ -758,7 +764,7 @@ let take count (xs: 'T list) =
         if i <= 0 then
             acc
         elif xs.IsEmpty then
-            invalidArg "list" SR.notEnoughElements
+            invalidOp SR.notEnoughElements
         else
             loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
 
@@ -824,7 +830,7 @@ let splitAt index (xs: 'T list) =
         invalidArg "index" SR.inputMustBeNonNegative
 
     if index > xs.Length then
-        invalidArg "index" SR.notEnoughElements
+        invalidOp SR.notEnoughElements
 
     take index xs, skip index xs
 
