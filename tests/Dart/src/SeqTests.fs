@@ -1196,3 +1196,41 @@ let tests() =
         raisedExceptionType (fun () -> [1 .. 0 .. 5]) |> equal "ArgumentException"
         raisedExceptionType (fun () -> [|1L .. 0L .. 5L|]) |> equal "ArgumentException"
         raisedExceptionType (fun () -> [1. .. 0. .. 5.]) |> equal "ArgumentException"
+
+    testCase "Seq.init, Seq.replicate and Seq.take with a negative count raise when called" <| fun () ->
+        raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.replicate -1 "a") |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Seq.take -1 [1; 2]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.take -1 (seq { 1; 2 })) |> equal "ArgumentException"
+
+    testCase "Seq.chunkBySize, Seq.windowed and Seq.splitInto check their size when called" <| fun () ->
+        raisedExceptionType (fun () -> Seq.chunkBySize 0 [1; 2; 3]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.windowed 0 [1; 2; 3]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.splitInto 0 [1; 2; 3]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.chunkBySize -1 Seq.empty<int>) |> equal "ArgumentException"
+
+    testCase "Seq.removeManyAt raises ArgumentException only when FSharp.Core does" <| fun () ->
+        let xs = [1; 2; 3]
+        raisedExceptionType (fun () -> Seq.removeManyAt -1 0 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.removeManyAt 0 0 Seq.empty<int> |> Seq.toList) |> equal "ArgumentException"
+        let yielded = ResizeArray()
+        raisedExceptionType (fun () -> Seq.removeManyAt 3 0 xs |> Seq.iter (fun x -> yielded.Add x)) |> equal "ArgumentException"
+        yielded |> Seq.toList |> equal [1; 2; 3]
+        Seq.removeManyAt 2 2 xs |> Seq.toList |> equal [1; 2]
+        Seq.removeManyAt 1 3 xs |> Seq.toList |> equal [1]
+        Seq.removeManyAt 1 -1 xs |> Seq.toList |> equal [1; 2; 3]
+        Seq.removeManyAt 1 1 xs |> Seq.toList |> equal [1; 3]
+
+    testCase "Seq.transpose groups the elements of sequences of different lengths by index" <| fun () ->
+        let toLists (xss: seq<seq<int>>) = xss |> Seq.map Seq.toList |> Seq.toList
+        Seq.transpose [[1; 2]; [3]] |> toLists |> equal [[1; 3]; [2]]
+        Seq.transpose [[1]; [2; 3]] |> toLists |> equal [[1; 2]; [3]]
+        Seq.transpose [[]; [1]] |> toLists |> equal [[1]]
+        Seq.transpose [[1; 2; 3]; [4]; [5; 6]] |> toLists |> equal [[1; 4; 5]; [2; 6]; [3]]
+        Seq.transpose (seq [seq { 1; 2 }; seq { 3 }]) |> toLists |> equal [[1; 3]; [2]]
+        Seq.transpose [|[|1|]; [||]|] |> toLists |> equal [[1]]
+        Seq.transpose ([[]]: int list list) |> toLists |> equal []
+        let enumerated = ResizeArray()
+        let xss = Seq.transpose (seq { enumerated.Add 1; yield [1; 2]; yield [3] })
+        enumerated.Count |> equal 0
+        xss |> toLists |> equal [[1; 3]; [2]]

@@ -143,11 +143,37 @@ let filter (predicate: 'T -> bool) (array: 'T[]) = Native.where predicate array
 
 // intentionally returns target instead of unit
 let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] =
-    Native.fillRange target targetIndex (targetIndex + count) value
+    if targetIndex < 0 then
+        invalidArg "targetIndex" SR.inputMustBeNonNegative
+
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
+    // FSharp.Core sets the items one by one: a count of 0 is fine even past the end, and
+    // it fills up to the end before raising, where this checks first
+    if count > 0 then
+        if targetIndex + count > target.Length then
+            raise (System.IndexOutOfRangeException(SR.Arg_IndexOutOfRangeException))
+
+        Native.fillRange target targetIndex (targetIndex + count) value
+
     target
 
 let getSubArray (array: 'T[]) (start: int) (count: int) : 'T[] =
     Native.sublist (array, start, start + count)
+
+// Array.sub checks its arguments like FSharp.Core (unlike getSubArray, which ResizeArray.GetRange also uses)
+let sub (array: 'T[]) (startIndex: int) (count: int) : 'T[] =
+    if startIndex < 0 then
+        invalidArg "startIndex" SR.inputMustBeNonNegative
+
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
+    if startIndex + count > array.Length then
+        raise (System.ArgumentOutOfRangeException("count", "The index is outside the legal range."))
+
+    getSubArray array startIndex count
 
 let last (array: 'T[]) =
     if Array.isEmpty array then
@@ -400,8 +426,27 @@ let removeAllInPlace (predicate: 'T -> bool) (array: 'T[]) : int =
     Native.removeWhere array predicate
     len - array.Length
 
-// TODO: Check array lengths
+// Array.blit and System.Array.Copy: checks the arguments in the same order as System.Array.Copy
 let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) : unit =
+    if count < 0 then
+        raise (System.ArgumentOutOfRangeException("length", SR.Arg_ArgumentOutOfRangeException))
+
+    if sourceIndex < 0 then
+        raise (System.ArgumentOutOfRangeException("sourceIndex", SR.Arg_ArgumentOutOfRangeException))
+
+    if sourceIndex + count > source.Length then
+        invalidArg
+            "sourceArray"
+            "Source array was not long enough. Check the source index, length, and the array's lower bounds."
+
+    if targetIndex < 0 then
+        raise (System.ArgumentOutOfRangeException("destinationIndex", SR.Arg_ArgumentOutOfRangeException))
+
+    if targetIndex + count > target.Length then
+        invalidArg
+            "destinationArray"
+            "Destination array was not long enough. Check the destination index, length, and the array's lower bounds."
+
     Native.copyRange (target, targetIndex, source, sourceIndex, sourceIndex + count)
 
 let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) : int =
@@ -739,7 +784,7 @@ let zip3 (array1: 'T1[]) (array2: 'T2[]) (array3: 'T3[]) : ('T1 * 'T2 * 'T3)[] =
 
 let chunkBySize (chunkSize: int) (array: 'T[]) : 'T[][] =
     if chunkSize < 1 then
-        invalidArg "size" "The input must be positive."
+        invalidArg "chunkSize" "The input must be positive."
 
     if Array.isEmpty array then
         [| [||] |]
@@ -1030,7 +1075,7 @@ let windowed (windowSize: int) (source: 'T[]) : 'T[][] =
 
 let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
     if chunks < 1 then
-        invalidArg "chunks" "The input must be positive."
+        invalidArg "count" "The input must be positive."
 
     if Array.isEmpty array then
         [| [||] |]
@@ -1129,45 +1174,23 @@ let removeAt (index: int) (xs: 'T[]) : 'T[] =
     )
 
 let removeManyAt (index: int) (count: int) (xs: 'T[]) : 'T[] =
-    let mutable i = -1
-    // incomplete -1, in-progress 0, complete 1
-    let mutable status = -1
+    let len = xs.Length
 
-    let ys =
-        xs
-        |> filter (fun _ ->
-            i <- i + 1
+    // FSharp.Core's check. A negative count removes nothing, like in List.removeManyAt and
+    // Seq.removeManyAt, but the index can't be past the end
+    if index < 0 || index > len - count || index > len then
+        invalidArg "index" "index must be within bounds of the array"
 
-            if i = index then
-                status <- 0
-                false
-            elif i > index then
-                if i < index + count then
-                    false
-                else
-                    status <- 1
-                    true
+    let count = Operators.max 0 count
+
+    Native.generate
+        (len - count)
+        (fun i ->
+            if i < index then
+                xs[i]
             else
-                true
+                xs[i + count]
         )
-
-    let status =
-        if status = 0 && i + 1 = index + count then
-            1
-        else
-            status
-
-    if status < 1 then
-        // F# always says the wrong parameter is index but the problem may be count
-        let arg =
-            if status < 0 then
-                "index"
-            else
-                "count"
-
-        invalidArg arg SR.indexOutOfBounds
-
-    ys
 
 let updateAt (index: int) (y: 'T) (xs: 'T[]) : 'T[] =
     let len = xs.Length

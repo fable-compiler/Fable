@@ -32,6 +32,7 @@ let raisedExceptionType (f: unit -> 'a): string =
     | :? System.ArgumentException -> "ArgumentException"
     | :? System.InvalidOperationException -> "InvalidOperationException"
     | :? System.Collections.Generic.KeyNotFoundException -> "KeyNotFoundException"
+    | :? System.IndexOutOfRangeException -> "IndexOutOfRangeException"
     | e -> "Unexpected exception: " + e.Message
 
 let private run (f: unit -> 'a) =

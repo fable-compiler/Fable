@@ -1877,6 +1877,10 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "IsEmpty", [ ar ] -> getFieldWith r t ar "isEmpty" |> Some
     | "Contains", [ value; ar ] -> Helper.LibCall(com, "Array", "contains", t, [ value; ar ], ?loc = r) |> Some
     | "CopyTo", args -> copyToArray com r t i args
+    // Not getSubArray, which ResizeArray.GetRange also uses: Array.sub checks its arguments like FSharp.Core
+    | "GetSubArray", args ->
+        Helper.LibCall(com, "Array", "sub", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
