@@ -1163,3 +1163,36 @@ let tests() =
         Array.distinct sample |> Array.length |> equal 3
         throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toArray |> ignore)
         throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> Seq.toArray |> ignore)
+
+    testCase "Seq.reduce and Seq.min on an empty sequence raise ArgumentException" <| fun () ->
+        let xs: int seq = Seq.empty
+        raisedExceptionType (fun () -> Seq.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.reduceBack (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.min xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.max xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.minBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.maxBy id xs) |> equal "ArgumentException"
+
+    testCase "Seq.take and Seq.skip past the end raise InvalidOperationException" <| fun () ->
+        raisedExceptionType (fun () -> Seq.take 5 [1] |> Seq.toList) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> Seq.skip 5 [1] |> Seq.toList) |> equal "InvalidOperationException"
+
+    testCase "Seq.tail on an empty sequence raises ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> Seq.tail Seq.empty<int> |> Seq.toList) |> equal "ArgumentException"
+        Seq.tail [1; 2; 3] |> Seq.toList |> equal [2; 3]
+
+    testCase "Seq functions with invalid arguments raise ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> Seq.windowed 0 [1] |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.permute (fun _ -> 5) [1; 2] |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.permute (fun _ -> 0) [1; 2] |> Seq.toList) |> equal "ArgumentException"
+
+    testCase "Seq random functions raise ArgumentOutOfRangeException when the randomizer is out of range" <| fun () ->
+        raisedExceptionType (fun () -> Seq.randomShuffleBy (fun () -> 1.0) [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Seq.randomChoiceBy (fun () -> 1.0) [1]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Seq.randomChoicesBy (fun () -> 1.0) 1 [1] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+
+    testCase "Ranges with a zero step raise ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> [1 .. 0 .. 5]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> [|1L .. 0L .. 5L|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> [1. .. 0. .. 5.]) |> equal "ArgumentException"

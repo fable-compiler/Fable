@@ -295,3 +295,11 @@ let tests() =
         |> Map.add { Bar = "a"; Foo = 10 } 2
         |> Map.count
         |> equal 1
+
+    testCase "Map enumerator Current outside the enumeration raises InvalidOperationException" <| fun () ->
+        let e = (Map.ofList [(1, "a")] :> seq<KeyValuePair<int, string>>).GetEnumerator()
+        raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+        e.MoveNext() |> equal true
+        e.Current.Key |> equal 1
+        e.MoveNext() |> equal false
+        raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"

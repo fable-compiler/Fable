@@ -27,14 +27,17 @@ and [<CompiledName("FSharpList"); AbstractClass>] LinkedList<'T>(tail_: 'T list 
     member this.Head: 'T =
         match this with
         | :? ConsList<'T> as this -> this.GetHead()
-        | _ -> failwith "Empty list"
+        | _ -> invalidOp SR.inputWasEmpty
 
     member this.TryHead: 'T option =
         match this with
         | :? ConsList<'T> as this -> this.GetHead() |> Some
         | _ -> None
 
-    member _.Tail: LinkedList<'T> = Option.get tail
+    member _.Tail: LinkedList<'T> =
+        match tail with
+        | Some t -> t
+        | None -> invalidOp SR.inputWasEmpty
 
     member _.TryTail: LinkedList<'T> option = tail
 
@@ -159,7 +162,10 @@ let isEmpty (xs: 'T list) = xs.IsEmpty
 
 let length (xs: 'T list) = xs.Length
 
-let head (xs: 'T list) = xs.Head
+let head (xs: 'T list) =
+    match xs with
+    | :? ConsList<'T> as xs -> xs.GetHead()
+    | _ -> invalidArg "list" SR.inputWasEmpty
 
 let tryHead (xs: 'T list) =
     if xs.IsEmpty then
@@ -167,7 +173,10 @@ let tryHead (xs: 'T list) =
     else
         Some xs.Head
 
-let tail (xs: 'T list) = xs.Tail
+let tail (xs: 'T list) =
+    match xs.TryTail with
+    | Some t -> t
+    | None -> invalidArg "list" SR.inputWasEmpty
 
 let rec tryLast (xs: 'T list) =
     if xs.IsEmpty then
@@ -183,7 +192,7 @@ let rec tryLast (xs: 'T list) =
 let last (xs: 'T list) =
     match tryLast xs with
     | Some x -> x
-    | None -> failwith SR.inputWasEmpty
+    | None -> invalidArg "list" SR.inputWasEmpty
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list) : int =
     let rec loop (xs: 'T list) (ys: 'T list) =
@@ -572,13 +581,13 @@ let replicate n x = initialize n (fun _ -> x)
 
 let reduce f (xs: 'T list) =
     if xs.IsEmpty then
-        invalidOp SR.inputWasEmpty
+        invalidArg "list" SR.inputWasEmpty
     else
         fold f (head xs) (tail xs)
 
 let reduceBack f (xs: 'T list) =
     if xs.IsEmpty then
-        invalidOp SR.inputWasEmpty
+        invalidArg "list" SR.inputWasEmpty
     else
         foldBack f (tail xs) (head xs)
 
@@ -710,7 +719,7 @@ let rec skip count (xs: 'T list) =
     if count <= 0 then
         xs
     elif xs.IsEmpty then
-        invalidArg "list" SR.notEnoughElements
+        raise (System.ArgumentOutOfRangeException("count", "The index is outside the legal range."))
     else
         skip (count - 1) xs.Tail
 
@@ -730,7 +739,7 @@ let take count (xs: 'T list) =
         if i <= 0 then
             acc
         elif xs.IsEmpty then
-            invalidArg "list" SR.notEnoughElements
+            invalidOp SR.notEnoughElements
         else
             loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
 
@@ -796,7 +805,7 @@ let splitAt index (xs: 'T list) =
         invalidArg "index" SR.inputMustBeNonNegative
 
     if index > xs.Length then
-        invalidArg "index" SR.notEnoughElements
+        invalidOp SR.notEnoughElements
 
     take index xs, skip index xs
 

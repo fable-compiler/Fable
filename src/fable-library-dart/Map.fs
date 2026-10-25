@@ -607,9 +607,9 @@ module MapTree =
             started = false
         }
 
-    let notStarted () = failwith "enumeration not started"
+    let notStarted () = invalidOp SR.enumerationNotStarted
 
-    let alreadyFinished () = failwith "enumeration already finished"
+    let alreadyFinished () = invalidOp SR.enumerationAlreadyFinished
 
     let current i =
         if i.started then
