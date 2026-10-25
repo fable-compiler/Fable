@@ -1358,3 +1358,55 @@ let ``test Seq.head and Seq.item raise ArgumentException when the sequence is to
     raisedExceptionType (fun () -> Seq.item 5 [1]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> Seq.item 5 [|1|]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> Seq.item -1 (seq { 1 })) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.init, Seq.replicate and Seq.take check for a negative count when called`` () =
+    raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.replicate -1 "a") |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Seq.take -1 (seq { 1; 2 })) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.take -1 [1; 2]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.take -1 [|1; 2|]) |> equal "ArgumentException"
+    Seq.init 0 id |> Seq.toList |> equal []
+    Seq.replicate 0 "a" |> Seq.toList |> equal []
+    Seq.take 0 (seq { 1; 2 }) |> Seq.toList |> equal []
+
+[<Fact>]
+let ``test Seq.chunkBySize, Seq.windowed and Seq.splitInto check the size when called`` () =
+    let xs = seq { 1; 2; 3 }
+    raisedExceptionType (fun () -> Seq.chunkBySize 0 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.windowed 0 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.splitInto 0 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.chunkBySize -1 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.windowed -1 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.splitInto -1 xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.transpose groups jagged input by index`` () =
+    let toLists (xss: seq<seq<int>>) = xss |> Seq.map Seq.toList |> Seq.toList
+    Seq.transpose [[1; 2]; [3]] |> toLists |> equal [[1; 3]; [2]]
+    Seq.transpose [[1]; [2; 3]] |> toLists |> equal [[1; 2]; [3]]
+    Seq.transpose [[]; [1]] |> toLists |> equal [[1]]
+    Seq.transpose [[1]; []] |> toLists |> equal [[1]]
+    Seq.transpose [[1; 2; 3]; [4]; [5; 6]] |> toLists |> equal [[1; 4; 5]; [2; 6]; [3]]
+    Seq.transpose (seq [seq { 1; 2 }; seq { 3 }]) |> toLists |> equal [[1; 3]; [2]]
+    Seq.transpose [|[|1; 2|]; [|3|]|] |> toLists |> equal [[1; 3]; [2]]
+
+[<Fact>]
+let ``test Seq.removeManyAt raises ArgumentException where FSharp.Core does`` () =
+    let xs = seq { 1; 2; 3 }
+    raisedExceptionType (fun () -> Seq.removeManyAt -1 0 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.removeManyAt 0 0 Seq.empty<int> |> Seq.toList) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.removeManyAt 3 0 [1; 2; 3] |> Seq.toList) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.removeManyAt 3 0 [|1; 2; 3|] |> Seq.toList) |> equal "ArgumentException"
+    let yielded = ResizeArray<int>()
+    raisedExceptionType (fun () -> Seq.removeManyAt 4 1 xs |> Seq.iter yielded.Add) |> equal "ArgumentException"
+    List.ofSeq yielded |> equal [1; 2; 3]
+
+[<Fact>]
+let ``test Seq.removeManyAt does not raise when the count runs past the end or is not positive`` () =
+    let xs = seq { 1; 2; 3 }
+    Seq.removeManyAt 1 3 xs |> Seq.toList |> equal [1]
+    Seq.removeManyAt 0 4 xs |> Seq.toList |> equal []
+    Seq.removeManyAt 2 2 [|1; 2; 3|] |> Seq.toList |> equal [1; 2]
+    Seq.removeManyAt 1 0 xs |> Seq.toList |> equal [1; 2; 3]
+    Seq.removeManyAt 1 -1 [1; 2; 3] |> Seq.toList |> equal [1; 2; 3]
