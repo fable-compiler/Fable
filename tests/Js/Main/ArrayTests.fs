@@ -1526,4 +1526,58 @@ let tests =
         coll.CopyTo(ys, 0)
         ys = xs |> equal true
 
+    testCase "Array functions raise ArgumentException on empty arrays" <| fun () ->
+        let xs: int[] = [||]
+        let ys: string[] = [||]
+        raisedExceptionType (fun () -> Array.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.reduce (+) ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.reduceBack (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.reduceBack (+) ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.Parallel.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.min xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.max ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.minBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.maxBy id ys) |> equal "ArgumentException"
+
+    testCase "Array functions raise FSharp.Core's exception types for out of range counts" <| fun () ->
+        raisedExceptionType (fun () -> Array.take 5 [|1|]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> Array.take -1 [|1|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.skip 5 [|1|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.splitAt 5 [|1|]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> Array.splitAt -1 [|1|]) |> equal "ArgumentException"
+
+    testCase "Array functions raise ArgumentException for arrays of different lengths" <| fun () ->
+        let xs = [|1|]
+        let ys = [|1; 2|]
+        raisedExceptionType (fun () -> Array.zip xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.zip3 xs ys xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.map2 (+) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.mapi2 (fun i x y -> i + x + y) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.map3 (fun x y z -> x + y + z) xs ys xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.iter2 (fun _ _ -> ()) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.iteri2 (fun _ _ _ -> ()) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.fold2 (fun acc x y -> acc + x + y) 0 xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.foldBack2 (fun x y acc -> x + y + acc) xs ys 0) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.forall2 (fun x y -> x = y) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.exists2 (fun x y -> x = y) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.transpose [| xs; ys |]) |> equal "ArgumentException"
+
+    testCase "Array functions raise KeyNotFoundException when nothing satisfies the predicate" <| fun () ->
+        let xs = [|1; 2|]
+        raisedExceptionType (fun () -> Array.find (fun x -> x > 2) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.findBack (fun x -> x > 2) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.findIndex (fun x -> x > 2) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.findIndexBack (fun x -> x > 2) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.pick (fun x -> if x > 2 then Some x else None) xs) |> equal "KeyNotFoundException"
+
+    testCase "Array functions raise FSharp.Core's exception types for invalid arguments" <| fun () ->
+        raisedExceptionType (fun () -> Array.windowed 0 [|1|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.permute (fun i -> i + 1) [|1; 2|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.permute (fun _ -> 0) [|1; 2|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.randomShuffleInPlaceBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomShuffleBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomChoicesBy (fun () -> 1.0) 2 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomSampleBy (fun () -> -0.1) 1 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+
   ]

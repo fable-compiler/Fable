@@ -2,6 +2,7 @@ module Fable.Tests.Sets
 
 open System.Collections.Generic
 open Util.Testing
+open Fable.Tests.Util
 
 let tests =
     testList "Sets" [
@@ -320,4 +321,19 @@ let tests =
             let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
             coll.CopyTo(ys, 0)
             ys = xs |> equal true
+
+        testCase "Set functions raise ArgumentException on empty sets" <| fun () ->
+            let s: Set<int> = Set.empty
+            raisedExceptionType (fun () -> Set.minElement s) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Set.maxElement s) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> s.MinimumElement) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> s.MaximumElement) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Set.intersectMany ([]: Set<int> list)) |> equal "ArgumentException"
+
+        testCase "Set enumerator Current raises InvalidOperationException outside the enumeration" <| fun () ->
+            let s = set [1; 2]
+            let e = (s :> seq<int>).GetEnumerator()
+            raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+            while e.MoveNext() do ()
+            raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
     ]
