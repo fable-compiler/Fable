@@ -4,7 +4,7 @@ let makeRangeStepFunction<'T when 'T: comparison> (step: 'T) (stop: 'T) (zero: '
     let stepComparedWithZero = compare step zero
 
     if stepComparedWithZero = 0 then
-        failwith "The step of a range cannot be zero"
+        invalidArg "step" "The step of a range cannot be zero."
 
     let stepGreaterThanZero = stepComparedWithZero > 0
 

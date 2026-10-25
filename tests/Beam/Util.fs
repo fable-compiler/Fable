@@ -69,3 +69,16 @@ let throwsAnyError (f: unit -> 'a): unit =
 let doesntThrow (f: unit -> 'a): unit =
     run f
     |> RunResult.wasSuccess
+
+/// Names the exception `f` raises, testing the most specific type first, so a test can
+/// check the exception type without depending on .NET's detailed messages.
+let raisedExceptionType (f: unit -> 'a): string =
+    try
+        f () |> ignore
+        "no exception"
+    with
+    | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? ArgumentException -> "ArgumentException"
+    | :? InvalidOperationException -> "InvalidOperationException"
+    | :? Collections.Generic.KeyNotFoundException -> "KeyNotFoundException"
+    | e -> "Unexpected exception: " + e.Message

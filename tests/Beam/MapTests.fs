@@ -409,3 +409,9 @@ let ``test Map.toSeq works`` () =
     let zs = Map.toSeq ys
     (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
     |> equal true
+
+[<Fact>]
+let ``test Map.findKey and Map.pick raise KeyNotFoundException when nothing matches`` () =
+    let m = Map.ofList [ (1, "a"); (2, "b") ]
+    raisedExceptionType (fun () -> Map.findKey (fun k _ -> k > 5) m) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> Map.pick (fun _ _ -> None: int option) m) |> equal "KeyNotFoundException"

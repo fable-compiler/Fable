@@ -1161,3 +1161,37 @@ let ``test Seq.toList on string works`` () =
     let text = "ABC"
     let chars = text |> Seq.toList
     chars |> List.length |> equal 3
+
+[<Fact>]
+let ``test Seq.reduce and Seq.reduceBack raise ArgumentException on an empty sequence`` () =
+    raisedExceptionType (fun () -> Seq.reduce (+) Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.reduceBack (+) Seq.empty<int>) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.min and friends raise ArgumentException on an empty sequence`` () =
+    raisedExceptionType (fun () -> Seq.min Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.max Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.minBy id Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.maxBy id Seq.empty<int>) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.take and Seq.skip raise InvalidOperationException past the end`` () =
+    raisedExceptionType (fun () -> Seq.take 5 [1] |> Seq.toList) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> Seq.skip 5 [1] |> Seq.toList) |> equal "InvalidOperationException"
+
+[<Fact>]
+let ``test Seq.tail raises ArgumentException on an empty sequence`` () =
+    raisedExceptionType (fun () -> Seq.tail Seq.empty<int> |> Seq.toList) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq random functions raise ArgumentOutOfRangeException when the randomizer is out of range`` () =
+    raisedExceptionType (fun () -> Seq.randomShuffleBy (fun () -> 1.0) [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Seq.randomChoiceBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Seq.randomChoicesBy (fun () -> 1.0) 1 [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+
+[<Fact>]
+let ``test Range expressions raise ArgumentException for a zero step`` () =
+    raisedExceptionType (fun () -> [1 .. 0 .. 5]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> [1L .. 0L .. 5L]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> [1.0 .. 0.0 .. 5.0]) |> equal "ArgumentException"
