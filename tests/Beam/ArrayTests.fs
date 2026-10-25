@@ -1506,3 +1506,52 @@ let ``test Array random functions raise ArgumentException for invalid inputs`` (
     raisedExceptionType (fun () -> Array.randomSample -1 [|1|]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> Array.randomSample 3 [|1; 2|]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> Array.randomSample<int> 1 [||]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Array.sub raises when the range is outside the array`` () =
+    raisedExceptionType (fun () -> Array.sub [|1; 2; 3|] -1 2) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.sub [|1; 2; 3|] 1 -1) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.sub [|1; 2; 3|] 4 -1) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.sub [|1; 2; 3|] 2 5) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Array.sub [|1; 2; 3|] 3 1) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Array.sub [|1; 2; 3|] 4 0) |> equal "ArgumentOutOfRangeException"
+    Array.sub [|1; 2; 3|] 3 0 |> equal [||]
+
+[<Fact>]
+let ``test Array.exists2 and Array.forall2 check the lengths first`` () =
+    raisedExceptionType (fun () -> Array.exists2 (fun _ _ -> true) [|1; 2|] [|1; 2; 3|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.forall2 (fun _ _ -> false) [|1; 2|] [|1; 2; 3|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.forall2 (fun _ _ -> true) [|1; 2; 3|] [|1; 2|]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Array.chunkBySize and Array.splitInto reject a size below 1`` () =
+    raisedExceptionType (fun () -> Array.chunkBySize 0 [|1|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.chunkBySize<int> 0 [||]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.splitInto 0 [|1|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.splitInto<int> -1 [||]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Array.splitInto works with an empty array`` () =
+    Array.splitInto<int> 3 [||] |> equal [||]
+
+[<Fact>]
+let ``test Array.transpose raises ArgumentException for arrays of different lengths`` () =
+    raisedExceptionType (fun () -> Array.transpose [|[|1|]; [|2; 3|]|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.transpose [|[|1; 2|]; [|3|]|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.transpose [|[||]; [|1|]|]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Array.blit raises like System.Array.Copy and leaves the target untouched`` () =
+    let target = Array.zeroCreate<int> 10
+    let blit sourceIndex targetIndex count =
+        raisedExceptionType (fun () -> Array.blit [|1; 2; 3|] sourceIndex target targetIndex count)
+    blit 0 0 5 |> equal "ArgumentException"
+    blit 2 0 2 |> equal "ArgumentException"
+    blit 4 0 0 |> equal "ArgumentException"
+    blit 0 9 2 |> equal "ArgumentException"
+    blit 0 0 -1 |> equal "ArgumentOutOfRangeException"
+    blit -1 0 2 |> equal "ArgumentOutOfRangeException"
+    blit 0 -1 2 |> equal "ArgumentOutOfRangeException"
+    blit 3 0 0 |> equal "no exception"
+    blit 0 10 0 |> equal "no exception"
+    target |> equal (Array.zeroCreate 10)

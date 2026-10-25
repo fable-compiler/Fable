@@ -2907,7 +2907,7 @@ let private arrayModule
     | ("Sub" | "GetSubArray"), [ arr; start; count ] ->
         let arr = derefArr r arr
 
-        emitExpr r t [ arr; start; count ] "lists:sublist($0, $1 + 1, $2)"
+        Helper.LibCall(com, "fable_list", "sub", t, [ arr; start; count ])
         |> wrapArr com r t
         |> Some
     | "Except", [ excludeArr; arr ] ->
@@ -2978,11 +2978,11 @@ let private arrayModule
     | "Exists2", [ fn; a1; a2 ] ->
         let a1 = derefArr r a1
         let a2 = derefArr r a2
-        Helper.LibCall(com, "fable_list", "exists2", t, [ fn; a1; a2 ]) |> Some
+        Helper.LibCall(com, "fable_list", "array_exists2", t, [ fn; a1; a2 ]) |> Some
     | "ForAll2", [ fn; a1; a2 ] ->
         let a1 = derefArr r a1
         let a2 = derefArr r a2
-        Helper.LibCall(com, "fable_list", "forall2", t, [ fn; a1; a2 ]) |> Some
+        Helper.LibCall(com, "fable_list", "array_forall2", t, [ fn; a1; a2 ]) |> Some
     | "Fold2", [ fn; state; a1; a2 ] ->
         let a1 = derefArr r a1
         let a2 = derefArr r a2
@@ -3134,7 +3134,7 @@ let private arrayModule
                 let blitted =
                     Helper.LibCall(
                         com,
-                        "fable_resize_array",
+                        "fable_list",
                         "blit",
                         t,
                         [ derefSource; sourceIdx; derefTarget; targetIdx; count ]
