@@ -447,8 +447,7 @@ export function arrayHash<T>(x: ArrayLike<T>): number {
   const len = x.length;
   let hash = 0;
   for (let i = 0; i < len; i++) {
-    const elementHash = structuralHash(x[i])
-    hash = ((hash << 5) + hash) ^ elementHash;
+    hash = combineHashCode(hash, structuralHash(x[i]));
   }
   return hash;
 }
