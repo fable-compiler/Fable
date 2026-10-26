@@ -194,6 +194,32 @@ let ``test ResizeArray.IndexOf works`` () =
     li.IndexOf("cd") |> equal -1
 
 [<Fact>]
+let ``test ResizeArray.BinarySearch works`` () =
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    ra.BinarySearch(7) |> equal 3
+    ra.BinarySearch(8) |> equal -5
+    let desc = ComparisonIdentity.FromFunction(fun (a: int) b -> compare b a)
+    (ResizeArray [9; 7; 5; 3; 1]).BinarySearch(3, desc) |> equal 3
+    ra.BinarySearch(1, 3, 7, System.Collections.Generic.Comparer<int>.Default) |> equal 3
+    ra.BinarySearch(1, 2, 8, System.Collections.Generic.Comparer<int>.Default) |> equal -4
+    ra.BinarySearch(1, 2, 3, null) |> equal 1
+
+[<Fact>]
+let ``test ResizeArray.BinarySearch with a range checks its arguments`` () =
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    let raised (f: unit -> int) =
+        try
+            f () |> ignore
+            "none"
+        with
+        | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+        | :? System.ArgumentException -> "ArgumentException"
+        | _ -> "other"
+    raised (fun () -> ra.BinarySearch(-1, 2, 3, null)) |> equal "ArgumentOutOfRangeException"
+    raised (fun () -> ra.BinarySearch(1, -1, 3, null)) |> equal "ArgumentOutOfRangeException"
+    raised (fun () -> ra.BinarySearch(3, 3, 3, null)) |> equal "ArgumentException"
+
+[<Fact>]
 let ``test ResizeArray.Remove works`` () =
     let li = ResizeArray<_>()
     li.Add("ab")

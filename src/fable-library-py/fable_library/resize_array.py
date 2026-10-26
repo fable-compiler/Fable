@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, cast
 
 from .core import int32
 from .option import Option, some
-from .protocols import IEnumerable_1
+from .protocols import IComparer_1, IEnumerable_1
+from .system import ArgumentException__ctor_Z721C83C5, ArgumentOutOfRangeException__ctor_Z384F8060
 from .util import to_iterable
 
 
@@ -100,6 +101,52 @@ def index_of[T](value: T, start: int, count: int | None, xs: list[T]) -> int:
         return -1
 
 
+def _check_range(size: int, index: int, count: int, count_name: str) -> None:
+    """Raise like .NET when index and count do not describe a range of a collection of the given size."""
+    if index < 0:
+        raise ArgumentOutOfRangeException__ctor_Z384F8060("index", "Non-negative number required.")
+    if count < 0:
+        raise ArgumentOutOfRangeException__ctor_Z384F8060(count_name, "Non-negative number required.")
+    if size - index < count:
+        raise ArgumentException__ctor_Z721C83C5(
+            "Offset and length were out of bounds for the array or count is greater than "
+            + "the number of elements from index to the end of the source collection."
+        )
+
+
+def _binary_search[T](array: Sequence[T], index: int, length: int, value: T, comparer: IComparer_1[T]) -> int:
+    """Search array[index:index + length] in .NET's probe order. Returns ~insertion point if not found."""
+    lo = index
+    hi = index + length - 1
+    while lo <= hi:
+        i = lo + ((hi - lo) >> 1)
+        c = comparer.Compare(array[i], value)
+        if c == 0:
+            return int32(i)
+        if c < 0:
+            lo = i + 1
+        else:
+            hi = i - 1
+    return int32(~lo)
+
+
+def binary_search[T](array: Sequence[T], value: T, comparer: IComparer_1[T]) -> int:
+    """Binary search a sorted array or ResizeArray (System.Array.BinarySearch)."""
+    return _binary_search(array, 0, len(array), value, comparer)
+
+
+def binary_search_range[T](array: Sequence[T], index: int, length: int, value: T, comparer: IComparer_1[T]) -> int:
+    """Binary search a sorted range of an array (System.Array.BinarySearch with index and length)."""
+    _check_range(len(array), index, length, "length")
+    return _binary_search(array, index, length, value, comparer)
+
+
+def binary_search_range_count[T](xs: list[T], index: int, count: int, value: T, comparer: IComparer_1[T]) -> int:
+    """Binary search a sorted range of a ResizeArray (ResizeArray.BinarySearch with index and count)."""
+    _check_range(len(xs), index, count, "count")
+    return _binary_search(xs, index, count, value, comparer)
+
+
 def insert_range_in_place[T](index: int, items: Iterable[T] | IEnumerable_1[T], xs: list[T]) -> None:
     """Insert a range of items into xs at the given index."""
     xs[index:index] = to_iterable(items)
@@ -141,6 +188,9 @@ __all__ = [
     "add_in_place",
     "add_range",
     "add_range_in_place",
+    "binary_search",
+    "binary_search_range",
+    "binary_search_range_count",
     "contains",
     "exists",
     "filter",
