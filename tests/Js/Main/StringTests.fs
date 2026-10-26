@@ -442,6 +442,30 @@ let tests = testList "Strings" [
         containsInOrder ["Hello"; "Hola"] a |> equal true
         containsInOrder ["Hello"; "Hola"] b |> equal true
 
+    testCase "sprintf \"%o\" works" <| fun () ->
+        sprintf "%o" 8 |> equal "10"
+        sprintf "%o" 0 |> equal "0"
+        sprintf "%o" -1 |> equal "37777777777"
+        sprintf "%o" -8 |> equal "37777777770"
+        sprintf "%o" (1 <<< 31) |> equal "20000000000"
+        sprintf "%o" 255uy |> equal "377"
+        sprintf "%o" 65535us |> equal "177777"
+        sprintf "%o" 4095L |> equal "7777"
+        sprintf "%o" -1L |> equal "1777777777777777777777"
+        sprintf "%o" 18446744073709551615UL |> equal "1777777777777777777777"
+
+    testCase "sprintf \"%o\" padding and flags work" <| fun () ->
+        sprintf "%5o|%-5o|%05o" 8 8 8 |> equal "   10|10   |00010"
+        sprintf "%+o|% o|%+05o" 8 8 8 |> equal "+10| 10|+0010"
+        sprintf "%+o" -1 |> equal "+37777777777"
+
+    testCase "interpolated \"%o\" works" <| fun () ->
+        $"%o{-1}|%o{8}|%5o{8}" |> equal "37777777777|10|   10"
+
+    testCase "sprintf \"%x\" sign flags work" <| fun () ->
+        sprintf "%+x|% x|%+X" 8 8 255 |> equal "+8| 8|+FF"
+        sprintf "%+x" -1 |> equal "+ffffffff"
+
     testCase "sprintf \"%X\" works" <| fun () ->
         //These should all be the Native JS Versions (except int64 / uint64)
         //See #1530 for more information.
