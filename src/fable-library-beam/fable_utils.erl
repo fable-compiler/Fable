@@ -25,6 +25,7 @@
     to_list/1,
     enumerate_to_list/1,
     aggregate_exception/2,
+    argument_exception_message/2,
     exception_message/1,
     is_exception_type/2,
     new_byte_array/1,
@@ -67,6 +68,7 @@
 -spec to_list(term()) -> list().
 -spec enumerate_to_list(term()) -> list().
 -spec aggregate_exception(binary(), term()) -> map().
+-spec argument_exception_message(binary(), binary() | undefined) -> binary().
 -spec exception_message(term()) -> binary().
 -spec is_exception_type(term(), atom()) -> boolean().
 -spec new_byte_array(list() | binary() | tuple()) -> tuple().
@@ -476,6 +478,13 @@ aggregate_exception(BaseMessage, ExceptionsValue) ->
         inner_exception => InnerException,
         inner_exceptions => new_ref(Exceptions)
     }.
+
+argument_exception_message(Message, undefined) ->
+    Message;
+argument_exception_message(Message, <<>>) ->
+    Message;
+argument_exception_message(Message, ParamName) ->
+    <<Message/binary, " (Parameter '", ParamName/binary, "')">>.
 
 %% Built-in .NET exceptions carry a compact nominal tag. Follow the .NET exception
 %% hierarchy here so a catch for a base exception also accepts its derived exceptions.
