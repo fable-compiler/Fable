@@ -32,6 +32,14 @@ let ``Literal regex works with whitespace characters`` () = // See #2635
     Regex(@"\\t").IsMatch("foo\tbar") |> equal false
 
 [<Fact>]
+let ``RegexOptions.NonBacktracking is accepted`` () =
+    let options = RegexOptions.NonBacktracking ||| RegexOptions.IgnoreCase
+    let r = Regex("ab", options)
+    r.IsMatch("xABx") |> equal true
+    Regex.IsMatch("aaab", "(a+)*b", RegexOptions.NonBacktracking) |> equal true
+    Regex.Replace("a1b2", "\\d", "-", RegexOptions.NonBacktracking) |> equal "a-b-"
+
+[<Fact>]
 let ``Regex.Options works`` () =
     let option1 = RegexOptions.IgnoreCase
     let option2 = RegexOptions.ECMAScript

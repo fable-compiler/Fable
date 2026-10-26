@@ -193,7 +193,8 @@ pub mod RegExp_ {
             // * Singleline:               0x0010
             // * IgnorePatternWhitespace:  0x0020
             // * ECMAScript:               0x0100 (ignored)
-            if ((options & !(1 | 2 | 8 | 16 | 32 | 256)) != 0) {
+            // * NonBacktracking:          0x0400 (ignored)
+            if ((options & !(1 | 2 | 8 | 16 | 32 | 256 | 1024)) != 0) {
                 panic!("Unsupported Regex Option");
             }
             let regex_ = regex::RegexBuilder::new(pat.as_str())

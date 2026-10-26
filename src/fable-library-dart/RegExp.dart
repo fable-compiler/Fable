@@ -61,9 +61,10 @@ RegExp create(String pattern, [int options = 0]) {
   // * Compiled:    0x0008 (ignored)
   // * Singleline:  0x0010
   // * ECMAScript:  0x0100 (ignored)
-  if ((options & ~(1 ^ 2 ^ 8 ^ 16 ^ 256)) != 0) {
+  // * NonBacktracking: 0x0400 (ignored)
+  if ((options & ~(1 ^ 2 ^ 8 ^ 16 ^ 256 ^ 1024)) != 0) {
     throw Exception(
-        'RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline and ECMAScript');
+        'RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline, ECMAScript and NonBacktracking');
   }
   return RegExp(pattern,
       unicode: true,

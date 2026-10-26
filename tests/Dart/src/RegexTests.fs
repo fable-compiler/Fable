@@ -41,6 +41,13 @@ let tests() =
         let r = Regex("[a-z]", options)
         int r.Options |> equal 257
 
+    testCase "RegexOptions.NonBacktracking is accepted" <| fun _ ->
+        let options = RegexOptions.NonBacktracking ||| RegexOptions.IgnoreCase
+        let r = Regex("ab", options)
+        r.IsMatch("xABx") |> equal true
+        Regex.IsMatch("aaab", "(a+)*b", RegexOptions.NonBacktracking) |> equal true
+        Regex.Replace("a1b2", "\\d", "-", RegexOptions.NonBacktracking) |> equal "a-b-"
+
     testCase "Regex.IsMatch with IgnoreCase and Multiline works" <| fun _ ->
         let str = "ab\ncd"
         let option1 = RegexOptions.IgnoreCase
