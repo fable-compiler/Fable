@@ -190,3 +190,13 @@ let ``test invalidOp raises InvalidOperationException`` () =
         | :? System.InvalidOperationException as e -> e.Message
         | e -> "Unexpected exception: " + e.Message
     caught |> equal "This is invalid"
+
+[<Fact>]
+let ``test nullArg raises ArgumentNullException`` () =
+    let caught =
+        try
+            nullArg "arg"
+        with
+        | :? System.ArgumentNullException as e -> e.Message
+        | e -> "Unexpected exception: " + e.Message
+    caught |> equal "Value cannot be null. (Parameter 'arg')"
