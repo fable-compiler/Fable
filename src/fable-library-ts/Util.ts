@@ -400,7 +400,7 @@ export function bigintHash(x: bigint) {
 }
 
 // From https://stackoverflow.com/a/37449594
-function combineHashCode(h1: number, h2: number): number {
+export function combineHashCode(h1: number, h2: number): number {
   return ((h1 << 5) + h1) ^ h2;
 }
 
