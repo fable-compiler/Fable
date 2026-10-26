@@ -569,3 +569,16 @@ let ``test DateTimeOffset constructor from DateOnly and TimeOnly works`` () =
     dt.Minute |> equal dt_exp.Minute
     dt.Second |> equal dt_exp.Second
     dt.Millisecond |> equal dt_exp.Millisecond
+
+[<Fact>]
+let ``test Implicit conversion from DateTime preserves value`` () =
+    let d = DateTime(2024, 1, 15, 13, 23, 30, DateTimeKind.Utc)
+    let dto: DateTimeOffset = d
+    dto |> equal (DateTimeOffset(d))
+    dto.Offset |> equal TimeSpan.Zero
+    dto.UtcDateTime.Year |> equal 2024
+    dto.UtcDateTime.Month |> equal 1
+    dto.UtcDateTime.Day |> equal 15
+    dto.UtcDateTime.Hour |> equal 13
+    dto.UtcDateTime.Minute |> equal 23
+    dto.UtcDateTime.Second |> equal 30

@@ -2652,6 +2652,7 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
             _offset ] -> "new_ymdhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "DateTimeOffset" meth args)
+    | "op_Implicit", _ -> makeStaticMemberCall com r t i "DateTimeOffset" "new_datetime" args |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg -> valueTypes com ctx r t i thisArg args
     | "Add", Some c ->
         Operation(Binary(BinaryOperator.BinaryPlus, c, args.Head), Tags.empty, t, r)
