@@ -5036,6 +5036,9 @@ let private dateTimeOffsets
     (args: Expr list)
     =
     match info.CompiledName with
+    | "op_Implicit" ->
+        Helper.LibCall(com, "fable_date_offset", "from_date", t, args @ [ makeIntConst 0 ], ?loc = r)
+        |> Some
     | ".ctor" ->
         match args with
         | [] -> Helper.LibCall(com, "fable_date_offset", "min_value", t, [], ?loc = r) |> Some

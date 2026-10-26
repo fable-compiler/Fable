@@ -3191,6 +3191,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             "DateOffset"
 
     match i.CompiledName with
+    | "op_Implicit" ->
+        Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | ".ctor" ->
         match args with
         | [] -> Helper.LibCall(com, moduleName, "minValue", t, [], [], ?loc = r) |> Some

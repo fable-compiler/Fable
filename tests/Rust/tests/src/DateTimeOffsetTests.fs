@@ -1031,3 +1031,16 @@ let ``-10s offset throws exception`` () =
     let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
     (fun () -> source.ToOffset(TimeSpan(0, 0, -10)))
     |> throwsErrorContaining "Offset must be specified in whole minutes"
+
+[<Fact>]
+let ``Implicit conversion from DateTime preserves value`` () =
+    let d = DateTime(2024, 1, 15, 13, 23, 30, DateTimeKind.Utc)
+    let dto: DateTimeOffset = d
+    dto |> equal (DateTimeOffset(d))
+    dto.Offset |> equal TimeSpan.Zero
+    dto.Year |> equal 2024
+    dto.Month |> equal 1
+    dto.Day |> equal 15
+    dto.Hour |> equal 13
+    dto.Minute |> equal 23
+    dto.Second |> equal 30
