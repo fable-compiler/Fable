@@ -283,6 +283,30 @@ let tests =
         ns.Sort(comparer)
         Seq.toList ns |> equal [1;2;3]
 
+    testCase "ResizeArray.BinarySearch works" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        ra.BinarySearch(7) |> equal 3
+        ra.BinarySearch(8) |> equal -5
+        let desc = ComparisonIdentity.FromFunction(fun (a: int) b -> compare b a)
+        (ResizeArray [9; 7; 5; 3; 1]).BinarySearch(3, desc) |> equal 3
+        ra.BinarySearch(1, 3, 7, Comparer<int>.Default) |> equal 3
+        ra.BinarySearch(1, 2, 8, Comparer<int>.Default) |> equal -4
+        ra.BinarySearch(1, 2, 3, null) |> equal 1
+
+    testCase "ResizeArray.BinarySearch with a range checks its arguments" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        let raised (f: unit -> int) =
+            try
+                f () |> ignore
+                "none"
+            with
+            | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+            | :? System.ArgumentException -> "ArgumentException"
+            | _ -> "other"
+        raised (fun () -> ra.BinarySearch(-1, 2, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(1, -1, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(3, 3, 3, null)) |> equal "ArgumentException"
+
     testCase "ResizeArray.ToArray works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)

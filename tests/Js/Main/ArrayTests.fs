@@ -563,6 +563,84 @@ let tests =
         System.Array.IndexOf(myArray, Dog 3, 0, 1) |> equal -1
         System.Array.IndexOf(myArray, Duck 5, 1) |> equal -1
 
+    testCase "System.Array.BinarySearch works" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        System.Array.BinarySearch(xs, 0) |> equal -1
+        System.Array.BinarySearch(xs, 1) |> equal 0
+        System.Array.BinarySearch(xs, 2) |> equal -2
+        System.Array.BinarySearch(xs, 7) |> equal 3
+        System.Array.BinarySearch(xs, 8) |> equal -5
+        System.Array.BinarySearch(xs, 10) |> equal -6
+        System.Array.BinarySearch(([||]: int[]), 3) |> equal -1
+
+    testCase "System.Array.BinarySearch works with duplicates" <| fun () ->
+        System.Array.BinarySearch([|2; 2; 2; 2; 2; 2; 2; 2|], 2) |> equal 3
+        System.Array.BinarySearch([|1; 2; 2; 2; 2; 3; 4; 5; 6|], 2) |> equal 4
+
+    testCase "System.Array.BinarySearch works with a range" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        System.Array.BinarySearch(xs, 1, 3, 7) |> equal 3
+        System.Array.BinarySearch(xs, 1, 3, 2) |> equal -2
+        System.Array.BinarySearch(xs, 1, 3, 9) |> equal -5
+        System.Array.BinarySearch(xs, 1, 2, 9) |> equal -4
+        System.Array.BinarySearch(xs, 2, 0, 5) |> equal -3
+        System.Array.BinarySearch(xs, 5, 0, 5) |> equal -6
+
+    testCase "System.Array.BinarySearch works with a comparer" <| fun () ->
+        let desc = ComparisonIdentity.FromFunction(fun (a: int) b -> compare b a)
+        let ys = [|9; 7; 5; 3; 1|]
+        System.Array.BinarySearch(ys, 3, desc) |> equal 3
+        System.Array.BinarySearch(ys, 4, desc) |> equal -4
+        System.Array.BinarySearch(ys, 1, 3, 3, desc) |> equal 3
+        System.Array.BinarySearch([|1; 3; 5; 7; 9|], 7, (null: IComparer<int>)) |> equal 3
+
+    testCase "System.Array.BinarySearch passes the array element to the comparer first" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        let calls = ResizeArray<int * int>()
+        let logging =
+            { new IComparer<int> with
+                member _.Compare(x, y) =
+                    calls.Add((x, y))
+                    compare x y }
+        System.Array.BinarySearch(xs, 9, logging) |> equal 4
+        List.ofSeq calls |> equal [(5, 9); (7, 9); (9, 9)]
+        calls.Clear()
+        System.Array.BinarySearch(xs, 4, logging) |> equal -3
+        List.ofSeq calls |> equal [(5, 4); (1, 4); (3, 4)]
+
+    testCase "System.Array.BinarySearch works with other element types" <| fun () ->
+        let strings = [|"apple"; "banana"; "cherry"|]
+        System.Array.BinarySearch(strings, "banana") |> equal 1
+        System.Array.BinarySearch(strings, "blue") |> equal -3
+        let floats = [|1.5; 2.5; 3.5|]
+        System.Array.BinarySearch(floats, 2.5) |> equal 1
+        System.Array.BinarySearch(floats, 3.0) |> equal -3
+        let longs = [|1L; 5L; 10L|]
+        System.Array.BinarySearch(longs, 10L) |> equal 2
+        System.Array.BinarySearch(longs, 6L) |> equal -3
+        let things = [|{ MainThing = 1; OtherThing = "x" }; { MainThing = 2; OtherThing = "a" }; { MainThing = 2; OtherThing = "b" }|]
+        System.Array.BinarySearch(things, { MainThing = 2; OtherThing = "b" }) |> equal 2
+        System.Array.BinarySearch(things, { MainThing = 1; OtherThing = "z" }) |> equal -2
+        let animals = [|Duck 1; Duck 4; Dog 0|]
+        System.Array.BinarySearch(animals, Dog 0) |> equal 2
+        System.Array.BinarySearch(animals, Duck 2) |> equal -2
+
+    testCase "System.Array.BinarySearch with a range checks its arguments" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        let raised (f: unit -> int) =
+            try
+                f () |> ignore
+                "none"
+            with
+            | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+            | :? System.ArgumentException -> "ArgumentException"
+            | _ -> "other"
+        raised (fun () -> System.Array.BinarySearch(xs, -1, 2, 5)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> System.Array.BinarySearch(xs, -1, -1, 5)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> System.Array.BinarySearch(xs, 1, -1, 5)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> System.Array.BinarySearch(xs, 3, 3, 5)) |> equal "ArgumentException"
+        raised (fun () -> System.Array.BinarySearch(xs, 6, 0, 5)) |> equal "ArgumentException"
+
     testCase "Array.findIndex works" <| fun () ->
         let xs = [|1.f; 2.f; 3.f; 4.f|]
         xs |> Array.findIndex ((=) 2.f)
