@@ -400,12 +400,15 @@ export function bigintHash(x: bigint) {
 }
 
 // From https://stackoverflow.com/a/37449594
+function combineHashCode(h1: number, h2: number): number {
+  return ((h1 << 5) + h1) ^ h2;
+}
+
 export function combineHashCodes(hashes: ArrayLike<number>) {
   let h1 = 0;
   const len = hashes.length;
   for (let i = 0; i < len; i++) {
-    const h2 = hashes[i];
-    h1 = ((h1 << 5) + h1) ^ h2;
+    h1 = combineHashCode(h1, hashes[i]);
   }
   return h1;
 }
@@ -475,8 +478,7 @@ export function structuralHash<T>(x: T): number {
         const values = Object.values(x);
         let hash = 0;
         for (let i = 0; i < values.length; i++) {
-          const fieldHash = structuralHash(values[i]);
-          hash = ((hash << 5) + hash) ^ fieldHash;
+          hash = combineHashCode(hash, structuralHash(values[i]));
         }
         return hash;
       } else {
