@@ -137,6 +137,35 @@ type Id =
       |> Assert.Code.warning "FABLE0121"
       |> ignore
 
+    testCase "Duplicate CompiledName on field-less erased union cases is reported" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type X =
+    | [<CompiledName("ff")>] A
+    | [<CompiledName("ff")>] B
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0121"
+      |> Assert.Exists.warningWith "Cases 'B' and 'A' of 'X' both compile to 'ff'"
+      |> ignore
+
+    testCase "Duplicate CompiledName on erased union cases with a field is not reported" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type X =
+    | [<CompiledName("ff")>] A of int
+    | [<CompiledName("ff")>] B of string
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
     testCase "StringEnum values clashing through the case rule are reported" <| fun _ ->
       let source =
         """

@@ -2339,11 +2339,14 @@ let private checkInlinedTaggedUnionCases (com: FableCompiler) ctx (ent: FSharpEn
 
 let private warnDuplicateCompiledNames (com: FableCompiler) ctx (ent: FSharpEntity) =
     let compiledName (uci: FSharpUnionCase) =
-        match getUnionPattern (ent.AsType()) uci with
-        | StringEnum(_, rule) ->
+        let stringEnumName rule =
             match transformStringEnum rule uci with
             | Fable.Value(Fable.StringConstant name, _) -> Some name
             | _ -> None
+
+        match getUnionPattern (ent.AsType()) uci with
+        | StringEnum(_, rule) -> stringEnumName rule
+        | ErasedUnion(_, _, rule) when uci.Fields.Count = 0 -> stringEnumName rule
         | DiscriminatedUnion _ -> FsUnionCase.CompiledName uci |> Option.defaultValue uci.Name |> Some
         // TypeScriptTaggedUnion cases sharing a tag are supported and checked separately
         | _ -> None
