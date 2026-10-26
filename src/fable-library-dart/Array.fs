@@ -411,6 +411,50 @@ let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) : i
     | Some count when i >= start + count -> -1
     | _ -> i
 
+// Follows .NET's probe order, so duplicates and comparers with side effects give the same results
+let private binarySearchFrom (array: 'T[]) (index: int) (length: int) (value: 'T) (comparer: IComparer<'T>) : int =
+    let rec loop lo hi =
+        if lo > hi then
+            ~~~lo
+        else
+            let i = lo + ((hi - lo) >>> 1)
+            let c = comparer.Compare(array[i], value)
+
+            if c = 0 then
+                i
+            elif c < 0 then
+                loop (i + 1) hi
+            else
+                loop lo (i - 1)
+
+    loop index (index + length - 1)
+
+let private checkBinarySearchRange (lengthName: string) (array: 'T[]) (index: int) (length: int) : unit =
+    if index < 0 then
+        raise (System.ArgumentOutOfRangeException("index", "Non-negative number required."))
+
+    if length < 0 then
+        raise (System.ArgumentOutOfRangeException(lengthName, "Non-negative number required."))
+
+    if array.Length - index < length then
+        raise (
+            System.ArgumentException(
+                "Offset and length were out of bounds for the array or count is greater than the number of elements from index to the end of the source collection."
+            )
+        )
+
+let binarySearch (array: 'T[]) (value: 'T) (comparer: IComparer<'T>) : int =
+    binarySearchFrom array 0 array.Length value comparer
+
+let binarySearchRange (array: 'T[]) (index: int) (length: int) (value: 'T) (comparer: IComparer<'T>) : int =
+    checkBinarySearchRange "length" array index length
+    binarySearchFrom array index length value comparer
+
+// ResizeArray's range overload, which names its length "count"
+let binarySearchRangeCount (array: 'T[]) (index: int) (count: int) (value: 'T) (comparer: IComparer<'T>) : int =
+    checkBinarySearchRange "count" array index count
+    binarySearchFrom array index count value comparer
+
 let partition (f: 'T -> bool) (source: 'T[]) =
     let res1 = ResizeArray()
     let res2 = ResizeArray()

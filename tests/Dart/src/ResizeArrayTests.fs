@@ -2,6 +2,14 @@
 
 open Util
 
+type AscendingComparer() =
+    interface System.Collections.Generic.IComparer<int> with
+        member _.Compare(x, y) = compare x y
+
+type DescendingComparer() =
+    interface System.Collections.Generic.IComparer<int> with
+        member _.Compare(x, y) = compare y x
+
 let tests() =
     testCase "ResizeArray zero creation works" <| fun () ->
         let li = ResizeArray<float>()
@@ -170,6 +178,30 @@ let tests() =
         li.Add("ab")
         li.IndexOf("ab") |> equal 1
         li.IndexOf("cd") |> equal -1
+
+    testCase "ResizeArray.BinarySearch works" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        ra.BinarySearch(7) |> equal 3
+        ra.BinarySearch(8) |> equal -5
+        (ResizeArray [9; 7; 5; 3; 1]).BinarySearch(3, DescendingComparer()) |> equal 3
+        // Comparer<int>.Default isn't supported in Dart
+        ra.BinarySearch(1, 3, 7, AscendingComparer()) |> equal 3
+        ra.BinarySearch(1, 2, 8, AscendingComparer()) |> equal -4
+        ra.BinarySearch(1, 2, 3, null) |> equal 1
+
+    testCase "ResizeArray.BinarySearch with a range checks its arguments" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        let raised (f: unit -> int) =
+            try
+                f () |> ignore
+                "none"
+            with
+            | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+            | :? System.ArgumentException -> "ArgumentException"
+            | _ -> "other"
+        raised (fun () -> ra.BinarySearch(-1, 2, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(1, -1, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(3, 3, 3, null)) |> equal "ArgumentException"
 
     testCase "ResizeArray.Remove works" <| fun () ->
         let li = ResizeArray<_>()

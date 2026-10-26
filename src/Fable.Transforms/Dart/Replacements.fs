@@ -1696,6 +1696,25 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         )
         |> Some
 
+/// BinarySearch without a comparer, or with a null one, uses the default comparer, like ResizeArray.Sort()
+let binarySearch (com: ICompiler) ctx r t (i: CallInfo) rangeMeth (ar: Expr) args =
+    let call meth args comparer =
+        let comparer =
+            match comparer with
+            | None
+            | Some NullConst -> makeComparer com ctx (getElementType ar.Type)
+            | Some comparer -> comparer
+
+        Helper.LibCall(com, "Array", meth, t, ar :: args @ [ comparer ], genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+
+    match args with
+    | [ value ] -> call "binarySearch" [ value ] None
+    | [ value; comparer ] -> call "binarySearch" [ value ] (Some comparer)
+    | [ index; length; value ] -> call rangeMeth [ index; length; value ] None
+    | [ index; length; value; comparer ] -> call rangeMeth [ index; length; value ] (Some comparer)
+    | _ -> None
+
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
@@ -1741,6 +1760,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Array", "getSubArray", t, [ ar; idx; cnt ], genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "IndexOf", Some ar, args -> Helper.InstanceCall(ar, "indexOf", t, args, ?loc = r) |> Some
+    | "BinarySearch", Some ar, args -> binarySearch com ctx r t i "binarySearchRangeCount" ar args
     | "Insert", Some ar, [ idx; arg ] -> Helper.InstanceCall(ar, "insert", t, [ idx; arg ], ?loc = r) |> Some
     | "InsertRange", Some ar, [ idx; arg ] -> Helper.InstanceCall(ar, "insertAll", t, [ idx; arg ], ?loc = r) |> Some
     | "RemoveRange", Some ar, [ startIdx; count ] ->
@@ -1823,6 +1843,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "IndexOf", None, args ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
+    | "BinarySearch", None, ar :: args -> binarySearch com ctx r t i "binarySearchRange" ar args
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
     | _ -> None
 
