@@ -109,13 +109,19 @@ export function toExponential(x: Numeric, dp?: number) {
     }
 }
 
-export function toHex(x: Numeric) {
+export function toRadix(x: Numeric, radix: number) {
     if (typeof x === "number") {
-        return (Number(x) >>> 0).toString(16);
+        return (Number(x) >>> 0).toString(radix);
     } else if (typeof x === "bigint") {
         // TODO: properly handle other bit sizes
-        return BigInt.asUintN(64, x).toString(16);
-    } else {
+        return BigInt.asUintN(64, x).toString(radix);
+    } else if (radix === 16) {
         return x[symbol]().toHex();
+    } else {
+        return String(x);
     }
+}
+
+export function toHex(x: Numeric) {
+    return toRadix(x, 16);
 }
