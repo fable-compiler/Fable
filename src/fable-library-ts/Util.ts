@@ -400,12 +400,15 @@ export function bigintHash(x: bigint) {
 }
 
 // From https://stackoverflow.com/a/37449594
+function combineHashCode(h1: number, h2: number): number {
+  return ((h1 << 5) + h1) ^ h2;
+}
+
 export function combineHashCodes(hashes: ArrayLike<number>) {
   let h1 = 0;
   const len = hashes.length;
   for (let i = 0; i < len; i++) {
-    const h2 = hashes[i];
-    h1 = ((h1 << 5) + h1) ^ h2;
+    h1 = combineHashCode(h1, hashes[i]);
   }
   return h1;
 }
@@ -471,8 +474,13 @@ export function structuralHash<T>(x: T): number {
         return dateHash(x);
       } else if (Object.getPrototypeOf(x)?.constructor === Object) {
         // TODO: check call-stack to prevent cyclic objects?
-        const hashes = Object.values(x).map((v) => structuralHash(v));
-        return combineHashCodes(hashes);
+        // Snapshot values before user hashing can mutate the object.
+        const values = Object.values(x);
+        let hash = 0;
+        for (let i = 0; i < values.length; i++) {
+          hash = combineHashCode(hash, structuralHash(values[i]));
+        }
+        return hash;
       } else {
         // Classes don't implement GetHashCode by default, but must use identity hashing
         return numberHash(ObjectRef.id(x));
