@@ -205,6 +205,42 @@ let ``test ResizeArray.BinarySearch works`` () =
     ra.BinarySearch(1, 2, 3, null) |> equal 1
 
 [<Fact>]
+let ``test ResizeArray.BinarySearch works with an empty list, duplicates and a null range comparer`` () =
+    ResizeArray<int>().BinarySearch(1) |> equal -1
+    (ResizeArray [2; 2; 2; 2]).BinarySearch(2) |> equal 1
+    (ResizeArray [1; 2; 2; 2; 2; 3]).BinarySearch(2) |> equal 2
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    ra.BinarySearch(0, 5, 2, null) |> equal -2
+    ra.BinarySearch(2, 3, 9, null) |> equal 4
+
+[<Fact>]
+let ``test ResizeArray.BinarySearch with a range passes the element to the comparer first`` () =
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    let calls = ResizeArray<int * int>()
+    let logging =
+        { new System.Collections.Generic.IComparer<int> with
+                member _.Compare(x, y) =
+                    calls.Add((x, y))
+                    compare x y }
+    ra.BinarySearch(1, 3, 7, logging) |> equal 3
+    List.ofSeq calls |> equal [(5, 7); (7, 7)]
+
+[<Fact>]
+let ``test ResizeArray.BinarySearch with a range checks index and count together`` () =
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    let raised (f: unit -> int) =
+        try
+            f () |> ignore
+            "none"
+        with
+        | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+        | :? System.ArgumentException -> "ArgumentException"
+        | _ -> "other"
+    raised (fun () -> ra.BinarySearch(-1, -1, 3, null)) |> equal "ArgumentOutOfRangeException"
+    raised (fun () -> ra.BinarySearch(6, 0, 3, null)) |> equal "ArgumentException"
+    raised (fun () -> ra.BinarySearch(0, 6, 3, null)) |> equal "ArgumentException"
+
+[<Fact>]
 let ``test ResizeArray.BinarySearch with a range checks its arguments`` () =
     let ra = ResizeArray [1; 3; 5; 7; 9]
     let raised (f: unit -> int) =

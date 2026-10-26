@@ -625,6 +625,55 @@ let tests =
         System.Array.BinarySearch(animals, Dog 0) |> equal 2
         System.Array.BinarySearch(animals, Duck 2) |> equal -2
 
+    testCase "System.Array.BinarySearch works with a range and a null comparer" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        System.Array.BinarySearch(xs, 1, 3, 7, null) |> equal 3
+        System.Array.BinarySearch(xs, 1, 3, 2, null) |> equal -2
+
+    testCase "System.Array.BinarySearch works with a single element and a large array" <| fun () ->
+        System.Array.BinarySearch([|5|], 5) |> equal 0
+        System.Array.BinarySearch([|5|], 3) |> equal -1
+        System.Array.BinarySearch([|5|], 7) |> equal -2
+        let big = Array.init 1000 (fun i -> i * 2)
+        System.Array.BinarySearch(big, 998) |> equal 499
+        System.Array.BinarySearch(big, 999) |> equal -501
+
+    testCase "System.Array.BinarySearch works with more element types" <| fun () ->
+        System.Array.BinarySearch([|1uy; 3uy; 5uy|], 3uy) |> equal 1
+        System.Array.BinarySearch([|1uy; 3uy; 5uy|], 4uy) |> equal -3
+        System.Array.BinarySearch([|-5s; 0s; 5s|], 0s) |> equal 1
+        System.Array.BinarySearch([|-5s; 0s; 5s|], -6s) |> equal -1
+        System.Array.BinarySearch([|'a'; 'c'; 'e'|], 'c') |> equal 1
+        System.Array.BinarySearch([|'a'; 'c'; 'e'|], 'd') |> equal -3
+        System.Array.BinarySearch([|(1, "a"); (1, "b"); (2, "a")|], (1, "b")) |> equal 1
+        System.Array.BinarySearch([|(1, "a"); (1, "b"); (2, "a")|], (1, "c")) |> equal -3
+        System.Array.BinarySearch([|1.5M; 2.5M; 3.5M|], 2.5M) |> equal 1
+        System.Array.BinarySearch([|1.5M; 2.5M; 3.5M|], 3.0M) |> equal -3
+        let dates = [|System.DateTime(2020, 1, 1); System.DateTime(2021, 1, 1)|]
+        System.Array.BinarySearch(dates, System.DateTime(2021, 1, 1)) |> equal 1
+        System.Array.BinarySearch(dates, System.DateTime(2020, 6, 1)) |> equal -2
+        System.Array.BinarySearch([|1I; 5I; 10I|], 5I) |> equal 1
+        System.Array.BinarySearch([|1I; 5I; 10I|], 11I) |> equal -4
+        System.Array.BinarySearch([|None; Some 1; Some 3|], Some 1) |> equal 1
+        System.Array.BinarySearch([|None; Some 1; Some 3|], Some 2) |> equal -3
+
+    testCase "System.Array.BinarySearch with a range passes the array element to the comparer first" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        let calls = ResizeArray<int * int>()
+        let logging =
+            { new System.Collections.Generic.IComparer<int> with
+                    member _.Compare(x, y) =
+                        calls.Add((x, y))
+                        compare x y }
+        System.Array.BinarySearch(xs, 1, 3, 4, logging) |> equal -3
+        List.ofSeq calls |> equal [(5, 4); (3, 4)]
+
+    testCase "System.Array.BinarySearch non-generic overloads work" <| fun () ->
+        let xs = [|1; 3; 5; 7; 9|]
+        System.Array.BinarySearch(xs :> System.Array, box 7) |> equal 3
+        System.Array.BinarySearch(xs :> System.Array, box 4) |> equal -3
+        System.Array.BinarySearch(xs :> System.Array, 1, 3, box 5) |> equal 2
+
     testCase "System.Array.BinarySearch with a range checks its arguments" <| fun () ->
         let xs = [|1; 3; 5; 7; 9|]
         let raised (f: unit -> int) =
