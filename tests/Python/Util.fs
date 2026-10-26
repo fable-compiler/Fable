@@ -106,8 +106,7 @@ let doesntThrow (f: unit -> 'a): unit =
     run f
     |> RunResult.wasSuccess
 
-/// Names the exception `f` raises, testing the most specific type first, so a test can
-/// check the exception type without depending on .NET's detailed messages.
+/// Matches the most specific type first, so an ArgumentOutOfRangeException is not reported as ArgumentException.
 let raisedExceptionType (f: unit -> 'a): string =
     try
         f () |> ignore

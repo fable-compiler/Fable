@@ -1057,8 +1057,7 @@ let skipWhile predicate (xs: seq<'T>) =
         )
     )
 
-// Not `skip 1`: on an empty source FSharp.Core's Seq.tail raises ArgumentException,
-// where Seq.skip raises InvalidOperationException.
+// FSharp.Core's Seq.tail raises ArgumentException on an empty input, Seq.skip InvalidOperationException
 let tail (xs: seq<'T>) =
     mkSeq (fun () ->
         let e = ofSeq xs

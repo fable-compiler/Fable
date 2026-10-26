@@ -22,8 +22,7 @@ let equal (expected: 'T) (actual: 'T) = Test.expect(actual, Test.equals(expected
 let notEqual (expected: 'T) (actual: 'T) = Test.expect(actual, Test.isNot(Test.equals(expected)))
 let throwsAnyError (f: unit -> 'a): unit = Test.expect(f, Test.throwsException)
 
-/// Names the exception `f` raises, testing the most specific type first, so a test can
-/// check the exception type without depending on .NET's detailed messages.
+/// Matches the most specific type first, so an ArgumentOutOfRangeException is not reported as ArgumentException.
 let raisedExceptionType (f: unit -> 'a): string =
     try
         f () |> ignore

@@ -1874,8 +1874,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // Call the Head and Tail members (instead of Get(ListHead) for example) to check for empty lists:
-    // they raise InvalidOperationException, while List.head and List.tail raise ArgumentException
+    // list.Head and list.Tail raise InvalidOperationException, List.head and List.tail ArgumentException
     | ("get_Head" | "get_Tail"), Some x, _ ->
         let mangledName =
             Naming.buildNameWithoutSanitationFrom "FSharpList" false i.CompiledName ""

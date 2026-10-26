@@ -143,7 +143,6 @@ change(Key, Fn, Map) ->
             end
     end.
 
-%% FSharp.Core's Map.findKey and Map.pick raise KeyNotFoundException, each with its own message.
 key_not_found(Message) ->
     erlang:error(#{
         exn_type => key_not_found_exception,

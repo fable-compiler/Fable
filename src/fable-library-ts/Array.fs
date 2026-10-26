@@ -600,7 +600,7 @@ let forAll predicate (array: 'T[]) =
 let permute f (array: 'T[]) =
     let size = array.Length
     let res = copyImpl array
-    // Fill the flags: native `every` skips the empty slots of `new Array(size)`
+    // Native `every` skips the empty slots of `new Array(size)`
     let checkFlags = fillImpl (allocateArray size) 0 0 size
 
     iterateIndexed
