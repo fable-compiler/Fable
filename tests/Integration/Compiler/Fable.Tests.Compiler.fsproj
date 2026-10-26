@@ -30,6 +30,7 @@
     <Compile Include="AnonRecordInInterfaceTests.fs" />
     <Compile Include="CompilerHelpersTests.fs" />
     <Compile Include="InflateTests.fs" />
+    <Compile Include="WatchDependencyTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

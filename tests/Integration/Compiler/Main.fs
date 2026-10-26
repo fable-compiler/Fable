@@ -13,6 +13,7 @@ let allTests =
         AnonRecordInInterface.tests
         CompilerHelpers.tests
         Inflate.tests
+        WatchDependency.tests
     ]
 
 
