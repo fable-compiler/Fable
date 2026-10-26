@@ -912,6 +912,12 @@ let ``test List.take raises InvalidOperationException when the list is too short
     raisedExceptionType (fun () -> List.take 5 [1]) |> equal "InvalidOperationException"
 
 [<Fact>]
+let ``test List.exactlyOne raises ArgumentException unless the list has one element`` () =
+    raisedExceptionType (fun () -> List.exactlyOne<int> []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.exactlyOne [1; 2]) |> equal "ArgumentException"
+    List.exactlyOne [1] |> equal 1
+
+[<Fact>]
 let ``test List.find and friends raise KeyNotFoundException when nothing matches`` () =
     raisedExceptionType (fun () -> List.find (fun x -> x > 5) [1]) |> equal "KeyNotFoundException"
     raisedExceptionType (fun () -> List.findBack (fun x -> x > 5) [1]) |> equal "KeyNotFoundException"

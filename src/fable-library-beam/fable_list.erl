@@ -225,7 +225,6 @@ sort_by_descending(Fn, Comparer, List) ->
 sort_with(Fn, List) ->
     lists:sort(fun(A, B) -> (Fn(A))(B) =< 0 end, List).
 
-%% FSharp.Core's find, findIndex, pick and their Back variants raise KeyNotFoundException.
 index_not_found() ->
     erlang:error(#{
         exn_type => key_not_found_exception,
@@ -394,7 +393,8 @@ try_item(_, _) ->
     undefined.
 
 exactly_one([X]) -> X;
-exactly_one(_) -> erlang:error(<<"Sequence contains more than one element">>).
+exactly_one([]) -> invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
+exactly_one(_) -> invalid_arg(<<"source">>, <<"The input sequence contains more than one element.">>).
 
 try_exactly_one([X]) -> fable_option:some(X);
 try_exactly_one(_) -> undefined.
@@ -818,7 +818,6 @@ shuffle_loop(Randomizer, Arr, I) ->
             shuffle_loop(Randomizer, Arr2, I - 1)
     end.
 
-%% FSharp.Core raises ArgumentOutOfRangeException when the randomizer leaves [0.0, 1.0).
 randomizer_out_of_range(R) ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
@@ -830,9 +829,8 @@ randomizer_out_of_range(R) ->
         )
     }).
 
-%% The ArgumentException that invalidArg raises, with its message formatted the same way.
 invalid_arg(ParamName, Message) ->
     erlang:error(#{
         exn_type => argument_exception,
-        message => <<Message/binary, " (Parameter '", ParamName/binary, "')">>
+        message => fable_utils:argument_exception_message(Message, ParamName)
     }).
