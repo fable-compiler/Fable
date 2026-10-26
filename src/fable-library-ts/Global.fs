@@ -22,7 +22,7 @@ module SR =
     let indexOutOfBounds =
         "The index was outside the range of elements in the collection."
 
-    let inputWasEmpty = "Collection was empty."
+    let inputWasEmpty = "The input list was empty."
     let inputMustBeNonNegative = "The input must be non-negative."
     let inputSequenceEmpty = "The input sequence was empty."
 

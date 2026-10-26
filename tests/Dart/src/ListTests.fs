@@ -1063,3 +1063,46 @@ let tests() =
         List.distinct sample |> List.length |> equal 3
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> ignore)
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)
+
+    testCase "List.reduce and List.min on an empty list raise ArgumentException" <| fun () ->
+        let xs: int list = []
+        raisedExceptionType (fun () -> List.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.reduceBack (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.min xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.max xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.minBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.maxBy id xs) |> equal "ArgumentException"
+
+    testCase "List.head, List.tail and List.last on an empty list raise ArgumentException" <| fun () ->
+        let xs: int list = []
+        raisedExceptionType (fun () -> List.head xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.tail xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.last xs) |> equal "ArgumentException"
+
+    testCase "list.Head and list.Tail on an empty list raise InvalidOperationException" <| fun () ->
+        let xs: int list = []
+        raisedExceptionType (fun () -> xs.Head) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> xs.Tail) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> [1].Tail.Tail) |> equal "InvalidOperationException"
+
+    testCase "List.take and List.splitAt past the end raise InvalidOperationException" <| fun () ->
+        raisedExceptionType (fun () -> List.take 5 [1]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> List.splitAt 5 [1]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> List.take -1 [1]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.splitAt -1 [1]) |> equal "ArgumentException"
+
+    testCase "List.skip past the end raises ArgumentOutOfRangeException" <| fun () ->
+        raisedExceptionType (fun () -> List.skip 5 [1]) |> equal "ArgumentOutOfRangeException"
+
+    testCase "List functions with invalid arguments raise ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> List.windowed 0 [1]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.permute (fun _ -> 5) [1; 2]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.permute (fun _ -> 0) [1; 2]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.foldBack2 (fun x y acc -> x + y + acc) [1] [1; 2] 0) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.transpose [[1]; [2; 3]]) |> equal "ArgumentException"
+
+    testCase "List random functions raise ArgumentOutOfRangeException when the randomizer is out of range" <| fun () ->
+        raisedExceptionType (fun () -> List.randomShuffleBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.randomChoiceBy (fun () -> 1.0) [1]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.randomChoicesBy (fun () -> 1.0) 1 [1]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2]) |> equal "ArgumentOutOfRangeException"

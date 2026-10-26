@@ -1874,14 +1874,24 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // Use methods for Head and Tail (instead of Get(ListHead) for example) to check for empty lists
-    | ReplaceName [ "get_Head", "head"
-                    "get_Tail", "tail"
-                    "get_Item", "item"
-                    "get_Length", "length"
-                    "GetSlice", "getSlice" ] methName,
-      Some x,
-      _ ->
+    // list.Head and list.Tail raise InvalidOperationException, List.head and List.tail ArgumentException
+    | ("get_Head" | "get_Tail"), Some x, _ ->
+        let mangledName =
+            Naming.buildNameWithoutSanitationFrom "FSharpList" false i.CompiledName ""
+
+        Helper.LibCall(
+            com,
+            "List",
+            mangledName,
+            t,
+            [],
+            i.SignatureArgTypes,
+            genArgs = i.GenericArgs,
+            thisArg = x,
+            ?loc = r
+        )
+        |> Some
+    | ReplaceName [ "get_Item", "item"; "get_Length", "length"; "GetSlice", "getSlice" ] methName, Some x, _ ->
         let args =
             match args with
             | [ ExprType Unit ] -> [ x ]

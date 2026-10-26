@@ -906,3 +906,37 @@ let ``test List.range works`` () =
     [0..2..9]
     |> List.reduce (+)
     |> equal 20
+
+[<Fact>]
+let ``test List.take raises InvalidOperationException when the list is too short`` () =
+    raisedExceptionType (fun () -> List.take 5 [1]) |> equal "InvalidOperationException"
+
+[<Fact>]
+let ``test List.exactlyOne raises ArgumentException unless the list has one element`` () =
+    raisedExceptionType (fun () -> List.exactlyOne<int> []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.exactlyOne [1; 2]) |> equal "ArgumentException"
+    List.exactlyOne [1] |> equal 1
+
+[<Fact>]
+let ``test List.find and friends raise KeyNotFoundException when nothing matches`` () =
+    raisedExceptionType (fun () -> List.find (fun x -> x > 5) [1]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> List.findBack (fun x -> x > 5) [1]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> List.findIndex (fun x -> x > 5) [1]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> List.findIndexBack (fun x -> x > 5) [1]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> List.pick (fun _ -> None: int option) [1]) |> equal "KeyNotFoundException"
+
+[<Fact>]
+let ``test List random functions raise ArgumentOutOfRangeException when the randomizer is out of range`` () =
+    raisedExceptionType (fun () -> List.randomShuffleBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> List.randomChoiceBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> List.randomChoicesBy (fun () -> -0.1) 1 [1; 2]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2]) |> equal "ArgumentOutOfRangeException"
+
+[<Fact>]
+let ``test List random functions raise ArgumentException for invalid inputs`` () =
+    raisedExceptionType (fun () -> List.randomChoice<int> []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.randomChoices -1 [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.randomChoices<int> 1 []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.randomSample -1 [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.randomSample 3 [1; 2]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.randomSample<int> 1 []) |> equal "ArgumentException"

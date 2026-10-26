@@ -69,3 +69,15 @@ let throwsAnyError (f: unit -> 'a): unit =
 let doesntThrow (f: unit -> 'a): unit =
     run f
     |> RunResult.wasSuccess
+
+/// Matches the most specific type first, so an ArgumentOutOfRangeException is not reported as ArgumentException.
+let raisedExceptionType (f: unit -> 'a): string =
+    try
+        f () |> ignore
+        "no exception"
+    with
+    | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? ArgumentException -> "ArgumentException"
+    | :? InvalidOperationException -> "InvalidOperationException"
+    | :? Collections.Generic.KeyNotFoundException -> "KeyNotFoundException"
+    | e -> "Unexpected exception: " + e.Message

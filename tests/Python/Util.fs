@@ -106,6 +106,17 @@ let doesntThrow (f: unit -> 'a): unit =
     run f
     |> RunResult.wasSuccess
 
+/// Matches the most specific type first, so an ArgumentOutOfRangeException is not reported as ArgumentException.
+let raisedExceptionType (f: unit -> 'a): string =
+    try
+        f () |> ignore
+        "no exception"
+    with
+    | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? ArgumentException -> "ArgumentException"
+    | :? InvalidOperationException -> "InvalidOperationException"
+    | e -> "Unexpected exception: " + e.Message
+
 let Int32Array = [|1;2|]
 
 module Float64Array =

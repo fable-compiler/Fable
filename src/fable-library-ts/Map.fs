@@ -592,9 +592,11 @@ module MapTree =
             started = false
         }
 
-    let notStarted () = failwith "enumeration not started"
+    let notStarted () =
+        invalidOp "Enumeration has not started. Call MoveNext."
 
-    let alreadyFinished () = failwith "enumeration already finished"
+    let alreadyFinished () =
+        invalidOp "Enumeration already finished."
 
     let current i =
         if i.started then
@@ -905,14 +907,14 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
     interface ICollection<KeyValuePair<'Key, 'Value>> with
         member m.Add x =
             ignore x
-            raise (System.NotSupportedException("Map cannot be mutated"))
+            raise (System.NotSupportedException("Map values cannot be mutated."))
 
         member m.Clear() =
-            raise (System.NotSupportedException("Map cannot be mutated"))
+            raise (System.NotSupportedException("Map values cannot be mutated."))
 
         member m.Remove x =
             ignore x
-            raise (System.NotSupportedException("Map cannot be mutated"))
+            raise (System.NotSupportedException("Map values cannot be mutated."))
 
         member m.Contains x =
             m.ContainsKey x.Key && Unchecked.equals m.[x.Key] x.Value
@@ -935,11 +937,11 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
         member m.size = m.Count
 
         member m.clear() =
-            failwith "Map cannot be mutated"
+            raise (System.NotSupportedException("Map values cannot be mutated."))
             ()
 
         member m.delete(_) =
-            failwith "Map cannot be mutated"
+            raise (System.NotSupportedException("Map values cannot be mutated."))
             false
 
         member m.entries() = m |> Seq.map (fun p -> p.Key, p.Value)
@@ -948,7 +950,7 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
         member m.keys() = m |> Seq.map (fun p -> p.Key)
 
         member m.set(k, v) =
-            failwith "Map cannot be mutated"
+            raise (System.NotSupportedException("Map values cannot be mutated."))
             m :> JS.Map<'Key, 'Value>
 
         member m.values() = m |> Seq.map (fun p -> p.Value)

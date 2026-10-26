@@ -1075,4 +1075,41 @@ let tests =
         List.distinct sample |> List.length |> equal 3
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> ignore)
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)
+
+    testCase "List functions raise ArgumentException on empty lists" <| fun () ->
+        let xs: int list = []
+        raisedExceptionType (fun () -> List.head xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.tail xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.last xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.reduceBack (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.min xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.max xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.minBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.maxBy id xs) |> equal "ArgumentException"
+
+    testCase "List Head and Tail properties raise InvalidOperationException on empty lists" <| fun () ->
+        let xs: int list = []
+        raisedExceptionType (fun () -> xs.Head) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> xs.Tail) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> [1].Tail.Head) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> [1].Tail.Tail) |> equal "InvalidOperationException"
+
+    testCase "List functions raise FSharp.Core's exception types for out of range counts" <| fun () ->
+        raisedExceptionType (fun () -> List.take 5 [1]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> List.take -1 [1]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.skip 5 [1]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.splitAt 5 [1]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> List.splitAt -1 [1]) |> equal "ArgumentException"
+
+    testCase "List functions raise FSharp.Core's exception types for invalid arguments" <| fun () ->
+        raisedExceptionType (fun () -> List.windowed 0 [1]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.foldBack2 (fun x y acc -> x + y + acc) [1] [1; 2] 0) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.transpose [[1]; [1; 2]]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.permute (fun i -> i + 1) [1; 2]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.permute (fun _ -> 0) [1; 2]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> List.randomShuffleBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.randomChoiceBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.randomChoicesBy (fun () -> 1.0) 2 [1; 2]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2]) |> equal "ArgumentOutOfRangeException"
   ]

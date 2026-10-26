@@ -482,12 +482,12 @@ module SetTree =
     let minimumElement s =
         match minimumElementOpt s with
         | Some k -> k
-        | None -> failwith "Set contains no elements"
+        | None -> invalidArg "s" "Set contains no elements."
 
     let maximumElement s =
         match maximumElementOpt s with
         | Some k -> k
-        | None -> failwith "Set contains no elements"
+        | None -> invalidArg "s" "Set contains no elements."
 
     // Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
@@ -517,9 +517,11 @@ module SetTree =
             started = false
         }
 
-    let notStarted () = failwith "Enumeration not started"
+    let notStarted () =
+        invalidOp "Enumeration has not started. Call MoveNext."
 
-    let alreadyFinished () = failwith "Enumeration already started"
+    let alreadyFinished () =
+        invalidOp "Enumeration already finished."
 
     let current i =
         if i.started then

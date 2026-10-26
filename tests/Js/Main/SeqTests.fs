@@ -568,6 +568,13 @@ let tests =
         |> Seq.reduce (+)
         |> equal 19990000000000002000I
 
+    testCase "Ranges with a zero step raise ArgumentException" <| fun () ->
+        let step = 0
+        raisedExceptionType (fun () -> [0 .. step .. 5]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> [|0L .. 0L .. 5L|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> [0. .. 0. .. 1.]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> seq {0M .. 0M .. 1M} |> Seq.toList) |> equal "ArgumentException"
+
     testCase "Seq.reduce works" <| fun () ->
         let xs = [1.; 2.]
         xs |> Seq.reduce (+)
@@ -1162,4 +1169,25 @@ let tests =
         throwsAnyError (fun () -> Seq.removeManyAt 0 2 [] |> Seq.toList |> ignore)
         throwsAnyError (fun () -> Seq.removeManyAt -1 2 [1] |> Seq.toList |> ignore)
         throwsAnyError (fun () -> Seq.removeManyAt 2 2 [1] |> Seq.toList |> ignore)
+
+    testCase "Seq functions raise ArgumentException on empty sequences" <| fun () ->
+        let xs = seq { for x in [1; 2] do if x > 2 then yield x }
+        raisedExceptionType (fun () -> Seq.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.reduceBack (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.min xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.max xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.minBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.maxBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.tail xs |> Seq.toList) |> equal "ArgumentException"
+
+    testCase "Seq functions raise InvalidOperationException when there are not enough elements" <| fun () ->
+        raisedExceptionType (fun () -> Seq.take 5 [1] |> Seq.toList) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> Seq.skip 5 [1] |> Seq.toList) |> equal "InvalidOperationException"
+
+    testCase "Seq functions raise FSharp.Core's exception types for invalid arguments" <| fun () ->
+        raisedExceptionType (fun () -> Seq.windowed 0 [1] |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.permute (fun i -> i + 1) [1; 2] |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.permute (fun _ -> 0) [1; 2] |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.randomChoiceBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Seq.randomShuffleBy (fun () -> 1.0) [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
   ]

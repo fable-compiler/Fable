@@ -944,13 +944,13 @@ let reduce (folder: 'T -> 'T -> 'T) (xs: seq<'T>) : 'T =
     if e.MoveNext() then
         loop e.Current
     else
-        invalidOp SR.inputSequenceEmpty
+        invalidArg "source" SR.inputSequenceEmpty
 
 let reduceBack (folder: 'T -> 'T -> 'T) (xs: seq<'T>) : 'T =
     let arr = toArray xs
 
     if Array.isEmpty arr then
-        invalidOp SR.inputSequenceEmpty
+        invalidArg "source" SR.inputSequenceEmpty
 
     Array.reduceBack folder arr
 
@@ -987,7 +987,7 @@ let skip (count: int) (source: seq<'T>) : seq<'T> =
         try
             for _ = 1 to count do
                 if not (e.MoveNext()) then
-                    invalidArg "source" SR.notEnoughElements
+                    invalidOp SR.notEnoughElements
 
             let compensation () = ()
             Enumerator.enumerateThenFinally compensation e
@@ -1009,7 +1009,21 @@ let skipWhile (predicate: 'T -> bool) (xs: seq<'T>) : seq<'T> =
         )
     )
 
-let tail (xs: seq<'T>) : seq<'T> = skip 1 xs
+// FSharp.Core's Seq.tail raises ArgumentException on an empty input, Seq.skip InvalidOperationException
+let tail (xs: seq<'T>) : seq<'T> =
+    mkSeq (fun () ->
+        let e = ofSeq xs
+
+        try
+            if not (e.MoveNext()) then
+                invalidArg "source" SR.notEnoughElements
+
+            let compensation () = ()
+            Enumerator.enumerateThenFinally compensation e
+        with _ ->
+            e.Dispose()
+            reraise ()
+    )
 
 let take (count: int) (xs: seq<'T>) : seq<'T> =
     Enumerator.generateIndexed
@@ -1019,7 +1033,7 @@ let take (count: int) (xs: seq<'T>) : seq<'T> =
                 if e.MoveNext() then
                     Some(e.Current)
                 else
-                    invalidArg "source" SR.notEnoughElements
+                    invalidOp SR.notEnoughElements
             else
                 None
         )

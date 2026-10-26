@@ -11,9 +11,10 @@ open Native
 open Native.Helpers
 
 let private indexNotFound () =
-    failwith "An index satisfying the predicate was not found in the collection."
+    raise (KeyNotFoundException(SR.keyNotFoundAlt))
 
-let private differentLengths () = failwith "Arrays had different lengths"
+let private differentLengths (paramName: string) =
+    invalidArg paramName "The arrays have different lengths."
 
 // Pay attention when benchmarking to append and filter functions below
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
@@ -77,7 +78,7 @@ let mapIndexed2
     : 'U[]
     =
     if source1.Length <> source2.Length then
-        failwith "Arrays had different lengths"
+        differentLengths "array1"
 
     let result = allocateArrayFromCons cons source1.Length
 
@@ -88,7 +89,7 @@ let mapIndexed2
 
 let map2 (f: 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) : 'U[] =
     if source1.Length <> source2.Length then
-        failwith "Arrays had different lengths"
+        differentLengths "array1"
 
     let result = allocateArrayFromCons cons source1.Length
 
@@ -106,7 +107,7 @@ let mapIndexed3
     : 'U[]
     =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then
-        failwith "Arrays had different lengths"
+        differentLengths "array1, array2, array3"
 
     let result = allocateArrayFromCons cons source1.Length
 
@@ -124,7 +125,7 @@ let map3
     : 'U[]
     =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then
-        failwith "Arrays had different lengths"
+        differentLengths "array1, array2, array3"
 
     let result = allocateArrayFromCons cons source1.Length
 
@@ -328,7 +329,7 @@ let scanBack<'T, 'State> folder (array: 'T[]) (state: 'State) ([<OptionalArgumen
 
 let skip count (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     if count > array.Length then
-        invalidArg "count" "count is greater than array length"
+        raise (System.ArgumentOutOfRangeException("count", "The index is outside the legal range."))
 
     if count = array.Length then
         allocateArrayFromCons cons 0
@@ -357,7 +358,7 @@ let take count (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) =
         invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
 
     if count > array.Length then
-        invalidArg "count" "count is greater than array length"
+        invalidOp SR.notEnoughElements
 
     if count = 0 then
         allocateArrayFromCons cons 0
@@ -571,14 +572,14 @@ let iterateIndexed action (array: 'T[]) =
 
 let iterate2 action (array1: 'T1[]) (array2: 'T2[]) =
     if array1.Length <> array2.Length then
-        differentLengths ()
+        differentLengths "array1"
 
     for i = 0 to array1.Length - 1 do
         action array1.[i] array2.[i]
 
 let iterateIndexed2 action (array1: 'T1[]) (array2: 'T2[]) =
     if array1.Length <> array2.Length then
-        differentLengths ()
+        differentLengths "array1"
 
     for i = 0 to array1.Length - 1 do
         action i array1.[i] array2.[i]
@@ -599,14 +600,15 @@ let forAll predicate (array: 'T[]) =
 let permute f (array: 'T[]) =
     let size = array.Length
     let res = copyImpl array
-    let checkFlags = allocateArray size
+    // Native `every` skips the empty slots of `new Array(size)`
+    let checkFlags = fillImpl (allocateArray size) 0 0 size
 
     iterateIndexed
         (fun i x ->
             let j = f i
 
             if j < 0 || j >= size then
-                invalidOp "Not a valid permutation"
+                invalidArg "indexMap" "The function did not compute a permutation."
 
             res.[j] <- x
             checkFlags.[j] <- 1
@@ -616,7 +618,7 @@ let permute f (array: 'T[]) =
     let isValid = checkFlags |> forAllImpl ((=) 1)
 
     if not isValid then
-        invalidOp "Not a valid permutation"
+        invalidArg "indexMap" "The function did not compute a permutation."
 
     res
 
@@ -719,7 +721,7 @@ let unzip3 (array: _[]) =
 let zip (array1: 'T[]) (array2: 'U[]) =
     // Shorthand version: map2 (fun x y -> x, y) array1 array2
     if array1.Length <> array2.Length then
-        differentLengths ()
+        differentLengths "array1"
 
     let result = allocateArray array1.Length
 
@@ -731,7 +733,7 @@ let zip (array1: 'T[]) (array2: 'U[]) =
 let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'V[]) =
     // Shorthand version: map3 (fun x y z -> x, y, z) array1 array2 array3
     if array1.Length <> array2.Length || array2.Length <> array3.Length then
-        differentLengths ()
+        differentLengths "array1, array2, array3"
 
     let result = allocateArray array1.Length
 
@@ -758,8 +760,11 @@ let chunkBySize (chunkSize: int) (array: 'T[]) : 'T[][] =
     result |> asArray
 
 let splitAt (index: int) (array: 'T[]) : 'T[] * 'T[] =
-    if index < 0 || index > array.Length then
+    if index < 0 then
         invalidArg "index" SR.indexOutOfBounds
+
+    if index > array.Length then
+        invalidOp SR.notEnoughElements
 
     subArrayImpl array 0 index, skipImpl array index
 
@@ -921,7 +926,7 @@ let foldIndexed2 folder state (array1: _[]) (array2: _[]) =
     let mutable acc = state
 
     if array1.Length <> array2.Length then
-        failwith "Arrays have different lengths"
+        differentLengths "array1"
 
     for i = 0 to array1.Length - 1 do
         acc <- folder i acc array1.[i] array2.[i]
@@ -935,7 +940,7 @@ let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (s
     let mutable acc = state
 
     if array1.Length <> array2.Length then
-        differentLengths ()
+        differentLengths "array1"
 
     let size = array1.Length
 
@@ -949,7 +954,7 @@ let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State
 
 let reduce reduction (array: 'T[]) =
     if array.Length = 0 then
-        invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     // if isTypedArrayImpl array then
     //     foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
     // else
@@ -957,7 +962,7 @@ let reduce reduction (array: 'T[]) =
 
 let reduceBack reduction (array: 'T[]) =
     if array.Length = 0 then
-        invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     // if isTypedArrayImpl array then
     //     foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
     // else
@@ -983,7 +988,7 @@ let rec existsOffset2 predicate (array1: _[]) (array2: _[]) index =
 
 let rec exists2 predicate (array1: _[]) (array2: _[]) =
     if array1.Length <> array2.Length then
-        differentLengths ()
+        differentLengths "array1"
 
     existsOffset2 predicate array1 array2 0
 
@@ -1069,7 +1074,7 @@ let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGener
 
 let windowed (windowSize: int) (source: 'T[]) : 'T[][] =
     if windowSize <= 0 then
-        failwith "windowSize must be positive"
+        invalidArg "windowSize" "The input must be positive."
 
     let res =
         FSharp.Core.Operators.max 0 (source.Length - windowSize + 1) |> allocateArray
@@ -1120,7 +1125,7 @@ let transpose (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) :
         let lenInner = firstArray.Length
 
         if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
-            differentLengths ()
+            differentLengths "array.[0]"
 
         let result: 'T[][] = allocateArray lenInner
 
@@ -1178,7 +1183,7 @@ let randomShuffleInPlaceBy (randomizer: unit -> float) (xs: 'T[]) : unit =
         let r = randomizer ()
 
         if r < 0.0 || r >= 1.0 then
-            invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+            raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
 
         let j = int (r * float (i + 1))
         let tmp = xs[i]
@@ -1209,7 +1214,7 @@ let randomChoiceBy (randomizer: unit -> float) (xs: 'T[]) : 'T =
     let r = randomizer ()
 
     if r < 0.0 || r >= 1.0 then
-        invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+        raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
 
     xs[int (r * float len)]
 
@@ -1239,7 +1244,7 @@ let randomChoicesBy
             let r = randomizer ()
 
             if r < 0.0 || r >= 1.0 then
-                invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+                raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
 
             xs[int (r * float len)]
         )
@@ -1274,7 +1279,7 @@ let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
         let r = randomizer ()
 
         if r < 0.0 || r >= 1.0 then
-            invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+            raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
 
         let j = i + int (r * float (len - i))
         let tmp = arr[i]

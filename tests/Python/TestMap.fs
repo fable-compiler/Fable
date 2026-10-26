@@ -1,6 +1,7 @@
 module Fable.Tests.Maps
 
 open System.Collections.Generic
+open Fable.Tests.Util
 open Util.Testing
 
 type R = { i: int; s: string }
@@ -351,3 +352,10 @@ let ``test Map keys and values work correctly`` () =
     let myMap = Map [ "a", 10; "b", 20 ] :> IDictionary<_,_>
     myMap.Keys |> Seq.toList |> equal ["a"; "b"]
     myMap.Values |> Seq.toList |> equal [10; 20]
+
+[<Fact>]
+let ``test Map enumerator Current raises InvalidOperationException outside the enumeration`` () =
+    let e = (Map [1, "a"] :> seq<_>).GetEnumerator()
+    raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+    while e.MoveNext() do ()
+    raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"

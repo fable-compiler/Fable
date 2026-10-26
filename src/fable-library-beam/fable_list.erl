@@ -225,10 +225,16 @@ sort_by_descending(Fn, Comparer, List) ->
 sort_with(Fn, List) ->
     lists:sort(fun(A, B) -> (Fn(A))(B) =< 0 end, List).
 
+index_not_found() ->
+    erlang:error(#{
+        exn_type => key_not_found_exception,
+        message => <<"An index satisfying the predicate was not found in the collection.">>
+    }).
+
 find(Fn, List) ->
     case lists:dropwhile(fun(E) -> not Fn(E) end, List) of
         [H | _] -> H;
-        [] -> erlang:error(<<"key_not_found">>)
+        [] -> index_not_found()
     end.
 
 try_find(Fn, List) ->
@@ -245,7 +251,7 @@ find_index(Fn, [H | T], I) ->
         false -> find_index(Fn, T, I + 1)
     end;
 find_index(_Fn, [], _I) ->
-    erlang:error(<<"key_not_found">>).
+    index_not_found().
 
 try_find_index(Fn, List) ->
     try_find_index(Fn, List, 0).
@@ -387,7 +393,8 @@ try_item(_, _) ->
     undefined.
 
 exactly_one([X]) -> X;
-exactly_one(_) -> erlang:error(<<"Sequence contains more than one element">>).
+exactly_one([]) -> invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
+exactly_one(_) -> invalid_arg(<<"source">>, <<"The input sequence contains more than one element.">>).
 
 try_exactly_one([X]) -> fable_option:some(X);
 try_exactly_one(_) -> undefined.
@@ -580,7 +587,7 @@ map_fold_back(Fn, List, State) ->
 
 pick(Fn, List) ->
     case try_pick(Fn, List) of
-        undefined -> erlang:error(<<"key_not_found">>);
+        undefined -> index_not_found();
         V -> V
     end.
 
@@ -594,7 +601,7 @@ try_pick(Fn, [H | T]) ->
 
 find_index_back(Fn, List) ->
     case try_find_index_back(Fn, List) of
-        undefined -> erlang:error(<<"key_not_found">>);
+        undefined -> index_not_found();
         Idx -> Idx
     end.
 
@@ -673,7 +680,11 @@ get_slice(Lower, Upper, List) ->
 take(Count, List) ->
     case erlang:length(List) >= Count of
         true -> lists:sublist(List, Count);
-        false -> erlang:error(<<"The input sequence has an insufficient number of elements.">>)
+        false ->
+            erlang:error(#{
+                exn_type => invalid_operation_exception,
+                message => <<"The input sequence has an insufficient number of elements.">>
+            })
     end.
 
 %% ---- Random functions --------------------------------------------------------
@@ -697,13 +708,13 @@ random_shuffle(Xs) ->
 
 -spec random_choice_by(fun((ok) -> float()), list()) -> term().
 random_choice_by(_Randomizer, []) ->
-    erlang:error(<<"The input sequence was empty.">>);
+    invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
 random_choice_by(Randomizer, Xs) ->
     Len = erlang:length(Xs),
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+            randomizer_out_of_range(R);
         true ->
             lists:nth(erlang:trunc(R * Len) + 1, Xs)
     end.
@@ -720,9 +731,9 @@ random_choice(Xs) ->
 random_choices_by(Randomizer, Count, Xs) ->
     if
         Count < 0 ->
-            erlang:error(<<"The input must be non-negative.">>);
+            invalid_arg(<<"count">>, <<"The input must be non-negative.">>);
         Count > 0 andalso Xs =:= [] ->
-            erlang:error(<<"The input sequence was empty.">>);
+            invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
         true ->
             Arr = erlang:list_to_tuple(Xs),
             Len = erlang:tuple_size(Arr),
@@ -736,7 +747,7 @@ choices_loop(Randomizer, Arr, Len, N, Acc) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+            randomizer_out_of_range(R);
         true ->
             E = erlang:element(erlang:trunc(R * Len) + 1, Arr),
             choices_loop(Randomizer, Arr, Len, N - 1, [E | Acc])
@@ -754,14 +765,14 @@ random_choices(Count, Xs) ->
 random_sample_by(Randomizer, Count, Xs) ->
     if
         Count < 0 ->
-            erlang:error(<<"The input must be non-negative.">>);
+            invalid_arg(<<"count">>, <<"The input must be non-negative.">>);
         true ->
             Len = erlang:length(Xs),
             if
                 Len =:= 0 andalso Count > 0 ->
-                    erlang:error(<<"The input sequence was empty.">>);
+                    invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
                 Count > Len ->
-                    erlang:error(<<"The input sequence has an insufficient number of elements.">>);
+                    invalid_arg(<<"count">>, <<"The input sequence has an insufficient number of elements.">>);
                 true ->
                     sample_loop(Randomizer, erlang:list_to_tuple(Xs), Len, Count, 0)
             end
@@ -782,7 +793,7 @@ sample_loop(Randomizer, Arr, Len, Count, I) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+            randomizer_out_of_range(R);
         true ->
             J = I + erlang:trunc(R * (Len - I)),
             EI = erlang:element(I + 1, Arr),
@@ -798,7 +809,7 @@ shuffle_loop(Randomizer, Arr, I) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+            randomizer_out_of_range(R);
         true ->
             J = erlang:trunc(R * (I + 1)),
             EI = erlang:element(I + 1, Arr),
@@ -806,3 +817,20 @@ shuffle_loop(Randomizer, Arr, I) ->
             Arr2 = erlang:setelement(I + 1, erlang:setelement(J + 1, Arr, EI), EJ),
             shuffle_loop(Randomizer, Arr2, I - 1)
     end.
+
+randomizer_out_of_range(R) ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message => iolist_to_binary(
+            io_lib:format(
+                "The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0). (Parameter 'randomizer')",
+                [R]
+            )
+        )
+    }).
+
+invalid_arg(ParamName, Message) ->
+    erlang:error(#{
+        exn_type => argument_exception,
+        message => fable_utils:argument_exception_message(Message, ParamName)
+    }).

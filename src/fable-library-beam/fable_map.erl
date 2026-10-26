@@ -74,7 +74,7 @@ iterate(Fn, Map) ->
 find_key(Fn, Map) ->
     case lists:dropwhile(fun({K, V}) -> not (Fn(K))(V) end, maps:to_list(Map)) of
         [{K, _} | _] -> K;
-        [] -> erlang:error(<<"key_not_found">>)
+        [] -> key_not_found(<<"An index satisfying the predicate was not found in the collection.">>)
     end.
 
 try_find_key(Fn, Map) ->
@@ -109,7 +109,7 @@ try_get_value(Key, Map, OutRef) ->
 
 pick(Fn, Map) ->
     case try_pick(Fn, Map) of
-        undefined -> erlang:error(<<"key_not_found">>);
+        undefined -> key_not_found(<<"The given key was not present in the dictionary.">>);
         V -> V
     end.
 
@@ -142,3 +142,9 @@ change(Key, Fn, Map) ->
                 NewV -> maps:put(Key, NewV, Map)
             end
     end.
+
+key_not_found(Message) ->
+    erlang:error(#{
+        exn_type => key_not_found_exception,
+        message => Message
+    }).

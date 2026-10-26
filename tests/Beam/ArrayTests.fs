@@ -1343,3 +1343,32 @@ let ``test byte array from literal works`` () =
     data.[1] |> equal 2uy
     data.[2] |> equal 3uy
     data.Length |> equal 3
+
+[<Fact>]
+let ``test Array.take raises InvalidOperationException when the array is too short`` () =
+    raisedExceptionType (fun () -> Array.take 5 [|1|]) |> equal "InvalidOperationException"
+
+[<Fact>]
+let ``test Array.find and friends raise KeyNotFoundException when nothing matches`` () =
+    raisedExceptionType (fun () -> Array.find (fun x -> x > 5) [|1|]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> Array.findBack (fun x -> x > 5) [|1|]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> Array.findIndex (fun x -> x > 5) [|1|]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> Array.findIndexBack (fun x -> x > 5) [|1|]) |> equal "KeyNotFoundException"
+    raisedExceptionType (fun () -> Array.pick (fun _ -> None: int option) [|1|]) |> equal "KeyNotFoundException"
+
+[<Fact>]
+let ``test Array random functions raise ArgumentOutOfRangeException when the randomizer is out of range`` () =
+    raisedExceptionType (fun () -> Array.randomShuffleBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Array.randomShuffleInPlaceBy (fun () -> -0.1) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Array.randomChoicesBy (fun () -> 1.0) 1 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Array.randomSampleBy (fun () -> 1.0) 1 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+
+[<Fact>]
+let ``test Array random functions raise ArgumentException for invalid inputs`` () =
+    raisedExceptionType (fun () -> Array.randomChoice<int> [||]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.randomChoices -1 [|1|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.randomChoices<int> 1 [||]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.randomSample -1 [|1|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.randomSample 3 [|1; 2|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Array.randomSample<int> 1 [||]) |> equal "ArgumentException"

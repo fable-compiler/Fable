@@ -289,3 +289,21 @@ let tests() =
         largeSetB.IsSupersetOf(largeSetA) |> equal true
         largeSetA.IsProperSubsetOf(largeSetB) |> equal false
         largeSetA.IsSubsetOf(largeSetB) |> equal true
+
+    testCase "Set.minElement and Set.maxElement on an empty set raise ArgumentException" <| fun () ->
+        let xs: Set<int> = Set.empty
+        raisedExceptionType (fun () -> Set.minElement xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Set.maxElement xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> xs.MinimumElement) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> xs.MaximumElement) |> equal "ArgumentException"
+
+    testCase "Set.intersectMany with no sets raises ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> Set.intersectMany ([]: Set<int> list)) |> equal "ArgumentException"
+
+    testCase "Set enumerator Current outside the enumeration raises InvalidOperationException" <| fun () ->
+        let e = (Set.ofList [1] :> seq<int>).GetEnumerator()
+        raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+        e.MoveNext() |> equal true
+        e.Current |> equal 1
+        e.MoveNext() |> equal false
+        raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"

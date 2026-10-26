@@ -2,6 +2,7 @@ module Fable.Tests.Maps
 
 open System.Collections.Generic
 open Util.Testing
+open Fable.Tests.Util
 
 type R = { i: int; s: string }
 type R2 = { kv: KeyValuePair<string,int> }
@@ -320,4 +321,19 @@ let tests =
             let ys = [| ("D", 4); ("E", 5); ("F", 6) |] |> Array.map KeyValuePair
             coll.CopyTo(ys, 0)
             ys = (xs |> Array.map KeyValuePair) |> equal true
+
+        testCase "Map enumerator Current raises InvalidOperationException outside the enumeration" <| fun () ->
+            let m = Map [1, "a"; 2, "b"]
+            let e = (m :> seq<KeyValuePair<int, string>>).GetEnumerator()
+            raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+            while e.MoveNext() do ()
+            raisedExceptionType (fun () -> e.Current) |> equal "InvalidOperationException"
+
+        testCase "Map raises NotSupportedException when mutated through IDictionary or ICollection" <| fun () ->
+            let dic = Map [1, "a"] :> IDictionary<int, string>
+            let coll = Map [1, "a"] :> ICollection<KeyValuePair<int, string>>
+            raisedExceptionType (fun () -> dic.Add(2, "b")) |> equal "NotSupportedException"
+            raisedExceptionType (fun () -> dic.Remove(1)) |> equal "NotSupportedException"
+            raisedExceptionType (fun () -> dic.[2] <- "b") |> equal "NotSupportedException"
+            raisedExceptionType (fun () -> coll.Clear()) |> equal "NotSupportedException"
     ]

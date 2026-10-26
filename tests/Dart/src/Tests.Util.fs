@@ -22,6 +22,18 @@ let equal (expected: 'T) (actual: 'T) = Test.expect(actual, Test.equals(expected
 let notEqual (expected: 'T) (actual: 'T) = Test.expect(actual, Test.isNot(Test.equals(expected)))
 let throwsAnyError (f: unit -> 'a): unit = Test.expect(f, Test.throwsException)
 
+/// Matches the most specific type first, so an ArgumentOutOfRangeException is not reported as ArgumentException.
+let raisedExceptionType (f: unit -> 'a): string =
+    try
+        f () |> ignore
+        "no exception"
+    with
+    | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? System.ArgumentException -> "ArgumentException"
+    | :? System.InvalidOperationException -> "InvalidOperationException"
+    | :? System.Collections.Generic.KeyNotFoundException -> "KeyNotFoundException"
+    | e -> "Unexpected exception: " + e.Message
+
 let private run (f: unit -> 'a) =
     try
         f()

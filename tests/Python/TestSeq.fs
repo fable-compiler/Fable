@@ -1319,3 +1319,42 @@ let ``test Seq.randomSampleBy works`` () =
     Array.distinct sample |> Array.length |> equal 3
     throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toArray |> ignore)
     throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> Seq.toArray |> ignore)
+
+[<Fact>]
+let ``test Seq.reduce and Seq.reduceBack raise ArgumentException on empty input`` () =
+    let xs = Seq.empty<int>
+    raisedExceptionType (fun () -> Seq.reduce (+) xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.reduceBack (+) xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.min, Seq.max, Seq.minBy and Seq.maxBy raise ArgumentException on empty input`` () =
+    let xs = Seq.empty<int>
+    raisedExceptionType (fun () -> Seq.min xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.max xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.minBy id xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.maxBy id xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.take and Seq.skip raise InvalidOperationException when the sequence is too short`` () =
+    raisedExceptionType (fun () -> Seq.take 5 (seq { 1 }) |> Seq.toList) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> Seq.skip 5 (seq { 1 }) |> Seq.toList) |> equal "InvalidOperationException"
+
+[<Fact>]
+let ``test Seq.tail raises ArgumentException on empty input`` () =
+    raisedExceptionType (fun () -> Seq.tail Seq.empty<int> |> Seq.toList) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test range with a zero step raises ArgumentException`` () =
+    raisedExceptionType (fun () -> [0..0..5]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> [0L..0L..5L]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> [0.0..0.0..5.0]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.head and Seq.item raise ArgumentException when the sequence is too short`` () =
+    raisedExceptionType (fun () -> Seq.head Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.head ([]: int list)) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.head ([||]: int[])) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.item 5 (seq { 1 })) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.item 5 [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.item 5 [|1|]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.item -1 (seq { 1 })) |> equal "ArgumentException"

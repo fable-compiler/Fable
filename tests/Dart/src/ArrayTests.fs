@@ -1328,6 +1328,61 @@ let tests () =
         equal c2 -1
         equal c3 1
 
+    testCase "Array.reduce and Array.min on an empty array raise ArgumentException" <| fun () ->
+        let xs: int[] = [||]
+        raisedExceptionType (fun () -> Array.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.reduceBack (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.Parallel.reduce (+) xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.min xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.max xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.minBy id xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.maxBy id xs) |> equal "ArgumentException"
+
+    testCase "Array.take and Array.splitAt past the end raise InvalidOperationException" <| fun () ->
+        raisedExceptionType (fun () -> Array.take 5 [|1|]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> Array.splitAt 5 [|1|]) |> equal "InvalidOperationException"
+        raisedExceptionType (fun () -> Array.take -1 [|1|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.splitAt -1 [|1|]) |> equal "ArgumentException"
+
+    testCase "Array.skip past the end raises ArgumentOutOfRangeException" <| fun () ->
+        raisedExceptionType (fun () -> Array.skip 5 [|1|]) |> equal "ArgumentOutOfRangeException"
+
+    testCase "Array functions on arrays of different lengths raise ArgumentException" <| fun () ->
+        let xs = [|1|]
+        let ys = [|1; 2|]
+        raisedExceptionType (fun () -> Array.zip xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.zip3 xs ys xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.map2 (+) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.mapi2 (fun i x y -> i + x + y) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.map3 (fun x y z -> x + y + z) xs ys xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.iter2 (fun _ _ -> ()) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.iteri2 (fun _ _ _ -> ()) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.fold2 (fun acc x y -> acc + x + y) 0 xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.foldBack2 (fun x y acc -> x + y + acc) xs ys 0) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.forall2 (=) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.exists2 (=) xs ys) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.transpose [| xs; ys |]) |> equal "ArgumentException"
+
+    testCase "Array.find and Array.pick raise KeyNotFoundException when nothing matches" <| fun () ->
+        let xs = [|1; 2|]
+        raisedExceptionType (fun () -> Array.find (fun x -> x > 5) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.findBack (fun x -> x > 5) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.findIndex (fun x -> x > 5) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.findIndexBack (fun x -> x > 5) xs) |> equal "KeyNotFoundException"
+        raisedExceptionType (fun () -> Array.pick (fun x -> if x > 5 then Some x else None) xs) |> equal "KeyNotFoundException"
+
+    testCase "Array.windowed and Array.permute with invalid arguments raise ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> Array.windowed 0 [|1|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.permute (fun _ -> 5) [|1; 2|]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.permute (fun _ -> 0) [|1; 2|]) |> equal "ArgumentException"
+
+    testCase "Array random functions raise ArgumentOutOfRangeException when the randomizer is out of range" <| fun () ->
+        raisedExceptionType (fun () -> Array.randomShuffleInPlaceBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomShuffleBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomChoicesBy (fun () -> 1.0) 1 [|1|]) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.randomSampleBy (fun () -> 1.0) 1 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+
     // testCase "System.Array.Resize works" <| fun () ->
     //     let mutable xs = [|1; 2; 3; 4; 5|]
     //     System.Array.Resize(&xs, 3)

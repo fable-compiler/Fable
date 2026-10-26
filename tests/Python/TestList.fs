@@ -1246,3 +1246,43 @@ let ``test List.collect works II`` () =
     xs
     |> List.collect (fun a -> [a.Length])
     |> equal [1; 5; 3]
+
+[<Fact>]
+let ``test List.reduce and List.reduceBack raise ArgumentException on empty input`` () =
+    let xs: int list = []
+    raisedExceptionType (fun () -> List.reduce (+) xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.reduceBack (+) xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.min, List.max, List.minBy and List.maxBy raise ArgumentException on empty input`` () =
+    let xs: int list = []
+    raisedExceptionType (fun () -> List.min xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.max xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.minBy id xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.maxBy id xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.last, List.head and List.tail raise ArgumentException on empty input`` () =
+    let xs: int list = []
+    raisedExceptionType (fun () -> List.last xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.head xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.tail xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test list.Head and list.Tail raise InvalidOperationException on empty input`` () =
+    let xs: int list = []
+    raisedExceptionType (fun () -> xs.Head) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> xs.Tail) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> [1].Tail.Head) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> [1].Tail.Tail) |> equal "InvalidOperationException"
+
+[<Fact>]
+let ``test List.take and List.splitAt raise InvalidOperationException when the list is too short`` () =
+    raisedExceptionType (fun () -> List.take 5 [1]) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> List.splitAt 5 [1]) |> equal "InvalidOperationException"
+    raisedExceptionType (fun () -> List.take -1 [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.splitAt -1 [1]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.skip raises ArgumentOutOfRangeException when the list is too short`` () =
+    raisedExceptionType (fun () -> List.skip 5 [1]) |> equal "ArgumentOutOfRangeException"
