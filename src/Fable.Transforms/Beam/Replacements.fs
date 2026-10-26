@@ -6227,25 +6227,43 @@ let tryCall
         let typeTag =
             typeName.Substring(typeName.LastIndexOf('.') + 1) |> sanitizeErlangName
 
-        match info.CompiledName, thisArg, args with
-        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] $"#{{exn_type => %s{typeTag}, message => $0}}" |> Some
-        | ".ctor", None, [ msg; second ] ->
-            match info.SignatureArgTypes with
-            // (message, paramName): paramName is not modelled, only the message is kept
-            | [ _; String ] -> emitExpr r t [ msg ] $"#{{exn_type => %s{typeTag}, message => $0}}" |> Some
-            // (message, innerException)
-            | _ ->
-                emitExpr r t [ msg; second ] $"#{{exn_type => %s{typeTag}, message => $0, inner_exception => $1}}"
-                |> Some
-        // (message, paramName, innerException)
-        | ".ctor", None, [ msg; _paramName; inner ] ->
-            emitExpr r t [ msg; inner ] $"#{{exn_type => %s{typeTag}, message => $0, inner_exception => $1}}"
-            |> Some
-        | ".ctor", None, [] ->
-            let msg = $"Exception of type '%s{typeName}' was thrown."
+        let make msg inner =
+            match inner with
+            | None -> emitExpr r t [ msg ] $"#{{exn_type => %s{typeTag}, message => $0}}"
+            | Some inner ->
+                emitExpr r t [ msg; inner ] $"#{{exn_type => %s{typeTag}, message => $0, inner_exception => $1}}"
 
-            emitExpr r t [] $"#{{exn_type => %s{typeTag}, message => <<\"%s{msg}\">>}}"
-            |> Some
+        let withParamName msg paramName =
+            Helper.LibCall(com, "fable_utils", "argument_exception_message", String, [ msg; paramName ])
+
+        let isArgumentException = typeName = "System.ArgumentException"
+
+        // ArgumentNullException and ArgumentOutOfRangeException take (paramName, message), the others (message, paramName)
+        let paramNameFirst =
+            typeName = "System.ArgumentNullException"
+            || typeName = "System.ArgumentOutOfRangeException"
+
+        let defaultMessage =
+            match typeName with
+            | "System.ArgumentException" -> "Value does not fall within the expected range."
+            | "System.ArgumentNullException" -> "Value cannot be null."
+            | "System.ArgumentOutOfRangeException" -> "Specified argument was out of the range of valid values."
+            | _ -> $"Exception of type '%s{typeName}' was thrown."
+
+        match info.CompiledName, thisArg, args with
+        | ".ctor", None, [] -> make (makeStrConst defaultMessage) None |> Some
+        | ".ctor", None, [ paramName ] when paramNameFirst ->
+            make (withParamName (makeStrConst defaultMessage) paramName) None |> Some
+        | ".ctor", None, [ msg ] -> make msg None |> Some
+        | ".ctor", None, [ first; second ] ->
+            match info.SignatureArgTypes with
+            | [ _; String ] when paramNameFirst -> make (withParamName second first) None |> Some
+            | [ _; String ] when isArgumentException -> make (withParamName first second) None |> Some
+            | [ _; String ] -> make first None |> Some
+            | _ -> make first (Some second) |> Some
+        | ".ctor", None, [ msg; paramName; inner ] when isArgumentException ->
+            make (withParamName msg paramName) (Some inner) |> Some
+        | ".ctor", None, [ msg; _; inner ] -> make msg (Some inner) |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
         | "get_InnerException", Some c, _ -> emitExpr r t [ c ] "maps:get(inner_exception, $0, undefined)" |> Some
         | _ -> None

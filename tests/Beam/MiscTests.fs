@@ -769,6 +769,38 @@ let ``test ArgumentException with message and inner exception works`` () =
     ex.InnerException.Message |> equal "the inner cause"
 
 [<Fact>]
+let ``test ArgumentException default message matches .NET`` () =
+    let ex = System.ArgumentException()
+    ex.Message |> equal "Value does not fall within the expected range."
+
+[<Fact>]
+let ``test ArgumentException with message and parameter name works`` () =
+    let ex = System.ArgumentException("outer message", "arg")
+    ex.Message |> equal "outer message (Parameter 'arg')"
+
+[<Fact>]
+let ``test ArgumentException with message, parameter name and inner exception works`` () =
+    let inner = exn "the inner cause"
+    let ex = System.ArgumentException("outer message", "arg", inner)
+    ex.Message |> equal "outer message (Parameter 'arg')"
+    ex.InnerException.Message |> equal "the inner cause"
+
+[<Fact>]
+let ``test ArgumentNullException with parameter name works`` () =
+    let ex = System.ArgumentNullException("arg")
+    ex.Message |> equal "Value cannot be null. (Parameter 'arg')"
+
+[<Fact>]
+let ``test ArgumentNullException with parameter name and message works`` () =
+    let ex = System.ArgumentNullException("arg", "custom message")
+    ex.Message |> equal "custom message (Parameter 'arg')"
+
+[<Fact>]
+let ``test ArgumentOutOfRangeException with parameter name works`` () =
+    let ex = System.ArgumentOutOfRangeException("arg")
+    ex.Message |> equal "Specified argument was out of the range of valid values. (Parameter 'arg')"
+
+[<Fact>]
 let ``test Exception InnerException is null when not provided`` () =
     let ex = System.ArgumentException("no inner")
     isNull (box ex.InnerException) |> equal true
