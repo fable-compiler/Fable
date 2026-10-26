@@ -243,16 +243,16 @@ let ``test HashSet.Add with records works`` () =
     hs.Add(x3) |> equal true
     hs.Count |> equal 2
 
-// [<Fact>]
-// let ``test HashSet.Add with reference records works`` () =
-//     let x1 = { a = 5; b = 10 }
-//     let x2 = { a = 5; b = 10 }
-//     let x3 = { a = 10; b = 20 }
-//     let hs = HashSet<RefEqRecord>()
-//     hs.Add(x1) |> equal true
-//     hs.Add(x2) |> equal true
-//     hs.Add(x3) |> equal true
-//     hs.Count |> equal 3
+[<Fact>]
+let ``test HashSet.Add with reference records works`` () =
+    let x1 = { a = 5; b = 10 }
+    let x2 = { a = 5; b = 10 }
+    let x3 = { a = 10; b = 20 }
+    let hs = HashSet<RefEqRecord>()
+    hs.Add(x1) |> equal true
+    hs.Add(x2) |> equal true
+    hs.Add(x3) |> equal true
+    hs.Count |> equal 3
 
 [<Fact>]
 let ``test HashSet.Clear works`` () =

@@ -694,6 +694,46 @@ module Util =
 
     let thisExpr = Expression.name "self"
 
+    let hasClassMethod name (classMembers: Statement list) =
+        classMembers
+        |> List.exists (
+            function
+            | FunctionDef { Name = Identifier key } -> key = name
+            | _ -> false
+        )
+
+    let withReferenceEquality (com: IPythonCompiler) ctx (ent: Fable.Entity) (classMembers: Statement list) =
+        let isReferenceEqualityType =
+            (ent.IsFSharpRecord || ent.IsFSharpUnion)
+            && not ent.IsValueType
+            && not (FSharp2Fable.Util.hasStructuralEquality ent)
+
+        if not isReferenceEqualityType then
+            classMembers
+        else
+            let makeMethod name args returnExpr (returnType: string) =
+                Statement.functionDef (
+                    Identifier name,
+                    Arguments.arguments (args = Arg.arg "self" :: args),
+                    body = [ Statement.return' returnExpr ],
+                    returns = Expression.name returnType
+                )
+
+            [
+                yield! classMembers
+                if not (hasClassMethod "Equals" classMembers) then
+                    let other =
+                        Arg.arg ("other", annotation = com.TransformImport(ctx, "Any", "typing"))
+
+                    makeMethod
+                        "Equals"
+                        [ other ]
+                        (Expression.compare (thisExpr, [ Is ], [ Expression.name "other" ]))
+                        "bool"
+                if not (hasClassMethod "GetHashCode" classMembers) then
+                    makeMethod "GetHashCode" [] (libCall com ctx None "util" "physical_hash" [ thisExpr ]) "int"
+            ]
+
     let ofInt (_com: IPythonCompiler) (_ctx: Context) (i: int) = Expression.intConstant (int i)
 
     let ofString (s: string) = Expression.stringConstant s

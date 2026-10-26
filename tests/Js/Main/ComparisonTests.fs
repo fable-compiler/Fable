@@ -39,6 +39,25 @@ exception Ex of int
 [<ReferenceEquality>]
 type RTest2 = { a2: int; b2: int }
 
+[<ReferenceEquality>]
+type RefEqUnion = RefC of int | RefD of int
+
+[<NoEquality; NoComparison>]
+type NoEqRecord = { a3: int }
+
+[<NoEquality; NoComparison>]
+type NoEqUnion = NoEqCase of int
+
+#nowarn "386"
+[<NoEquality; NoComparison>]
+type NoEqRecordWithOverride =
+    { a4: int }
+    override _.Equals(_) = true
+    override _.GetHashCode() = 4
+
+[<Struct; NoEquality; NoComparison>]
+type NoEqStruct = { s2: int }
+
 type Test(i: int) =
     member x.Value = i
     override x.GetHashCode() = i
@@ -115,6 +134,63 @@ let genericCompare (a: 'T) (b: 'T) : int =
 
 let tests =
   testList "Comparison" [
+    testCase "ReferenceEquality record equality works" <| fun () ->
+        let x = { a2 = 1; b2 = 2 }
+        let y = { a2 = 1; b2 = 2 }
+        equal true (x = x)
+        equal false (x = y)
+        equal true (x <> y)
+        equal false (x.Equals y)
+        equal true (genericEquals x x)
+        equal false (genericEquals x y)
+        equal false ([ x ] = [ y ])
+        equal false ((x, 1) = (y, 1))
+        equal false (Some x = Some y)
+        equal true ([ x ] |> List.contains x)
+        equal false ([ x ] |> List.contains y)
+
+    testCase "ReferenceEquality record hash works" <| fun () ->
+        let x = { a2 = 1; b2 = 2 }
+        let y = { a2 = 1; b2 = 2 }
+        equal (hash x) (hash x)
+        equal (genericHash x) (genericHash x)
+        let d = Dictionary<RTest2, int>()
+        d[x] <- 1
+        equal true (d.ContainsKey x)
+        equal false (d.ContainsKey y)
+        equal 2 (HashSet<RTest2>([ x; y ]).Count)
+
+    testCase "ReferenceEquality union equality works" <| fun () ->
+        let x = RefC 1
+        let y = RefC 1
+        equal true (x = x)
+        equal false (x = y)
+        equal false (x.Equals y)
+        equal true (genericEquals x x)
+        equal false (genericEquals x y)
+        equal false ([ x ] |> List.contains y)
+        equal 2 (HashSet<RefEqUnion>([ x; y ]).Count)
+
+    testCase "NoEquality record and union compare by reference" <| fun () ->
+        let x = { a3 = 1 }
+        equal true ((box x).Equals(box x))
+        equal false ((box x).Equals(box { a3 = 1 }))
+        equal true (genericEquals x x)
+        equal false (genericEquals x { a3 = 1 })
+        let u = NoEqCase 1
+        equal true ((box u).Equals(box u))
+        equal false ((box u).Equals(box (NoEqCase 1)))
+        equal true (genericEquals u u)
+        equal false (genericEquals u (NoEqCase 1))
+
+    testCase "NoEquality record keeps an explicit Equals override" <| fun () ->
+        equal true ((box { a4 = 1 }).Equals(box { a4 = 2 }))
+        equal 4 ((box { a4 = 1 }).GetHashCode())
+
+    testCase "NoEquality struct record compares structurally when boxed" <| fun () ->
+        equal true ((box { s2 = 1 }).Equals(box { s2 = 1 }))
+        equal false ((box { s2 = 1 }).Equals(box { s2 = 2 }))
+
     testCase "Typed array equality works" <| fun () ->
         let xs1 = [| 1; 2; 3 |]
         let xs2 = [| 1; 2; 3 |]

@@ -219,15 +219,15 @@ let tests =
         hs.Add(x3) |> equal true
         hs.Count |> equal 2
 
-    // testCase "HashSet.Add with reference records works" <| fun () ->
-    //     let x1 = { a = 5; b = 10 }
-    //     let x2 = { a = 5; b = 10 }
-    //     let x3 = { a = 10; b = 20 }
-    //     let hs = HashSet<RefEqRecord>()
-    //     hs.Add(x1) |> equal true
-    //     hs.Add(x2) |> equal true
-    //     hs.Add(x3) |> equal true
-    //     hs.Count |> equal 3
+    testCase "HashSet.Add with reference records works" <| fun () ->
+        let x1 = { a = 5; b = 10 }
+        let x2 = { a = 5; b = 10 }
+        let x3 = { a = 10; b = 20 }
+        let hs = HashSet<RefEqRecord>()
+        hs.Add(x1) |> equal true
+        hs.Add(x2) |> equal true
+        hs.Add(x3) |> equal true
+        hs.Count |> equal 3
 
     testCase "HashSet.Clear works" <| fun () ->
         let hs = HashSet<_>()
