@@ -346,7 +346,8 @@ let private operators
                 (Value(StringConstant "Value cannot be null. (Parameter '", None))
                 (add arg (Value(StringConstant "')", None)))
 
-        makeThrow r _t msg |> Some
+        makeThrow r _t (emitExpr r Any [ msg ] "#{exn_type => argument_null_exception, message => $0}")
+        |> Some
     | "IsNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
     | "IsNotNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =/= undefined)" |> Some
     // Nullable active patterns and helpers
