@@ -65,6 +65,36 @@ let ``test ResizeArray.IndexOf works`` () =
     ra.IndexOf(20) |> equal 1
     ra.IndexOf(99) |> equal -1
 
+// --- BinarySearch ---
+
+[<Fact>]
+let ``test ResizeArray.BinarySearch works`` () =
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    let desc = { new IComparer<int> with member _.Compare(a, b) = compare b a }
+    // Beam has no Comparer<int>.Default, so this stands in for it
+    let asc = { new IComparer<int> with member _.Compare(a, b) = compare a b }
+    ra.BinarySearch(7) |> equal 3
+    ra.BinarySearch(8) |> equal -5
+    (ResizeArray [9; 7; 5; 3; 1]).BinarySearch(3, desc) |> equal 3
+    ra.BinarySearch(1, 3, 7, asc) |> equal 3
+    ra.BinarySearch(1, 2, 8, asc) |> equal -4
+    ra.BinarySearch(1, 2, 3, null) |> equal 1
+
+[<Fact>]
+let ``test ResizeArray.BinarySearch with a range checks its arguments`` () =
+    let ra = ResizeArray [1; 3; 5; 7; 9]
+    let raised index count =
+        try
+            ra.BinarySearch(index, count, 3, null) |> ignore
+            "none"
+        with
+        | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+        | :? ArgumentException -> "ArgumentException"
+        | _ -> "other"
+    raised -1 2 |> equal "ArgumentOutOfRangeException"
+    raised 1 -1 |> equal "ArgumentOutOfRangeException"
+    raised 3 3 |> equal "ArgumentException"
+
 // --- Remove ---
 
 [<Fact>]

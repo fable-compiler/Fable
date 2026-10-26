@@ -9,6 +9,9 @@
     insert_range/3,
     get_range/3,
     index_of/2, index_of/3,
+    binary_search/3,
+    binary_search_range/5,
+    binary_search_range_count/5,
     find/3,
     find_last/2,
     find_all/2,
@@ -32,6 +35,9 @@
 -spec get_range(list(), non_neg_integer(), non_neg_integer()) -> list().
 -spec index_of(list(), term()) -> integer().
 -spec index_of(list(), term(), non_neg_integer()) -> integer().
+-spec binary_search(list(), term(), map() | reference()) -> integer().
+-spec binary_search_range(list(), integer(), integer(), term(), map() | reference()) -> integer().
+-spec binary_search_range_count(list(), integer(), integer(), term(), map() | reference()) -> integer().
 -spec find(fun(), list(), term()) -> term().
 -spec find_last(list(), fun()) -> term().
 -spec find_all(list(), fun()) -> list().
@@ -116,6 +122,54 @@ index_of(List, Item, StartIndex) ->
 index_of_impl([], _Item, _Idx) -> -1;
 index_of_impl([Item | _], Item, Idx) -> Idx;
 index_of_impl([_ | Rest], Item, Idx) -> index_of_impl(Rest, Item, Idx + 1).
+
+%% BinarySearch with an IComparer, probing in .NET's order so duplicates and comparers get .NET's
+%% answers; a miss returns the complement of the index of the first larger element.
+binary_search(List, Value, Comparer) ->
+    Compare = fable_utils:iface_get(compare, Comparer),
+    binary_search_impl(list_to_tuple(List), 0, length(List) - 1, Value, Compare).
+
+%% System.Array.BinarySearch(array, index, length, value, comparer)
+binary_search_range(List, Index, Length, Value, Comparer) ->
+    binary_search_range(List, Index, Length, Value, Comparer, <<"length">>).
+
+%% List<T>.BinarySearch(index, count, item, comparer), whose count .NET calls "count"
+binary_search_range_count(List, Index, Count, Item, Comparer) ->
+    binary_search_range(List, Index, Count, Item, Comparer, <<"count">>).
+
+%% .NET checks the range in this order before searching it
+binary_search_range(_List, Index, _Count, _Value, _Comparer, _CountName) when Index < 0 ->
+    non_negative_number_required(<<"index">>);
+binary_search_range(_List, _Index, Count, _Value, _Comparer, CountName) when Count < 0 ->
+    non_negative_number_required(CountName);
+binary_search_range(List, Index, Count, _Value, _Comparer, _CountName)
+    when length(List) - Index < Count ->
+    erlang:error(#{
+        exn_type => argument_exception,
+        message =>
+            <<"Offset and length were out of bounds for the array or count is greater than the "
+              "number of elements from index to the end of the source collection.">>
+    });
+binary_search_range(List, Index, Count, Value, Comparer, _CountName) ->
+    Compare = fable_utils:iface_get(compare, Comparer),
+    binary_search_impl(list_to_tuple(List), Index, Index + Count - 1, Value, Compare).
+
+binary_search_impl(Tuple, Lo, Hi, Value, Compare) when Lo =< Hi ->
+    I = Lo + ((Hi - Lo) bsr 1),
+    case Compare(element(I + 1, Tuple), Value) of
+        0 -> I;
+        C when C < 0 -> binary_search_impl(Tuple, I + 1, Hi, Value, Compare);
+        _ -> binary_search_impl(Tuple, Lo, I - 1, Value, Compare)
+    end;
+binary_search_impl(_Tuple, Lo, _Hi, _Value, _Compare) ->
+    bnot Lo.
+
+non_negative_number_required(ParamName) ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message =>
+            fable_utils:argument_exception_message(<<"Non-negative number required.">>, ParamName)
+    }).
 
 %% Find first matching predicate, return Default when not found
 find(_Pred, [], Default) ->
