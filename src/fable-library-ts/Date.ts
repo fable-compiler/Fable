@@ -403,7 +403,7 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
 }
 
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
-  const d = new Date(date.getTime() + (date.offset ?? 0));
+  const d = DateTime(date.getTime() + (date.offset ?? 0), DateTimeKind.Utc);
   if (typeof format !== "string") {
     return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
