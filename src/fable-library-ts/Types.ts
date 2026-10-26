@@ -1,4 +1,4 @@
-import { Exception, IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.ts";
+import { Exception, IComparable, IEquatable, IHashable, combineHashCode, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.ts";
 
 // This type is only used internally for .ts files in the library
 // F# Result type is in Choice.fs
@@ -127,8 +127,7 @@ function recordGetHashCode<T>(self: T) {
   const values = Object.values(self as any);
   let hash = 0;
   for (let i = 0; i < values.length; i++) {
-    const fieldHash = structuralHash(values[i]);
-    hash = ((hash << 5) + hash) ^ fieldHash;
+    hash = combineHashCode(hash, structuralHash(values[i]));
   }
   return hash;
 }
