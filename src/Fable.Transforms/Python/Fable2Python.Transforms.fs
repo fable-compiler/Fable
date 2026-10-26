@@ -4297,6 +4297,7 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
     ]
 
 let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+    let classMembers = withReferenceEquality com ctx ent classMembers
     // Get generic type parameters for the union
     let typeParams = makeEntityTypeParams com ctx ent
 
@@ -4501,6 +4502,7 @@ let transformClassWithCompilerGeneratedConstructor
     (classAttributes: ClassAttributes)
     =
     // printfn "transformClassWithCompilerGeneratedConstructor"
+    let classMembers = withReferenceEquality com ctx ent classMembers
     let fieldIds = getEntityFieldsAsIdents com ent
 
     let args =
