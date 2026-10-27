@@ -168,7 +168,8 @@ non_negative_number_required(ParamName) ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
         message =>
-            fable_utils:argument_exception_message(<<"Non-negative number required.">>, ParamName)
+            fable_utils:argument_exception_message(<<"Non-negative number required.">>, ParamName),
+        param_name => ParamName
     }).
 
 %% Find first matching predicate, return Default when not found

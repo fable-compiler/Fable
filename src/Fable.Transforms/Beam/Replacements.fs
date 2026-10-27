@@ -334,19 +334,49 @@ let private operators
         makeThrow r _t (emitExpr r Any [ msg ] "#{exn_type => invalid_operation_exception, message => $0}")
         |> Some
     | "InvalidArg", [ argName; msg ] ->
-        let msg =
-            add msg (add (add (Value(StringConstant " (Parameter '", None)) argName) (Value(StringConstant "')", None)))
+        captureExprOnce
+            com
+            "param_name"
+            argName
+            (fun argName ->
+                let msg =
+                    add
+                        msg
+                        (add
+                            (add (Value(StringConstant " (Parameter '", None)) argName)
+                            (Value(StringConstant "')", None)))
 
-        makeThrow r _t (emitExpr r Any [ msg ] "#{exn_type => argument_exception, message => $0}")
+                makeThrow
+                    r
+                    _t
+                    (emitExpr
+                        r
+                        Any
+                        [ msg; argName ]
+                        "#{exn_type => argument_exception, message => $0, param_name => $1}")
+            )
         |> Some
     | "Raise", [ arg ] -> makeThrow r _t arg |> Some
     | "NullArg", [ arg ] ->
-        let msg =
-            add
-                (Value(StringConstant "Value cannot be null. (Parameter '", None))
-                (add arg (Value(StringConstant "')", None)))
+        captureExprOnce
+            com
+            "param_name"
+            arg
+            (fun arg ->
+                let msg =
+                    add
+                        (Value(StringConstant "Value cannot be null. (Parameter '", None))
+                        (add arg (Value(StringConstant "')", None)))
 
-        makeThrow r _t (emitExpr r Any [ msg ] "#{exn_type => argument_null_exception, message => $0}")
+                makeThrow
+                    r
+                    _t
+                    (emitExpr
+                        r
+                        Any
+                        [ msg; arg ]
+                        "#{exn_type => argument_null_exception, message => $0, param_name => $1}")
+            )
         |> Some
     | "IsNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
     | "IsNotNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =/= undefined)" |> Some
@@ -6274,15 +6304,37 @@ let tryCall
             | Some inner ->
                 emitExpr r t [ msg; inner ] $"#{{exn_type => %s{typeTag}, message => $0, inner_exception => $1}}"
 
-        let withParamName msg paramName =
-            Helper.LibCall(com, "fable_utils", "argument_exception_message", String, [ msg; paramName ])
-
         let isArgumentException = typeName = "System.ArgumentException"
 
         // ArgumentNullException and ArgumentOutOfRangeException take (paramName, message), the others (message, paramName)
         let paramNameFirst =
             typeName = "System.ArgumentNullException"
             || typeName = "System.ArgumentOutOfRangeException"
+
+        // Argument exceptions also keep the parameter name for ParamName, so both are captured once in source order
+        let makeArg msg paramName inner =
+            let build msg paramName =
+                let msg =
+                    Helper.LibCall(com, "fable_utils", "argument_exception_message", String, [ msg; paramName ])
+
+                match inner with
+                | None ->
+                    emitExpr r t [ msg; paramName ] $"#{{exn_type => %s{typeTag}, message => $0, param_name => $1}}"
+                | Some inner ->
+                    emitExpr
+                        r
+                        t
+                        [ msg; paramName; inner ]
+                        $"#{{exn_type => %s{typeTag}, message => $0, param_name => $1, inner_exception => $2}}"
+
+            if paramNameFirst then
+                captureExprs2Once
+                    com
+                    ("param_name", paramName)
+                    ("message", msg)
+                    (fun paramName msg -> build msg paramName)
+            else
+                captureExprs2Once com ("message", msg) ("param_name", paramName) build
 
         let defaultMessage =
             match typeName with
@@ -6294,19 +6346,21 @@ let tryCall
         match info.CompiledName, thisArg, args with
         | ".ctor", None, [] -> make (makeStrConst defaultMessage) None |> Some
         | ".ctor", None, [ paramName ] when paramNameFirst ->
-            make (withParamName (makeStrConst defaultMessage) paramName) None |> Some
+            makeArg (makeStrConst defaultMessage) paramName None |> Some
         | ".ctor", None, [ msg ] -> make msg None |> Some
         | ".ctor", None, [ first; second ] ->
             match info.SignatureArgTypes with
-            | [ _; String ] when paramNameFirst -> make (withParamName second first) None |> Some
-            | [ _; String ] when isArgumentException -> make (withParamName first second) None |> Some
+            | [ _; String ] when paramNameFirst -> makeArg second first None |> Some
+            | [ _; String ] when isArgumentException -> makeArg first second None |> Some
             | [ _; String ] -> make first None |> Some
             | _ -> make first (Some second) |> Some
         | ".ctor", None, [ msg; paramName; inner ] when isArgumentException ->
-            make (withParamName msg paramName) (Some inner) |> Some
+            makeArg msg paramName (Some inner) |> Some
+        | ".ctor", None, [ paramName; _; msg ] when paramNameFirst -> makeArg msg paramName None |> Some
         | ".ctor", None, [ msg; _; inner ] -> make msg (Some inner) |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
         | "get_InnerException", Some c, _ -> emitExpr r t [ c ] "maps:get(inner_exception, $0, undefined)" |> Some
+        | "get_ParamName", Some c, _ -> emitExpr r t [ c ] "maps:get(param_name, $0, undefined)" |> Some
         | _ -> None
     // System.Type (reflection) — type info is a map #{fullname => ..., generics => [...]}
     | "System.Type" ->

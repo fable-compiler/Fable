@@ -87,7 +87,8 @@ wrap_u64(N) ->
 log2(N) when N < 0 ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
-        message => <<"Non-negative number required. (Parameter 'value')">>
+        message => <<"Non-negative number required. (Parameter 'value')">>,
+        param_name => <<"value">>
     });
 log2(0) ->
     0;
@@ -140,7 +141,8 @@ bigint_from_byte_array(BytesValue) ->
 bigint_pow(_Base, Exponent) when Exponent < 0 ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
-        message => <<"The number must be greater than or equal to zero. (Parameter 'exponent')">>
+        message => <<"The number must be greater than or equal to zero. (Parameter 'exponent')">>,
+        param_name => <<"exponent">>
     });
 bigint_pow(Base, Exponent) ->
     bigint_pow(Base, Exponent, 1).
