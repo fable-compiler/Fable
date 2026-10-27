@@ -484,13 +484,27 @@ let private operators
             emitExpr r _t [ compare com r a b; a; b ] "case $0 >= 0 of true -> $1; false -> $2 end"
             |> Some
         else
-            emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
+            match a.Type with
+            | Type.Number((Float16 | Float32 | Float64), _) ->
+                Helper.LibCall(com, "fable_comparison", "max_float", _t, [ a; b ], ?loc = r)
+                |> Some
+            | _ -> emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
     | ("Min" | "Min_"), [ a; b ] ->
         if isFableUnion com a.Type then
-            emitExpr r _t [ compare com r a b; a; b ] "case $0 =< 0 of true -> $1; false -> $2 end"
+            emitExpr r _t [ compare com r a b; a; b ] "case $0 < 0 of true -> $1; false -> $2 end"
             |> Some
         else
-            emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
+            match a.Type with
+            | Type.Number((Float16 | Float32 | Float64), _) ->
+                Helper.LibCall(com, "fable_comparison", "min_float", _t, [ a; b ], ?loc = r)
+                |> Some
+            | Type.Number _
+            | Type.String
+            | Type.Char
+            | Type.Boolean -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
+            | _ ->
+                Helper.LibCall(com, "fable_comparison", "min_structural", _t, [ a; b ], ?loc = r)
+                |> Some
     | "Clamp", [ value; min_; max_ ] -> emitExpr r _t [ value; min_; max_ ] "erlang:min(erlang:max($0, $1), $2)" |> Some
     | "Log", [ x; base_ ] -> emitExpr r _t [ x; base_ ] "(math:log($0) / math:log($1))" |> Some
     | "DivRem", [ x; y ] -> emitExpr r _t [ x; y ] "{$0 div $1, $0 rem $1}" |> Some

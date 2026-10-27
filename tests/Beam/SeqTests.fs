@@ -412,6 +412,22 @@ let ``test Seq.minBy works`` () =
     [1; 3; 2] |> Seq.minBy (fun x -> -x) |> equal 3
 
 [<Fact>]
+let ``test Seq.minBy and Seq.maxBy keep the first of tied elements`` () =
+    let xs = Seq.ofList [ "y", 1; "c", 0; "a", 0; "z", 1; "b", 0; "x", 1 ]
+    xs |> Seq.minBy snd |> equal ("c", 0)
+    xs |> Seq.maxBy snd |> equal ("y", 1)
+    xs |> Seq.minBy (fun _ -> 0) |> equal ("y", 1)
+    xs |> Seq.maxBy (fun _ -> 0) |> equal ("y", 1)
+
+[<Fact>]
+let ``test Seq.minBy and Seq.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f (x: int) = calls <- calls + 1; x
+    seq { 5; 3; 8; 1; 9 } |> Seq.minBy f |> equal 1
+    seq { 5; 3; 8; 1; 9 } |> Seq.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
 let ``test Seq.ofArray works`` () =
     [| 1; 2; 3 |] |> Seq.ofArray |> Seq.toList |> equal [1; 2; 3]
 

@@ -1,11 +1,23 @@
 -module(fable_comparison).
--export([compare/2, compare_union/3, equals/2, get_hash_code/1, hash/1]).
+-export([
+    compare/2,
+    compare_union/3,
+    equals/2,
+    get_hash_code/1,
+    hash/1,
+    max_float/2,
+    min_float/2,
+    min_structural/2
+]).
 
 -spec equals(term(), term()) -> boolean().
 -spec compare(term(), term()) -> -1 | 0 | 1.
 -spec compare_union([binary()], term(), term()) -> -1 | 0 | 1.
 -spec get_hash_code(term()) -> non_neg_integer().
 -spec hash(term()) -> non_neg_integer().
+-spec max_float(term(), term()) -> term().
+-spec min_float(term(), term()) -> term().
+-spec min_structural(term(), term()) -> term().
 
 %% Deep equality that handles ref-wrapped arrays (process dict refs)
 %% and atomics-backed byte arrays ({byte_array, Size, AtomicsRef}).
@@ -152,6 +164,30 @@ union_tag_index(TagOrder, Name) -> union_tag_index(TagOrder, Name, 0).
 union_tag_index([Name | _], Name, I) -> I;
 union_tag_index([_ | T], Name, I) -> union_tag_index(T, Name, I + 1);
 union_tag_index([], _, _) -> -1.
+
+%% erlang:max/2 and erlang:min/2 return their first argument when 0.0 and -0.0 meet.
+max_float(A, B) when A == B ->
+    case is_negative_zero(A) of
+        true -> B;
+        false -> A
+    end;
+max_float(A, B) ->
+    erlang:max(A, B).
+
+min_float(A, B) when A == B ->
+    case is_negative_zero(A) of
+        true -> A;
+        false -> B
+    end;
+min_float(A, B) ->
+    erlang:min(A, B).
+
+is_negative_zero(X) when is_float(X) -> <<X/float>> =:= <<1:1, 0:63>>;
+is_negative_zero(_) -> false.
+
+%% erlang:min/2 returns its first argument when both compare equal; .NET returns the second.
+min_structural(A, B) when A < B -> A;
+min_structural(_, B) -> B.
 
 %% invariant: Object.GetHashCode hashes reference-backed storage by identity, while hash/1 remains structural.
 get_hash_code({byte_array, _, _} = V) -> erlang:phash2(V);
