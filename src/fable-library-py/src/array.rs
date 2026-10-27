@@ -2959,9 +2959,9 @@ impl FSharpArray {
         }
         reduce_impl(self, py, |acc, item, py| {
             let comparison =
-                comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
+                comparer.call_method1("Compare", (item.clone_ref(py), acc.clone_ref(py)))?;
             let is_gt = comparison.extract::<i32>()? > 0;
-            Ok(if is_gt { acc } else { item })
+            Ok(if is_gt { item } else { acc })
         })
     }
 
@@ -2972,9 +2972,9 @@ impl FSharpArray {
         }
         reduce_impl(self, py, |acc, item, py| {
             let comparison =
-                comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
+                comparer.call_method1("Compare", (item.clone_ref(py), acc.clone_ref(py)))?;
             let is_lt = comparison.extract::<i32>()? < 0;
-            Ok(if is_lt { acc } else { item })
+            Ok(if is_lt { item } else { acc })
         })
     }
 
@@ -2985,13 +2985,7 @@ impl FSharpArray {
         projection: &Bound<'_, PyAny>,
         comparer: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        reduce_impl(self, py, |acc, item, py| {
-            let acc_key = projection.call1((acc.clone_ref(py),))?;
-            let item_key = projection.call1((item.clone_ref(py),))?;
-            let comparison = comparer.call_method1("Compare", (item_key, acc_key))?;
-            let is_gt = comparison.extract::<i32>()? > 0;
-            Ok(if is_gt { item } else { acc })
-        })
+        extreme_by_impl(self, py, projection, comparer, |c| c > 0)
     }
 
     /// Returns the element for which the key function returns the smallest value.
@@ -3001,13 +2995,7 @@ impl FSharpArray {
         projection: &Bound<'_, PyAny>,
         comparer: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        reduce_impl(self, py, |acc, item, py| {
-            let acc_key = projection.call1((acc.clone_ref(py),))?;
-            let item_key = projection.call1((item.clone_ref(py),))?;
-            let comparison = comparer.call_method1("Compare", (item_key, acc_key))?;
-            let is_lt = comparison.extract::<i32>()? < 0;
-            Ok(if is_lt { item } else { acc })
-        })
+        extreme_by_impl(self, py, projection, comparer, |c| c < 0)
     }
 
     // Choose implementation (map + filter in one pass)
@@ -5605,6 +5593,37 @@ where
     for i in 1..len {
         let item = array.get_item_at_index(i as isize, py)?;
         acc = f(acc, item, py)?;
+    }
+    Ok(acc)
+}
+
+// Internal minBy/maxBy implementation: projects each element once and keeps the first of tied keys
+fn extreme_by_impl<F>(
+    array: &FSharpArray,
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    comparer: &Bound<'_, PyAny>,
+    replace: F,
+) -> PyResult<Py<PyAny>>
+where
+    F: Fn(i32) -> bool,
+{
+    let len = array.storage.len();
+    if len == 0 {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(
+            "Cannot reduce an empty array.",
+        ));
+    }
+    let mut acc = array.get_item_at_index(0, py)?;
+    let mut acc_key = projection.call1((acc.clone_ref(py),))?;
+    for i in 1..len {
+        let item = array.get_item_at_index(i as isize, py)?;
+        let item_key = projection.call1((item.clone_ref(py),))?;
+        let comparison = comparer.call_method1("Compare", (&item_key, &acc_key))?;
+        if replace(comparison.extract::<i32>()?) {
+            acc = item;
+            acc_key = item_key;
+        }
     }
     Ok(acc)
 }

@@ -870,6 +870,26 @@ let ``test Array.minBy works`` () =
     |> equal 2.
 
 [<Fact>]
+let ``test Array.minBy and Array.maxBy keep the first of tied elements`` () =
+    let xs = [| "a", 1; "b", 0; "c", 0; "d", 1 |]
+    xs |> Array.minBy snd |> equal ("b", 0)
+    xs |> Array.maxBy snd |> equal ("a", 1)
+    xs |> Array.minBy (fun _ -> 0) |> equal ("a", 1)
+
+[<Fact>]
+let ``test Array.minBy and Array.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f x = calls <- calls + 1; x
+    [| 5; 3; 8; 1; 9 |] |> Array.minBy f |> equal 1
+    [| 5; 3; 8; 1; 9 |] |> Array.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
+let ``test Array.min and Array.max keep the first of equal elements`` () =
+    1. / Array.min [| -0.; 0. |] |> equal System.Double.NegativeInfinity
+    1. / Array.max [| 0.; -0. |] |> equal System.Double.PositiveInfinity
+
+[<Fact>]
 let ``test Array.ofList works`` () =
     let xs = [1.; 2.]
     let ys = Array.ofList xs

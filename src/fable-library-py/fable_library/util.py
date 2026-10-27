@@ -337,7 +337,7 @@ def min[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
 
 
 def max[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
-    return x if comparer(x, y) > 0 else y
+    return y if comparer(x, y) < 0 else x
 
 
 def clamp[T](comparer: Callable[[T, T], int], value: T, min: T, max: T):
