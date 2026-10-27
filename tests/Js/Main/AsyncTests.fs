@@ -1658,6 +1658,72 @@ let tests =
         equal "m" (describe (OperationCanceledException("m", cts.Token)))
         equal "m inner" (describe (OperationCanceledException("m", Exception "inner", cts.Token)))
 
+    testCase "CancellationTokenSource.CreateLinkedTokenSource works" <| fun () ->
+        let parent = new CancellationTokenSource()
+        let linked = CancellationTokenSource.CreateLinkedTokenSource(parent.Token)
+        equal false linked.IsCancellationRequested
+        parent.Cancel()
+        equal true linked.IsCancellationRequested
+        let alreadyCancelled = CancellationTokenSource.CreateLinkedTokenSource(parent.Token)
+        equal true alreadyCancelled.IsCancellationRequested
+        let a = new CancellationTokenSource()
+        let b = new CancellationTokenSource()
+        let c = new CancellationTokenSource()
+        let two = CancellationTokenSource.CreateLinkedTokenSource(a.Token, b.Token)
+        let many = CancellationTokenSource.CreateLinkedTokenSource(a.Token, b.Token, c.Token)
+        let array = CancellationTokenSource.CreateLinkedTokenSource([| a.Token; c.Token |])
+        c.Cancel()
+        equal false two.IsCancellationRequested
+        equal true many.IsCancellationRequested
+        equal true array.IsCancellationRequested
+        b.Cancel()
+        equal true two.IsCancellationRequested
+        equal false a.IsCancellationRequested
+
+    testCase "CancellationTokenSource.CreateLinkedTokenSource handles default and missing tokens" <| fun () ->
+        let parent = new CancellationTokenSource()
+        let linked = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken(), parent.Token)
+        let alone = CancellationTokenSource.CreateLinkedTokenSource(Unchecked.defaultof<CancellationToken>)
+        parent.Cancel()
+        equal true linked.IsCancellationRequested
+        equal false alone.IsCancellationRequested
+        raisedExceptionType (fun () -> CancellationTokenSource.CreateLinkedTokenSource(Array.empty<CancellationToken>))
+        |> equal "ArgumentException"
+
+    testCase "Cancelling a linked CancellationTokenSource does not cancel its parents" <| fun () ->
+        let parent = new CancellationTokenSource()
+        let linked = CancellationTokenSource.CreateLinkedTokenSource(parent.Token)
+        linked.Cancel()
+        equal true linked.IsCancellationRequested
+        equal false parent.IsCancellationRequested
+
+    testCase "Disposing a linked CancellationTokenSource unlinks it from its parents" <| fun () ->
+        let parent = new CancellationTokenSource()
+        let mutable fired = 0
+        let linked = CancellationTokenSource.CreateLinkedTokenSource(parent.Token)
+        linked.Token.Register(fun () -> fired <- fired + 1) |> ignore
+        linked.Dispose()
+        do
+            use scoped = CancellationTokenSource.CreateLinkedTokenSource(parent.Token)
+            scoped.Token.Register(fun () -> fired <- fired + 10) |> ignore
+        parent.Cancel()
+        equal 0 fired
+
+    testCase "CancellationTokenRegistration.Dispose and Unregister work" <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable fired = 0
+        let disposed = cts.Token.Register(fun () -> fired <- fired + 1)
+        let unregistered = cts.Token.Register(fun () -> fired <- fired + 10)
+        let kept = cts.Token.Register(fun () -> fired <- fired + 100)
+        disposed.Dispose()
+        equal true (unregistered.Unregister())
+        equal false (unregistered.Unregister())
+        cts.Cancel()
+        equal 100 fired
+        equal false (kept.Unregister())
+        let unassigned = CancellationTokenRegistration()
+        unassigned.Dispose()
+
     testCaseAsync "Async.StartAsTask works" <| fun () ->
         async {
             let t = Async.StartAsTask(async {

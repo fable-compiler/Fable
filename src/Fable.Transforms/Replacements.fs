@@ -4047,12 +4047,15 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let isRegistration =
+        i.DeclaringEntityFullName = "System.Threading.CancellationTokenRegistration"
+
     match i.CompiledName with
     | "get_None" // TODO: implement as non-cancellable token
     | ".ctor" ->
         Helper.LibCall(com, "Async", "createCancellationToken", t, args, i.SignatureArgTypes)
         |> Some
-    | "get_Token" -> thisArg
+    | "get_Token" when not isRegistration -> thisArg
     | "Cancel"
     | "CancelAfter"
     | "get_IsCancellationRequested"
@@ -4072,8 +4075,21 @@ let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             ?loc = r
         )
         |> Some
+    | "CreateLinkedTokenSource" ->
+        let tokens =
+            match args with
+            | [ ExprType(Array _) as tokens ] -> tokens
+            | tokens -> makeArray (List.head i.SignatureArgTypes) tokens
+
+        Helper.LibCall(com, "Async", "createLinkedTokenSource", t, [ tokens ], ?loc = r)
+        |> Some
+    // A default registration is null, see disposables
+    | "Dispose" when isRegistration ->
+        Helper.LibCall(com, "Util", "disposeSafe", t, [ thisArg.Value ], ?loc = r)
+        |> Some
     // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
-    | "Dispose" -> Null Type.Unit |> makeValue r |> Some
+    | "Dispose"
+    | "Unregister" -> Helper.InstanceCall(thisArg.Value, i.CompiledName, t, [], ?loc = r) |> Some
     | "Register" ->
         Helper.InstanceCall(thisArg.Value, "register", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -4993,6 +5009,7 @@ let private replacedModules =
             Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
+            "System.Threading.CancellationTokenRegistration", cancels
             "System.Threading.Monitor", monitor
             "System.Activator", activator
             "System.Text.Encoding", encoding

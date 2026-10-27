@@ -4,7 +4,7 @@ import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
-import { ArgumentException_$ctor_Z384F8060, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
+import { ArgumentException_$ctor_Z384F8060, ArgumentException_$ctor_Z721C83C5, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
 import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
 import type { Option } from "./Option.ts";
 import { markObserved } from "./Task.ts";
@@ -56,11 +56,31 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
-// The parent keeps the listener until unlink is called
+// Like .NET, the parents keep their listener until the linked token is disposed
+class LinkedCancellationToken extends CancellationToken {
+  private readonly _unlink: () => void;
+  constructor(tokens: CancellationToken[]) {
+    super();
+    // A default token is null and never cancelled
+    const parents = tokens.filter((parent) => parent != null);
+    const ids = parents.map((parent) => parent.addListener(() => this.cancel()));
+    this._unlink = () => { parents.forEach((parent, i) => parent.removeListener(ids[i])); };
+  }
+  public Dispose() {
+    this._unlink();
+  }
+}
+
 function createLinkedToken(parent: CancellationToken): [token: CancellationToken, unlink: () => void] {
-  const token = new CancellationToken();
-  const id = parent.addListener(() => token.cancel());
-  return [token, () => { parent.removeListener(id); }];
+  const token = new LinkedCancellationToken([parent]);
+  return [token, () => { token.Dispose(); }];
+}
+
+export function createLinkedTokenSource(tokens: CancellationToken[]): CancellationToken {
+  if (tokens.length === 0) {
+    throw ArgumentException_$ctor_Z721C83C5("No tokens were supplied.");
+  }
+  return new LinkedCancellationToken(tokens);
 }
 
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
