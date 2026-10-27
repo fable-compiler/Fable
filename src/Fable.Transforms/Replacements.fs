@@ -2678,9 +2678,9 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
         let meth, thisArg =
             match thisArg.Type, token |> Option.map (fun token -> token.ToLower()) with
             // float32 has its own shortest round-trip digits
-            | Number(Float32, _), (None | Some "r") -> "formatSingle", thisArg
-            // "R" would print the sign of an int that JS holds as -0
-            | Number(Integers _, _), (None | Some "r") ->
+            | Number(Float32, _), (None | Some("g" | "r")) -> "formatSingle", thisArg
+            // "G" and "R" would print the sign of an int that JS holds as -0
+            | Number(Integers _, _), (None | Some("g" | "r")) ->
                 "format", makeBinOp r thisArg.Type thisArg (makeIntConst 0) BinaryPlus
             | _ -> "format", thisArg
 

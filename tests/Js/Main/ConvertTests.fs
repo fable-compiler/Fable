@@ -873,6 +873,11 @@ let tests =
         |> adaptExponentValue
         |> equal "2.4e+8"
 
+        // JS holds this int as -0
+        [ -("0".Length - 1) ]
+        |> List.map (fun x -> x.ToString("G", CultureInfo.InvariantCulture), x.ToString("g5", CultureInfo.InvariantCulture))
+        |> equal [ ("0", "0") ]
+
     testCase "uint32.ToString 'G' works"
     <| fun () ->
         (255u).ToString("G2", CultureInfo.InvariantCulture)
@@ -931,9 +936,40 @@ let tests =
         |> adaptExponentValue
         |> equal "255.24"
 
-        // (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
-        // |> adaptExponentValue
-        // |> equal "-255.2357"
+        (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-255.2357"
+
+    testCase "float.ToString 'G' chooses the notation like .NET"
+    <| fun () ->
+        (1e-4).ToString("G", CultureInfo.InvariantCulture) |> equal "0.0001"
+        (1.5e-5).ToString("G", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1.5e-5).ToString("g", CultureInfo.InvariantCulture) |> equal "1.5e-05"
+        (1e16).ToString("G", CultureInfo.InvariantCulture) |> equal "10000000000000000"
+        (1e17).ToString("G", CultureInfo.InvariantCulture) |> equal "1E+17"
+        (123456789012345678901.0).ToString("G", CultureInfo.InvariantCulture) |> equal "1.2345678901234568E+20"
+        negZero.ToString("G", CultureInfo.InvariantCulture) |> equal "-0"
+        (123.456).ToString("G0", CultureInfo.InvariantCulture) |> equal "123.456"
+        (1.5e-5).ToString("G3", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1.5e-5).ToString("G17", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (5e-5).ToString("G17", CultureInfo.InvariantCulture) |> equal "5.0000000000000002E-05"
+        negZero.ToString("G17", CultureInfo.InvariantCulture) |> equal "-0"
+        (1e16).ToString("G16", CultureInfo.InvariantCulture) |> equal "1E+16"
+        (1e17).ToString("G20", CultureInfo.InvariantCulture) |> equal "100000000000000000"
+        (0.1 + 0.2).ToString("G20", CultureInfo.InvariantCulture) |> equal "0.30000000000000004441"
+        $"{1.5e-5:G}" |> equal "1.5E-05"
+        String.Format(CultureInfo.InvariantCulture, "{0:g}", 1e17) |> equal "1e+17"
+
+    testCase "float32.ToString 'G' chooses the digits and notation like .NET"
+    <| fun () ->
+        (0.1f).ToString("G", CultureInfo.InvariantCulture) |> equal "0.1"
+        (float32 negZero).ToString("G", CultureInfo.InvariantCulture) |> equal "-0"
+        (1.5e-5f).ToString("G", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1e8f).ToString("G", CultureInfo.InvariantCulture) |> equal "100000000"
+        (1e9f).ToString("g", CultureInfo.InvariantCulture) |> equal "1e+09"
+        (123456789.f).ToString("G", CultureInfo.InvariantCulture) |> equal "123456790"
+        (0.1f).ToString("G9", CultureInfo.InvariantCulture) |> equal "0.100000001"
+        (1e8f).ToString("G5", CultureInfo.InvariantCulture) |> equal "1E+08"
 
     testCase "ToString 'G' keeps the trailing zeros of the integer part"
     <| fun () ->

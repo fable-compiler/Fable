@@ -386,18 +386,21 @@ function shortestSingle(x: number): [string, number] {
   }
 }
 
-// .NET "R": the shortest round-trip digits, in fixed notation unless the exponent is below -4 or at least 17 (9 for a float32)
-function formatGeneral(x: number, format: string, isSingle = false) {
+// .NET "G" and "R": fixed notation unless the exponent is below -4 or reaches the precision (17 for the shortest digits, 9 for a float32)
+function formatGeneral(x: number, format: string, precision: number | null, isSingle = false) {
   if (!Number.isFinite(x)) {
     return String(x);
   }
   const sign = x < 0 || Object.is(x, -0) ? "-" : "";
   x = Math.abs(x);
-  const [significand, exponent] = isSingle ? shortestSingle(x) : splitExponential(x.toExponential());
+  // R ignores the precision and G0 is G
+  const p = format === "r" || format === "R" ? 0 : precision ?? 0;
+  const [significand, exponent] =
+    p > 0 ? splitExponential(x.toExponential(p - 1)) : isSingle ? shortestSingle(x) : splitExponential(x.toExponential());
   const digits = trimEnd(significand, "0") || "0";
-  if (exponent < -4 || exponent >= (isSingle ? 9 : 17)) {
+  if (exponent < -4 || exponent >= (p > 0 ? p : isSingle ? 9 : 17)) {
     const mantissa = digits.length > 1 ? digits[0] + "." + digits.slice(1) : digits;
-    const eChar = format === "R" ? "E" : "e";
+    const eChar = format === "G" || format === "R" ? "E" : "e";
     return sign + mantissa + eChar + (exponent < 0 ? "-" : "+") + padLeft(String(Math.abs(exponent)), 2, "0");
   } else if (exponent < 0) {
     return sign + "0." + "0".repeat(-exponent - 1) + digits;
@@ -407,10 +410,10 @@ function formatGeneral(x: number, format: string, isSingle = false) {
   }
 }
 
-// format for a float32, whose "R" gives the shortest digits that round-trip through float32
+// format for a float32, whose "G" and "R" give the shortest digits that round-trip through float32
 export function formatSingle(str: string, x: number) {
-  const m = /^\{0:([Rr])\d{0,2}\}$/.exec(str);
-  return m != null ? formatGeneral(Math.fround(x), m[1], true) : format(str, x);
+  const m = /^\{0:([GgRr])(\d{0,2})\}$/.exec(str);
+  return m != null ? formatGeneral(Math.fround(x), m[1], m[2] ? parseInt(m[2], 10) : null, true) : format(str, x);
 }
 
 export function format(str: string | object, ...args: any[]) {
@@ -486,16 +489,16 @@ export function format(str: string | object, ...args: any[]) {
           break;
         case "g": case "G":
         case "r": case "R": {
-          if (typeof rep === "number" && (format === "r" || format === "R")) {
-            rep = formatGeneral(rep, format);
+          if (typeof rep === "number") {
+            rep = formatGeneral(rep, format, precision);
             break;
           }
           // Decimals and bigints treat R like G
-          if (precision == null && typeof rep !== "number" && typeof rep !== "bigint") {
+          if (precision == null) {
             rep = String(rep);
             break;
           }
-          rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+          rep = toPrecision(rep, precision);
           // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent.
           // .NET G format guarantees an exponent of at least 2 digits with an explicit sign (e.g. "E-07").
           const eIdx = rep.indexOf("e");
