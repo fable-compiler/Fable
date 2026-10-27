@@ -39,7 +39,7 @@ export function add(t: number, ts: number, wrappedDays?: FSharpRef<number>) {
     return t2 < 0 ? millisecondsPerDay + t2 : t2;
   }
 
-  wrappedDays.contents = ts / millisecondsPerDay;
+  wrappedDays.contents = Math.trunc(ts / millisecondsPerDay);
   let newMs = t + ts % millisecondsPerDay;
 
   if (newMs < 0) {
