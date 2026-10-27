@@ -1064,6 +1064,16 @@ let tests() =
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> ignore)
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)
 
+    testCase "List random functions match FSharp.Core" <| fun () ->
+        List.randomShuffleBy (fun () -> 0.999) [0 .. 4] |> equal [4; 0; 1; 2; 3]
+        List.randomSampleBy (fun () -> 0.0) 3 [0 .. 4] |> equal [0; 4; 3]
+        throwsErrorContaining "randomizer returned NaN, should be in range [0.0, 1.0)." (fun () -> List.randomChoiceBy (fun () -> System.Double.NaN) [1; 2])
+        throwsErrorContaining "The input sequence was empty." (fun () -> List.randomChoiceWith (System.Random(1)) ([]: int list))
+
+    testCase "List.randomShuffleWith and randomSampleWith draw like Array's" <| fun () ->
+        List.randomShuffleWith (System.Random(42)) [0 .. 9] |> equal (List.ofArray (Array.randomShuffleWith (System.Random(42)) [|0 .. 9|]))
+        List.randomSampleWith (System.Random(42)) 3 [0 .. 9] |> equal (List.ofArray (Array.randomSampleWith (System.Random(42)) 3 [|0 .. 9|]))
+
     testCase "List.reduce and List.min on an empty list raise ArgumentException" <| fun () ->
         let xs: int list = []
         raisedExceptionType (fun () -> List.reduce (+) xs) |> equal "ArgumentException"

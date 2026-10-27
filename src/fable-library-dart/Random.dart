@@ -1,8 +1,6 @@
 // ignore_for_file: file_names
 import 'dart:math' as dart_math;
-
-Exception _outOfRange(String paramName) =>
-  Exception('Specified argument was out of the range of valid values. (Parameter $paramName)');
+import 'System.dart' as system;
 
 Exception _nullArg(String paramName) =>
   Exception('Value cannot be null. (Parameter $paramName)');
@@ -16,14 +14,14 @@ class Random {
 
   int Next1(int maxValue) {
     if (maxValue < 0) {
-      throw _outOfRange('maxValue');
+      throw system.ArgumentOutOfRangeException('maxValue', "maxValue ('$maxValue') must be a non-negative value.");
     }
     return Next2(0, maxValue);
   }
 
   int Next2(int minValue, int maxValue) {
     if (maxValue < minValue) {
-      throw _outOfRange('minValue');
+      throw system.ArgumentOutOfRangeException('minValue', "'minValue' cannot be greater than maxValue.");
     }
 
     if (maxValue == minValue) {
@@ -46,3 +44,7 @@ class Random {
     }
   }
 }
+
+final Random _shared = Random();
+
+Random shared() => _shared;
