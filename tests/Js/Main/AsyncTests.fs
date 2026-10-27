@@ -1664,6 +1664,24 @@ let tests =
             equal false completed
         }
 
+    testCaseAsync "Async.StartAsTask tasks that fail while nothing awaits them are not errors" <| fun () ->
+        async {
+            let failing = Async.StartAsTask(async {
+                do! Async.Sleep 5
+                return failwith "unobserved"
+            })
+            Async.StartImmediateAsTask(async { return failwith "unobserved" }) |> ignore
+            let cts = new CancellationTokenSource()
+            Async.StartAsTask(Async.Sleep 1000, cancellationToken = cts.Token) |> ignore
+            cts.Cancel()
+            do! Async.Sleep 30
+            // .NET wraps the failure in an AggregateException
+            let! result = Async.Catch(Async.AwaitTask failing)
+            match result with
+            | Choice2Of2 e -> equal true (e.Message.Contains "unobserved")
+            | Choice1Of2 _ -> failwith "Expected the task to fail"
+        }
+
     testCaseAsync "Async.StartImmediateAsTask works" <| fun () ->
         async {
             let t = Async.StartImmediateAsTask(async { return 42 })

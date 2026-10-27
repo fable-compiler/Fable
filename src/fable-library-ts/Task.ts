@@ -8,10 +8,10 @@ export class TaskCompletionSource<T> {
   public task: Promise<T>;
 
   constructor() {
-    this.task = new Promise<T>((resolve, reject) => {
+    this.task = markObserved(new Promise<T>((resolve, reject) => {
       this._resolve = resolve;
       this._reject = reject;
-    });
+    }));
   }
 
   private trySettle(settle: () => void): boolean {
@@ -56,12 +56,18 @@ export function fromResult<T>(value: T): Promise<T> {
   return Promise.resolve(value);
 }
 
+// Like .NET, a failed task that nothing awaits is not an error, while awaiters still see the failure
+export function markObserved<T>(task: Promise<T>): Promise<T> {
+  task.then(undefined, () => { /* NOP */ });
+  return task;
+}
+
 // Like .NET, the function runs after the caller continues and not at all if the token is cancelled by then
 export function run<T>(f: () => T | PromiseLike<T>, cancellationToken?: CancellationToken): Promise<T> {
-  return Promise.resolve().then(() => {
+  return markObserved(Promise.resolve().then(() => {
     if (cancellationToken?.isCancelled) { throw new OperationCanceledException(); }
     return f();
-  });
+  }));
 }
 
 export function zero(): Promise<void> {
@@ -70,7 +76,7 @@ export function zero(): Promise<void> {
 
 // Like .NET, -1 waits until the token is cancelled
 export function delay(millisecondsDelay: number, cancellationToken?: CancellationToken): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+  return markObserved(new Promise<void>((resolve, reject) => {
     if (cancellationToken?.isCancelled) {
       reject(new OperationCanceledException());
       return;
@@ -86,7 +92,7 @@ export function delay(millisecondsDelay: number, cancellationToken?: Cancellatio
         reject(new OperationCanceledException());
       });
     }
-  });
+  }));
 }
 
 // Task<T> = Promise<T> in JS/TS. GetAwaiter/GetResult return the Promise itself;

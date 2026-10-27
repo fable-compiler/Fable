@@ -295,6 +295,26 @@ let tests =
             equal "boom" result
         }
 
+    testCaseAsync "Faulted and cancelled tasks that nothing awaits are not errors" <| fun () ->
+        async {
+            let failed = TaskCompletionSource<int>()
+            failed.SetException(Exception "unobserved")
+            let cancelled = TaskCompletionSource<int>()
+            cancelled.SetCanceled()
+            let cts = new System.Threading.CancellationTokenSource()
+            Task.Delay(1000, cts.Token) |> ignore
+            cts.Cancel()
+            Task.Run(fun () -> failwith "unobserved"; 1) |> ignore
+            do! Async.Sleep 20
+            let! result = awaitTask (task {
+                try
+                    let! _ = failed.Task
+                    return "completed"
+                with e -> return e.Message
+            })
+            equal "unobserved" result
+        }
+
     testCaseAsync "Task.Delay works" <| fun () ->
         async {
             let mutable steps = []
