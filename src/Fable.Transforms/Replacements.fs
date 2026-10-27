@@ -3767,6 +3767,41 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        // The library class has no CancellationToken property
+        | "System.OperationCanceledException" ->
+            let construct args =
+                Helper.LibCall(
+                    com,
+                    "AsyncBuilder",
+                    "OperationCanceledException",
+                    t,
+                    args,
+                    isConstructor = true,
+                    ?loc = r
+                )
+
+            match List.tryLast i.SignatureArgTypes with
+            | Some(DeclaredTypeFullName Types.cancellationToken) ->
+                let args, dropped = List.splitAt (List.length args - 1) args
+
+                if List.exists (canHaveSideEffects com) dropped then
+                    let bindings, args =
+                        args
+                        |> List.map (fun arg ->
+                            if canHaveSideEffects com arg then
+                                let ident = makeUniqueIdent com ctx arg.Type "arg"
+                                Some(ident, arg), IdentExpr ident
+                            else
+                                None, arg
+                        )
+                        |> List.unzip
+
+                    (List.choose id bindings, Sequential(dropped @ [ construct args ]))
+                    ||> List.foldBack (fun (ident, value) body -> Let(ident, value, body))
+                    |> Some
+                else
+                    construct args |> Some
+            | _ -> construct args |> Some
         | _ ->
             Helper.LibCall(com, "Util", "Exception", Any, args, isConstructor = true)
             |> Some

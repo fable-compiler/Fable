@@ -52,7 +52,7 @@ export function isCancellationRequested(token: CancellationToken) {
 
 export function throwIfCancellationRequested(token: CancellationToken) {
   if (token != null && token.isCancelled) {
-    throw new Exception("Operation is cancelled");
+    throw new OperationCanceledException();
   }
 }
 
@@ -69,7 +69,7 @@ export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T
     const [childToken, unlink] = timeout === undefined
       ? [ctx.cancelToken, () => { /* NOP */ }]
       : createLinkedToken(ctx.cancelToken);
-    const promise = startAsPromise(computation, childToken);
+    const promise = startChildAsPromise(computation, childToken);
     let settled = false;
     const onSettled = () => { settled = true; unlink(); };
 
@@ -94,8 +94,29 @@ export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T
 
     // JS Promises are hot, computation has already started
     // but we delay returning the result
-    protectedReturn(protectedCont<T>((awaitCtx) => awaitPromise(awaitResult())(awaitCtx)))(ctx);
+    protectedReturn(protectedCont<T>((awaitCtx) => awaitChild(awaitResult())(awaitCtx)))(ctx);
   });
+}
+
+// invariant: only a cancelled child rejects with this, so an OperationCanceledException it raised stays an error
+class ChildCancellation {
+  public readonly error: OperationCanceledException;
+  constructor(error: OperationCanceledException) {
+    this.error = error;
+  }
+}
+
+function startChildAsPromise<T>(computation: Async<T>, cancellationToken: CancellationToken) {
+  return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
+    startWithContinuations(computation, resolve, reject,
+      (error: OperationCanceledException) => reject(new ChildCancellation(error)), cancellationToken));
+}
+
+function awaitChild<T>(p: Promise<T>) {
+  return fromContinuations((conts: Continuations<T>) =>
+    p.then(conts[0], (err) => {
+      if (err instanceof ChildCancellation) { conts[2](err.error); } else { conts[1](err); }
+    }));
 }
 
 export function awaitPromise<T>(p: Promise<T>) {
@@ -189,7 +210,7 @@ export function parallel<T>(computations: Iterable<Async<T>>, maxDegreeOfParalle
       `maxDegreeOfParallelism must be positive, was ${maxDegreeOfParallelism}`, "maxDegreeOfParallelism");
   }
   return protectedCont((ctx: IAsyncContext<T[]>) =>
-    awaitPromise(runParallel(Array.from(computations), maxDegreeOfParallelism, ctx.cancelToken))(ctx));
+    awaitChild(runParallel(Array.from(computations), maxDegreeOfParallelism, ctx.cancelToken))(ctx));
 }
 
 function runParallel<T>(computations: Async<T>[], limit: number | undefined, parentToken: CancellationToken) {
@@ -205,7 +226,7 @@ function runParallel<T>(computations: Async<T>[], limit: number | undefined, par
     const startNext = () => {
       const i = next++;
       running++;
-      startAsPromise(computations[i], token)
+      startChildAsPromise(computations[i], token)
         .then(
           (x) => { results[i] = x; },
           (err) => {
@@ -301,14 +322,14 @@ export function sequential<T>(computations: Iterable<Async<T>>) {
   function _sequential(computations: Iterable<Async<T>>, cancelToken: CancellationToken): Promise<T[]> {
     let pr: Promise<T[]> = Promise.resolve([]);
     for (const c of computations) {
-      pr = pr.then(results => startAsPromise(c, cancelToken).then(r => results.concat([r])))
+      pr = pr.then(results => startChildAsPromise(c, cancelToken).then(r => results.concat([r])))
     }
     return pr;
   }
 
   // Children share the parent's cancellation token, like .NET Async.Sequential
   return protectedCont((ctx: IAsyncContext<T[]>) =>
-    awaitPromise<T[]>(_sequential(computations, ctx.cancelToken))(ctx));
+    awaitChild<T[]>(_sequential(computations, ctx.cancelToken))(ctx));
 }
 
 export function sleep(millisecondsDueTime: number) {

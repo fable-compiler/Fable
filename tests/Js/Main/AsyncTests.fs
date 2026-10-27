@@ -30,6 +30,15 @@ let private observeTryCancelled token (work: Async<int>) =
         token)
     calls
 
+let private terminalOf (token: CancellationToken) (work: Async<string>) : Async<string> =
+    Async.FromContinuations(fun (ok, _, _) ->
+        Async.StartWithContinuations(
+            work,
+            (fun value -> ok ("ok: " + value)),
+            (fun error -> ok ("error: " + error.Message)),
+            (fun _ -> ok "cancel"),
+            token))
+
 module private FinalizerRegressions =
     open System
     open System.Threading
@@ -1631,6 +1640,110 @@ let tests =
             cts.Cancel()
             do! Async.Sleep 50
             equal false interrupted
+        }
+
+    testCase "CancellationToken.ThrowIfCancellationRequested raises OperationCanceledException" <| fun () ->
+        let cts = new CancellationTokenSource()
+        cts.Token.ThrowIfCancellationRequested()
+        cts.Cancel()
+        let result =
+            try
+                cts.Token.ThrowIfCancellationRequested()
+                "returned"
+            with :? OperationCanceledException as e -> e.Message
+        equal "The operation was canceled." result
+
+    testCase "OperationCanceledException constructors work" <| fun () ->
+        let describe (e: exn) =
+            match e with
+            | :? OperationCanceledException when isNull e.InnerException -> e.Message
+            | :? OperationCanceledException -> e.Message + " " + e.InnerException.Message
+            | _ -> "other"
+        let cts = new CancellationTokenSource()
+        equal "The operation was canceled." (describe (OperationCanceledException()))
+        equal "m" (describe (OperationCanceledException "m"))
+        equal "m inner" (describe (OperationCanceledException("m", Exception "inner")))
+        equal "The operation was canceled." (describe (OperationCanceledException cts.Token))
+        equal "m" (describe (OperationCanceledException("m", cts.Token)))
+        equal "m inner" (describe (OperationCanceledException("m", Exception "inner", cts.Token)))
+
+    testCase "OperationCanceledException constructors evaluate the CancellationToken argument" <| fun () ->
+        let calls = ResizeArray<string>()
+        let message () = calls.Add "message"; "m"
+        let token () = calls.Add "token"; CancellationToken.None
+        equal "The operation was canceled." (OperationCanceledException(token ())).Message
+        equal "m" (OperationCanceledException(message (), token ())).Message
+        equal "inner" (OperationCanceledException(message (), Exception "inner", token ())).InnerException.Message
+        equal "token,message,token,message,token" (String.concat "," calls)
+
+    testCaseAsync "An OperationCanceledException raised in a child computation is an error" <| fun () ->
+        async {
+            let failing = async { return (raise (OperationCanceledException "user"): int) }
+            let describe result =
+                match result with
+                | Choice2Of2 (e: exn) when (e :? OperationCanceledException) -> e.Message
+                | Choice2Of2 _ -> "other error"
+                | Choice1Of2 _ -> "completed"
+            let! outcome = terminalOf CancellationToken.None (async {
+                let! _ = Async.Parallel [ failing ]
+                return "completed"
+            })
+            equal "error: user" outcome
+            let! outcome = terminalOf CancellationToken.None (async {
+                let other = new CancellationTokenSource()
+                other.Cancel()
+                let! _ = Async.Parallel [ async { other.Token.ThrowIfCancellationRequested() } ]
+                return "completed"
+            })
+            equal "error: The operation was canceled." outcome
+            let! result = Async.Catch(Async.Parallel [ async { return 1 }; failing ])
+            equal "user" (describe result)
+            let! result = Async.Catch(Async.Sequential [ async { return 1 }; failing ])
+            equal "user" (describe result)
+            let! child = Async.StartChild(async {
+                do! Async.Sleep 5
+                return! failing
+            })
+            let! caught =
+                async {
+                    try
+                        let! _ = child
+                        return "completed"
+                    with :? OperationCanceledException as e -> return e.Message
+                }
+            equal "user" caught
+        }
+
+    testCaseAsync "Cancelling the parent cancels Async.Parallel, Async.Sequential and Async.StartChild" <| fun () ->
+        async {
+            let outcomeOf (work: CancellationToken -> Async<unit>) =
+                async {
+                    let cts = new CancellationTokenSource()
+                    cts.CancelAfter 20
+                    return! terminalOf cts.Token (async {
+                        let! token = Async.CancellationToken
+                        try
+                            do! work token
+                            return "completed"
+                        with _ -> return "handled"
+                    })
+                }
+            let waitThenThrow (token: CancellationToken) =
+                async {
+                    do! Async.Sleep 1000
+                    token.ThrowIfCancellationRequested()
+                }
+            let! outcome = outcomeOf (fun _ -> Async.Parallel [ Async.Sleep 1000; Async.Sleep 1000 ] |> Async.Ignore)
+            equal "cancel" outcome
+            let! outcome = outcomeOf (fun token -> Async.Parallel [ waitThenThrow token ] |> Async.Ignore)
+            equal "cancel" outcome
+            let! outcome = outcomeOf (fun _ -> Async.Sequential [ Async.Sleep 1000; Async.Sleep 1000 ] |> Async.Ignore)
+            equal "cancel" outcome
+            let! outcome = outcomeOf (fun token -> async {
+                let! child = Async.StartChild(waitThenThrow token)
+                do! child
+            })
+            equal "cancel" outcome
         }
 
     testCaseAsync "Async.StartAsTask works" <| fun () ->
