@@ -932,10 +932,13 @@ let tail (array: 'T[]) =
     skipImpl array 1
 
 let item (index: int) (array: 'T[]) : 'T =
-    if index < 0 || index >= array.Length then
+    let value = arrayAccessImpl index array
+
+    // Only an out-of-range index reads undefined, so the bounds are checked on that path alone
+    if emitJsExpr value "$0 === undefined" && (index < 0 || index >= array.Length) then
         invalidArg "index" "Index was outside the bounds of the array."
     else
-        arrayAccessImpl index array
+        value
 
 // Using `set` seems to cause issues with the TS
 let setItem (array: 'T[]) (index: int) (value: 'T) =
