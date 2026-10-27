@@ -1836,15 +1836,118 @@ let tests =
             }, cancellationToken = cts.Token)
             cts.Cancel()
             let mutable outcome = "pending"
-            // AwaitTask reports a cancelled task as an exception on .NET and as a cancellation in JS
             Async.StartWithContinuations(
                 Async.AwaitTask t,
                 (fun () -> outcome <- "completed"),
-                (fun _ -> outcome <- "cancelled"),
+                (function
+                 | :? System.Threading.Tasks.TaskCanceledException -> outcome <- "TaskCanceledException"
+                 | _ -> outcome <- "other error"),
                 (fun _ -> outcome <- "cancelled"))
             do! Async.Sleep 300
-            equal "cancelled" outcome
+            equal "TaskCanceledException" outcome
             equal false completed
+        }
+
+    testCaseAsync "Async.AwaitTask raises TaskCanceledException for a cancelled task" <| fun () ->
+        async {
+            let cancelled = new CancellationTokenSource()
+            cancelled.Cancel()
+            let! result = Async.Catch(Async.AwaitTask(System.Threading.Tasks.Task.Delay(1000, cancelled.Token)))
+            match result with
+            | Choice2Of2 (:? System.Threading.Tasks.TaskCanceledException as e) -> equal "A task was canceled." e.Message
+            | _ -> failwith "Expected TaskCanceledException through the error continuation"
+            let cts = new CancellationTokenSource()
+            let t = Async.StartAsTask(Async.Sleep 1000, cancellationToken = cts.Token)
+            cts.Cancel()
+            let! caught =
+                async {
+                    try
+                        do! Async.AwaitTask t
+                        return "completed"
+                    with :? OperationCanceledException -> return "caught"
+                }
+            equal "caught" caught
+        }
+
+    testCase "TaskCanceledException constructors work" <| fun () ->
+        let inner = Exception "inner"
+        let error: exn = System.Threading.Tasks.TaskCanceledException("task failure", inner)
+        match error with
+        | :? System.Threading.Tasks.TaskCanceledException ->
+            equal "task failure" error.Message
+            equal true (obj.ReferenceEquals(inner, error.InnerException))
+        | _ -> failwith "Expected TaskCanceledException"
+        let error: exn = System.Threading.Tasks.TaskCanceledException()
+        match error with
+        | :? OperationCanceledException -> equal "A task was canceled." error.Message
+        | _ -> failwith "Expected an OperationCanceledException"
+
+    testCase "TaskCanceledException constructors evaluate the CancellationToken and Task arguments" <| fun () ->
+        let calls = ResizeArray<string>()
+        let message () = calls.Add "message"; "m"
+        let token () = calls.Add "token"; CancellationToken.None
+        let task () = calls.Add "task"; System.Threading.Tasks.Task.FromResult 1
+        let error = System.Threading.Tasks.TaskCanceledException(message (), Exception "inner", token ())
+        equal "m inner" (error.Message + " " + error.InnerException.Message)
+        equal "A task was canceled." (System.Threading.Tasks.TaskCanceledException(task ())).Message
+        equal "message,token,task" (String.concat "," calls)
+
+    testCaseAsync "A TaskCanceledException raised in a child computation is an error" <| fun () ->
+        async {
+            let describe result =
+                match result with
+                | Choice2Of2 (e: exn) when (e :? System.Threading.Tasks.TaskCanceledException) -> e.Message
+                | Choice2Of2 _ -> "other error"
+                | Choice1Of2 _ -> "completed"
+            let cancelled = new CancellationTokenSource()
+            cancelled.Cancel()
+            let cts = new CancellationTokenSource()
+            let started = Async.StartAsTask(Async.Sleep 1000, cancellationToken = cts.Token)
+            cts.Cancel()
+            let delayed () = Async.AwaitTask(System.Threading.Tasks.Task.Delay(1000, cancelled.Token))
+            let! result = Async.Catch(Async.Parallel [ async { return () }; delayed () ])
+            equal "A task was canceled." (describe result)
+            let! result = Async.Catch(Async.Parallel [ async { return () }; Async.AwaitTask started ])
+            equal "A task was canceled." (describe result)
+            let! result = Async.Catch(Async.Sequential [ async { return () }; delayed () ])
+            equal "A task was canceled." (describe result)
+            let! child = Async.StartChild(Async.AwaitTask started)
+            let! result = Async.Catch child
+            equal "A task was canceled." (describe result)
+        }
+
+    testCaseAsync "try/with does not run its handler once the workflow is cancelled" <| fun () ->
+        async {
+            let handled = ResizeArray<string>()
+            let cts = new CancellationTokenSource()
+            cts.CancelAfter 20
+            let! outcome = terminalOf cts.Token (async {
+                let! token = Async.CancellationToken
+                try
+                    do! Async.AwaitTask(System.Threading.Tasks.Task.Delay(1000, token))
+                with _ -> handled.Add "task"
+                return "completed"
+            })
+            equal "cancel" outcome
+            let cts = new CancellationTokenSource()
+            let! outcome = terminalOf cts.Token (async {
+                try
+                    cts.Cancel()
+                    return failwith "after cancel"
+                with _ ->
+                    handled.Add "exception"
+                    return "handled"
+            })
+            equal "cancel" outcome
+            equal 0 handled.Count
+            let cts = new CancellationTokenSource()
+            cts.CancelAfter 20
+            let! outcome = terminalOf cts.Token (async {
+                let! token = Async.CancellationToken
+                do! Async.AwaitTask(System.Threading.Tasks.Task.Delay(1000, token))
+                return "completed"
+            })
+            equal "error: A task was canceled." outcome
         }
 
     testCaseAsync "Async.StartAsTask tasks that fail while nothing awaits them are not errors" <| fun () ->
