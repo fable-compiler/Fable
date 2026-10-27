@@ -3,31 +3,21 @@ module ListModule
 open Fable.Core
 open Native
 
-[<CustomEquality; CustomComparison>]
 [<CompiledName("FSharpList")>]
 type LinkedList<'T> =
-    {
-        head: 'T
-        mutable tail: LinkedList<'T> option
-    }
+    val head: 'T
+    val mutable tail: LinkedList<'T> option
 
-    static member Empty: 'T list =
+    new(head: 'T, tail: LinkedList<'T> option)
+        =
         {
-            head = Unchecked.defaultof<'T>
-            tail = None
+            head = head
+            tail = tail
         }
 
-    static member Cons(x: 'T, xs: 'T list) =
-        {
-            head = x
-            tail = Some xs
-        }
+    static member inline Cons(x: 'T, xs: 'T list) = LinkedList<'T>(x, Some xs)
 
-    static member inline internal ConsNoTail(x: 'T) =
-        {
-            head = x
-            tail = None
-        }
+    static member inline internal ConsNoTail(x: 'T) = LinkedList<'T>(x, None)
 
     member inline internal xs.SetConsTail(t: 'T list) = xs.tail <- Some t
 
@@ -169,6 +159,16 @@ and ListEnumerator<'T>(xs: 'T list) =
 and 'T list = LinkedList<'T>
 and List<'T> = LinkedList<'T>
 
+// F# has no generic values, so the shared node is typed obj and cast per use
+let private emptyNode: LinkedList<obj> =
+    LinkedList<obj>(Unchecked.defaultof<obj>, None)
+
+let empty<'T> () : 'T list = unbox<'T list> emptyNode
+
+// Builders mutate the tail of their root node, so it must not be the shared empty node
+let inline private newRoot<'T> () : 'T list =
+    List.ConsNoTail(Unchecked.defaultof<'T>)
+
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
 // module List =
@@ -176,11 +176,9 @@ and List<'T> = LinkedList<'T>
 let indexNotFound () =
     raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
-let empty () = List.Empty
-
 let cons (x: 'T) (xs: 'T list) = List.Cons(x, xs)
 
-let singleton x = List.Cons(x, List.Empty)
+let singleton x = List.Cons(x, empty ())
 
 let isEmpty (xs: 'T list) = xs.IsEmpty
 
@@ -261,7 +259,7 @@ let fold<'T, 'State> (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T li
     acc
 
 let reverse (xs: 'T list) =
-    fold (fun acc x -> List.Cons(x, acc)) List.Empty xs
+    fold (fun acc x -> List.Cons(x, acc)) (empty ()) xs
 
 let foldBack<'T, 'State> (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     // fold (fun acc x -> folder x acc) state (reverse xs)
@@ -302,9 +300,9 @@ let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
         | None -> node
         | Some(x, acc) -> loop acc (node.AppendConsNoTail x)
 
-    let root = List.Empty
+    let root = newRoot ()
     let node = loop state root
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let iterate action xs = fold (fun () x -> action x) () xs
@@ -344,24 +342,24 @@ let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
 
     res
 
-let ofArray (xs: 'T[]) = ofArrayWithTail xs List.Empty
+let ofArray (xs: 'T[]) = ofArrayWithTail xs (empty ())
 
 let ofSeq (xs: seq<'T>) : 'T list =
     match xs with
     | :? array<'T> as xs -> ofArray xs
     | :? list<'T> as xs -> xs
     | _ ->
-        let root = List.Empty
+        let root = newRoot ()
         let mutable node = root
 
         for x in xs do
             node <- node.AppendConsNoTail x
 
-        node.SetConsTail List.Empty
+        node.SetConsTail(empty ())
         root.Tail
 
 let concat (lists: seq<'T list>) =
-    let root = List.Empty
+    let root = newRoot ()
     let mutable node = root
 
     let action xs =
@@ -374,11 +372,11 @@ let concat (lists: seq<'T list>) =
         for xs in lists do
             action xs
 
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
     let mutable node = root.AppendConsNoTail state
     let mutable acc = state
     let mutable xs = xs
@@ -388,7 +386,7 @@ let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
         node <- node.AppendConsNoTail acc
         xs <- xs.Tail
 
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
@@ -399,7 +397,7 @@ let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
 let inline private uncheckedTail (xs: 'T list) : 'T list = nativeOnly
 
 let append (xs: 'T list) (ys: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
     let mutable node = root
     let mutable rest = xs
 
@@ -411,7 +409,7 @@ let append (xs: 'T list) (ys: 'T list) =
     root.Tail
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
     let mutable node = root
     let mutable ys = xs
 
@@ -424,30 +422,30 @@ let collect (mapping: 'T -> 'U list) (xs: 'T list) =
 
         ys <- ys.Tail
 
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
     let folder i (acc: 'U list) x = acc.AppendConsNoTail(mapping i x)
     let node = foldIndexed folder root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let map (mapping: 'T -> 'U) (xs: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
     let folder (acc: 'U list) x = acc.AppendConsNoTail(mapping x)
     let node = fold folder root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let indexed xs = mapIndexed (fun i x -> (i, x)) xs
 
 let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
-    let root = List.Empty
+    let root = newRoot ()
     let folder (acc: 'U list) x y = acc.AppendConsNoTail(mapping x y)
     let node = fold2 folder root xs ys
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
@@ -458,9 +456,9 @@ let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list)
             let node = acc.AppendConsNoTail(mapping i xs.Head ys.Head)
             loop (i + 1) node xs.Tail ys.Tail
 
-    let root = List.Empty
+    let root = newRoot ()
     let node = loop 0 root xs ys
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
@@ -471,9 +469,9 @@ let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: '
             let node = acc.AppendConsNoTail(mapping xs.Head ys.Head zs.Head)
             loop node xs.Tail ys.Tail zs.Tail
 
-    let root = List.Empty
+    let root = newRoot ()
     let node = loop root xs ys zs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T list) =
@@ -481,9 +479,9 @@ let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T 
         let r, st = mapping st x
         node.AppendConsNoTail r, st
 
-    let root = List.Empty
+    let root = newRoot ()
     let node, state = fold folder (root, state) xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail, state
 
 let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
@@ -569,7 +567,7 @@ let tryItem n (xs: 'T list) =
 let item n (xs: 'T list) = xs.Item(n)
 
 let filter f (xs: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
 
     let folder (acc: 'T list) x =
         if f x then
@@ -578,11 +576,11 @@ let filter f (xs: 'T list) =
             acc
 
     let node = fold folder root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let partition f (xs: 'T list) =
-    let root1, root2 = List.Empty, List.Empty
+    let root1, root2 = newRoot (), newRoot ()
 
     let folder (lacc: 'T list, racc: 'T list) x =
         if f x then
@@ -591,12 +589,12 @@ let partition f (xs: 'T list) =
             lacc, racc.AppendConsNoTail x
 
     let node1, node2 = fold folder (root1, root2) xs
-    node1.SetConsTail List.Empty
-    node2.SetConsTail List.Empty
+    node1.SetConsTail(empty ())
+    node2.SetConsTail(empty ())
     root1.Tail, root2.Tail
 
 let choose<'T, 'U> (f: 'T -> 'U option) (xs: 'T list) =
-    let root = List.Empty
+    let root = newRoot ()
 
     let folder (acc: 'U list) x =
         match f x with
@@ -604,20 +602,20 @@ let choose<'T, 'U> (f: 'T -> 'U option) (xs: 'T list) =
         | None -> acc
 
     let node = fold folder root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
     tryFindIndex (fun v -> eq.Equals(value, v)) xs |> Option.isSome
 
 let initialize n (f: int -> 'T) =
-    let root = List.Empty
+    let root = newRoot ()
     let mutable node = root
 
     for i = 0 to n - 1 do
         node <- node.AppendConsNoTail(f i)
 
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let replicate n x = initialize n (fun _ -> x)
@@ -648,13 +646,13 @@ let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
     | _ -> invalidArg "list2" SR.differentLengths
 
 let unzip xs =
-    foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (List.Empty, List.Empty)
+    foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (empty (), empty ())
 
 let unzip3 xs =
     foldBack
         (fun (x, y, z) (lacc, macc, racc) -> List.Cons(x, lacc), List.Cons(y, macc), List.Cons(z, racc))
         xs
-        (List.Empty, List.Empty, List.Empty)
+        (empty (), empty (), empty ())
 
 let zip xs ys = map2 (fun x y -> x, y) xs ys
 
@@ -754,12 +752,12 @@ let chunkBySize (chunkSize: int) (xs: 'T list) : 'T list list =
     toArray xs |> Array.chunkBySize chunkSize |> Array.map ofArray |> ofArray
 
 let allPairs (xs: 'T1 list) (ys: 'T2 list) : ('T1 * 'T2) list =
-    let root = List.Empty
+    let root = newRoot ()
     let mutable node = root
 
     iterate (fun x -> iterate (fun y -> node <- node.AppendConsNoTail(x, y)) ys) xs
 
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let rec skip count (xs: 'T list) =
@@ -790,9 +788,9 @@ let take count (xs: 'T list) =
         else
             loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
 
-    let root = List.Empty
+    let root = newRoot ()
     let node = loop count root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let takeWhile predicate (xs: 'T list) =
@@ -804,9 +802,9 @@ let takeWhile predicate (xs: 'T list) =
         else
             loop (acc.AppendConsNoTail xs.Head) xs.Tail
 
-    let root = List.Empty
+    let root = newRoot ()
     let node = loop root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let truncate count (xs: 'T list) =
@@ -818,9 +816,9 @@ let truncate count (xs: 'T list) =
         else
             loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
 
-    let root = List.Empty
+    let root = newRoot ()
     let node = loop count root xs
-    node.SetConsTail List.Empty
+    node.SetConsTail(empty ())
     root.Tail
 
 let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
@@ -843,7 +841,7 @@ let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
             index
 
     if endIndex < startIndex then
-        List.Empty
+        (empty ())
     else
         xs |> skip startIndex |> take (endIndex - startIndex + 1)
 
@@ -904,7 +902,7 @@ let insertAt (index: int) (y: 'T) (xs: 'T list) : 'T list =
     let mutable isDone = false
 
     let result =
-        (List.Empty, xs)
+        (empty (), xs)
         ||> fold (fun acc x ->
             i <- i + 1
 
@@ -931,7 +929,7 @@ let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T list) : 'T list =
     let ys = ofSeq ys
 
     let result =
-        (List.Empty, xs)
+        (empty (), xs)
         ||> fold (fun acc x ->
             i <- i + 1
 
