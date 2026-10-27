@@ -3473,17 +3473,18 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | ".ctor", _ ->
         Helper.LibCall(com, "util", "create_random", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "get_Shared", None -> Helper.LibCall(com, "util", "random_shared", t, [], ?loc = r) |> Some
     | "Next", Some thisArg ->
-        let min, max =
+        let moduleName, meth, args =
             match args with
-            | [] -> makeIntConst 0, makeIntConst System.Int32.MaxValue
-            | [ max ] -> makeIntConst 0, max
-            | [ min; max ] -> min, max
+            | [] -> "util", "random_int", [ thisArg; makeIntConst 0; makeIntConst System.Int32.MaxValue ]
+            // These check the arguments like .NET
+            | [ _ ] -> "random_", "next_max", thisArg :: args
+            | [ _; _ ] -> "random_", "next_range", thisArg :: args
             | _ -> FableError "Unexpected arg count for Random.Next" |> raise
 
-        let args = [ thisArg; min; max ]
-        let argTypes = [ thisArg.Type; min.Type; max.Type ]
-        Helper.LibCall(com, "util", "random_int", t, args, argTypes, ?loc = r) |> Some
+        let argTypes = args |> List.map (fun a -> a.Type)
+        Helper.LibCall(com, moduleName, meth, t, args, argTypes, ?loc = r) |> Some
     | "NextDouble", Some thisArg ->
         let args = [ thisArg ]
         let argTypes = [ thisArg.Type ]

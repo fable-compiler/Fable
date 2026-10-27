@@ -755,6 +755,13 @@ def create_random(seed: int | None = None) -> random.Random:
     return random.Random(None if seed is None else int(seed))
 
 
+_shared_random = random.Random()
+
+
+def random_shared() -> random.Random:
+    return _shared_random
+
+
 def random_int(rand: random.Random, a: int, b: int) -> int:
     if a == b:
         return int32(a)
@@ -980,6 +987,7 @@ __all__ = [
     "random_bytes",
     "random_double",
     "random_int",
+    "random_shared",
     "range",
     "round",
     "to_iterable",
