@@ -1114,15 +1114,24 @@ let sum (xs: seq<'T>) ([<Inject>] adder: IGenericAdder<'T>) : 'T =
 let sumBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] adder: IGenericAdder<'U>) : 'U =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: IComparer<'U>) : 'T =
-    reduce
-        (fun x y ->
-            if comparer.Compare(projection y, projection x) > 0 then
-                y
-            else
-                x
-        )
-        xs
+let maxBy (projection: 'T -> 'U) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'U>) : 'T =
+    use e = ofSeq xs
+
+    if not (e.MoveNext()) then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    let mutable acc = e.Current
+    let mutable accv = projection acc
+
+    while e.MoveNext() do
+        let x = e.Current
+        let v = projection x
+
+        if comparer.Compare(v, accv) > 0 then
+            acc <- x
+            accv <- v
+
+    acc
 
 let max xs ([<Inject>] comparer: IComparer<'T>) : 'T =
     reduce
@@ -1134,23 +1143,32 @@ let max xs ([<Inject>] comparer: IComparer<'T>) : 'T =
         )
         xs
 
-let minBy (projection: 'T -> 'U) xs ([<Inject>] comparer: IComparer<'U>) : 'T =
-    reduce
-        (fun x y ->
-            if comparer.Compare(projection y, projection x) > 0 then
-                x
-            else
-                y
-        )
-        xs
+let minBy (projection: 'T -> 'U) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'U>) : 'T =
+    use e = ofSeq xs
+
+    if not (e.MoveNext()) then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    let mutable acc = e.Current
+    let mutable accv = projection acc
+
+    while e.MoveNext() do
+        let x = e.Current
+        let v = projection x
+
+        if comparer.Compare(v, accv) < 0 then
+            acc <- x
+            accv <- v
+
+    acc
 
 let min (xs: seq<'T>) ([<Inject>] comparer: IComparer<'T>) : 'T =
     reduce
         (fun x y ->
-            if comparer.Compare(y, x) > 0 then
-                x
-            else
+            if comparer.Compare(y, x) < 0 then
                 y
+            else
+                x
         )
         xs
 

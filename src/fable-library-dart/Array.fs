@@ -958,14 +958,21 @@ let sumBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] adder: IGenericAdder
     acc
 
 let maxBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a =
-    reduce
-        (fun x y ->
-            if comparer.Compare(projection y, projection x) > 0 then
-                y
-            else
-                x
-        )
-        xs
+    if Array.isEmpty xs then
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+
+    let mutable acc = xs[0]
+    let mutable accv = projection acc
+
+    for i = 1 to xs.Length - 1 do
+        let x = xs[i]
+        let v = projection x
+
+        if comparer.Compare(v, accv) > 0 then
+            acc <- x
+            accv <- v
+
+    acc
 
 let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
     reduce
@@ -978,22 +985,29 @@ let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
         xs
 
 let minBy (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>) : 'a =
-    reduce
-        (fun x y ->
-            if comparer.Compare(projection y, projection x) > 0 then
-                x
-            else
-                y
-        )
-        xs
+    if Array.isEmpty xs then
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+
+    let mutable acc = xs[0]
+    let mutable accv = projection acc
+
+    for i = 1 to xs.Length - 1 do
+        let x = xs[i]
+        let v = projection x
+
+        if comparer.Compare(v, accv) < 0 then
+            acc <- x
+            accv <- v
+
+    acc
 
 let min (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
     reduce
         (fun x y ->
-            if comparer.Compare(y, x) > 0 then
-                x
-            else
+            if comparer.Compare(y, x) < 0 then
                 y
+            else
+                x
         )
         xs
 
