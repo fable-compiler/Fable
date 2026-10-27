@@ -450,6 +450,10 @@ get_options(#{options := O}) -> O.
 
 %% --- Internal helpers ---
 
+options_to_erl(Options) when is_integer(Options), Options band bnot (1 bor 2 bor 8 bor 16 bor 256 bor 1024) =/= 0 ->
+    erlang:error(
+        <<"RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline, ECMAScript and NonBacktracking">>
+    );
 options_to_erl(Options) when is_integer(Options) ->
     Flags = [],
     %% IgnoreCase

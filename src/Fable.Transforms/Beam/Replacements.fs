@@ -3516,13 +3516,25 @@ let mailbox (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let private regex
     (com: ICompiler)
-    (_ctx: Context)
+    (ctx: Context)
     r
     (t: Type)
     (info: CallInfo)
     (thisArg: Expr option)
     (args: Expr list)
     =
+    checkRegexOptions
+        com
+        ctx
+        r
+        (RegexOption.IgnoreCase
+         ||| RegexOption.Multiline
+         ||| RegexOption.Compiled
+         ||| RegexOption.Singleline
+         ||| RegexOption.ECMAScript
+         ||| RegexOption.NonBacktracking)
+        args
+
     match info.CompiledName, thisArg, args with
     // Constructor
     | ".ctor", _, [ pattern ] -> Helper.LibCall(com, "fable_regex", "create", t, [ pattern ], ?loc = r) |> Some

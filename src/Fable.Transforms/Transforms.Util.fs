@@ -312,6 +312,8 @@ module Types =
     [<Literal>]
     let regexCaptureCollection = "System.Text.RegularExpressions.CaptureCollection"
 
+    let regexOptions = "System.Text.RegularExpressions.RegexOptions"
+
     [<Literal>]
     let random = "System.Random"
 

@@ -58,6 +58,10 @@ class MatchCollection:
 
 def _options_to_flags(options: int) -> int:
     """Convert .NET options to Python flags."""
+    if options & ~(1 | 2 | 8 | 16 | 256 | 1024):
+        raise Exception(
+            "RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline, ECMAScript and NonBacktracking"
+        )
     flags = 256
     if options & 1:
         flags |= re.IGNORECASE

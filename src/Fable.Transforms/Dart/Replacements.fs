@@ -3309,6 +3309,18 @@ let regexMatchToSeq com t e =
     Helper.LibCall(com, "RegExp", "GroupIterable", t, [ e ])
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    checkRegexOptions
+        com
+        ctx
+        r
+        (RegexOption.IgnoreCase
+         ||| RegexOption.Multiline
+         ||| RegexOption.Compiled
+         ||| RegexOption.Singleline
+         ||| RegexOption.ECMAScript
+         ||| RegexOption.NonBacktracking)
+        args
+
     let isGroup =
         function
         | ExprType(DeclaredTypeFullName Types.regexGroup) -> true

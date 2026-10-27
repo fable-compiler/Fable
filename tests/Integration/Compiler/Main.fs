@@ -14,6 +14,7 @@ let allTests =
         CompilerHelpers.tests
         Inflate.tests
         WatchDependency.tests
+        RegexOptions.tests
     ]
 
 
