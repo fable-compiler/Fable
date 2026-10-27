@@ -363,6 +363,56 @@ function thousandSeparate(value: string) {
   return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+// The digits and the exponent of toExponential's output
+function splitExponential(s: string): [string, number] {
+  const eIdx = s.indexOf("e");
+  return [s.slice(0, eIdx).replace(".", ""), Number(s.slice(eIdx + 1))];
+}
+
+// The nearest of the shortest digits that round-trip through float32 (ties to even, as .NET picks them)
+function shortestSingle(x: number): [string, number] {
+  // 100 digits tell where a float32 lies between two candidates, and 9 digits always round-trip
+  const [digits, exponent] = splitExponential(x.toExponential(99));
+  for (let p = 1; ; p++) {
+    const down = Number(digits.slice(0, p));
+    const rest = digits.slice(p);
+    const half = "5".padEnd(rest.length, "0");
+    const roundUp = rest > half || rest === half && down % 2 === 1;
+    for (const n of roundUp ? [down + 1, down] : [down, down + 1]) {
+      if (Math.fround(Number(n + "e" + (exponent - p + 1))) === x) {
+        return [String(n), exponent + String(n).length - p];
+      }
+    }
+  }
+}
+
+// .NET "R": the shortest round-trip digits, in fixed notation unless the exponent is below -4 or at least 17 (9 for a float32)
+function formatGeneral(x: number, format: string, isSingle = false) {
+  if (!Number.isFinite(x)) {
+    return String(x);
+  }
+  const sign = x < 0 || Object.is(x, -0) ? "-" : "";
+  x = Math.abs(x);
+  const [significand, exponent] = isSingle ? shortestSingle(x) : splitExponential(x.toExponential());
+  const digits = trimEnd(significand, "0") || "0";
+  if (exponent < -4 || exponent >= (isSingle ? 9 : 17)) {
+    const mantissa = digits.length > 1 ? digits[0] + "." + digits.slice(1) : digits;
+    const eChar = format === "R" ? "E" : "e";
+    return sign + mantissa + eChar + (exponent < 0 ? "-" : "+") + padLeft(String(Math.abs(exponent)), 2, "0");
+  } else if (exponent < 0) {
+    return sign + "0." + "0".repeat(-exponent - 1) + digits;
+  } else {
+    const decimals = digits.slice(exponent + 1);
+    return sign + digits.slice(0, exponent + 1).padEnd(exponent + 1, "0") + (decimals ? "." + decimals : "");
+  }
+}
+
+// format for a float32, whose "R" gives the shortest digits that round-trip through float32
+export function formatSingle(str: string, x: number) {
+  const m = /^\{0:([Rr])\d{0,2}\}$/.exec(str);
+  return m != null ? formatGeneral(Math.fround(x), m[1], true) : format(str, x);
+}
+
 export function format(str: string | object, ...args: any[]) {
   let str2: string;
   if (typeof str === "object") {
@@ -434,7 +484,13 @@ export function format(str: string | object, ...args: any[]) {
             rep = parts.integral + "." + padRight(parts.decimal, precision, "0");
           }
           break;
-        case "g": case "G": {
+        case "g": case "G":
+        case "r": case "R": {
+          if (typeof rep === "number" && (format === "r" || format === "R")) {
+            rep = formatGeneral(rep, format);
+            break;
+          }
+          // Decimals and bigints treat R like G
           if (precision == null && typeof rep !== "number" && typeof rep !== "bigint") {
             rep = String(rep);
             break;
@@ -448,7 +504,7 @@ export function format(str: string | object, ...args: any[]) {
             const expSign = rep[eIdx + 1]; // toPrecision always emits "+" or "-"
             const expDigits = rep.slice(eIdx + 2);
             const paddedExpDigits = expDigits.length < 2 ? "0" + expDigits : expDigits;
-            const eChar = format === "G" ? "E" : "e";
+            const eChar = format === "G" || format === "R" ? "E" : "e";
             rep = mantissa + eChar + expSign + paddedExpDigits;
           } else if (rep.indexOf(".") >= 0) {
             rep = trimEnd(trimEnd(rep, "0"), ".");
@@ -475,8 +531,6 @@ export function format(str: string | object, ...args: any[]) {
             rep = thousandSeparate(parts.integral) + " %";
           }
           break;
-        case "r": case "R":
-          throw new Exception("The round-trip format is not supported by Fable");
         case "x": case "X":
           if (!isIntegral(rep)) {
             throw new Exception("Format specifier was invalid.");
