@@ -7,6 +7,7 @@ import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } f
 import { ArgumentException_$ctor_Z384F8060, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
 import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
 import type { Option } from "./Option.ts";
+import { markObserved } from "./Task.ts";
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -370,9 +371,9 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
 }
 
 export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
-  return startAsPromise(computation, cancellationToken);
+  return markObserved(startAsPromise(computation, cancellationToken));
 }
 
 export function startImmediateAsTask<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
-  return startAsPromise(computation, cancellationToken);
+  return markObserved(startAsPromise(computation, cancellationToken));
 }
