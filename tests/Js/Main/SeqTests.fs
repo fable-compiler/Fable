@@ -1007,6 +1007,28 @@ let tests =
         throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toArray |> ignore)
         throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> Seq.toArray |> ignore)
 
+    testCase "Seq random functions give .NET's results for the same seed" <| fun () ->
+        let rng = System.Random(42)
+        Seq.randomShuffleWith rng [0 .. 4] |> Seq.toList |> equal [3; 1; 2; 4; 0]
+        rng.Next() |> equal 361709742
+        let rng = System.Random(7)
+        Seq.randomSampleWith rng 5 [0 .. 21] |> Seq.toList |> equal [8; 19; 14; 1; 0]
+        rng.Next() |> equal 2048632168
+
+    testCase "Seq.randomChoicesWith draws on enumeration" <| fun () ->
+        let rng = System.Random(42)
+        let xs = Seq.randomChoicesWith rng 3 [0 .. 9]
+        rng.Next() |> equal 1434747710
+        xs |> Seq.toList |> equal [1; 1; 5]
+        xs |> Seq.toList |> equal [1; 2; 7]
+        let mutable calls = 0
+        let ys = Seq.randomChoicesBy (fun () -> calls <- calls + 1; 0.5) 3 [0 .. 9]
+        calls |> equal 0
+        ys |> Seq.toList |> equal [5; 5; 5]
+        calls |> equal 3
+        throwsError "The input must be non-negative.\ncount = -1 (Parameter 'count')" (fun () -> Seq.randomChoicesWith rng -1 [1])
+        throwsError "The input sequence was empty. (Parameter 'source')" (fun () -> Seq.randomChoicesWith rng 1 Seq.empty<int>)
+
     testCase "Seq.item throws exception when index is out of range" <| fun () ->
         let xs = [0]
         (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true

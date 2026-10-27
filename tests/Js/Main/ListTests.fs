@@ -1076,6 +1076,21 @@ let tests =
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> ignore)
         throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)
 
+    testCase "List random functions give .NET's results for the same seed" <| fun () ->
+        let rng = System.Random(42)
+        List.randomShuffleWith rng [0 .. 4] |> equal [3; 1; 2; 4; 0]
+        rng.Next() |> equal 361709742
+        let rng = System.Random(42)
+        List.randomSampleWith rng 10 [0 .. 99] |> equal [66; 14; 12; 52; 16; 26; 72; 51; 17; 76]
+        rng.Next() |> equal 503774878
+        List.randomShuffleBy (fun () -> 0.999) [0 .. 4] |> equal [4; 0; 1; 2; 3]
+        List.randomSampleBy (fun () -> 0.0) 3 [0 .. 4] |> equal [0; 4; 3]
+
+    testCase "List random functions give FSharp.Core's error messages" <| fun () ->
+        throwsError "The index is outside the legal range.\nrandomizer returned NaN, should be in range [0.0, 1.0). (Parameter 'randomizer')" (fun () -> List.randomChoiceBy (fun () -> nan) [1; 2])
+        throwsError "The input sequence was empty. (Parameter 'source')" (fun () -> List.randomChoiceWith (System.Random(1)) ([]: int list))
+        throwsError "The input must be non-negative.\ncount = -1 (Parameter 'count')" (fun () -> List.randomChoicesWith (System.Random(1)) -1 [1])
+
     testCase "List functions raise ArgumentException on empty lists" <| fun () ->
         let xs: int list = []
         raisedExceptionType (fun () -> List.head xs) |> equal "ArgumentException"

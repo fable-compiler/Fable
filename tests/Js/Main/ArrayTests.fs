@@ -1561,6 +1561,64 @@ let tests =
         throwsAnyError (fun () -> Array.randomSampleBy (fun () -> 1.0) 1 [|1; 2|] |> ignore)
         throwsAnyError (fun () -> Array.randomSampleBy (fun () -> -0.1) 1 [|1; 2|] |> ignore)
 
+    testCase "Array.randomShuffleWith gives .NET's results for the same seed" <| fun () ->
+        let rng = System.Random(42)
+        Array.randomShuffleWith rng [|0 .. 4|] |> equal [|3; 1; 2; 4; 0|]
+        rng.Next() |> equal 361709742
+        let rng = System.Random(12345)
+        Array.randomShuffleWith rng [|0 .. 9|] |> equal [|0; 1; 8; 6; 2; 9; 3; 5; 4; 7|]
+        rng.Next() |> equal 1086637143
+        let rng = System.Random(42)
+        let xs = [|0 .. 9|]
+        Array.randomShuffleInPlaceWith rng xs
+        xs |> equal [|6; 2; 3; 0; 5; 1; 8; 4; 7; 9|]
+        rng.Next() |> equal 1634773126
+
+    testCase "Array.randomShuffleBy gives .NET's results" <| fun () ->
+        Array.randomShuffleBy (fun () -> 0.0) [|0 .. 4|] |> equal [|0; 1; 2; 3; 4|]
+        Array.randomShuffleBy (fun () -> 0.999) [|0 .. 4|] |> equal [|4; 0; 1; 2; 3|]
+        let xs = [|0 .. 4|]
+        Array.randomShuffleInPlaceBy (fun () -> 0.999) xs
+        xs |> equal [|4; 0; 1; 2; 3|]
+
+    testCase "Array.randomSampleWith gives .NET's results for the same seed" <| fun () ->
+        let rng = System.Random(42)
+        Array.randomSampleWith rng 3 [|0 .. 4|] |> equal [|3; 0; 4|]
+        rng.Next() |> equal 1122627734
+        let rng = System.Random(12345)
+        Array.randomSampleWith rng 10 [|0 .. 29|] |> equal [|2; 29; 21; 13; 20; 25; 3; 16; 5; 10|]
+        rng.Next() |> equal 494509053
+        let rng = System.Random(42)
+        Array.randomSampleWith rng 10 [|0 .. 99|] |> equal [|66; 14; 12; 52; 16; 26; 72; 51; 17; 76|]
+        rng.Next() |> equal 503774878
+        // Draws again on a repeated index
+        let rng = System.Random(7)
+        Array.randomSampleWith rng 5 [|0 .. 21|] |> equal [|8; 19; 14; 1; 0|]
+        rng.Next() |> equal 2048632168
+
+    testCase "Array.randomSampleBy gives .NET's results" <| fun () ->
+        Array.randomSampleBy (fun () -> 0.0) 3 [|0 .. 4|] |> equal [|0; 4; 3|]
+        Array.randomSampleBy (fun () -> 0.999) 3 [|0 .. 4|] |> equal [|4; 3; 2|]
+
+    testCase "Array.randomChoicesWith gives .NET's results for the same seed" <| fun () ->
+        let rng = System.Random(42)
+        Array.randomChoicesWith rng 4 [|0 .. 9|] |> equal [|6; 1; 1; 5|]
+        rng.Next() |> equal 361709742
+
+    testCase "Array random functions give FSharp.Core's error messages" <| fun () ->
+        let nanMessage = "The index is outside the legal range.\nrandomizer returned NaN, should be in range [0.0, 1.0). (Parameter 'randomizer')"
+        throwsError nanMessage (fun () -> Array.randomShuffleBy (fun () -> nan) [|1; 2|])
+        throwsError nanMessage (fun () -> Array.randomShuffleInPlaceBy (fun () -> nan) [|1; 2|])
+        throwsError nanMessage (fun () -> Array.randomChoiceBy (fun () -> nan) [|1; 2|])
+        throwsError nanMessage (fun () -> Array.randomChoicesBy (fun () -> nan) 2 [|1; 2|])
+        throwsError nanMessage (fun () -> Array.randomSampleBy (fun () -> nan) 1 [|1; 2|])
+        raisedExceptionType (fun () -> Array.randomSampleBy (fun () -> nan) 1 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+        throwsError "The index is outside the legal range.\nrandomizer returned 1, should be in range [0.0, 1.0). (Parameter 'randomizer')" (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1; 2|])
+        throwsError "The input array was empty. (Parameter 'source')" (fun () -> Array.randomChoiceWith (System.Random(1)) ([||]: int[]))
+        throwsError "The input sequence was empty. (Parameter 'source')" (fun () -> Array.randomSampleWith (System.Random(1)) 1 ([||]: int[]))
+        throwsError "The input must be non-negative.\ncount = -1 (Parameter 'count')" (fun () -> Array.randomChoicesWith (System.Random(1)) -1 [|1|])
+        throwsError "The input must be non-negative.\ncount = -1 (Parameter 'count')" (fun () -> Array.randomSampleBy (fun () -> 0.0) -1 [|1|])
+
     testCase "Array.compareWith works" <| fun () -> // See #2961
         let a = [|1;3|]
         let b = [|1;2;3|]

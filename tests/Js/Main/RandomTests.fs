@@ -84,6 +84,27 @@ let tests =
         throwsAnyError <| fun () -> rnd.Next(14, 10)
         throwsAnyError <| fun () -> rnd.NextBytes(null)
 
+    testCase "System.Random seeded Next works for ranges above Int32.MaxValue" <| fun () ->
+        let rnd = Random(42)
+        rnd.Next(Int32.MinValue, Int32.MaxValue) |> equal 1434747709
+        rnd.Next(Int32.MinValue, Int32.MaxValue) |> equal -269548476
+        let rnd = Random(0)
+        [ for _ in 1 .. 3 -> rnd.Next(-1000000000, 2000000000) ] |> equal [-589364906; 1652034034; 809049730]
+
+    testCase "System.Random gives .NET's argument errors" <| fun () ->
+        for rnd in [Random(42); Random()] do
+            throwsErrorContaining "maxValue ('-1') must be a non-negative value. (Parameter 'maxValue')" (fun () -> rnd.Next(-1))
+            throwsError "'minValue' cannot be greater than maxValue. (Parameter 'minValue')" (fun () -> rnd.Next(5, 3))
+            raisedExceptionType (fun () -> rnd.Next(-1)) |> equal "ArgumentOutOfRangeException"
+            raisedExceptionType (fun () -> rnd.Next(5, 3)) |> equal "ArgumentOutOfRangeException"
+
+    testCase "System.Random.Shared works" <| fun () ->
+        let x = Random.Shared.Next(5)
+        (x >= 0 && x < 5) |> equal true
+        let x = Random.Shared.NextDouble()
+        (x >= 0.0 && x < 1.0) |> equal true
+        obj.ReferenceEquals(Random.Shared, Random.Shared) |> equal true
+
     testCase "System.Random seeded passes chi-squared test" <| fun () ->
         let rnd = Random(2026)
         let statistic = chiSquaredStatistic 16 10000 (fun () -> rnd.Next(16))
