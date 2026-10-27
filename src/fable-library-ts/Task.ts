@@ -56,6 +56,14 @@ export function fromResult<T>(value: T): Promise<T> {
   return Promise.resolve(value);
 }
 
+// Like .NET, the function runs after the caller continues and not at all if the token is cancelled by then
+export function run<T>(f: () => T | PromiseLike<T>, cancellationToken?: CancellationToken): Promise<T> {
+  return Promise.resolve().then(() => {
+    if (cancellationToken?.isCancelled) { throw new OperationCanceledException(); }
+    return f();
+  });
+}
+
 export function zero(): Promise<void> {
   return Promise.resolve();
 }

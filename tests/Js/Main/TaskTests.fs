@@ -252,6 +252,49 @@ let tests =
             equal "cancelled" result
         }
 
+    testCaseAsync "Task.Run works" <| fun () ->
+        async {
+            let! a = awaitTask (Task.Run(fun () -> 41 + 1))
+            equal 42 a
+            let! b = awaitTask (Task.Run<int>(Func<Task<int>>(fun () -> task { return 7 })))
+            equal 7 b
+            let mutable ran = 0
+            do! Async.AwaitTask(Task.Run(fun () -> ran <- ran + 1))
+            do! Async.AwaitTask(Task.Run(fun () -> (task { ran <- ran + 1 } : Task)))
+            equal 2 ran
+            let cts = new System.Threading.CancellationTokenSource()
+            let! c = awaitTask (Task.Run((fun () -> 5), cts.Token))
+            equal 5 c
+        }
+
+    testCaseAsync "Task.Run with a cancelled token gives a cancelled task" <| fun () ->
+        async {
+            let cts = new System.Threading.CancellationTokenSource()
+            cts.Cancel()
+            let mutable ran = false
+            let t = Task.Run((fun () -> ran <- true; 1), cts.Token)
+            let! result = awaitTask (task {
+                try
+                    let! _ = t
+                    return "completed"
+                with :? OperationCanceledException -> return "cancelled"
+            })
+            equal "cancelled" result
+            equal false ran
+        }
+
+    testCaseAsync "Task.Run faults with the exception of the function" <| fun () ->
+        async {
+            let t = Task.Run(fun () -> failwith "boom"; 1)
+            let! result = awaitTask (task {
+                try
+                    let! _ = t
+                    return "completed"
+                with e -> return e.Message
+            })
+            equal "boom" result
+        }
+
     testCaseAsync "Task.Delay works" <| fun () ->
         async {
             let mutable steps = []
