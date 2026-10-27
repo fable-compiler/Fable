@@ -481,6 +481,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
 
         Helper.LibCall(com, "Util", "compareNullable", t, [ left; right; fn ], ?loc = r)
     | Boolean -> Helper.LibCall(com, "Util", "compareBool", t, [ left; right ], ?loc = r)
+    | Number(DartDouble, _) -> Helper.LibCall(com, "Util", "compareDouble", t, [ left; right ], ?loc = r)
     | Any
     | GenericParam _ -> Helper.LibCall(com, "Util", "compareDynamic", t, [ left; right ], ?loc = r)
     | _ -> Helper.InstanceCall(left, "compareTo", t, [ right ], ?loc = r)
@@ -3496,7 +3497,7 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let comparables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
     | Some callee, "CompareTo" ->
-        Helper.InstanceCall(callee, "compareTo", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "Util", "compareDynamic", t, callee :: args, ?loc = r)
         |> Some
     | _ -> None
 
