@@ -26,6 +26,13 @@ let parse f (a: string) =
 #endif
 
 
+let tryParseFloat (s: string) =
+#if FABLE_COMPILER
+    Double.TryParse s
+#else
+    Double.TryParse(s, NumberStyles.Float ||| NumberStyles.AllowThousands, CultureInfo.InvariantCulture)
+#endif
+
 let private toPlainArray (bytes: byte[]) : byte[] =
 #if FABLE_COMPILER
     ResizeArray bytes |> unbox
@@ -88,6 +95,72 @@ let tests =
         tryParse Single.TryParse 0.0f "X9TRE34" |> equal (false, 0.0f)
         tryParse Single.TryParse 0.0f "9SayWhat12Huh" |> equal (false, 0.0f)
         tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
+
+    testCase "System.Double.Parse follows .NET's Float grammar" <| fun () ->
+        let parse (s: string) = Double.Parse(s, CultureInfo.InvariantCulture)
+        parse "1." |> equal 1.0
+        parse ".5" |> equal 0.5
+        parse "+.5" |> equal 0.5
+        parse "-1.5e3" |> equal -1500.0
+        parse "25E-2" |> equal 0.25
+        parse "\t1\n" |> equal 1.0
+        parse "\v1\f" |> equal 1.0
+        parse "1\u0000" |> equal 1.0
+        parse "1 \u0000\u0000" |> equal 1.0
+        parse "1e99999" |> equal Double.PositiveInfinity
+        for s in [ "0x10"; "0X1A"; "0b101"; "0o7"; "\u00a01"; "\ufeff1"; "1\ufeff"; "\u20281"; "\u30001"; "1\u0000 "; "\u00001"; "1e"; "e5"; "."; "+"; "\uff11" ] do
+            (fun () -> parse s) |> throwsAnyError
+
+    testCase "System.Double.Parse accepts the NaN and infinity symbols ignoring case" <| fun () ->
+        let parse (s: string) = Double.Parse(s, CultureInfo.InvariantCulture)
+        for s in [ "NaN"; "nan"; "NAN"; "-NaN"; "+nan"; " NaN\n" ] do
+            parse s |> Double.IsNaN |> equal true
+        parse "infinity" |> equal Double.PositiveInfinity
+        parse "+Infinity" |> equal Double.PositiveInfinity
+        parse " -INFINITY " |> equal Double.NegativeInfinity
+        parse " NaN" |> Double.IsNaN |> equal true
+        parse "\u0085Infinity\u2028" |> equal Double.PositiveInfinity
+        parse "\u3000-Infinity" |> equal Double.NegativeInfinity
+        for s in [ "inf"; "\u221e"; "NaN\u0000"; "\ufeffNaN"; "NaN\ufeff"; "- NaN"; "+-Infinity"; "Infinityx"; "NaN0" ] do
+            (fun () -> parse s) |> throwsAnyError
+
+    testCase "System.Double.TryParse follows .NET's Float grammar" <| fun () ->
+        tryParseFloat "1." |> equal (true, 1.0)
+        tryParseFloat "  .5\r\n" |> equal (true, 0.5)
+        tryParseFloat "1\u0000" |> equal (true, 1.0)
+        tryParseFloat "-infinity" |> equal (true, Double.NegativeInfinity)
+        tryParseFloat "nan" |> fst |> equal true
+        tryParseFloat "0x10" |> equal (false, 0.0)
+        tryParseFloat "\u00a01" |> equal (false, 0.0)
+        tryParseFloat "1_0" |> equal (false, 0.0)
+        tryParseFloat "_" |> equal (false, 0.0)
+        tryParseFloat null |> equal (false, 0.0)
+
+    testCase "System.Single.Parse follows .NET's Float grammar" <| fun () ->
+        let parse (s: string) = Single.Parse(s, CultureInfo.InvariantCulture)
+        parse ".5" |> equal 0.5f
+        parse "-Infinity" |> float |> equal Double.NegativeInfinity
+        parse "nan" |> float |> Double.IsNaN |> equal true
+        (fun () -> parse "0x10") |> throwsAnyError
+        (fun () -> parse "1_0") |> throwsAnyError
+
+    testCase "Double.Parse and Convert.ToDouble reject underscores" <| fun () ->
+        for s in [ "1_0"; "_1"; "1_"; "_"; "1e1_0"; "1._5" ] do
+            (fun () -> Double.Parse(s, CultureInfo.InvariantCulture)) |> throwsAnyError
+            (fun () -> Convert.ToDouble(s, CultureInfo.InvariantCulture)) |> throwsAnyError
+
+    testCase "float and float32 remove underscores like FSharp.Core" <| fun () ->
+        float "1_0_0" |> equal 100.0
+        float "_1" |> equal 1.0
+        float "1_" |> equal 1.0
+        float "1e1_0" |> equal 1e10
+        float " _1" |> equal 1.0
+        float "Na_N" |> Double.IsNaN |> equal true
+        float32 "1__0" |> equal 10.0f
+        (fun () -> float "_") |> throwsAnyError
+        (fun () -> float32 "__") |> throwsAnyError
+        (fun () -> float "0x10") |> throwsAnyError
+        (fun () -> float "\u00a01") |> throwsAnyError
 
     testCase "System.Boolean.Parse works" <| fun () ->
         Boolean.Parse "true" |> equal true

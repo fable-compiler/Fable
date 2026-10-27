@@ -1,12 +1,20 @@
 import { FSharpRef } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
+// .NET's Float style: white space, a sign, digits with an optional fraction or a fraction alone, an exponent, then NULs
+const floatRegex = /^[\t-\r ]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[\t-\r ]*\0*$/;
+// .NET's NaN and infinity symbols, ignoring case, allowing a sign and trimmed like String.Trim
+const symbolRegex = /^[\t-\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*(?:[+-]?nan|([+-]?)infinity)[\t-\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$/i;
+
 export function tryParse(str: string, defValue: FSharpRef<number>): boolean {
-  // TODO: test if value is valid and in range
-  if (str != null && /\S/.test(str)) {
-    const v = +str.replace("_", "");
-    if (!Number.isNaN(v)) {
-      defValue.contents = v;
+  if (str != null) {
+    if (floatRegex.test(str)) {
+      defValue.contents = Number.parseFloat(str);
+      return true;
+    }
+    const symbol = symbolRegex.exec(str);
+    if (symbol != null) {
+      defValue.contents = symbol[1] == null ? NaN : symbol[1] === "-" ? -Infinity : Infinity;
       return true;
     }
   }
@@ -20,6 +28,11 @@ export function parse(str: string): number {
   } else {
     throw new Exception(`The input string ${str} was not in a correct format.`);
   }
+}
+
+// FSharp.Core's float and float32 remove every underscore before parsing
+export function parseIgnoringUnderscores(str: string): number {
+  return parse(str == null ? str : str.replace(/_/g, ""));
 }
 
 // JS Number.isFinite function evals false for NaN
