@@ -767,6 +767,26 @@ let rec private transformDecisionTargets
 let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fsExpr =
     trampoline {
         match fsExpr with
+        // TryGetValue-style out args: pass a value cell and read it back, instead of a cell
+        // wrapping the local in a getter and a setter closure
+        | ByrefArgToTuple(callee, memb, ownerGenArgs, membGenArgs, membArgs) when
+            com.Options.Language = JavaScript || com.Options.Language = TypeScript
+            ->
+            let r = makeRangeFrom fsExpr
+            let! callee = transformExprOpt com ctx callee
+            let! args = transformExprList com ctx membArgs
+            let args, def = List.splitLast args
+            let cellValue = Replacements.Api.makeRefCellFromValue com r def
+            let cellIdent = getIdentUniqueName com ctx "cell" |> makeTypedIdent cellValue.Type
+            let cellExpr = Fable.IdentExpr cellIdent
+            let genArgs = ownerGenArgs @ membGenArgs |> List.map (makeType ctx.GenericArgs)
+            let returnType = makeType ctx.GenericArgs fsExpr.Type.GenericArguments[0]
+
+            let callExpr =
+                makeCallFrom com ctx r returnType genArgs callee (args @ [ cellExpr ]) memb
+
+            let readBack = Replacements.Api.getRefCell com r def.Type cellExpr
+            return Fable.Let(cellIdent, cellValue, Fable.Value(Fable.NewTuple([ callExpr; readBack ], false), r))
         // | ByrefArgToTuple (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
         //     let! callee = transformExprOpt com ctx callee
         //     let! args = transformExprList com ctx membArgs
