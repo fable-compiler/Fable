@@ -2155,6 +2155,28 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
     Helper.LibCall(com, "Util", "copyToArray", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
 
+let binarySearch (com: ICompiler) ctx r t rangeMeth (ar: Expr) args =
+    let call meth args comparer =
+        let comparer =
+            match comparer with
+            // .NET uses the default comparer when the comparer is null. The null literal
+            // gets here as Util.defaultOf() unless its type is nullable (see defaultof)
+            | None
+            | Some NullConst
+            | Some(MaybeCasted(Call(Import({ Selector = "defaultOf" }, _, _), _, _, _))) ->
+                makeComparer com ctx (getElementType ar.Type)
+            | Some comparer -> comparer
+
+        Helper.LibCall(com, "Array", meth, t, ar :: args @ [ comparer ], ?loc = r)
+        |> Some
+
+    match args with
+    | [ value ] -> call "binarySearch" [ value ] None
+    | [ value; comparer ] -> call "binarySearch" [ value ] (Some comparer)
+    | [ index; length; value ] -> call rangeMeth [ index; length; value ] None
+    | [ index; length; value; comparer ] -> call rangeMeth [ index; length; value ] (Some comparer)
+    | _ -> None
+
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
@@ -2233,6 +2255,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "IndexOf", Some ar, args ->
         let args = injectIndexOfArgs com ctx r i.GenericArgs (ar :: args)
         Helper.LibCall(com, "Array", "indexOf", t, args, ?loc = r) |> Some
+    | "BinarySearch", Some ar, args -> binarySearch com ctx r t "binarySearchRangeCount" ar args
     | "Insert", Some ar, [ idx; arg ] ->
         Helper.InstanceCall(ar, "splice", t, [ idx; makeIntConst 0; arg ], ?loc = r)
         |> Some
@@ -2327,6 +2350,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
+    | "BinarySearch", None, ar :: args -> binarySearch com ctx r t "binarySearchRange" ar args
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
     | "Resize", None, args ->
         let args =

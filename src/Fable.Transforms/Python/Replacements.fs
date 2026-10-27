@@ -1850,6 +1850,26 @@ let injectIndexOfArgs com ctx r genArgs args =
 
     injectArg com ctx r "Array" "indexOf" genArgs args
 
+/// resize_array's binary search indexes arrays and ResizeArrays alike.
+/// As in .NET, an omitted or null comparer means the default one.
+let binarySearch (com: ICompiler) ctx r t rangeMeth (ar: Expr) args =
+    let call meth args comparer =
+        let comparer =
+            match comparer with
+            | None
+            | Some NullConst -> makeComparer com ctx (getElementType ar.Type)
+            | Some comparer -> comparer
+
+        Helper.LibCall(com, "resize_array", meth, t, ar :: args @ [ comparer ], ?loc = r)
+        |> Some
+
+    match args with
+    | [ value ] -> call "binary_search" [ value ] None
+    | [ value; comparer ] -> call "binary_search" [ value ] (Some comparer)
+    | [ index; length; value ] -> call rangeMeth [ index; length; value ] None
+    | [ index; length; value; comparer ] -> call rangeMeth [ index; length; value ] (Some comparer)
+    | _ -> None
+
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
@@ -1928,6 +1948,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
         Helper.LibCall(com, "resize_array", "index_of", t, args @ [ ar ], ?loc = r)
         |> Some
+    | "BinarySearch", Some ar, args -> binarySearch com ctx r t "binary_search_range_count" ar args
     | "Insert", Some ar, [ idx; arg ] -> Helper.InstanceCall(ar, "insert", t, [ idx; arg ], ?loc = r) |> Some
     | "InsertRange", Some ar, [ idx; arg ] ->
         Helper.LibCall(com, "resize_array", "insert_range_in_place", t, [ idx; arg; ar ], ?loc = r)
@@ -2034,6 +2055,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
         Helper.LibCall(com, "array", "index_of", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "BinarySearch", None, ar :: args -> binarySearch com ctx r t "binary_search_range" ar args
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
     | "Resize", None, args ->
         let args =

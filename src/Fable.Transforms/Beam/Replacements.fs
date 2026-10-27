@@ -2144,6 +2144,26 @@ let private stringModule
 let private makeComparer (com: ICompiler) ctx typArg =
     objExpr [ "Compare", makeComparerFunction com ctx typArg ]
 
+/// BinarySearch of an array or ResizeArray `list`, where a range search goes to `rangeFuncName`.
+/// A missing comparer, or a literal null one as .NET allows, means the default comparer.
+let private binarySearch (com: ICompiler) ctx r t rangeFuncName (list: Expr) (args: Expr list) =
+    let call funcName searchArgs (value: Expr) comparer =
+        let comparer =
+            match comparer with
+            | None
+            | Some NullConst -> makeComparer com ctx value.Type
+            | Some comparer -> comparer
+
+        Helper.LibCall(com, "fable_resize_array", funcName, t, list :: searchArgs @ [ comparer ], ?loc = r)
+        |> Some
+
+    match args with
+    | [ value ] -> call "binary_search" [ value ] value None
+    | [ value; comparer ] -> call "binary_search" [ value ] value (Some comparer)
+    | [ index; count; value ] -> call rangeFuncName [ index; count; value ] value None
+    | [ index; count; value; comparer ] -> call rangeFuncName [ index; count; value ] value (Some comparer)
+    | _ -> None
+
 let private makeEqualityFunction (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent com ctx typArg "x"
     let y = makeUniqueIdent com ctx typArg "y"
@@ -2390,6 +2410,9 @@ let private arrays
     | "IndexOf", None, [ arr; value ] ->
         let arr = derefArr r arr
         Helper.LibCall(com, "fable_list", "index_of_value", t, [ value; arr ]) |> Some
+    // System.Array.BinarySearch, with or without a range and a comparer
+    | "BinarySearch", None, (ExprType(Array _) as arr) :: args ->
+        binarySearch com _ctx r t "binary_search_range" (derefArr r arr) args
     // Iterating an array as a non-generic IEnumerable (e.g. `for v in Enum.GetValues t do`).
     // Deref via derefArr so byte arrays (atomics, not process-dict refs) are handled too;
     // the non-generic System.Array of Enum.GetValues stays a ref, which get_enumerator accepts.
@@ -3700,6 +3723,9 @@ let private resizeArrays
             ?loc = r
         )
         |> Some
+    // BinarySearch
+    | "BinarySearch", Some callee, args ->
+        binarySearch com _ctx r t "binary_search_range_count" (emitExpr r (List Any) [ callee ] "get($0)") args
     // Remove
     | "Remove", Some callee, [ arg ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"

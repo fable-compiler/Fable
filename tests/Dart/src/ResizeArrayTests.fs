@@ -2,6 +2,20 @@
 
 open Util
 
+type AscendingComparer() =
+    interface System.Collections.Generic.IComparer<int> with
+        member _.Compare(x, y) = compare x y
+
+type DescendingComparer() =
+    interface System.Collections.Generic.IComparer<int> with
+        member _.Compare(x, y) = compare y x
+
+type LoggingComparer(calls: ResizeArray<int * int>) =
+    interface System.Collections.Generic.IComparer<int> with
+        member _.Compare(x, y) =
+            calls.Add((x, y))
+            compare x y
+
 let tests() =
     testCase "ResizeArray zero creation works" <| fun () ->
         let li = ResizeArray<float>()
@@ -170,6 +184,60 @@ let tests() =
         li.Add("ab")
         li.IndexOf("ab") |> equal 1
         li.IndexOf("cd") |> equal -1
+
+    testCase "ResizeArray.BinarySearch works" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        ra.BinarySearch(7) |> equal 3
+        ra.BinarySearch(8) |> equal -5
+        (ResizeArray [9; 7; 5; 3; 1]).BinarySearch(3, DescendingComparer()) |> equal 3
+        // Comparer<int>.Default isn't supported in Dart
+        ra.BinarySearch(1, 3, 7, AscendingComparer()) |> equal 3
+        ra.BinarySearch(1, 2, 8, AscendingComparer()) |> equal -4
+        ra.BinarySearch(1, 2, 3, null) |> equal 1
+
+    testCase "ResizeArray.BinarySearch works with an empty list, duplicates and a null range comparer" <| fun () ->
+        ResizeArray<int>().BinarySearch(1) |> equal -1
+        (ResizeArray [2; 2; 2; 2]).BinarySearch(2) |> equal 1
+        (ResizeArray [1; 2; 2; 2; 2; 3]).BinarySearch(2) |> equal 2
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        ra.BinarySearch(0, 5, 2, null) |> equal -2
+        ra.BinarySearch(2, 3, 9, null) |> equal 4
+
+    testCase "ResizeArray.BinarySearch with a range passes the element to the comparer first" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        let calls = ResizeArray<int * int>()
+        let logging =
+            LoggingComparer(calls)
+        ra.BinarySearch(1, 3, 7, logging) |> equal 3
+        List.ofSeq calls |> equal [(5, 7); (7, 7)]
+
+    testCase "ResizeArray.BinarySearch with a range checks index and count together" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        let raised (f: unit -> int) =
+            try
+                f () |> ignore
+                "none"
+            with
+            | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+            | :? System.ArgumentException -> "ArgumentException"
+            | _ -> "other"
+        raised (fun () -> ra.BinarySearch(-1, -1, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(6, 0, 3, null)) |> equal "ArgumentException"
+        raised (fun () -> ra.BinarySearch(0, 6, 3, null)) |> equal "ArgumentException"
+
+    testCase "ResizeArray.BinarySearch with a range checks its arguments" <| fun () ->
+        let ra = ResizeArray [1; 3; 5; 7; 9]
+        let raised (f: unit -> int) =
+            try
+                f () |> ignore
+                "none"
+            with
+            | :? System.ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+            | :? System.ArgumentException -> "ArgumentException"
+            | _ -> "other"
+        raised (fun () -> ra.BinarySearch(-1, 2, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(1, -1, 3, null)) |> equal "ArgumentOutOfRangeException"
+        raised (fun () -> ra.BinarySearch(3, 3, 3, null)) |> equal "ArgumentException"
 
     testCase "ResizeArray.Remove works" <| fun () ->
         let li = ResizeArray<_>()
