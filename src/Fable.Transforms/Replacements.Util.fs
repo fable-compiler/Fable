@@ -1293,6 +1293,7 @@ let (|RegexFlags|_|) e =
             | 8 -> Some [] // Compiled flag (ignored)
             | 16 -> Some [ RegexSingleline ]
             | 256 -> Some [] // ECMAScript flag (ignored)
+            | 1024 -> Some [] // NonBacktracking flag (ignored)
             | _ -> None
         | Operation(Binary(BinaryOrBitwise, flags1, flags2), _, _, _) ->
             match getFlags flags1, getFlags flags2 with

@@ -165,6 +165,14 @@ let ``test Regex.Unescape works`` () =
 // --- Options ---
 
 [<Fact>]
+let ``test RegexOptions.NonBacktracking is accepted`` () =
+    let options = RegexOptions.NonBacktracking ||| RegexOptions.IgnoreCase
+    let r = Regex("ab", options)
+    r.IsMatch("xABx") |> equal true
+    Regex.IsMatch("aaab", "(a+)*b", RegexOptions.NonBacktracking) |> equal true
+    Regex.Replace("a1b2", "\\d", "-", RegexOptions.NonBacktracking) |> equal "a-b-"
+
+[<Fact>]
 let ``test Regex.Options works`` () =
     let r = Regex("\\d+", RegexOptions.IgnoreCase ||| RegexOptions.Multiline)
     int r.Options |> equal 3
