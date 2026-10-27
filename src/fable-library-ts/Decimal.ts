@@ -159,12 +159,13 @@ function parseWithStyle(str: string, style: number): Decimal | undefined {
   if (style & NumberStyles.AllowHexSpecifier) {
     throw new Exception("The number style AllowHexSpecifier is not supported on floating point data types.");
   }
-  let s = str;
+  // .NET ignores trailing NULs and its white space is only [\t\n\v\f\r ]
+  let s = str.replace(/\0+$/, "");
   if (style & NumberStyles.AllowLeadingWhite) {
-    s = s.replace(/^\s+/, "");
+    s = s.replace(/^[\t-\r ]+/, "");
   }
   if (style & NumberStyles.AllowTrailingWhite) {
-    s = s.replace(/\s+$/, "");
+    s = s.replace(/[\t-\r ]+$/, "");
   }
   let negative = false;
   if (style & NumberStyles.AllowParentheses && s.startsWith("(") && s.endsWith(")")) {

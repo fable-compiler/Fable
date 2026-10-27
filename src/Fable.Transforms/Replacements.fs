@@ -284,7 +284,10 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
     | Char ->
         Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
         |> makeDecimalFromExpr com r targetType
-    | String -> makeDecimalFromExpr com r targetType args.Head
+    // FSharp.Core's decimal parses with NumberStyles.Float
+    | String ->
+        let style = int System.Globalization.NumberStyles.Float
+        Helper.LibCall(com, "Decimal", "parse", targetType, [ args.Head; makeIntConst style ], ?loc = r)
     | Number(kind, _) ->
         match kind with
         | Decimal -> args.Head
@@ -3393,7 +3396,11 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToUInt64" -> round com args |> toLong com ctx r t |> Some
     | "ToSingle"
     | "ToDouble" -> toFloat com ctx r t args |> Some
-    | "ToDecimal" -> toDecimal com ctx r t args |> Some
+    | "ToDecimal" ->
+        match args with
+        // Convert.ToDecimal(string) parses with Decimal.Parse's default style
+        | ExprType String :: _ -> Helper.LibCall(com, "Decimal", "parse", t, [ args.Head ], ?loc = r) |> Some
+        | _ -> toDecimal com ctx r t args |> Some
     | "ToChar" -> toChar com ctx r args.Head |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String"

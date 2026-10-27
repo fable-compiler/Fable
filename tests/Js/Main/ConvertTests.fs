@@ -162,6 +162,39 @@ let tests =
         (fun () -> float "0x10") |> throwsAnyError
         (fun () -> float "\u00a01") |> throwsAnyError
 
+    testCase "System.Decimal.Parse trims only .NET's white space" <| fun () ->
+        let parse (s: string) = Decimal.Parse(s, CultureInfo.InvariantCulture)
+        parse "\t12\r\n" |> equal 12M
+        parse "12\u0000" |> equal 12M
+        parse "12 \u0000" |> equal 12M
+        for s in [ "\u00a012"; "\ufeff12"; "12\u3000"; "12\u0000 " ] do
+            (fun () -> parse s) |> throwsAnyError
+
+    testCase "decimal parses like System.Decimal.Parse with NumberStyles.Float" <| fun () ->
+        decimal " 12 " |> equal 12M
+        decimal "+12" |> equal 12M
+        decimal "\t12\n" |> equal 12M
+        decimal "12\u0000" |> equal 12M
+        decimal "1e3" |> equal 1000M
+        for s in [ "1,000"; "(1)"; "1-"; "1_0"; "\u00a012"; "0x10"; "NaN" ] do
+            (fun () -> decimal s) |> throwsAnyError
+
+    testCase "Convert.ToDecimal parses like System.Decimal.Parse" <| fun () ->
+        Convert.ToDecimal(" 12 ", CultureInfo.InvariantCulture) |> equal 12M
+        Convert.ToDecimal("1,000", CultureInfo.InvariantCulture) |> equal 1000M
+        Convert.ToDecimal("1-", CultureInfo.InvariantCulture) |> equal -1M
+        (fun () -> Convert.ToDecimal("1e3", CultureInfo.InvariantCulture)) |> throwsAnyError
+
+    testCase "BigInteger.Parse follows .NET's Integer grammar" <| fun () ->
+        bigint.Parse " 12 " |> equal 12I
+        bigint.Parse "+12" |> equal 12I
+        bigint.Parse "-12\u0000" |> equal -12I
+        for s in [ ""; " "; "-"; "0x10"; "1_0"; "1.5"; "1e3"; "\u00a012" ] do
+            (fun () -> bigint.Parse s) |> throwsAnyError
+        tryParse bigint.TryParse 0I "" |> equal (false, 0I)
+        tryParse bigint.TryParse 0I "0x10" |> equal (false, 0I)
+        tryParse bigint.TryParse 0I " 12 " |> equal (true, 12I)
+
     testCase "System.Boolean.Parse works" <| fun () ->
         Boolean.Parse "true" |> equal true
         Boolean.Parse "True" |> equal true
