@@ -352,11 +352,12 @@ let toLong com (ctx: Context) r targetType (args: Expr list) : Expr =
 
 let emitIntCast toKind arg =
     match toKind with
-    | Int8 -> emitExpr None Int8.Number [ arg ] "($0 + 0x80 & 0xFF) - 0x80"
-    | Int16 -> emitExpr None Int16.Number [ arg ] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+    // `~~` truncates toward zero before the wrap, so negative fractions round like .NET
+    | Int8 -> emitExpr None Int8.Number [ arg ] "(~~$0 + 0x80 & 0xFF) - 0x80"
+    | Int16 -> emitExpr None Int16.Number [ arg ] "(~~$0 + 0x8000 & 0xFFFF) - 0x8000"
     | Int32 -> fastIntFloor arg
-    | UInt8 -> emitExpr None UInt8.Number [ arg ] "$0 & 0xFF"
-    | UInt16 -> emitExpr None UInt16.Number [ arg ] "$0 & 0xFFFF"
+    | UInt8 -> emitExpr None UInt8.Number [ arg ] "~~$0 & 0xFF"
+    | UInt16 -> emitExpr None UInt16.Number [ arg ] "~~$0 & 0xFFFF"
     | UInt32 -> emitExpr None UInt32.Number [ arg ] "$0 >>> 0"
     | _ -> FableError $"Unexpected non-integer type %A{toKind}" |> raise
 

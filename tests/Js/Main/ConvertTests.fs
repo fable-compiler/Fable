@@ -1286,6 +1286,14 @@ let tests =
         Convert.ToChar("a") |> equal x
         Convert.ToChar('a') |> equal x
 
+    testCase "Negative fractions truncate toward zero when converted to small integers" <| fun () ->
+        sbyte(-7.9) |> equal -7y
+        sbyte(-7.9f) |> equal -7y
+        int16(-7.9) |> equal -7s
+        int16(-7.9f) |> equal -7s
+        byte(7.9) |> equal 7uy
+        uint16(7.9) |> equal 7us
+
     testCase "System.Convert.ToSByte works" <| fun () ->
         let x = 1y
         sbyte(1y) |> equal x

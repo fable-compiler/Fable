@@ -232,6 +232,7 @@ let toChar com (ctx: Context) r (arg: Expr) =
     // TODO: Check length
     | Char -> arg
     | String -> Helper.InstanceCall(arg, "codeUnitAt", Char, [ makeIntConst 0 ])
+    | Number((Float16 | Float32 | Float64), _) -> Helper.InstanceCall(arg, "toInt", Char, [])
     | _ -> TypeCast(arg, Char)
 
 let charToString =
