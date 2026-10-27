@@ -394,8 +394,21 @@ let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
 let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     Array.scanBack folder (toArray xs) state |> ofArray
 
+// Valid on a non-empty list: a reference-type option is erased, so tail holds the node; the cast is for tsc.
+[<Emit("($0.tail as any)")>]
+let inline private uncheckedTail (xs: 'T list) : 'T list = nativeOnly
+
 let append (xs: 'T list) (ys: 'T list) =
-    fold (fun acc x -> List.Cons(x, acc)) ys (reverse xs)
+    let root = List.Empty
+    let mutable node = root
+    let mutable rest = xs
+
+    while rest.tail.IsSome do
+        node <- node.AppendConsNoTail rest.head
+        rest <- uncheckedTail rest
+
+    node.SetConsTail ys
+    root.Tail
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
     let root = List.Empty
