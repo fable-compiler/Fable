@@ -4447,6 +4447,14 @@ let tasks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             ?loc = r
         )
         |> Some
+    // Like awaiting on .NET, awaiters see the first exception of the seq overloads
+    | Some x, ("SetException" | "TrySetException" as meth) when
+        (match i.SignatureArgTypes with
+         | [ IEnumerable ] -> true
+         | _ -> false)
+        ->
+        Helper.InstanceCall(x, meth + "s", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | Some x, meth ->
         Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
@@ -4999,6 +5007,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
             Types.task, tasks
             Types.taskGeneric, tasks
+            "System.Threading.Tasks.TaskCompletionSource", tasks
             "System.Threading.Tasks.TaskCompletionSource`1", tasks
             "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
             "Microsoft.FSharp.Control.TaskBuilder", taskBuilder
