@@ -673,7 +673,7 @@ export function min<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
 }
 
 export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
-  return comparer(x, y) > 0 ? x : y;
+  return comparer(x, y) < 0 ? y : x;
 }
 
 export function clamp<T>(comparer: (x: T, y: T) => number, value: T, min: T, max: T) {

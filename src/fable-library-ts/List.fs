@@ -685,15 +685,22 @@ let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>) : 'T =
 let sumBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'U>) : 'U =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) : 'T =
-    reduce
-        (fun x y ->
-            if comparer.Compare(projection y, projection x) > 0 then
-                y
-            else
-                x
-        )
-        xs
+let maxBy (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) : 'T =
+    let mutable acc = head xs
+    let mutable accv = projection acc
+    let mutable xs = tail xs
+
+    while not xs.IsEmpty do
+        let x = head xs
+        let v = projection x
+
+        if comparer.Compare(v, accv) > 0 then
+            acc <- x
+            accv <- v
+
+        xs <- xs.Tail
+
+    acc
 
 let max xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) : 'T =
     reduce
@@ -705,23 +712,30 @@ let max xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) : 'T 
         )
         xs
 
-let minBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) : 'T =
-    reduce
-        (fun x y ->
-            if comparer.Compare(projection y, projection x) > 0 then
-                x
-            else
-                y
-        )
-        xs
+let minBy (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) : 'T =
+    let mutable acc = head xs
+    let mutable accv = projection acc
+    let mutable xs = tail xs
+
+    while not xs.IsEmpty do
+        let x = head xs
+        let v = projection x
+
+        if comparer.Compare(v, accv) < 0 then
+            acc <- x
+            accv <- v
+
+        xs <- xs.Tail
+
+    acc
 
 let min (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) : 'T =
     reduce
         (fun x y ->
-            if comparer.Compare(y, x) > 0 then
-                x
-            else
+            if comparer.Compare(y, x) < 0 then
                 y
+            else
+                x
         )
         xs
 
