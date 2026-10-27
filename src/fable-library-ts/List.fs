@@ -388,14 +388,21 @@ let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
 let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
     Array.scanBack folder (toArray xs) state |> ofArray
 
+// The tail of a non-empty list, read without the emptiness check and
+// Option.value unwrap done by the Tail getter (the tail is never wrapped in Some).
+[<Emit("($0.tail as any)")>]
+let inline private uncheckedTail (xs: 'T list) : 'T list = nativeOnly
+
 let append (xs: 'T list) (ys: 'T list) =
     let root = List.Empty
     let mutable node = root
     let mutable rest = xs
 
-    while not rest.IsEmpty do
-        node <- node.AppendConsNoTail rest.Head
-        rest <- rest.Tail
+    // Read the fields directly: the Head/Tail getters re-check emptiness
+    // and unwrap the tail through Option.value on every element.
+    while rest.tail.IsSome do
+        node <- node.AppendConsNoTail rest.head
+        rest <- uncheckedTail rest
 
     node.SetConsTail ys
     root.Tail
