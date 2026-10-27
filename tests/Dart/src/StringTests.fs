@@ -1119,6 +1119,46 @@ let tests() =
         String.filter (fun x -> x <> '.') ""
         |> equal ""
 
+    testCase "Convert.ToHexString works" <| fun () ->
+        let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+        Convert.ToHexString(bytes)
+        |> equal "FAFBFCFDFE"
+        Convert.ToHexString([| 0uy; 1uy; 15uy; 16uy |]) |> equal "00010F10"
+        Convert.ToHexString([||]) |> equal ""
+        Convert.ToHexString(bytes, 1, 3) |> equal "FBFCFD"
+        Convert.ToHexString(bytes, 5, 0) |> equal ""
+
+    testCase "Convert.ToHexStringLower works" <| fun () ->
+        let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+        Convert.ToHexStringLower(bytes)
+        |> equal "fafbfcfdfe"
+        Convert.ToHexStringLower([| 0uy; 1uy; 15uy; 16uy |]) |> equal "00010f10"
+        Convert.ToHexStringLower([||]) |> equal ""
+        Convert.ToHexStringLower(bytes, 1, 3) |> equal "fbfcfd"
+
+    testCase "Convert.ToHexString checks its arguments" <| fun () ->
+        let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+        raisedExceptionType (fun () -> Convert.ToHexString(bytes, -1, 1)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Convert.ToHexString(bytes, 1, -1)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Convert.ToHexString(bytes, 3, 3)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Convert.ToHexString(bytes, 6, 0)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Convert.ToHexStringLower(bytes, -1, 1)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Convert.ToHexStringLower(bytes, 3, 3)) |> equal "ArgumentOutOfRangeException"
+
+    testCase "Convert.FromHexString works" <| fun () ->
+        Convert.FromHexString("fafBFCFDFE")
+        |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+        Convert.FromHexString("0123456789abcdefABCDEF")
+        |> equal [| 1uy; 35uy; 69uy; 103uy; 137uy; 171uy; 205uy; 239uy; 171uy; 205uy; 239uy |]
+        Convert.FromHexString("") |> equal [||]
+
+    testCase "Convert.FromHexString checks its input" <| fun () ->
+        raisedExceptionType (fun () -> Convert.FromHexString("abc")) |> equal "FormatException"
+        raisedExceptionType (fun () -> Convert.FromHexString("zz")) |> equal "FormatException"
+        raisedExceptionType (fun () -> Convert.FromHexString("0x10")) |> equal "FormatException"
+        raisedExceptionType (fun () -> Convert.FromHexString("00 1")) |> equal "FormatException"
+        raisedExceptionType (fun () -> Convert.FromHexString("+1")) |> equal "FormatException"
+
     // // TODO: Environment
     // #if FABLE_COMPILER
     // testCase "System.Environment.NewLine works" <| fun () ->
