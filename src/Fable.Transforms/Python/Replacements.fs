@@ -2922,6 +2922,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         // Caught exceptions are typed as Python's built-in Exception, which lacks this attribute.
         Helper.GlobalCall("getattr", t, [ e; makeStrConst "inner_exception" ], ?loc = r)
         |> Some
+    | "get_ParamName", Some _ -> bclType com ctx r t i thisArg args
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

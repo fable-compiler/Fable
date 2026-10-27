@@ -1287,6 +1287,34 @@ let ``test invalidArg raises ArgumentException`` () =
         | e -> "Unexpected exception: " + e.Message
     caught |> equal "This is invalid (Parameter 'arg')"
 
+let private paramName (f: unit -> unit) =
+    try
+        f ()
+        "no exception"
+    with :? System.ArgumentException as e -> e.ParamName
+
+[<Fact>]
+let ``test ArgumentException.ParamName works`` () =
+    paramName (fun () -> invalidArg "x" "m") |> equal "x"
+    paramName (fun () -> nullArg "x") |> equal "x"
+    System.ArgumentException("m", "x").ParamName |> equal "x"
+    System.ArgumentException("m").ParamName |> isNull |> equal true
+    System.ArgumentException().ParamName |> isNull |> equal true
+    System.ArgumentException("m", exn "i").ParamName |> isNull |> equal true
+    System.ArgumentException("m", "x", exn "i").ParamName |> equal "x"
+    System.ArgumentNullException("x").ParamName |> equal "x"
+    System.ArgumentNullException("x", "m").ParamName |> equal "x"
+    System.ArgumentNullException().ParamName |> isNull |> equal true
+    System.ArgumentOutOfRangeException("x").ParamName |> equal "x"
+    System.ArgumentOutOfRangeException("x", "m").ParamName |> equal "x"
+    System.ArgumentOutOfRangeException().ParamName |> isNull |> equal true
+
+[<Fact>]
+let ``test ArgumentException.ParamName of FSharp.Core errors works`` () =
+    paramName (fun () -> List.head ([]: int list) |> ignore) |> equal "list"
+    paramName (fun () -> List.take -1 [ 1 ] |> ignore) |> equal "count"
+    paramName (fun () -> List.reduce (+) ([]: int list) |> ignore) |> equal "list"
+
 [<Fact>]
 let ``test invalidOp raises InvalidOperationException`` () =
     let caught =
