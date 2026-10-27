@@ -1565,7 +1565,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       _ -> fsFormat com ctx r t i thisArg args
     | ("Failure" | "FailurePattern" | "InvalidArg" | "InvalidOp" | "LazyPattern" | "Lock" | "NullArg" | "Using"), _ ->
         fsharpModule com ctx r t i thisArg args
-    | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
+    | ("IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [ msg ] -> makeThrow r t (error com msg) |> Some
@@ -1679,6 +1679,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | (Operators.inequality | "Neq"), [ left; right ] -> equals com ctx r false left right |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals com ctx r true left right |> Some
     | "IsNull", [ arg ] -> nullCheck r true arg |> Some
+    | "IsNotNull", [ arg ] -> nullCheck r false arg |> Some
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [ left; right ] -> compare com ctx r left right |> Some
