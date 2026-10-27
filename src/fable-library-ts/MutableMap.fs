@@ -12,6 +12,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of KeyValuePair<'Key, 'Value>.
     let hashMap = Dictionary<int, ResizeArray<KeyValuePair<'Key, 'Value>>>()
+    let mutable count = 0
 
     do
         for pair in pairs do
@@ -20,29 +21,43 @@ type MutableMap<'Key, 'Value when 'Key: equality>
     // new () = MutableMap (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableMap (Seq.empty, comparer)
 
-    member private this.TryFindIndex(k) =
-        let h = comparer.GetHashCode(k)
+    // An erased option of a reference type, so a hit allocates nothing
+    member private this.TryFindBucket(h: int) : ResizeArray<KeyValuePair<'Key, 'Value>> option =
+        if hashMap.ContainsKey h then
+            Some hashMap.[h]
+        else
+            None
 
-        match hashMap.TryGetValue h with
-        | true, pairs -> true, h, pairs.FindIndex(fun pair -> comparer.Equals(k, pair.Key))
-        | false, _ -> false, h, -1
+    member private this.FindIndex(k, bucket: ResizeArray<KeyValuePair<'Key, 'Value>>) =
+        let mutable i = 0
+        let mutable found = -1
 
-    member this.TryFind(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> Some hashMap.[h].[i]
-        | _, _, _ -> None
+        while found < 0 && i < bucket.Count do
+            if comparer.Equals(k, bucket.[i].Key) then
+                found <- i
+
+            i <- i + 1
+
+        found
+
+    member this.TryFind(k: 'Key) =
+        match this.TryFindBucket(comparer.GetHashCode(k)) with
+        | Some bucket ->
+            let i = this.FindIndex(k, bucket)
+
+            if i > -1 then
+                Some bucket.[i]
+            else
+                None
+        | None -> None
 
     member this.Comparer = comparer
 
-    member this.Clear() = hashMap.Clear()
+    member this.Clear() =
+        hashMap.Clear()
+        count <- 0
 
-    member this.Count =
-        let mutable count = 0
-
-        for pairs in hashMap.Values do
-            count <- count + pairs.Count
-
-        count
+    member this.Count = count
 
     member this.Item
         with get (k: 'Key) =
@@ -50,36 +65,61 @@ type MutableMap<'Key, 'Value when 'Key: equality>
             | Some pair -> pair.Value
             | _ -> raise (KeyNotFoundException("The item was not found in collection"))
         and set (k: 'Key) (v: 'Value) =
-            match this.TryFindIndex(k) with
-            | true, h, i when i > -1 -> hashMap.[h].[i] <- KeyValuePair(k, v) // replace
-            | true, h, _ -> hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append
-            | false, h, _ -> hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |])
+            let h = comparer.GetHashCode(k)
 
-    member this.Add(k, v) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 ->
-            let msg =
-                System.String.Format("An item with the same key has already been added. Key: {0}", k)
+            match this.TryFindBucket h with
+            | Some bucket ->
+                let i = this.FindIndex(k, bucket)
 
-            raise (System.ArgumentException(msg))
-        | true, h, _ -> hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append
-        | false, h, _ -> hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |]) // add new
+                if i > -1 then
+                    bucket.[i] <- KeyValuePair(k, v)
+                else
+                    bucket.Add(KeyValuePair(k, v))
+                    count <- count + 1
+            | None ->
+                hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |])
+                count <- count + 1
 
-    member this.ContainsKey(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> true
-        | _, _, _ -> false
+    member this.Add(k: 'Key, v: 'Value) =
+        let h = comparer.GetHashCode(k)
 
-    member this.Remove(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 ->
-            hashMap.[h].RemoveAt(i)
+        match this.TryFindBucket h with
+        | Some bucket ->
+            if this.FindIndex(k, bucket) > -1 then
+                let msg =
+                    System.String.Format("An item with the same key has already been added. Key: {0}", k)
 
-            if hashMap.[h].Count = 0 then
-                hashMap.Remove(h) |> ignore
+                raise (System.ArgumentException(msg))
 
-            true
-        | _, _, _ -> false
+            bucket.Add(KeyValuePair(k, v))
+            count <- count + 1
+        | None ->
+            hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |])
+            count <- count + 1
+
+    member this.ContainsKey(k: 'Key) =
+        match this.TryFindBucket(comparer.GetHashCode(k)) with
+        | Some bucket -> this.FindIndex(k, bucket) > -1
+        | None -> false
+
+    member this.Remove(k: 'Key) =
+        let h = comparer.GetHashCode(k)
+
+        match this.TryFindBucket h with
+        | Some bucket ->
+            let i = this.FindIndex(k, bucket)
+
+            if i > -1 then
+                bucket.RemoveAt(i)
+                count <- count - 1
+
+                if bucket.Count = 0 then
+                    hashMap.Remove(h) |> ignore
+
+                true
+            else
+                false
+        | None -> false
 
     interface Fable.Core.Symbol_wellknown with
         member _.``Symbol.toStringTag`` = "Dictionary"

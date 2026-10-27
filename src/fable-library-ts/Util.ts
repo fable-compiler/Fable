@@ -475,12 +475,11 @@ export function dateHash(x: Date): number {
 }
 
 export function arrayHash<T>(x: ArrayLike<T>): number {
-  const len = x.length;
-  const hashes: number[] = new Array(len);
-  for (let i = 0; i < len; i++) {
-    hashes[i] = structuralHash(x[i]);
+  let h = 0;
+  for (let i = 0; i < x.length; i++) {
+    h = combineHashCode(h, structuralHash(x[i]));
   }
-  return combineHashCodes(hashes);
+  return h;
 }
 
 export function structuralHash<T>(x: T): number {
