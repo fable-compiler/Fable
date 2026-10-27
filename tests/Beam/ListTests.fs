@@ -231,6 +231,22 @@ let ``test List.maxBy works`` () =
     ["ab"; "a"; "abc"] |> List.maxBy (fun s -> s.Length) |> equal "abc"
 
 [<Fact>]
+let ``test List.minBy and List.maxBy keep the first of tied elements`` () =
+    let xs = [ "y", 1; "c", 0; "a", 0; "z", 1; "b", 0; "x", 1 ]
+    xs |> List.minBy snd |> equal ("c", 0)
+    xs |> List.maxBy snd |> equal ("y", 1)
+    xs |> List.minBy (fun _ -> 0) |> equal ("y", 1)
+    xs |> List.maxBy (fun _ -> 0) |> equal ("y", 1)
+
+[<Fact>]
+let ``test List.minBy and List.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f (x: int) = calls <- calls + 1; x
+    [ 5; 3; 8; 1; 9 ] |> List.minBy f |> equal 1
+    [ 5; 3; 8; 1; 9 ] |> List.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
 let ``test List.init works`` () =
     List.init 5 (fun i -> i * 2) |> equal [0; 2; 4; 6; 8]
 

@@ -286,8 +286,19 @@ collect(Fn, List) ->
 sum_by(Fn, List) ->
     lists:sum(lists:map(Fn, List)).
 
-min_by(Fn, List) ->
-    element(2, lists:min(lists:map(fun(E) -> {Fn(E), E} end, List))).
+min_by(Fn, [Head | Tail]) ->
+    {_, Result} = lists:foldl(
+        fun(Item, {BestKey, Best}) ->
+            ItemKey = Fn(Item),
+            case ItemKey < BestKey of
+                true -> {ItemKey, Item};
+                false -> {BestKey, Best}
+            end
+        end,
+        {Fn(Head), Head},
+        Tail
+    ),
+    Result.
 
 min_by(Fn, Comparer, [Head | Tail]) ->
     {_, Result} = lists:foldl(
@@ -303,8 +314,19 @@ min_by(Fn, Comparer, [Head | Tail]) ->
     ),
     Result.
 
-max_by(Fn, List) ->
-    element(2, lists:max(lists:map(fun(E) -> {Fn(E), E} end, List))).
+max_by(Fn, [Head | Tail]) ->
+    {_, Result} = lists:foldl(
+        fun(Item, {BestKey, Best}) ->
+            ItemKey = Fn(Item),
+            case ItemKey > BestKey of
+                true -> {ItemKey, Item};
+                false -> {BestKey, Best}
+            end
+        end,
+        {Fn(Head), Head},
+        Tail
+    ),
+    Result.
 
 max_by(Fn, Comparer, [Head | Tail]) ->
     {_, Result} = lists:foldl(
