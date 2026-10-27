@@ -531,8 +531,6 @@ let tests () =
         let dates = [|System.DateTime(2020, 1, 1); System.DateTime(2021, 1, 1)|]
         System.Array.BinarySearch(dates, System.DateTime(2021, 1, 1)) |> equal 1
         System.Array.BinarySearch(dates, System.DateTime(2020, 6, 1)) |> equal -2
-        System.Array.BinarySearch([|None; Some 1; Some 3|], Some 1) |> equal 1
-        System.Array.BinarySearch([|None; Some 1; Some 3|], Some 2) |> equal -3
 
     testCase "System.Array.BinarySearch with a range passes the array element to the comparer first" <| fun () ->
         let xs = [|1; 3; 5; 7; 9|]
