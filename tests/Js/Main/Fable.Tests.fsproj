@@ -68,6 +68,7 @@
     <Compile Include="MiscTests.fs" />
     <Compile Include="NestedAndRecursivePatternTests.fs" />
     <Compile Include="NullnessTests.fs" />
+    <Compile Include="NullableTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
     <Compile Include="SystemIOTests.fs" />

@@ -2563,6 +2563,35 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
+let nullableModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    let convert (targetType: Type) (value: Expr) =
+        match targetType with
+        | Char -> toChar com ctx r value
+        | Number(BigIntegers _, _) -> toLong com ctx r targetType [ value ]
+        | Number(Integers _, _) -> toInt com ctx r targetType [ value ]
+        | Number(Floats _, _) -> toFloat com ctx r targetType [ value ]
+        | Number(Decimal, _) -> toDecimal com ctx r targetType [ value ]
+        | _ -> TypeCast(value, targetType)
+
+    match i.CompiledName.Replace("$W", ""), List.tryLast args, t with
+    | ("ToByte" | "ToUInt8" | "ToSByte" | "ToInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToInt32" | "ToUInt" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr" | "ToSingle" | "ToFloat32" | "ToDouble" | "ToFloat" | "ToDecimal" | "ToChar" | "ToEnum"),
+      Some value,
+      Nullable(targetType, _) ->
+        match value with
+        | Value(Null _, _) -> Value(Null t, None) |> Some
+        | Value((NumberConstant _ | CharConstant _), _) -> convert targetType value |> Some
+        | _ ->
+            let sourceType =
+                match value.Type with
+                | Nullable(sourceType, _) -> sourceType
+                | sourceType -> sourceType
+
+            let v = makeUniqueIdent com ctx sourceType "v"
+            let mapping = Delegate([ v ], convert targetType (IdentExpr v), None, Tags.empty)
+
+            Helper.LibCall(com, "Option", "map", t, [ mapping; value ], ?loc = r) |> Some
+    | _ -> None
+
 // See fable-library-ts/Option.ts for more info on how options behave in Fable runtime
 let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
@@ -4839,6 +4868,7 @@ let private replacedModules =
             "System.Math", operators
             "System.MathF", operators
             "Microsoft.FSharp.Core.Operators", operators
+            "Microsoft.FSharp.Linq.NullableModule", nullableModule
             "Microsoft.FSharp.Core.Operators.Checked", operators
             "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
             "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions

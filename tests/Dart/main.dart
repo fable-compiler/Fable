@@ -14,6 +14,7 @@ import './src/ListTests.dart' as list;
 import './src/MapTests.dart' as map;
 import './src/MiscTests.dart' as misc;
 // import './src/NullnessTests.dart' as nullness;
+import './src/NullableTests.dart' as nullable;
 import './src/OptionTests.dart' as option;
 import './src/QuotationTests.dart' as quotation;
 import './src/RecordTests.dart' as record;
@@ -49,6 +50,7 @@ void main() {
   map.tests();
   misc.tests();
   // nullness.tests();
+  nullable.tests();
   option.tests();
   quotation.tests();
   record.tests();

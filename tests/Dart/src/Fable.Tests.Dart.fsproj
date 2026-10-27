@@ -24,6 +24,7 @@
     <Compile Include="MapTests.fs" />
     <Compile Include="MiscTests.fs" />
     <Compile Include="NullnessTests.fs" />
+    <Compile Include="NullableTests.fs" />
     <Compile Include="OptionTests.fs" />
     <Compile Include="QuotationTests.fs" />
     <Compile Include="RecordTests.fs" />
