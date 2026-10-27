@@ -2663,8 +2663,11 @@ but thanks to the optimisation done below we get
         | Fable.OptionValue ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
 
-            if mustWrapOption typ || com.IsTypeScript then
+            // Functions are stored uncurried, so their annotation would not match the value
+            if mustWrapOption typ || (com.IsTypeScript && containsFunctionType typ) then
                 libCall com ctx None "Option" "value" [] [ expr ]
+            elif com.IsTypeScript then
+                AsExpression(expr, makeTypeAnnotation com ctx typ)
             else
                 expr
 
