@@ -421,6 +421,44 @@ let ``min works with records`` () =
     let r2 = {a=1; b=2}
     min r1 r2 |> equal r1
 
+[<Fact>]
+let ``max and min of equal values return the same argument as .NET`` () =
+    max 1.0m 1.00m |> string |> equal "1.0"
+    min 1.0m 1.00m |> string |> equal "1.00"
+    max (1.0m, 0) (1.00m, 0) |> fst |> string |> equal "1.0"
+    min (1.0m, 0) (1.00m, 0) |> fst |> string |> equal "1.00"
+
+let negate (x: float) = -x
+
+let negateSingle (x: float32) = -x
+
+let isNegativeZero (x: float) = x = 0.0 && 1.0 / x < 0.0
+
+[<Fact>]
+let ``max and min of 0.0 and -0.0 return the same zero as .NET`` () =
+    let nz = negate 0.0
+    max 0.0 nz |> isNegativeZero |> equal false
+    max nz 0.0 |> isNegativeZero |> equal false
+    min 0.0 nz |> isNegativeZero |> equal true
+    min nz 0.0 |> isNegativeZero |> equal true
+    max 0.0f (negateSingle 0.0f) |> float |> isNegativeZero |> equal false
+    max (negateSingle 0.0f) 0.0f |> float |> isNegativeZero |> equal false
+    min 0.0f (negateSingle 0.0f) |> float |> isNegativeZero |> equal true
+    min (negateSingle 0.0f) 0.0f |> float |> isNegativeZero |> equal true
+    List.reduce max [ 0.0; nz ] |> isNegativeZero |> equal false
+    List.reduce max [ nz; 0.0 ] |> isNegativeZero |> equal false
+    List.reduce min [ 0.0; nz ] |> isNegativeZero |> equal true
+    List.reduce min [ nz; 0.0 ] |> isNegativeZero |> equal true
+    System.Math.Max(nz, 0.0) |> isNegativeZero |> equal false
+    System.Math.Min(0.0, nz) |> isNegativeZero |> equal true
+
+[<Fact>]
+let ``max and min with NaN return NaN`` () =
+    max nan 1.0 |> System.Double.IsNaN |> equal true
+    max 1.0 nan |> System.Double.IsNaN |> equal true
+    min nan 1.0 |> System.Double.IsNaN |> equal true
+    min 1.0 nan |> System.Double.IsNaN |> equal true
+
 // [<Fact>]
 // let ``min with objects implementing IComparable works`` () =
 //     let c1 = Test(5)
