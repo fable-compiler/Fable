@@ -34,6 +34,7 @@ let allTests =
     Maps.tests
     Misc.tests
     Nullness.tests
+    Nullable.tests
     NestedAndRecursivePatternTests.tests
     Observable.tests
     Option.tests

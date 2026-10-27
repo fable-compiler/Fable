@@ -2055,6 +2055,43 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | "get_HasValue", Some c -> makeEqOp r c (makeNull ()) BinaryUnequal |> Some
     | _ -> None
 
+let nullableModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    let convert (targetType: Type) (value: Expr) =
+        match targetType with
+        | Char -> toChar com ctx r value
+        | Number((Float16 | Float32 | Float64), _) -> toFloat com ctx r targetType [ value ]
+        | Number(Decimal, _) -> toDecimal com ctx r targetType [ value ]
+        | Number _ -> toInt com ctx r targetType [ value ]
+        | _ -> TypeCast(value, targetType)
+
+    match i.CompiledName.Replace("$W", ""), List.tryLast args, t with
+    | ("ToByte" | "ToUInt8" | "ToSByte" | "ToInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToInt32" | "ToUInt" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr" | "ToSingle" | "ToFloat32" | "ToDouble" | "ToFloat" | "ToDecimal" | "ToChar" | "ToEnum"),
+      Some value,
+      Nullable(targetType, _) ->
+        match value with
+        | Value(Null _, _) -> makeNull () |> Some
+        | Value((NumberConstant _ | CharConstant _), _) -> convert targetType value |> Some
+        | _ ->
+            let sourceType =
+                match value.Type with
+                | Nullable(sourceType, _) -> sourceType
+                | sourceType -> sourceType
+
+            let v = makeUniqueIdent com ctx value.Type "v"
+
+            Let(
+                v,
+                value,
+                IfThenElse(
+                    makeEqOp None (IdentExpr v) (makeNull ()) BinaryUnequal,
+                    TypeCast(convert targetType (TypeCast(IdentExpr v, sourceType)), t),
+                    makeNull (),
+                    r
+                )
+            )
+            |> Some
+    | _ -> None
+
 let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
@@ -4022,6 +4059,7 @@ let private replacedModules =
             "System.Math", operators
             "System.MathF", operators
             "Microsoft.FSharp.Core.Operators", operators
+            "Microsoft.FSharp.Linq.NullableModule", nullableModule
             "Microsoft.FSharp.Core.Operators.Checked", operators
             "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
             "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
