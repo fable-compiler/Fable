@@ -215,8 +215,39 @@ export function toEnumerable<T>(e: IEnumerable<T> | Iterable<T>): IEnumerable<T>
   else { return new Enumerable(new Enumerator(e[Symbol.iterator]())); }
 }
 
+// Walks an array by index: the iterator protocol allocates a result object per element
+export class ArrayEnumerator<T> implements IEnumerator<T> {
+  private readonly array: ArrayLike<T>;
+  private current: T = defaultOf();
+  private index = -1;
+  constructor(array: ArrayLike<T>) { this.array = array; }
+  public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
+    return this.current;
+  }
+  public ["System.Collections.IEnumerator.get_Current"]() {
+    return this.current;
+  }
+  public ["System.Collections.IEnumerator.MoveNext"]() {
+    const i = ++this.index;
+    if (i < this.array.length) {
+      this.current = this.array[i];
+      return true;
+    }
+    this.current = defaultOf();
+    return false;
+  }
+  public ["System.Collections.IEnumerator.Reset"]() {
+    this.index = -1;
+    this.current = defaultOf();
+  }
+  public Dispose() {
+    return;
+  }
+}
+
 export function getEnumerator<T>(e: IEnumerable<T> | Iterable<T>): IEnumerator<T> {
   if (isEnumerable(e)) { return e.GetEnumerator(); }
+  else if (Array.isArray(e)) { return new ArrayEnumerator(e); }
   else { return new Enumerator(e[Symbol.iterator]()); }
 }
 

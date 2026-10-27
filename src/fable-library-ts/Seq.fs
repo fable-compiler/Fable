@@ -311,9 +311,16 @@ let ofArray (arr: 'T[]) = arr :> seq<'T>
 
 let toArray (xs: seq<'T>) : 'T[] =
     match xs with
-    // | :? array<'T> as a -> Array.ofSeq a
+    | :? array<'T> as a -> Array.ofSeq a
     | :? list<'T> as a -> Array.ofList a
-    | _ -> Array.ofSeq xs
+    | _ ->
+        let res = ResizeArray<'T>()
+        use e = xs.GetEnumerator()
+
+        while e.MoveNext() do
+            res.Add(e.Current)
+
+        res.ToArray()
 
 let ofList (xs: list<'T>) = (xs :> seq<'T>)
 
