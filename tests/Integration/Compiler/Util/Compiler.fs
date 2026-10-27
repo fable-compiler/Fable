@@ -27,7 +27,7 @@ module Compiler =
   /// NOTE: NOT threadsafe
   ///       -> don't use `parallel`
   module Cached =
-    type private CachedProject(name: string) =
+    type private CachedProject(name: string, ?isWatch: bool, ?watchDelay: int, ?recompileAllFiles: bool) =
         let projDir = IO.Path.Join(__SOURCE_DIRECTORY__, "../" + name) |> Path.normalizeFullPath
         let projFile = IO.Path.Join(projDir, name + ".fsproj") |> Path.normalizeFullPath
 
@@ -40,7 +40,7 @@ module Compiler =
               RootDir = projDir
               Configuration = "Debug"
               OutDir = None
-              IsWatch = false
+              IsWatch = defaultArg isWatch false
               Precompile = false
               PrecompiledLib = None
               PrintAst = false
@@ -56,13 +56,32 @@ module Compiler =
               CompilerOptions = compilerOptions
               Verbosity = Verbosity.Normal }
 
-        let mutable state = State.Create(cliArgs, recompileAllFiles=true)
+        let state = State.Create(cliArgs, ?watchDelay = watchDelay, recompileAllFiles = defaultArg recompileAllFiles true)
+        let mutable watchDependencies = Map.empty
 
         member _.ProjDir = projDir
 
-        member _.Compile(files: (string * string) list) =
+        member _.WatchDependencies = watchDependencies
+
+        member _.WriteFiles(files: (string * string) list) =
             for (fileName, content) in files do
                 IO.File.WriteAllText(IO.Path.Join(projDir, fileName), content)
+
+        member _.ReadOutput(fileName: string) =
+            let path = IO.Path.Join(projDir, fileName + ".js")
+            if IO.File.Exists path then IO.File.ReadAllText path else ""
+
+        /// Never returns: the watcher keeps the session alive until the process exits.
+        member this.StartWatching(files: (string * string) list) =
+            for (fileName, _) in files do
+                let output = IO.Path.Join(projDir, fileName + ".js")
+                if IO.File.Exists output then IO.File.Delete output
+
+            this.WriteFiles files
+            state |> startCompilationAsync |> Async.Ignore |> Async.Start
+
+        member this.Compile(files: (string * string) list) =
+            this.WriteFiles files
 
             let result =
                 state
@@ -72,7 +91,7 @@ module Compiler =
             match result with
             | Error(_msg, logs) -> Array.toList logs
             | Ok(newState, logs) ->
-                state <- newState
+                watchDependencies <- newState.WatchDependencies
                 Array.toList logs
 
     let private project = CachedProject("TestProject")
@@ -107,6 +126,42 @@ module Compiler =
           "Library.fs", library
           "Program.fs", programFile settings source
         ]
+
+    let private projectWithSignatureInWatchMode = CachedProject("TestProjectSignature", isWatch = true)
+
+    let watchDependenciesWithSignedLibrary settings (signature: string) (library: string) source =
+        let logs =
+            projectWithSignatureInWatchMode.Compile [
+              "Library.fsi", signature
+              "Library.fs", library
+              "Program.fs", programFile settings source
+            ]
+
+        let projDir = projectWithSignatureInWatchMode.ProjDir
+
+        let dependencies =
+            projectWithSignatureInWatchMode.WatchDependencies
+            |> Map.toList
+            |> List.map (fun (file, deps) ->
+                IO.Path.GetRelativePath(projDir, file), deps |> Array.map (fun d -> IO.Path.GetRelativePath(projDir, d)) |> Array.toList
+            )
+            |> Map.ofList
+
+        logs, dependencies
+
+    let private watchedProject = CachedProject("TestProjectWatch", isWatch = true, watchDelay = 100, recompileAllFiles = false)
+
+    let startWatchingSignedLibrary settings (signature: string) (library: string) source =
+        watchedProject.StartWatching [
+          "Library.fsi", signature
+          "Library.fs", library
+          "Program.fs", programFile settings source
+        ]
+
+    let rewriteWatchedLibrary (library: string) =
+        watchedProject.WriteFiles [ "Library.fs", library ]
+
+    let watchedOutput fileName = watchedProject.ReadOutput fileName
 
   module Assert =
     open Util.Testing

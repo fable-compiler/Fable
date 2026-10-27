@@ -325,12 +325,14 @@ type ImplFile =
         FSharp2Fable.Compiler.getRootFSharpEntities declarations |> loop entities
         let rootModule, rootComment = FSharp2Fable.Compiler.getRootModule declarations
 
+        let fileName = Path.normalizePathAndEnsureFsExtension file.FileName
+
         {
             Declarations = declarations
             Entities = entities
             RootModule = rootModule
             RootComment = rootComment
-            InlineExprs = FSharp2Fable.Compiler.getInlineExprs file.FileName declarations
+            InlineExprs = FSharp2Fable.Compiler.getInlineExprs fileName declarations
             Signature = signature declarations
         }
 

@@ -1887,7 +1887,7 @@ let startCompilationAsync state =
             let logs = Array.append compilationResult.ErrorLogs compilationResult.OtherLogs
 
             match compilationResult.ExitCode with
-            | 0 -> return Ok(state, logs)
+            | 0 -> return Ok(compilationResult.State, logs)
             | _ -> return Error("Compilation failed", logs)
 
         with
