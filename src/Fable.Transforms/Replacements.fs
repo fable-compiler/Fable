@@ -3458,6 +3458,13 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 
         Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "ToHexString"
+    | "ToHexStringLower" ->
+        Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "FromHexString" when List.isSingle args ->
+        Helper.LibCall(com, "String", "fromHexString", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

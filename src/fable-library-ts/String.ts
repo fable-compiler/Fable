@@ -1,6 +1,7 @@
 import { toString as dateToString } from "./Date.ts";
 import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 import { toString } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
@@ -679,6 +680,49 @@ export function fromBase64String(b64Encoded: string): number[] {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes as any as number[];
+}
+
+export function toHexString(inArray: ArrayLike<number>, offset?: number, length?: number): string {
+  if (inArray == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("inArray");
+  }
+  const start = offset ?? 0;
+  const count = length ?? inArray.length - start;
+  if (count < 0) {
+    throw ArgumentOutOfRangeException_$ctor_Z384F8060("length", "Non-negative number required.");
+  }
+  if (start < 0) {
+    throw ArgumentOutOfRangeException_$ctor_Z384F8060("offset", "Non-negative number required.");
+  }
+  if (start > inArray.length - count) {
+    throw ArgumentOutOfRangeException_$ctor_Z721C83C5("offset");
+  }
+  let str = "";
+  for (let i = start; i < start + count; i++) {
+    str += inArray[i].toString(16).padStart(2, "0");
+  }
+  return str.toUpperCase();
+}
+
+export function toHexStringLower(inArray: ArrayLike<number>, offset?: number, length?: number): string {
+  return toHexString(inArray, offset, length).toLowerCase();
+}
+
+export function fromHexString(s: string): number[] {
+  if (s == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("s");
+  }
+  if (s.length % 2 !== 0) {
+    throw FormatException_$ctor_Z721C83C5("The input is not a valid hex string as its length is not a multiple of 2.");
+  }
+  if (!/^[0-9A-Fa-f]*$/.test(s)) {
+    throw FormatException_$ctor_Z721C83C5("The input is not a valid hex string as it contains a non-hex character.");
+  }
+  const bytes = new Uint8Array(s.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(s.substring(2 * i, 2 * i + 2), 16);
   }
   return bytes as any as number[];
 }
