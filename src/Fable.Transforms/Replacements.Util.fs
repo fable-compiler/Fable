@@ -1282,18 +1282,63 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
             | Some x -> ValueSome x
             | None -> ValueNone
 
+module RegexOption =
+    [<Literal>]
+    let IgnoreCase = 1
+
+    [<Literal>]
+    let Multiline = 2
+
+    [<Literal>]
+    let ExplicitCapture = 4
+
+    [<Literal>]
+    let Compiled = 8
+
+    [<Literal>]
+    let Singleline = 16
+
+    [<Literal>]
+    let IgnorePatternWhitespace = 32
+
+    [<Literal>]
+    let RightToLeft = 64
+
+    [<Literal>]
+    let ECMAScript = 256
+
+    [<Literal>]
+    let CultureInvariant = 512
+
+    [<Literal>]
+    let NonBacktracking = 1024
+
+    let names =
+        [
+            IgnoreCase, "IgnoreCase"
+            Multiline, "Multiline"
+            ExplicitCapture, "ExplicitCapture"
+            Compiled, "Compiled"
+            Singleline, "Singleline"
+            IgnorePatternWhitespace, "IgnorePatternWhitespace"
+            RightToLeft, "RightToLeft"
+            ECMAScript, "ECMAScript"
+            CultureInvariant, "CultureInvariant"
+            NonBacktracking, "NonBacktracking"
+        ]
+
 [<return: Struct>]
 let (|RegexFlags|_|) e =
     let rec getFlags =
         function
         | NumberConst(NumberValue.Int32 value, _) ->
             match value with
-            | 1 -> Some [ RegexIgnoreCase ]
-            | 2 -> Some [ RegexMultiline ]
-            | 8 -> Some [] // Compiled flag (ignored)
-            | 16 -> Some [ RegexSingleline ]
-            | 256 -> Some [] // ECMAScript flag (ignored)
-            | 1024 -> Some [] // NonBacktracking flag (ignored)
+            | RegexOption.IgnoreCase -> Some [ RegexIgnoreCase ]
+            | RegexOption.Multiline -> Some [ RegexMultiline ]
+            | RegexOption.Compiled -> Some []
+            | RegexOption.Singleline -> Some [ RegexSingleline ]
+            | RegexOption.ECMAScript -> Some []
+            | RegexOption.NonBacktracking -> Some []
             | _ -> None
         | Operation(Binary(BinaryOrBitwise, flags1, flags2), _, _, _) ->
             match getFlags flags1, getFlags flags2 with
@@ -1304,6 +1349,48 @@ let (|RegexFlags|_|) e =
     match getFlags e with
     | Some x -> ValueSome x
     | None -> ValueNone
+
+[<return: Struct>]
+let (|RegexOptionsConst|_|) (e: Expr) =
+    let rec fold =
+        function
+        | NumberConst(NumberValue.Int32 value, _) -> Some value
+        | Operation(Binary(BinaryOrBitwise, left, right), _, _, _) ->
+            match fold left, fold right with
+            | Some left, Some right -> Some(left ||| right)
+            | _ -> None
+        | _ -> None
+
+    match e.Type, fold e with
+    | Number(Int32, NumberInfo.IsEnum ent), Some value when ent.FullName = Types.regexOptions -> ValueSome value
+    | _ -> ValueNone
+
+let checkRegexOptions (com: ICompiler) (ctx: Context) r (supported: int) (args: Expr list) =
+    for arg in args do
+        match arg with
+        | RegexOptionsConst options when options &&& ~~~supported <> 0 ->
+            let unsupported = options &&& ~~~supported
+
+            let names =
+                RegexOption.names
+                |> List.choose (fun (bit, name) ->
+                    if unsupported &&& bit <> 0 then
+                        Some $"RegexOptions.%s{name}"
+                    else
+                        None
+                )
+
+            let names =
+                if List.isEmpty names then
+                    [ $"RegexOptions value 0x%X{unsupported}" ]
+                else
+                    names
+
+            let names = String.concat ", " names
+
+            $"%s{names} is not supported by Fable on this target"
+            |> addError com ctx.InlinePath r
+        | _ -> ()
 
 [<return: Struct>]
 let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: CallInfo) args error =

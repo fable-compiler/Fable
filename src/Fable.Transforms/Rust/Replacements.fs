@@ -2968,6 +2968,19 @@ let bclNativeImpl com ctx r t i moduleName memberName (thisArg: Expr option) (ar
     | None -> makeStaticMemberCall com r t i moduleName memberName args
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    checkRegexOptions
+        com
+        ctx
+        r
+        (RegexOption.IgnoreCase
+         ||| RegexOption.Multiline
+         ||| RegexOption.Compiled
+         ||| RegexOption.Singleline
+         ||| RegexOption.IgnorePatternWhitespace
+         ||| RegexOption.ECMAScript
+         ||| RegexOption.NonBacktracking)
+        args
+
     match i.CompiledName with
     // | "GetEnumerator" -> getEnumerator com r t i thisArg.Value |> Some
     | meth ->

@@ -3513,6 +3513,18 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     let propInt p callee = getExpr r t callee (makeIntConst p)
     let propStr p callee = getExpr r t callee (makeStrConst p)
 
+    checkRegexOptions
+        com
+        ctx
+        r
+        (RegexOption.IgnoreCase
+         ||| RegexOption.Multiline
+         ||| RegexOption.Compiled
+         ||| RegexOption.Singleline
+         ||| RegexOption.ECMAScript
+         ||| RegexOption.NonBacktracking)
+        args
+
     let isGroup =
         match thisArg with
         | Some(ExprType(DeclaredTypeFullName Types.regexGroup)) -> true
