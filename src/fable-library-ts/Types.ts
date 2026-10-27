@@ -79,9 +79,11 @@ export abstract class Union<Tag extends number, Name extends string> implements 
   }
 
   public GetHashCode() {
-    const hashes = this.fields.map((x: any) => structuralHash(x));
-    hashes.splice(0, 0, numberHash(this.tag));
-    return combineHashCodes(hashes);
+    let h = combineHashCode(0, numberHash(this.tag));
+    for (let i = 0; i < this.fields.length; i++) {
+      h = combineHashCode(h, structuralHash(this.fields[i]));
+    }
+    return h;
   }
 
   public Equals(other: Union<Tag, Name>) {
