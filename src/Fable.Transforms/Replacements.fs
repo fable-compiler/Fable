@@ -847,6 +847,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeImportLib com Any "Exception" "Util" |> Some
     | "System.OperationCanceledException" -> makeImportLib com Any "OperationCanceledException" "AsyncBuilder" |> Some
+    | "System.Threading.Tasks.TaskCanceledException" ->
+        makeImportLib com Any "TaskCanceledException" "AsyncBuilder" |> Some
     | "System.Collections.Generic.KeyNotFoundException" ->
         makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic"
         |> Some
@@ -3292,14 +3294,18 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
-        // The library class has no CancellationToken property
-        | "System.OperationCanceledException" ->
+        // The library classes have no CancellationToken or Task property
+        | "System.OperationCanceledException"
+        | "System.Threading.Tasks.TaskCanceledException" as entName ->
             let args =
                 match List.tryLast i.SignatureArgTypes with
-                | Some(DeclaredTypeFullName Types.cancellationToken) -> List.truncate (List.length args - 1) args
+                | Some(DeclaredTypeFullName(Types.cancellationToken | Types.task)) ->
+                    List.truncate (List.length args - 1) args
                 | _ -> args
 
-            Helper.LibCall(com, "AsyncBuilder", "OperationCanceledException", t, args, isConstructor = true, ?loc = r)
+            let className = entName.Substring(entName.LastIndexOf('.') + 1)
+
+            Helper.LibCall(com, "AsyncBuilder", className, t, args, isConstructor = true, ?loc = r)
             |> Some
         | _ ->
             Helper.LibCall(com, "Util", "Exception", Any, args, isConstructor = true)
@@ -4379,7 +4385,7 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "RunSynchronously" -> None
     // Task<T> is Promise<T> in JS/TS
     | "AwaitTask" ->
-        Helper.LibCall(com, "Async", "awaitPromise", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        Helper.LibCall(com, "Async", "awaitTask", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     // Fable.Core extensions
     | meth ->

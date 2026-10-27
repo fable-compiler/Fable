@@ -12,6 +12,14 @@ type DisposableAction(f) =
 // Bridge pattern: works on .NET (Async.AwaitTask wraps Task) and JS (awaitPromise wraps Promise)
 let awaitTask (t: Task<'T>) = Async.AwaitTask t
 
+let cancellationMessage (t: Task) =
+    task {
+        try
+            do! t
+            return "completed"
+        with :? TaskCanceledException as e -> return e.Message
+    } |> Async.AwaitTask
+
 let tests =
   testList "Task" [
     testCaseAsync "Simple task translates without exception" <| fun () ->
@@ -187,6 +195,10 @@ let tests =
                 with :? OperationCanceledException -> return "cancelled"
             })
             equal "cancelled" result
+            let! awaited = Async.Catch(awaitTask tcs.Task)
+            match awaited with
+            | Choice2Of2 (:? TaskCanceledException) -> ()
+            | _ -> failwith "Expected TaskCanceledException through the error continuation"
         }
 
     testCaseAsync "TaskCompletionSource.TrySet methods return whether they completed the task" <| fun () ->
@@ -293,6 +305,22 @@ let tests =
                 with e -> return e.Message
             })
             equal "boom" result
+        }
+
+    testCaseAsync "Awaiting a cancelled task in a task raises TaskCanceledException" <| fun () ->
+        async {
+            let tcs = TaskCompletionSource<int>()
+            tcs.SetCanceled()
+            let cancelled = new System.Threading.CancellationTokenSource()
+            cancelled.Cancel()
+            let cts = new System.Threading.CancellationTokenSource()
+            let started = Async.StartAsTask(Async.Sleep 1000, cancellationToken = cts.Token)
+            cts.Cancel()
+            let! a = cancellationMessage tcs.Task
+            let! b = cancellationMessage (Task.Run((fun () -> ()), cancelled.Token))
+            let! c = cancellationMessage (Task.Delay(1000, cancelled.Token))
+            let! d = cancellationMessage started
+            equal [ "A task was canceled."; "A task was canceled."; "A task was canceled."; "A task was canceled." ] [ a; b; c; d ]
         }
 
     testCaseAsync "Faulted and cancelled tasks that nothing awaits are not errors" <| fun () ->

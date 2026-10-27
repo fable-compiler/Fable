@@ -81,6 +81,12 @@ export class OperationCanceledException extends Exception {
   }
 }
 
+export class TaskCanceledException extends OperationCanceledException {
+  constructor(msg?: string, innerException?: Exception) {
+    super(msg ?? "A task was canceled.", innerException);
+  }
+}
+
 export class Trampoline {
   static get maxTrampolineCallCount() {
     return 2000;

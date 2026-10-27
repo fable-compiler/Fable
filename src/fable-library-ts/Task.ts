@@ -1,4 +1,4 @@
-import { CancellationToken, OperationCanceledException } from "./AsyncBuilder.ts";
+import { CancellationToken, TaskCanceledException } from "./AsyncBuilder.ts";
 import { ArgumentException_$ctor_Z384F8060, InvalidOperationException_$ctor_Z721C83C5 } from "./System.ts";
 
 export class TaskCompletionSource<T> {
@@ -33,8 +33,8 @@ export class TaskCompletionSource<T> {
   TrySetException(error: unknown): boolean { return this.trySettle(() => this._reject(error)); }
   SetExceptions(errors: Iterable<unknown>): void { this.SetException(firstException(errors)); }
   TrySetExceptions(errors: Iterable<unknown>): boolean { return this.TrySetException(firstException(errors)); }
-  SetCanceled(): void { this.settle(() => this._reject(new OperationCanceledException())); }
-  TrySetCanceled(): boolean { return this.trySettle(() => this._reject(new OperationCanceledException())); }
+  SetCanceled(): void { this.settle(() => this._reject(new TaskCanceledException())); }
+  TrySetCanceled(): boolean { return this.trySettle(() => this._reject(new TaskCanceledException())); }
   // Former spelling of SetCanceled
   SetCancelled(): void { this.SetCanceled(); }
   get_Task(): Promise<T> { return this.task; }
@@ -65,7 +65,7 @@ export function markObserved<T>(task: Promise<T>): Promise<T> {
 // Like .NET, the function runs after the caller continues and not at all if the token is cancelled by then
 export function run<T>(f: () => T | PromiseLike<T>, cancellationToken?: CancellationToken): Promise<T> {
   return markObserved(Promise.resolve().then(() => {
-    if (cancellationToken?.isCancelled) { throw new OperationCanceledException(); }
+    if (cancellationToken?.isCancelled) { throw new TaskCanceledException(); }
     return f();
   }));
 }
@@ -78,7 +78,7 @@ export function zero(): Promise<void> {
 export function delay(millisecondsDelay: number, cancellationToken?: CancellationToken): Promise<void> {
   return markObserved(new Promise<void>((resolve, reject) => {
     if (cancellationToken?.isCancelled) {
-      reject(new OperationCanceledException());
+      reject(new TaskCanceledException());
       return;
     }
     let tokenId: number | undefined;
@@ -89,7 +89,7 @@ export function delay(millisecondsDelay: number, cancellationToken?: Cancellatio
     if (cancellationToken != null) {
       tokenId = cancellationToken.addListener(() => {
         clearTimeout(timeoutId);
-        reject(new OperationCanceledException());
+        reject(new TaskCanceledException());
       });
     }
   }));

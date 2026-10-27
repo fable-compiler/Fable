@@ -1,4 +1,4 @@
-import { OperationCanceledException, Trampoline } from "./AsyncBuilder.ts";
+import { OperationCanceledException, TaskCanceledException, Trampoline } from "./AsyncBuilder.ts";
 import { Continuation, Continuations } from "./AsyncBuilder.ts";
 import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
@@ -123,6 +123,13 @@ export function awaitPromise<T>(p: Promise<T>) {
     p.then(conts[0]).catch((err) =>
       (err instanceof OperationCanceledException
         ? conts[2] : conts[1])(err)));
+}
+
+// Like .NET, a cancelled task raises TaskCanceledException in the awaiting workflow instead of cancelling it
+export function awaitTask<T>(task: Promise<T>) {
+  return fromContinuations((conts: Continuations<T>) =>
+    task.then(conts[0], (err) =>
+      conts[1](err instanceof OperationCanceledException ? new TaskCanceledException() : err)));
 }
 
 export function awaitEvent<Del extends Function, T>(event: IEvent$2<Del, T>, cancelAction?: () => void): Async<T> {
@@ -391,9 +398,12 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
 }
 
 export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
-  return markObserved(startAsPromise(computation, cancellationToken));
+  return startImmediateAsTask(computation, cancellationToken);
 }
 
+// Like .NET, cancelling the computation cancels the task, and awaiting that raises TaskCanceledException
 export function startImmediateAsTask<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
-  return markObserved(startAsPromise(computation, cancellationToken));
+  return markObserved(new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
+    startWithContinuations(computation, resolve, reject, () => reject(new TaskCanceledException()),
+      cancellationToken ? cancellationToken : defaultCancellationToken)));
 }
