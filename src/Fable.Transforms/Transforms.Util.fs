@@ -1032,6 +1032,12 @@ module AST =
         | Option _ -> true
         | _ -> false
 
+    let rec containsFunctionType (t: Type) =
+        match t with
+        | LambdaType _
+        | DelegateType _ -> true
+        | t -> t.Generics |> List.exists containsFunctionType
+
     let isUnitOfMeasure t =
         match t with
         | Measure _
