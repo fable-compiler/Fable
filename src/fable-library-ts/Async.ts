@@ -52,7 +52,7 @@ export function isCancellationRequested(token: CancellationToken) {
 
 export function throwIfCancellationRequested(token: CancellationToken) {
   if (token != null && token.isCancelled) {
-    throw new Exception("Operation is cancelled");
+    throw new OperationCanceledException();
   }
 }
 

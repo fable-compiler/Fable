@@ -1633,6 +1633,31 @@ let tests =
             equal false interrupted
         }
 
+    testCase "CancellationToken.ThrowIfCancellationRequested raises OperationCanceledException" <| fun () ->
+        let cts = new CancellationTokenSource()
+        cts.Token.ThrowIfCancellationRequested()
+        cts.Cancel()
+        let result =
+            try
+                cts.Token.ThrowIfCancellationRequested()
+                "returned"
+            with :? OperationCanceledException as e -> e.Message
+        equal "The operation was canceled." result
+
+    testCase "OperationCanceledException constructors work" <| fun () ->
+        let describe (e: exn) =
+            match e with
+            | :? OperationCanceledException when isNull e.InnerException -> e.Message
+            | :? OperationCanceledException -> e.Message + " " + e.InnerException.Message
+            | _ -> "other"
+        let cts = new CancellationTokenSource()
+        equal "The operation was canceled." (describe (OperationCanceledException()))
+        equal "m" (describe (OperationCanceledException "m"))
+        equal "m inner" (describe (OperationCanceledException("m", Exception "inner")))
+        equal "The operation was canceled." (describe (OperationCanceledException cts.Token))
+        equal "m" (describe (OperationCanceledException("m", cts.Token)))
+        equal "m inner" (describe (OperationCanceledException("m", Exception "inner", cts.Token)))
+
     testCaseAsync "Async.StartAsTask works" <| fun () ->
         async {
             let t = Async.StartAsTask(async {
