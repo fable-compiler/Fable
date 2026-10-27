@@ -691,6 +691,12 @@ let ``test List.randomSampleBy works`` () =
     throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)
 
 [<Fact>]
+let ``test List random functions match FSharp.Core`` () =
+    List.randomShuffleBy (fun () -> 0.999) [0 .. 4] |> equal [4; 0; 1; 2; 3]
+    List.randomSampleBy (fun () -> 0.0) 3 [0 .. 4] |> equal [0; 4; 3]
+    throwsErrorContaining "The input sequence was empty." (fun () -> List.randomChoiceWith (System.Random(1)) ([]: int list))
+
+[<Fact>]
 let ``test List.updateAt works`` () =
     equal [0; 2; 3; 4; 5] (List.updateAt 0 0 [1..5])
     equal [1; 2; 0; 4; 5] (List.updateAt 2 0 [1..5])

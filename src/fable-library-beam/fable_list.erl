@@ -696,7 +696,7 @@ take(Count, List) ->
 
 -spec random_shuffle_by(fun((ok) -> float()), list()) -> list().
 random_shuffle_by(Randomizer, Xs) ->
-    shuffle_loop(Randomizer, erlang:list_to_tuple(Xs), erlang:length(Xs) - 1).
+    shuffle_loop(Randomizer, erlang:list_to_tuple(Xs), erlang:length(Xs), 0).
 
 -spec random_shuffle_with(reference(), list()) -> list().
 random_shuffle_with(Random, Xs) ->
@@ -710,14 +710,7 @@ random_shuffle(Xs) ->
 random_choice_by(_Randomizer, []) ->
     invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
 random_choice_by(Randomizer, Xs) ->
-    Len = erlang:length(Xs),
-    R = Randomizer(ok),
-    if
-        R < 0.0; R >= 1.0 ->
-            randomizer_out_of_range(R);
-        true ->
-            lists:nth(erlang:trunc(R * Len) + 1, Xs)
-    end.
+    lists:nth(random_next(Randomizer, 0, erlang:length(Xs)) + 1, Xs).
 
 -spec random_choice_with(reference(), list()) -> term().
 random_choice_with(Random, Xs) ->
@@ -731,7 +724,7 @@ random_choice(Xs) ->
 random_choices_by(Randomizer, Count, Xs) ->
     if
         Count < 0 ->
-            invalid_arg(<<"count">>, <<"The input must be non-negative.">>);
+            negative_count(Count);
         Count > 0 andalso Xs =:= [] ->
             invalid_arg(<<"source">>, <<"The input sequence was empty.">>);
         true ->
@@ -744,14 +737,8 @@ random_choices_by(Randomizer, Count, Xs) ->
 choices_loop(_Randomizer, _Arr, _Len, 0, Acc) ->
     lists:reverse(Acc);
 choices_loop(Randomizer, Arr, Len, N, Acc) ->
-    R = Randomizer(ok),
-    if
-        R < 0.0; R >= 1.0 ->
-            randomizer_out_of_range(R);
-        true ->
-            E = erlang:element(erlang:trunc(R * Len) + 1, Arr),
-            choices_loop(Randomizer, Arr, Len, N - 1, [E | Acc])
-    end.
+    E = erlang:element(random_next(Randomizer, 0, Len) + 1, Arr),
+    choices_loop(Randomizer, Arr, Len, N - 1, [E | Acc]).
 
 -spec random_choices_with(reference(), non_neg_integer(), list()) -> list().
 random_choices_with(Random, Count, Xs) ->
@@ -765,7 +752,7 @@ random_choices(Count, Xs) ->
 random_sample_by(Randomizer, Count, Xs) ->
     if
         Count < 0 ->
-            invalid_arg(<<"count">>, <<"The input must be non-negative.">>);
+            negative_count(Count);
         true ->
             Len = erlang:length(Xs),
             if
@@ -774,7 +761,11 @@ random_sample_by(Randomizer, Count, Xs) ->
                 Count > Len ->
                     invalid_arg(<<"count">>, <<"The input sequence has an insufficient number of elements.">>);
                 true ->
-                    sample_loop(Randomizer, erlang:list_to_tuple(Xs), Len, Count, 0)
+                    Arr = erlang:list_to_tuple(Xs),
+                    case Len =< max_set_size(Count) of
+                        true -> sample_pool(Randomizer, Arr, Len, Count, 0, []);
+                        false -> sample_set(Randomizer, Arr, Len, Count, #{}, [])
+                    end
             end
     end.
 
@@ -786,37 +777,54 @@ random_sample_with(Random, Count, Xs) ->
 random_sample(Count, Xs) ->
     random_sample_with(fable_random:new(), Count, Xs).
 
-%% Partial Fisher-Yates: after Count swaps the first Count positions hold the sample.
-sample_loop(_Randomizer, Arr, _Len, Count, I) when I >= Count ->
-    lists:sublist(erlang:tuple_to_list(Arr), Count);
-sample_loop(Randomizer, Arr, Len, Count, I) ->
-    R = Randomizer(ok),
-    if
-        R < 0.0; R >= 1.0 ->
-            randomizer_out_of_range(R);
+%% FSharp.Core's sampling: a shrinking pool for small inputs, otherwise redraw seen indices.
+max_set_size(Count) when Count > 5 ->
+    21 + erlang:trunc(math:pow(4, math:ceil(math:log(Count * 3) / math:log(4))));
+max_set_size(_Count) ->
+    21.
+
+sample_pool(_Randomizer, _Pool, _Len, Count, I, Acc) when I >= Count ->
+    lists:reverse(Acc);
+sample_pool(Randomizer, Pool, Len, Count, I, Acc) ->
+    J = random_next(Randomizer, 0, Len - I),
+    Item = erlang:element(J + 1, Pool),
+    Pool2 = erlang:setelement(J + 1, Pool, erlang:element(Len - I, Pool)),
+    sample_pool(Randomizer, Pool2, Len, Count, I + 1, [Item | Acc]).
+
+sample_set(_Randomizer, _Arr, _Len, 0, _Selected, Acc) ->
+    lists:reverse(Acc);
+sample_set(Randomizer, Arr, Len, N, Selected, Acc) ->
+    J = random_next(Randomizer, 0, Len),
+    case maps:is_key(J, Selected) of
         true ->
-            J = I + erlang:trunc(R * (Len - I)),
-            EI = erlang:element(I + 1, Arr),
-            EJ = erlang:element(J + 1, Arr),
-            Arr2 = erlang:setelement(I + 1, erlang:setelement(J + 1, Arr, EI), EJ),
-            sample_loop(Randomizer, Arr2, Len, Count, I + 1)
+            sample_set(Randomizer, Arr, Len, N, Selected, Acc);
+        false ->
+            Item = erlang:element(J + 1, Arr),
+            sample_set(Randomizer, Arr, Len, N - 1, Selected#{J => true}, [Item | Acc])
     end.
 
-%% Full Fisher-Yates shuffle: builds result from index Len-1 downto 1.
-shuffle_loop(_Randomizer, Arr, I) when I =< 0 ->
+%% FSharp.Core's forward Fisher-Yates shuffle.
+shuffle_loop(_Randomizer, Arr, Len, I) when I >= Len - 1 ->
     erlang:tuple_to_list(Arr);
-shuffle_loop(Randomizer, Arr, I) ->
+shuffle_loop(Randomizer, Arr, Len, I) ->
+    J = random_next(Randomizer, I, Len),
+    EI = erlang:element(I + 1, Arr),
+    EJ = erlang:element(J + 1, Arr),
+    Arr2 = erlang:setelement(I + 1, erlang:setelement(J + 1, Arr, EI), EJ),
+    shuffle_loop(Randomizer, Arr2, Len, I + 1).
+
+%% Like FSharp.Core's Random.next: an index in [Min, Max) from a randomizer result in [0.0, 1.0).
+random_next(Randomizer, Min, Max) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
             randomizer_out_of_range(R);
         true ->
-            J = erlang:trunc(R * (I + 1)),
-            EI = erlang:element(I + 1, Arr),
-            EJ = erlang:element(J + 1, Arr),
-            Arr2 = erlang:setelement(I + 1, erlang:setelement(J + 1, Arr, EI), EJ),
-            shuffle_loop(Randomizer, Arr2, I - 1)
+            erlang:trunc(R * (Max - Min)) + Min
     end.
+
+negative_count(Count) ->
+    invalid_arg(<<"count">>, <<"The input must be non-negative.\ncount = ", (erlang:integer_to_binary(Count))/binary>>).
 
 randomizer_out_of_range(R) ->
     erlang:error(#{
