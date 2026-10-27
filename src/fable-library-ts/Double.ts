@@ -1,5 +1,5 @@
 import { FSharpRef } from "./Types.ts";
-import { Exception } from "./Util.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 
 // .NET's Float style: white space, a sign, digits with an optional fraction or a fraction alone, an exponent, then NULs
 const floatRegex = /^[\t-\r ]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[\t-\r ]*\0*$/;
@@ -25,8 +25,10 @@ export function parse(str: string): number {
   const defValue = new FSharpRef(0);
   if (tryParse(str, defValue)) {
     return defValue.contents;
+  } else if (str == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("s");
   } else {
-    throw new Exception(`The input string ${str} was not in a correct format.`);
+    throw FormatException_$ctor_Z721C83C5(`The input string '${str}' was not in a correct format.`);
   }
 }
 

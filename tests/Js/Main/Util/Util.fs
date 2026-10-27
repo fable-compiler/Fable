@@ -115,7 +115,10 @@ let raisedExceptionType (f: unit -> 'a): string =
         "no exception"
     with
     | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? ArgumentNullException -> "ArgumentNullException"
     | :? ArgumentException -> "ArgumentException"
+    | :? FormatException -> "FormatException"
+    | :? OverflowException -> "OverflowException"
     | :? InvalidOperationException -> "InvalidOperationException"
     | :? Collections.Generic.KeyNotFoundException -> "KeyNotFoundException"
     | :? NotSupportedException -> "NotSupportedException"

@@ -195,6 +195,46 @@ let tests =
         tryParse bigint.TryParse 0I "0x10" |> equal (false, 0I)
         tryParse bigint.TryParse 0I " 12 " |> equal (true, 12I)
 
+    testCase "Parsing numbers raises .NET's exception types" <| fun () ->
+        raisedExceptionType (fun () -> Double.Parse("1e", CultureInfo.InvariantCulture)) |> equal "FormatException"
+        raisedExceptionType (fun () -> Double.Parse(null, CultureInfo.InvariantCulture)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> Single.Parse("abc", CultureInfo.InvariantCulture)) |> equal "FormatException"
+        raisedExceptionType (fun () -> float "abc") |> equal "FormatException"
+        raisedExceptionType (fun () -> float32 (null: string)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> Int32.Parse "abc") |> equal "FormatException"
+        raisedExceptionType (fun () -> Int32.Parse(null: string)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> Int32.Parse "2147483648") |> equal "OverflowException"
+        raisedExceptionType (fun () -> UInt32.Parse "4294967296") |> equal "OverflowException"
+        raisedExceptionType (fun () -> Byte.Parse "256") |> equal "OverflowException"
+        raisedExceptionType (fun () -> SByte.Parse "-129") |> equal "OverflowException"
+        raisedExceptionType (fun () -> UInt16.Parse "-1") |> equal "OverflowException"
+        raisedExceptionType (fun () -> Int64.Parse "abc") |> equal "FormatException"
+        raisedExceptionType (fun () -> Int64.Parse(null: string)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> UInt64.Parse "-1") |> equal "OverflowException"
+        raisedExceptionType (fun () -> int "1.5") |> equal "FormatException"
+        raisedExceptionType (fun () -> uint32 "4294967296") |> equal "OverflowException"
+        raisedExceptionType (fun () -> int64 "99999999999999999999") |> equal "OverflowException"
+        raisedExceptionType (fun () -> Decimal.Parse("abc", CultureInfo.InvariantCulture)) |> equal "FormatException"
+        raisedExceptionType (fun () -> Decimal.Parse(null, CultureInfo.InvariantCulture)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> Decimal.Parse("79228162514264337593543950336", CultureInfo.InvariantCulture)) |> equal "OverflowException"
+        raisedExceptionType (fun () -> decimal "abc") |> equal "FormatException"
+        raisedExceptionType (fun () -> decimal "1e30") |> equal "OverflowException"
+        raisedExceptionType (fun () -> bigint.Parse "abc") |> equal "FormatException"
+        raisedExceptionType (fun () -> bigint.Parse null) |> equal "ArgumentNullException"
+        tryParse Int32.TryParse 0 null |> equal (false, 0)
+        tryParse Decimal.TryParse 0M null |> equal (false, 0M)
+
+    testCase "Parsing numbers raises .NET's exception messages" <| fun () ->
+        (fun () -> Int32.Parse "abc") |> throwsError "The input string 'abc' was not in a correct format."
+        (fun () -> Double.Parse("abc", CultureInfo.InvariantCulture)) |> throwsError "The input string 'abc' was not in a correct format."
+        (fun () -> Int32.Parse(null: string)) |> throwsError "Value cannot be null. (Parameter 's')"
+        (fun () -> Int32.Parse "2147483648") |> throwsError "Value was either too large or too small for an Int32."
+        (fun () -> UInt32.Parse "4294967296") |> throwsError "Value was either too large or too small for a UInt32."
+        (fun () -> Byte.Parse "256") |> throwsError "Value was either too large or too small for an unsigned byte."
+        (fun () -> SByte.Parse "128") |> throwsError "Value was either too large or too small for a signed byte."
+        (fun () -> Int64.Parse "9223372036854775808") |> throwsError "Value was either too large or too small for an Int64."
+        (fun () -> bigint.Parse "abc") |> throwsError "The value could not be parsed."
+
     testCase "System.Boolean.Parse works" <| fun () ->
         Boolean.Parse "true" |> equal true
         Boolean.Parse "True" |> equal true

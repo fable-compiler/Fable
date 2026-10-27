@@ -2,6 +2,7 @@ import Decimal, { BigSource } from "./lib/big.js";
 import { Numeric, symbol } from "./Numeric.ts";
 import { FSharpRef } from "./Types.ts";
 import { Exception, combineHashCodes } from "./Util.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
 import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } from "./BigInt.ts";
 import * as bigInt from "./BigInt.ts";
@@ -182,7 +183,13 @@ function parseWithStyle(str: string, style: number): Decimal | undefined {
   if (!digitsPattern(style).test(s)) {
     return undefined;
   }
-  const d = new Decimal(s.replace(/,/g, ""));
+  let d: Decimal;
+  try {
+    d = new Decimal(s.replace(/,/g, ""));
+  } catch {
+    // The format is valid, so big.js only fails on overflow
+    throw OverflowException_$ctor_Z721C83C5(OVERFLOW);
+  }
   if (negative) {
     d.s = -1;
   }
@@ -203,9 +210,12 @@ export function tryParse(str: string, style: number, defValue: FSharpRef<Decimal
 }
 
 export function parse(str: string, style: number = NumberStyles.Number): Decimal {
+  if (str == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("s");
+  }
   const d = parseWithStyle(str, style);
   if (d === undefined) {
-    throw new Exception(`The input string ${str} was not in a correct format.`);
+    throw FormatException_$ctor_Z721C83C5(`The input string '${str}' was not in a correct format.`);
   }
   return d;
 }
