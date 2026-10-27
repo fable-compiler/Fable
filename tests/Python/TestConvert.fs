@@ -1060,22 +1060,54 @@ let ``test System.Convert.ToString Decimal works`` () =
     let x = "101"
     Convert.ToString(101.m) |> equal x
 
-// [<Fact>]
-// let ``test Convert.ToHexString works`` () =
-//     let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
-//     Convert.ToHexString(bytes)
-//     |> equal "FAFBFCFDFE"
+[<Fact>]
+let ``test Convert.ToHexString works`` () =
+    let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    Convert.ToHexString(bytes)
+    |> equal "FAFBFCFDFE"
+    Convert.ToHexString([| 0uy; 1uy; 15uy; 16uy |]) |> equal "00010F10"
+    Convert.ToHexString([||]) |> equal ""
+    Convert.ToHexString(bytes, 1, 3) |> equal "FBFCFD"
+    Convert.ToHexString(bytes, 5, 0) |> equal ""
 
-// [<Fact>]
-// let ``test Convert.ToHexStringLower works`` () =
-//     let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
-//     Convert.ToHexStringLower(bytes)
-//     |> equal "fafbfcfdfe"
+[<Fact>]
+let ``test Convert.ToHexStringLower works`` () =
+    let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    Convert.ToHexStringLower(bytes)
+    |> equal "fafbfcfdfe"
+    Convert.ToHexStringLower([| 0uy; 1uy; 15uy; 16uy |]) |> equal "00010f10"
+    Convert.ToHexStringLower([||]) |> equal ""
+    Convert.ToHexStringLower(bytes, 1, 3) |> equal "fbfcfd"
 
-// [<Fact>]
-// let ``test Convert.FromHexString works`` () =
-//     Convert.FromHexString("fafBFCFDFE")
-//     |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+[<Fact>]
+let ``test Convert.ToHexString checks its arguments`` () =
+    let bytes = [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    raisedExceptionType (fun () -> Convert.ToHexString(null: byte[])) |> equal "ArgumentNullException"
+    raisedExceptionType (fun () -> Convert.ToHexString((null: byte[]), 0, 0)) |> equal "ArgumentNullException"
+    raisedExceptionType (fun () -> Convert.ToHexString(bytes, -1, 1)) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Convert.ToHexString(bytes, 1, -1)) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Convert.ToHexString(bytes, 3, 3)) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Convert.ToHexString(bytes, 6, 0)) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Convert.ToHexStringLower(null: byte[])) |> equal "ArgumentNullException"
+    raisedExceptionType (fun () -> Convert.ToHexStringLower(bytes, -1, 1)) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Convert.ToHexStringLower(bytes, 3, 3)) |> equal "ArgumentOutOfRangeException"
+
+[<Fact>]
+let ``test Convert.FromHexString works`` () =
+    Convert.FromHexString("fafBFCFDFE")
+    |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
+    Convert.FromHexString("0123456789abcdefABCDEF")
+    |> equal [| 1uy; 35uy; 69uy; 103uy; 137uy; 171uy; 205uy; 239uy; 171uy; 205uy; 239uy |]
+    Convert.FromHexString("") |> equal [||]
+
+[<Fact>]
+let ``test Convert.FromHexString checks its input`` () =
+    raisedExceptionType (fun () -> Convert.FromHexString(null: string)) |> equal "ArgumentNullException"
+    raisedExceptionType (fun () -> Convert.FromHexString("abc")) |> equal "FormatException"
+    raisedExceptionType (fun () -> Convert.FromHexString("zz")) |> equal "FormatException"
+    raisedExceptionType (fun () -> Convert.FromHexString("0x10")) |> equal "FormatException"
+    raisedExceptionType (fun () -> Convert.FromHexString("00 1")) |> equal "FormatException"
+    raisedExceptionType (fun () -> Convert.FromHexString("+1")) |> equal "FormatException"
 
 [<Fact>]
 let ``test Convert.ToBase64String works`` () =
