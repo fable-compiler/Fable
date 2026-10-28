@@ -37,6 +37,12 @@ type TypeCheckProjectResult =
 [<RequireQualifiedAccess>]
 module CodeServices =
 
+    /// The spelling the F# checker uses for a file, which is the one its diagnostics carry.
+    val checkerFileName: fileName: string -> string
+
+    /// The file names as the F# checker spells them, with a source reader that still receives the names given here.
+    val checkerFileNames: fileNames: string[] -> sourceReader: SourceReader -> string[] * SourceReader
+
     /// Convert the diagnostics of the F# compiler into log entries tagged "FSHARP".
     /// The error number is folded into the message, as `Fable.Cli` prints it.
     val getFSharpDiagnostics: diagnostics: FSharpDiagnostic array -> LogEntry array
