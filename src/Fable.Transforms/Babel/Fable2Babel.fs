@@ -869,6 +869,25 @@ module Annotation =
         | Types.ievent2 -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
         | "Fable.Core.JS.Set`1" -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "ISet" |> Some
         | "Fable.Core.JS.Map`2" -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IMap" |> Some
+        // FCS erases the Fable.Core aliases, so only TypedArray<element> reaches here
+        | "Fable.Core.JS.TypedArray`1" ->
+            match genArgs with
+            | [ Fable.Number(kind, _) ] ->
+                match kind with
+                | Int8 -> Some "Int8Array"
+                | UInt8 -> Some "Uint8Array"
+                | Int16 -> Some "Int16Array"
+                | UInt16 -> Some "Uint16Array"
+                | Int32 -> Some "Int32Array"
+                | UInt32 -> Some "Uint32Array"
+                | Int64
+                | BigInt -> Some "BigInt64Array"
+                | UInt64 -> Some "BigUint64Array"
+                | Float32 -> Some "Float32Array"
+                | Float64 -> Some "Float64Array"
+                | _ -> None
+            | _ -> None
+            |> Option.map (makeNativeTypeAnnotation com ctx [])
         | _ -> None
 
     let makeStringEnumTypeAnnotation (ent: Fable.Entity) (attArgs: obj list) =
