@@ -2339,8 +2339,6 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "ToTuple", _ -> changeKind false args
     | _ -> None
 
-/// System.Array.Copy compiles to Array.copyTo, which checks the arguments like it (Util.copyToArray doesn't).
-/// Array.copyTo takes ints, so the Int64 overloads convert their arguments first.
 let arrayCopy (com: ICompiler) (ctx: Context) r t source sourceIndex target targetIndex count =
     let toInt32 (arg: Expr) =
         match arg.Type with

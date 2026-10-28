@@ -1145,8 +1145,6 @@ let windowed (windowSize: int) (xs: seq<'T>) : 'T[] seq =
 
     delay (fun () -> xs |> toArray |> Array.windowed windowSize |> ofArray)
 
-// Not Array.transpose, which rejects jagged input: FSharp.Core's Seq.transpose groups
-// the elements by their index, so [[1; 2]; [3]] gives [[1; 3]; [2]].
 let transpose (xss: seq<#seq<'T>>) : seq<seq<'T>> =
     delay (fun () ->
         let rec columns (rows: 'T list list) =
@@ -1363,8 +1361,6 @@ let removeAt (index: int) (xs: seq<'T>) : seq<'T> =
         )
         (fun e -> e.Dispose())
 
-// Like FSharp.Core: a count past the end (or a negative one) isn't an error, but the input
-// must be longer than index, which can only be checked once it has been enumerated
 let removeManyAt (index: int) (count: int) (xs: seq<'T>) : seq<'T> =
     if index < 0 then
         invalidArg "index" "index must be within bounds of the array"

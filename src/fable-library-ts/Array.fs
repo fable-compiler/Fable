@@ -368,8 +368,7 @@ let private argumentOutOfRange (paramName: string) (value: int) (requirement: st
         System.ArgumentOutOfRangeException(paramName, paramName + " ('" + string value + "') must be " + requirement)
     )
 
-// System.Array.Copy calls compile to this function too, so it checks the arguments like
-// System.Array.Copy, in the same order, and copies the items itself like Util.copyToArray
+// System.Array.Copy compiles to this function, so it cannot call System.Array.Copy itself
 let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) =
     if count < 0 then
         argumentOutOfRange "length" count "a non-negative value."
@@ -393,7 +392,6 @@ let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (
     if isTypedArrayImpl source && isTypedArrayImpl target then
         copyTypedArray (source :> obj) sourceIndex (target :> obj) targetIndex count
     elif sourceIndex < targetIndex then
-        // Backwards, so a copy within one array doesn't overwrite items before reading them
         for i = count - 1 downto 0 do
             arraySetItemImpl target (targetIndex + i) (arrayAccessImpl (sourceIndex + i) source)
     else
@@ -1412,8 +1410,7 @@ let removeAt (index: int) (xs: 'T[]) : 'T[] =
     )
 
 let removeManyAt (index: int) (count: int) (xs: 'T[]) : 'T[] =
-    // FSharp.Core's check. Negative counts, which FSharp.Core handles oddly, remove nothing
-    // but the index can't be past the end.
+    // Unlike FSharp.Core, a negative count removes nothing instead of duplicating items
     if index < 0 || index > xs.Length - count || index > xs.Length then
         invalidArg "index" "index must be within bounds of the array"
 

@@ -149,8 +149,7 @@ let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] =
     if count < 0 then
         invalidArg "count" SR.inputMustBeNonNegative
 
-    // FSharp.Core sets the items one by one: a count of 0 is fine even past the end, and
-    // it fills up to the end before raising, where this checks first
+    // .NET fills up to the end of the array before raising, this checks first
     if count > 0 then
         if targetIndex + count > target.Length then
             raise (System.IndexOutOfRangeException(SR.Arg_IndexOutOfRangeException))
@@ -162,7 +161,6 @@ let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] =
 let getSubArray (array: 'T[]) (start: int) (count: int) : 'T[] =
     Native.sublist (array, start, start + count)
 
-// Array.sub checks its arguments like FSharp.Core (unlike getSubArray, which ResizeArray.GetRange also uses)
 let sub (array: 'T[]) (startIndex: int) (count: int) : 'T[] =
     if startIndex < 0 then
         invalidArg "startIndex" SR.inputMustBeNonNegative
@@ -426,7 +424,6 @@ let removeAllInPlace (predicate: 'T -> bool) (array: 'T[]) : int =
     Native.removeWhere array predicate
     len - array.Length
 
-// Array.blit and System.Array.Copy: checks the arguments in the same order as System.Array.Copy
 let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) : unit =
     if count < 0 then
         raise (System.ArgumentOutOfRangeException("length", SR.Arg_ArgumentOutOfRangeException))
@@ -1176,8 +1173,7 @@ let removeAt (index: int) (xs: 'T[]) : 'T[] =
 let removeManyAt (index: int) (count: int) (xs: 'T[]) : 'T[] =
     let len = xs.Length
 
-    // FSharp.Core's check. A negative count removes nothing, like in List.removeManyAt and
-    // Seq.removeManyAt, but the index can't be past the end
+    // Unlike FSharp.Core, a negative count removes nothing instead of duplicating items
     if index < 0 || index > len - count || index > len then
         invalidArg "index" "index must be within bounds of the array"
 

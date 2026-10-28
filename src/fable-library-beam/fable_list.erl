@@ -430,8 +430,6 @@ pairwise([]) -> [];
 pairwise([_]) -> [];
 pairwise([A, B | T]) -> [{A, B} | pairwise([B | T])].
 
-%% List.exists2 and List.forall2 walk both lists like FSharp.Core, so the predicate can
-%% decide the result before the shorter list runs out.
 exists2(Fn, [A | T1], [B | T2]) ->
     case (Fn(A))(B) of
         true -> true;
@@ -454,7 +452,6 @@ forall2(_Fn, [], _L2) ->
 forall2(_Fn, _L1, []) ->
     lists_had_different_lengths(<<"list2">>).
 
-%% Array.exists2 and Array.forall2 check the lengths before calling the predicate.
 array_exists2(Fn, A1, A2) when length(A1) =:= length(A2) ->
     exists2(Fn, A1, A2);
 array_exists2(_Fn, _A1, _A2) ->
@@ -658,8 +655,6 @@ try_find_index_back(Fn, [H | T], Idx) ->
         false -> try_find_index_back(Fn, T, Idx - 1)
     end.
 
-%% List.transpose and Array.transpose share this, so jagged input raises Array.transpose's
-%% exception for both, as on the other targets.
 transpose([]) ->
     [];
 transpose([First | Rest] = Lists) ->
@@ -728,13 +723,11 @@ get_slice(Lower, Upper, List) ->
         end,
     lists:sublist(List, Start + 1, End - Start + 1).
 
-%% Array.sub checks its range like FSharp.Core, where lists:sublist/3 would truncate it.
 -spec sub(list(), integer(), integer()) -> list().
 sub(_List, StartIndex, _Count) when StartIndex < 0 ->
     invalid_arg(<<"startIndex">>, <<"The input must be non-negative.">>);
 sub(_List, _StartIndex, Count) when Count < 0 ->
     invalid_arg(<<"count">>, <<"The input must be non-negative.">>);
-%% Walks only the first StartIndex + Count items, so a slice near the front of a long list stays cheap
 sub(List, 0, Count) ->
     case lists:sublist(List, Count) of
         Sub when length(Sub) =:= Count -> Sub;
@@ -745,9 +738,7 @@ sub([_ | T], StartIndex, Count) ->
 sub([], _StartIndex, _Count) ->
     argument_out_of_range(<<"count">>, <<"The index is outside the legal range.">>).
 
-%% Array.blit is System.Array.Copy on .NET, so it checks the arguments in the same order before
-%% anything is copied. HashSet.CopyTo calls fable_resize_array:blit/5 directly, because its count
-%% may be larger than the set.
+%% HashSet.CopyTo calls fable_resize_array:blit/5 directly, its count may exceed the set
 -spec blit(list(), integer(), list(), integer(), integer()) -> list().
 blit(_Source, _SourceIdx, _Target, _TargetIdx, Count) when Count < 0 ->
     argument_out_of_range(<<"length">>, <<"Non-negative number required.">>);
@@ -927,13 +918,11 @@ invalid_arg(ParamName, Message) ->
         message => fable_utils:argument_exception_message(Message, ParamName)
     }).
 
-%% The same for an ArgumentOutOfRangeException.
 argument_out_of_range(ParamName, Message) ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
         message => fable_utils:argument_exception_message(Message, ParamName)
     }).
 
-%% FSharp.Core's ArgumentException for lists that ran out at different times.
 lists_had_different_lengths(ParamName) ->
     invalid_arg(ParamName, <<"The lists had different lengths.">>).

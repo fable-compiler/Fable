@@ -268,7 +268,6 @@ let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'St
         xs <- xs.Tail
         ys <- ys.Tail
 
-    // Like FSharp.Core, name the list that ran out
     if not xs.IsEmpty then
         differentLengths "list2"
     elif not ys.IsEmpty then
@@ -983,7 +982,6 @@ let removeManyAt (index: int) (count: int) (xs: 'T list) : 'T list =
             i < index || i >= endIndex
         )
 
-    // i + 1 is now the length of the list
     if endIndex > i + 1 then
         invalidArg "index" "index must be within bounds of the list"
 

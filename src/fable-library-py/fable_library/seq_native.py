@@ -161,7 +161,6 @@ def take_while[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> Nativ
 
 
 def take[T](count: int, xs: IEnumerable_1[T]) -> NativeSeq[T]:
-    # Checked when called, not when enumerated, like FSharp.Core
     if count < 0:
         raise ArgumentException__ctor_Z384F8060("The input must be non-negative.", "count")
 
