@@ -587,7 +587,8 @@ module JS =
         abstract Create: data: obj -> Uint8Array
 
 
-    and Uint8ClampedArray = TypedArray<uint8>
+    and Uint8ClampedArray =
+        inherit TypedArray<uint8>
 
     and Uint8ClampedArrayConstructor =
         [<Emit "new $0($1...)">]
