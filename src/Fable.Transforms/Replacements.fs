@@ -268,7 +268,14 @@ let needToCast fromKind toKind =
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
     | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
-    | String -> Helper.LibCall(com, "Double", "parse", targetType, [ args.Head ])
+    | String ->
+        let style =
+            int (
+                System.Globalization.NumberStyles.Float
+                ||| System.Globalization.NumberStyles.AllowThousands
+            )
+
+        Helper.LibCall(com, "Double", "parse", targetType, [ args.Head; makeIntConst style ])
     | Number(kind, _) ->
         match kind with
         | Decimal -> Helper.LibCall(com, "Decimal", "toFloat64", targetType, args)
@@ -2763,7 +2770,7 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
 
 
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let parseCall meth str args style =
+    let parseCall meth str args (style: Expr) =
         let kind =
             match i.DeclaringEntityFullName with
             | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> kind
@@ -2778,13 +2785,10 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 []
 
         let args =
-            if kind = Decimal then
-                [ str; makeIntConst style ] @ outValue
-            elif isFloatOrDecimal then
-                [ str ] @ outValue
+            if isFloatOrDecimal then
+                [ str; style ] @ outValue
             else
-                [ str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
-                @ outValue
+                [ str; style; makeBoolConst unsigned; makeIntConst bitsize ] @ outValue
 
         let callExpr =
             Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)
@@ -2792,6 +2796,30 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         match t with
         | Number(BigIntegers _, _) -> wrapLong com ctx r t callExpr
         | _ -> callExpr
+
+    let isFloatOrDecimalType =
+        match i.DeclaringEntityFullName with
+        | Types.decimal
+        | Types.float32
+        | Types.float64 -> true
+        | _ -> false
+
+    let checkFormatProvider meth hasStyle =
+        let acceptedArgs =
+            (if meth = "Parse" then
+                 1
+             else
+                 2)
+            + (if hasStyle then
+                   1
+               else
+                   0)
+
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
     let isFloat =
         match i.SignatureArgTypes with
@@ -2825,55 +2853,32 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _ -> operators com ctx r t i thisArg args
-    | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
-        let hexConst = int System.Globalization.NumberStyles.HexNumber
-        let intConst = int System.Globalization.NumberStyles.Integer
-
-        if
-            style <> hexConst
-            && style <> intConst
-            && i.DeclaringEntityFullName <> Types.decimal
-        then
+    | ("Parse" | "TryParse") as meth, str :: (ExprType(Number(Int32, _)) as style) :: _ ->
+        match style with
+        | NumberConst(NumberValue.Int32 style, _) when
+            not isFloatOrDecimalType
+            && style <> int System.Globalization.NumberStyles.HexNumber
+            && style <> int System.Globalization.NumberStyles.Integer
+            ->
             WarningCodes.numberStylesIgnored style
             |> addWarningWithCode com ctx.InlinePath r
+        | _ -> ()
 
-        let acceptedArgs =
-            if meth = "Parse" then
-                2
-            else
-                3
-
-        match List.tryItem acceptedArgs args with
-        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
-        | None
-        | Some InvariantCulture -> ()
-        | Some _ ->
-            // e.g. Double.Parse(string, style, IFormatProvider) etc.
-            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
-
+        checkFormatProvider meth true
         parseCall meth str args style |> Some
     | ("Parse" | "TryParse") as meth, str :: _ ->
-        let acceptedArgs =
-            if meth = "Parse" then
-                1
-            else
-                2
-
-        match List.tryItem acceptedArgs args with
-        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
-        | None
-        | Some InvariantCulture -> ()
-        | Some _ ->
-            // e.g. Double.Parse(string, IFormatProvider) etc.
-            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+        checkFormatProvider meth false
 
         let style =
-            if i.DeclaringEntityFullName = Types.decimal then
-                int System.Globalization.NumberStyles.Number
-            else
-                int System.Globalization.NumberStyles.Any
+            match i.DeclaringEntityFullName with
+            | Types.decimal -> System.Globalization.NumberStyles.Number
+            | Types.float32
+            | Types.float64 ->
+                System.Globalization.NumberStyles.Float
+                ||| System.Globalization.NumberStyles.AllowThousands
+            | _ -> System.Globalization.NumberStyles.Any
 
-        parseCall meth str args style |> Some
+        parseCall meth str args (makeIntConst (int style)) |> Some
     | "Pow", _ ->
         Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb = "pow", ?loc = r)
         |> Some
