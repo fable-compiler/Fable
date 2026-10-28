@@ -1563,8 +1563,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // Printf.kbprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "InvalidArg" | "InvalidOp" | "LazyPattern" | "Lock" | "NullArg" | "Using"), _ ->
+    | ("Failure" | "FailurePattern" | "LazyPattern" | "Lock" | "NullArg" | "Using"), _ ->
         fsharpModule com ctx r t i thisArg args
+    // Thrown at the call site so V8 sees a non-returning branch rather than a call
+    | ("InvalidArg" | "InvalidOp"), _ -> fsharpModule com ctx r t i thisArg args |> Option.map (makeThrow r t)
     | ("IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
