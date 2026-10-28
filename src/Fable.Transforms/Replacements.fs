@@ -268,7 +268,7 @@ let needToCast fromKind toKind =
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
     | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
-    | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
+    | String -> Helper.LibCall(com, "Double", "parse", targetType, [ args.Head ])
     | Number(kind, _) ->
         match kind with
         | Decimal -> Helper.LibCall(com, "Decimal", "toFloat64", targetType, args)
@@ -284,7 +284,10 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
     | Char ->
         Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
         |> makeDecimalFromExpr com r targetType
-    | String -> makeDecimalFromExpr com r targetType args.Head
+    // FSharp.Core's decimal parses with NumberStyles.Float
+    | String ->
+        let style = int System.Globalization.NumberStyles.Float
+        Helper.LibCall(com, "Decimal", "parse", targetType, [ args.Head; makeIntConst style ], ?loc = r)
     | Number(kind, _) ->
         match kind with
         | Decimal -> args.Head
@@ -1524,6 +1527,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32"),
       _ -> toInt com ctx r t args |> Some
     | ("ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"), _ -> toLong com ctx r t args |> Some
+    // Unlike Double.Parse, FSharp.Core's float and float32 remove underscores
+    | ("ToSingle" | "ToDouble"), [ ExprType String as str ] ->
+        Helper.LibCall(com, "Double", "parseIgnoringUnderscores", t, [ str ], ?loc = r)
+        |> Some
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar com ctx r args.Head |> Some
@@ -3405,7 +3412,11 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToUInt64" -> round com args |> toLong com ctx r t |> Some
     | "ToSingle"
     | "ToDouble" -> toFloat com ctx r t args |> Some
-    | "ToDecimal" -> toDecimal com ctx r t args |> Some
+    | "ToDecimal" ->
+        match args with
+        // Convert.ToDecimal(string) parses with Decimal.Parse's default style
+        | ExprType String :: _ -> Helper.LibCall(com, "Decimal", "parse", t, [ args.Head ], ?loc = r) |> Some
+        | _ -> toDecimal com ctx r t args |> Some
     | "ToChar" -> toChar com ctx r args.Head |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String"

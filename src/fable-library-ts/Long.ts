@@ -1,7 +1,8 @@
-import { getPrefix, isValid } from "./Int32.ts";
+import { getPrefix, isValid, parseOverflow } from "./Int32.ts";
 import { fromString } from "./BigInt.ts";
 import { FSharpRef } from "./Types.ts";
 import { Exception } from "./Util.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 
 function getRange(unsigned: boolean, bitsize: number): [bigint, bigint] {
   switch (bitsize) {
@@ -13,6 +14,9 @@ function getRange(unsigned: boolean, bitsize: number): [bigint, bigint] {
 }
 
 export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number) {
+  if (str == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("s");
+  }
   const res = isValid(str, style, radix);
   if (res != null) {
     let v = fromString(getPrefix(res.radix) + res.digits);
@@ -27,8 +31,9 @@ export function parse(str: string, style: number, unsigned: boolean, bitsize: nu
     if (v >= min && v <= max) {
       return v;
     }
+    throw parseOverflow(unsigned, bitsize);
   }
-  throw new Exception(`The input string ${str} was not in a correct format.`);
+  throw FormatException_$ctor_Z721C83C5(`The input string '${str}' was not in a correct format.`);
 }
 
 export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<bigint>) {

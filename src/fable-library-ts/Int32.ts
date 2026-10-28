@@ -1,5 +1,6 @@
 import { FSharpRef } from "./Types.ts";
 import { Exception } from "./Util.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
 
 export type int8 = number;
 export type uint8 = number;
@@ -106,7 +107,15 @@ export function isValid(str: string, style: number, radix?: number) {
   return null;
 }
 
+export function parseOverflow(unsigned: boolean, bitsize: number) {
+  const type = bitsize === 8 ? (unsigned ? "an unsigned byte" : "a signed byte") : (unsigned ? "a UInt" : "an Int") + bitsize;
+  return OverflowException_$ctor_Z721C83C5(`Value was either too large or too small for ${type}.`);
+}
+
 export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number): number {
+  if (str == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("s");
+  }
   const res = isValid(str, style, radix);
   if (res != null) {
     let v = Number.parseInt(res.sign + res.digits, res.radix);
@@ -119,9 +128,10 @@ export function parse(str: string, style: number, unsigned: boolean, bitsize: nu
       if (v >= min && v <= max) {
         return v;
       }
+      throw parseOverflow(unsigned, bitsize);
     }
   }
-  throw new Exception(`The input string ${str} was not in a correct format.`);
+  throw FormatException_$ctor_Z721C83C5(`The input string '${str}' was not in a correct format.`);
 }
 
 export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<number>): boolean {

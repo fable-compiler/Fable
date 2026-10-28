@@ -2,6 +2,7 @@ import { FSharpRef } from "./Types.ts";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
 import { decimal, fromParts, truncate } from "./Decimal.ts";
 import { Exception, bigintHash } from "./Util.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 
 const isBigEndian = false;
 
@@ -195,18 +196,27 @@ export function toChar(x: bigint): string {
 
 export function toString(x: bigint): string { return x.toString(); }
 
+// .NET's Integer style: white space, a sign and decimal digits, then NULs
+const integerRegex = /^[\t-\r ]*([+-]?\d+)[\t-\r ]*\0*$/;
+
 export function tryParse(s: string, res: FSharpRef<bigint>): boolean {
-    try {
-        res.contents = BigInt(s);
+    const m = s == null ? null : integerRegex.exec(s);
+    if (m != null) {
+        res.contents = BigInt(m[1]);
         return true;
     }
-    catch (err: any) {
-        return false;
-    }
+    return false;
 }
 
 export function parse(s: string): bigint {
-    return BigInt(s);
+    const res = new FSharpRef(zero);
+    if (tryParse(s, res)) {
+        return res.contents;
+    } else if (s == null) {
+        throw ArgumentNullException_$ctor_Z721C83C5("value");
+    } else {
+        throw FormatException_$ctor_Z721C83C5("The value could not be parsed.");
+    }
 }
 
 export function pow(x: bigint, n: int32): bigint {
