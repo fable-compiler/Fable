@@ -2,6 +2,7 @@ import Decimal, { BigSource } from "./lib/big.js";
 import { Numeric, symbol } from "./Numeric.ts";
 import { FSharpRef } from "./Types.ts";
 import { Exception, combineHashCodes } from "./Util.ts";
+import { NumberStyles, splitNumber } from "./NumberStyles.ts";
 import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
 import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } from "./BigInt.ts";
@@ -133,64 +134,20 @@ export function toString(x: Decimal) {
   return x.toString();
 }
 
-const NumberStyles = {
-  AllowLeadingWhite: 1,
-  AllowTrailingWhite: 2,
-  AllowLeadingSign: 4,
-  AllowTrailingSign: 8,
-  AllowParentheses: 16,
-  AllowDecimalPoint: 32,
-  AllowThousands: 64,
-  AllowExponent: 128,
-  AllowHexSpecifier: 512,
-  Number: 111,
-} as const;
-
-// The digits of a decimal string once whitespace, sign and parentheses are stripped
-function digitsPattern(style: number): RegExp {
-  const integral = style & NumberStyles.AllowThousands ? "\\d+(?:,\\d+)*" : "\\d+";
-  const point = style & NumberStyles.AllowDecimalPoint ? "(?:\\.\\d*)?" : "";
-  const leadingPoint = style & NumberStyles.AllowDecimalPoint ? "|\\.\\d+" : "";
-  const exponent = style & NumberStyles.AllowExponent ? "(?:[eE][+-]?\\d+)?" : "";
-  return new RegExp(`^(?:${integral}${point}${leadingPoint})${exponent}$`);
-}
-
 // Returns undefined when the string does not have the format allowed by the style
 function parseWithStyle(str: string, style: number): Decimal | undefined {
-  if (style & NumberStyles.AllowHexSpecifier) {
-    throw new Exception("The number style AllowHexSpecifier is not supported on floating point data types.");
-  }
-  // .NET ignores trailing NULs and its white space is only [\t\n\v\f\r ]
-  let s = str.replace(/\0+$/, "");
-  if (style & NumberStyles.AllowLeadingWhite) {
-    s = s.replace(/^[\t-\r ]+/, "");
-  }
-  if (style & NumberStyles.AllowTrailingWhite) {
-    s = s.replace(/[\t-\r ]+$/, "");
-  }
-  let negative = false;
-  if (style & NumberStyles.AllowParentheses && s.startsWith("(") && s.endsWith(")")) {
-    s = s.slice(1, -1);
-    negative = true;
-  }
-  if (style & NumberStyles.AllowLeadingSign && /^[+-]/.test(s)) {
-    negative = s[0] === "-" ? !negative : negative;
-    s = s.slice(1);
-  } else if (style & NumberStyles.AllowTrailingSign && /[+-]$/.test(s)) {
-    negative = s[s.length - 1] === "-" ? !negative : negative;
-    s = s.slice(0, -1);
-  }
-  if (!digitsPattern(style).test(s)) {
+  const parts = splitNumber(str, style);
+  if (parts === undefined) {
     return undefined;
   }
   let d: Decimal;
   try {
-    d = new Decimal(s.replace(/,/g, ""));
+    d = new Decimal(parts.digits);
   } catch {
     // Fable's big.js fork throws for values outside the decimal range
     throw OverflowException_$ctor_Z721C83C5(OVERFLOW);
   }
-  if (negative) {
+  if (parts.negative) {
     d.s = -1;
   }
   return d;

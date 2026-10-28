@@ -1,15 +1,18 @@
 import { FSharpRef } from "./Types.ts";
 import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
+import { NumberStyles, splitNumber } from "./NumberStyles.ts";
 
-// .NET's Float style: white space, a sign, digits with an optional fraction or a fraction alone, an exponent, then NULs
-const floatRegex = /^[\t-\r ]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[\t-\r ]*\0*$/;
 // .NET's NaN and infinity symbols, ignoring case, allowing a sign and trimmed like String.Trim
 const symbolRegex = /^[\t-\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*(?:[+-]?nan|([+-]?)infinity)[\t-\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$/i;
 
-export function tryParse(str: string, defValue: FSharpRef<number>): boolean {
+const defaultStyle = NumberStyles.Float | NumberStyles.AllowThousands;
+
+export function tryParse(str: string, style: number, defValue: FSharpRef<number>): boolean {
   if (str != null) {
-    if (floatRegex.test(str)) {
-      defValue.contents = Number.parseFloat(str);
+    const parts = splitNumber(str, style);
+    if (parts !== undefined) {
+      const value = Number.parseFloat(parts.digits);
+      defValue.contents = parts.negative ? -value : value;
       return true;
     }
     const symbol = symbolRegex.exec(str);
@@ -21,9 +24,9 @@ export function tryParse(str: string, defValue: FSharpRef<number>): boolean {
   return false;
 }
 
-export function parse(str: string): number {
+export function parse(str: string, style: number = defaultStyle): number {
   const defValue = new FSharpRef(0);
-  if (tryParse(str, defValue)) {
+  if (tryParse(str, style, defValue)) {
     return defValue.contents;
   } else if (str == null) {
     throw ArgumentNullException_$ctor_Z721C83C5("s");
@@ -33,7 +36,7 @@ export function parse(str: string): number {
 }
 
 export function parseIgnoringUnderscores(str: string): number {
-  return parse(str == null ? str : str.replace(/_/g, ""));
+  return parse(str == null ? str : str.replace(/_/g, ""), NumberStyles.Float);
 }
 
 // JS Number.isFinite function evals false for NaN
