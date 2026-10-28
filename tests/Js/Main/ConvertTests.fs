@@ -26,6 +26,7 @@ let parse f (a: string) =
 #endif
 
 
+// The one-argument overload depends on the current culture on .NET, and the explicit style would trigger FABLE0103 on Fable
 let tryParseFloat (s: string) =
 #if FABLE_COMPILER
     Double.TryParse s

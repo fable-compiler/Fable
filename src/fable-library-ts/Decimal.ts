@@ -187,7 +187,7 @@ function parseWithStyle(str: string, style: number): Decimal | undefined {
   try {
     d = new Decimal(s.replace(/,/g, ""));
   } catch {
-    // The format is valid, so big.js only fails on overflow
+    // Fable's big.js fork throws for values outside the decimal range
     throw OverflowException_$ctor_Z721C83C5(OVERFLOW);
   }
   if (negative) {

@@ -32,7 +32,6 @@ export function parse(str: string): number {
   }
 }
 
-// FSharp.Core's float and float32 remove every underscore before parsing
 export function parseIgnoringUnderscores(str: string): number {
   return parse(str == null ? str : str.replace(/_/g, ""));
 }

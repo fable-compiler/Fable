@@ -107,7 +107,6 @@ export function isValid(str: string, style: number, radix?: number) {
   return null;
 }
 
-// .NET's exception for a parsed value out of the type's range
 export function parseOverflow(unsigned: boolean, bitsize: number) {
   const type = bitsize === 8 ? (unsigned ? "an unsigned byte" : "a signed byte") : (unsigned ? "a UInt" : "an Int") + bitsize;
   return OverflowException_$ctor_Z721C83C5(`Value was either too large or too small for ${type}.`);
