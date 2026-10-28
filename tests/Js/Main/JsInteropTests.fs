@@ -1109,6 +1109,18 @@ let tests =
         arr.[0] <- 5uy
         equal 5uy arr.[0]
 
+    testCase "TypedArray can be created from an array literal" <| fun () ->
+        let floats = JS.Constructors.Float32Array.Create [| 1.5; -2.5 |]
+        floats.length |> equal 2
+        floats.[1] |> equal -2.5f
+        let bytes = JS.Constructors.Uint8Array.Create [| 1uy; 255uy |]
+        bytes.[1] |> equal 255uy
+        // Values are converted the same way as from another typed array
+        let wrapped = JS.Constructors.Int8Array.Create [| 1; 300 |]
+        wrapped.[1] |> equal 44y
+        let rounded = JS.Constructors.Float32Array.Create [| 0.1 |]
+        rounded.[0] |> equal 0.1f
+
     testCase "jsOptions works" <| fun _ ->
         let opts = jsOptions<JsOptions>(fun o ->
             o.foo <- "bar"

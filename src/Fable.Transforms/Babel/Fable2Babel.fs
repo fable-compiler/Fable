@@ -2117,6 +2117,37 @@ module Util =
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             Expression.logicalExpression (left, op, right, ?loc = range)
 
+    let isTypedArrayConstructor (expr: Fable.Expr) =
+        match expr with
+        | Fable.IdentExpr ident ->
+            match ident.Name with
+            | "Int8Array"
+            | "Uint8Array"
+            | "Uint8ClampedArray"
+            | "Int16Array"
+            | "Uint16Array"
+            | "Int32Array"
+            | "Uint32Array"
+            | "Float32Array"
+            | "Float64Array"
+            | "BigInt64Array"
+            | "BigUint64Array" -> true
+            | _ -> false
+        | _ -> false
+
+    /// A typed array constructor copies its argument, so an array literal passed to it,
+    /// e.g. by `JS.Constructors.Float32Array.Create [| 0.0 |]`, can be a plain JS array
+    /// instead of another typed array
+    let unwrapTypedArrayConstructorArg (macro: string) (info: Fable.CallInfo) =
+        match macro, info.ThisArg, info.Args with
+        | "new $0($1...)",
+          Some cons,
+          [ MaybeCasted(Fable.Value(Fable.NewArray(Fable.ArrayValues _ as values, typ, _), r)) ] when
+            isTypedArrayConstructor cons
+            ->
+            { info with Args = [ Fable.Value(Fable.NewArray(values, typ, Fable.ResizeArray), r) ] }
+        | _ -> info
+
     let transformEmit (com: IBabelCompiler) ctx range (info: Fable.EmitInfo) =
         match info.CallInfo.Tags with
         | Fable.Tags.Contains "topDirectiveProloge" ->
@@ -2124,6 +2155,9 @@ module Util =
             // Return empty sequence expression so it can be erased at print time
             Expression.sequenceExpression ([||])
         | _ ->
+            let info =
+                { info with CallInfo = unwrapTypedArrayConstructorArg info.Macro info.CallInfo }
+
             let macro = stripImports com ctx range info.Macro
             let info = info.CallInfo
 
