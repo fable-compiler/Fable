@@ -2135,9 +2135,7 @@ module Util =
             | _ -> false
         | _ -> false
 
-    /// A typed array constructor copies its argument, so an array literal passed to it,
-    /// e.g. by `JS.Constructors.Float32Array.Create [| 0.0 |]`, can be a plain JS array
-    /// instead of another typed array
+    // Typed array constructors copy and convert their argument, so the literal does not need to be a typed array itself
     let unwrapTypedArrayConstructorArg (macro: string) (info: Fable.CallInfo) =
         match macro, info.ThisArg, info.Args with
         | "new $0($1...)",
