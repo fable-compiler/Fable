@@ -2804,6 +2804,12 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | Types.float64 -> true
         | _ -> false
 
+    let supportedFloatStyles =
+        int (
+            System.Globalization.NumberStyles.Any
+            &&& ~~~System.Globalization.NumberStyles.AllowCurrencySymbol
+        )
+
     let checkFormatProvider meth hasStyle =
         let acceptedArgs =
             (if meth = "Parse" then
@@ -2856,9 +2862,11 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("Parse" | "TryParse") as meth, str :: (ExprType(Number(Int32, _)) as style) :: _ ->
         match style with
         | NumberConst(NumberValue.Int32 style, _) when
-            not isFloatOrDecimalType
-            && style <> int System.Globalization.NumberStyles.HexNumber
-            && style <> int System.Globalization.NumberStyles.Integer
+            (if isFloatOrDecimalType then
+                 style &&& ~~~supportedFloatStyles <> 0
+             else
+                 style <> int System.Globalization.NumberStyles.HexNumber
+                 && style <> int System.Globalization.NumberStyles.Integer)
             ->
             WarningCodes.numberStylesIgnored style
             |> addWarningWithCode com ctx.InlinePath r

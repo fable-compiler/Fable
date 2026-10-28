@@ -127,6 +127,18 @@ Double.Parse("1.5", NumberStyles.Currency, CultureInfo.InvariantCulture) |> igno
       |> Assert.Code.warning "FABLE0103"
       |> ignore
 
+    testCase "A supported NumberStyles on a float is not reported" <| fun _ ->
+      let source =
+        """
+open System
+open System.Globalization
+Double.Parse("1.5", NumberStyles.Float ||| NumberStyles.AllowParentheses, CultureInfo.InvariantCulture) |> ignore
+Decimal.Parse("1.5", NumberStyles.Number, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0103"
+      |> ignore
+
     testCase "A TimeSpan built with microseconds is reported" <| fun _ ->
       // The runtime representation only carries milliseconds, so the finer component is dropped.
       let source =
