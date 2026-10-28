@@ -92,10 +92,16 @@ run()
 
 #else
 
+open System.Globalization
 open Expecto
 
 [<EntryPoint>]
 let main args =
+    // Formatting without an explicit culture is expected to match the invariant culture,
+    // so don't let the culture of the machine running the tests change the results
+    CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
+    CultureInfo.CurrentCulture <- CultureInfo.InvariantCulture
+
     Array.toList allTests
     |> testList "All"
     |> runTestsWithCLIArgs [] args
