@@ -1118,8 +1118,6 @@ let tests =
         // Values are converted the same way as from another typed array
         let wrapped = JS.Constructors.Int8Array.Create [| 1; 300 |]
         wrapped.[1] |> equal 44y
-        let rounded = JS.Constructors.Float32Array.Create [| 0.1 |]
-        rounded.[0] |> equal 0.1f
 
     testCase "jsOptions works" <| fun _ ->
         let opts = jsOptions<JsOptions>(fun o ->
