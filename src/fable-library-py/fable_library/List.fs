@@ -167,6 +167,9 @@ and List<'T> = LinkedList<'T>
 let indexNotFound () =
     raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
+let private differentLengths (paramName: string) =
+    invalidArg paramName "The lists had different lengths."
+
 let empty () = List.Empty
 
 let cons (x: 'T) (xs: 'T list) = List.Cons(x, xs)
@@ -281,11 +284,29 @@ let fold2<'T1, 'T2, 'State> (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'St
         xs <- xs.Tail
         ys <- ys.Tail
 
+    if not xs.IsEmpty then
+        differentLengths "list2"
+    elif not ys.IsEmpty then
+        differentLengths "list1"
+
     acc
 
 let foldBack2<'T1, 'T2, 'State> (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
     // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
-    Array.foldBack2 folder (toArray xs) (toArray ys) state
+    let xs = toArray xs
+    let ys = toArray ys
+
+    if xs.Length <> ys.Length then
+        differentLengths (
+            if xs.Length = 0 then
+                "list1"
+            elif ys.Length = 0 then
+                "list2"
+            else
+                "list1, list2"
+        )
+
+    Array.foldBack2 folder xs ys state
 
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
     let rec loop acc (node: 'T list) =
@@ -431,6 +452,11 @@ let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
 let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
     let rec loop i (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) =
         if xs.IsEmpty || ys.IsEmpty then
+            if not xs.IsEmpty then
+                differentLengths "list2"
+            elif not ys.IsEmpty then
+                differentLengths "list1"
+
             acc
         else
             let node = acc.AppendConsNoTail(mapping i xs.Head ys.Head)
@@ -444,6 +470,9 @@ let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list)
 let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
     let rec loop (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
         if xs.IsEmpty || ys.IsEmpty || zs.IsEmpty then
+            if not (xs.IsEmpty && ys.IsEmpty && zs.IsEmpty) then
+                differentLengths "list1, list2, list3"
+
             acc
         else
             let node = acc.AppendConsNoTail(mapping xs.Head ys.Head zs.Head)
@@ -589,6 +618,9 @@ let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generi
     tryFindIndex (fun v -> eq.Equals(value, v)) xs |> Option.isSome
 
 let initialize n (f: int -> 'T) =
+    if n < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
     let root = List.Empty
     let mutable node = root
 
@@ -614,8 +646,12 @@ let reduceBack f (xs: 'T list) =
 
 let forAll f xs = fold (fun acc x -> acc && f x) true xs
 
-let forAll2 f xs ys =
-    fold2 (fun acc x y -> acc && f x y) true xs ys
+let rec forAll2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
+    match xs.IsEmpty, ys.IsEmpty with
+    | true, true -> true
+    | false, false -> f xs.Head ys.Head && forAll2 f xs.Tail ys.Tail
+    | true, false -> differentLengths "list1"
+    | false, true -> differentLengths "list2"
 
 let exists f xs = tryFindIndex f xs |> Option.isSome
 
@@ -623,7 +659,7 @@ let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
     match xs.IsEmpty, ys.IsEmpty with
     | true, true -> false
     | false, false -> f xs.Head ys.Head || exists2 f xs.Tail ys.Tail
-    | _ -> invalidArg "list2" SR.differentLengths
+    | _ -> differentLengths "list2"
 
 let unzip xs =
     foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (List.Empty, List.Empty)
@@ -706,6 +742,9 @@ let min (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer
         xs
 
 let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>) : 'T =
+    if xs.IsEmpty then
+        invalidArg "source" SR.inputSequenceEmpty
+
     let mutable count = 0
 
     let folder acc x =
@@ -716,6 +755,9 @@ let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>) : 'T =
     averager.DivideByInt(total, count)
 
 let averageBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] averager: IGenericAverager<'U>) : 'U =
+    if xs.IsEmpty then
+        invalidArg "source" SR.inputSequenceEmpty
+
     let mutable count = 0
 
     let inline folder acc x =
@@ -952,43 +994,21 @@ let removeAt (index: int) (xs: 'T list) : 'T list =
     ys
 
 let removeManyAt (index: int) (count: int) (xs: 'T list) : 'T list =
+    if index < 0 then
+        invalidArg "index" "index must be within bounds of the list"
+
+    let endIndex = index + count
     let mutable i = -1
-    // incomplete -1, in-progress 0, complete 1
-    let mutable status = -1
 
     let ys =
         xs
         |> filter (fun _ ->
             i <- i + 1
-
-            if i = index then
-                status <- 0
-                false
-            elif i > index then
-                if i < index + count then
-                    false
-                else
-                    status <- 1
-                    true
-            else
-                true
+            i < index || i >= endIndex
         )
 
-    let status =
-        if status = 0 && i + 1 = index + count then
-            1
-        else
-            status
-
-    if status < 1 then
-        // F# always says the wrong parameter is index but the problem may be count
-        let arg =
-            if status < 0 then
-                "index"
-            else
-                "count"
-
-        invalidArg arg SR.indexOutOfBounds
+    if endIndex > i + 1 then
+        invalidArg "index" "index must be within bounds of the list"
 
     ys
 

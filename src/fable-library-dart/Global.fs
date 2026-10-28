@@ -18,6 +18,7 @@ module SR =
 
     let inputWasEmpty = "The input list was empty."
     let inputMustBeNonNegative = "The input must be non-negative."
+    let inputMustBePositive = "The input must be positive."
     let inputSequenceEmpty = "The input sequence was empty."
 
     let inputSequenceTooLong = "The input sequence contains more than one element."

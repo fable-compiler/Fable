@@ -1195,3 +1195,39 @@ let ``test Range expressions raise ArgumentException for a zero step`` () =
     raisedExceptionType (fun () -> [1 .. 0 .. 5]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> [1L .. 0L .. 5L]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> [1.0 .. 0.0 .. 5.0]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.init, Seq.replicate and Seq.take reject a negative count when called`` () =
+    raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.replicate -1 0) |> equal "ArgumentOutOfRangeException"
+    raisedExceptionType (fun () -> Seq.take -1 [1; 2]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.chunkBySize, Seq.windowed and Seq.splitInto reject a size below 1 when called`` () =
+    raisedExceptionType (fun () -> Seq.chunkBySize 0 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.windowed 0 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.splitInto 0 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.chunkBySize -1 Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.windowed -1 Seq.empty<int>) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.splitInto -1 Seq.empty<int>) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test Seq.splitInto works with an empty sequence`` () =
+    Seq.splitInto 2 Seq.empty<int> |> Seq.toList |> equal []
+
+[<Fact>]
+let ``test Seq.removeManyAt raises only when the sequence is too short for index`` () =
+    raisedExceptionType (fun () -> Seq.removeManyAt -1 1 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.removeManyAt 3 0 [1; 2; 3] |> Seq.toList) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> Seq.removeManyAt 0 0 Seq.empty<int> |> Seq.toList) |> equal "ArgumentException"
+    Seq.removeManyAt 1 3 [1; 2; 3] |> Seq.toList |> equal [1]
+    Seq.removeManyAt 2 4 [1; 2; 3] |> Seq.toList |> equal [1; 2]
+    Seq.removeManyAt 1 0 [1; 2; 3] |> Seq.toList |> equal [1; 2; 3]
+    Seq.removeManyAt 0 -1 [1; 2; 3] |> Seq.toList |> equal [1; 2; 3]
+
+[<Fact>]
+let ``test Seq.transpose groups jagged input by index`` () =
+    [[1; 2]; [3]] |> Seq.transpose |> Seq.map Seq.toList |> Seq.toList |> equal [[1; 3]; [2]]
+    [|[|1|]; [|2; 3|]|] |> Seq.transpose |> Seq.map Seq.toList |> Seq.toList |> equal [[1; 2]; [3]]
+    [[1; 2; 3]; [4]; [5; 6]] |> Seq.transpose |> Seq.map Seq.toList |> Seq.toList |> equal [[1; 4; 5]; [2; 6]; [3]]
+    [[]; [1]] |> Seq.transpose |> Seq.map Seq.toList |> Seq.toList |> equal [[1]]

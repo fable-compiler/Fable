@@ -1286,3 +1286,73 @@ let ``test List.take and List.splitAt raise InvalidOperationException when the l
 [<Fact>]
 let ``test List.skip raises ArgumentOutOfRangeException when the list is too short`` () =
     raisedExceptionType (fun () -> List.skip 5 [1]) |> equal "ArgumentOutOfRangeException"
+
+[<Fact>]
+let ``test List functions walking two lists raise ArgumentException when the lengths differ`` () =
+    let xs = [1; 2]
+    let ys = [1; 2; 3]
+    raisedExceptionType (fun () -> List.fold2 (fun acc x y -> acc + x + y) 0 xs ys) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.fold2 (fun acc x y -> acc + x + y) 0 ys xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.foldBack2 (fun x y acc -> x + y + acc) [1] [1; 2] 0) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.map2 (+) xs ys) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.mapi2 (fun i x y -> i + x + y) ys xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.iter2 (fun _ _ -> ()) [] [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.iteri2 (fun _ _ _ -> ()) [1] []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.zip xs ys) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.zip ([]: int list) [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.forall2 (fun _ _ -> true) xs ys) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.forall2 (fun _ _ -> false) [1] []) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.map3 and List.zip3 raise ArgumentException when the lengths differ`` () =
+    let add3 x y z = x + y + z
+    raisedExceptionType (fun () -> List.map3 add3 [1; 2] [1; 2; 3] [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.map3 add3 [1; 2; 3] [1; 2; 3] [1; 2]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.zip3 [1] [] [1]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.zip3 [1; 2] [1; 2] [1; 2; 3]) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List functions walking lists in step call back on the common prefix before raising`` () =
+    let calls = ResizeArray<int>()
+    raisedExceptionType (fun () -> List.iter2 (fun x _ -> calls.Add x) [1; 2] [1; 2; 3])
+    |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.map3 (fun x _ _ -> calls.Add x) [3; 4; 5] [1; 2] [1; 2; 3])
+    |> equal "ArgumentException"
+    List.ofSeq calls |> equal [1; 2; 3; 4]
+
+[<Fact>]
+let ``test List.forall2 stops at the first false before checking the lengths`` () =
+    List.forall2 (fun _ _ -> false) [1; 2] [1; 2; 3] |> equal false
+    List.forall2 (fun x _ -> x < 2) [1; 2; 3] [1; 2] |> equal false
+    List.forall2 (fun x y -> x = y) [1; 2] [1; 2] |> equal true
+
+[<Fact>]
+let ``test List.init and List.replicate raise ArgumentException for a negative count`` () =
+    raisedExceptionType (fun () -> List.init -1 id) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.replicate -1 "a") |> equal "ArgumentException"
+    List.init 0 id |> equal ([]: int list)
+    List.replicate 0 "a" |> equal []
+
+[<Fact>]
+let ``test List.average and List.averageBy raise ArgumentException on empty input`` () =
+    let xs: float list = []
+    raisedExceptionType (fun () -> List.average xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.averageBy (fun x -> x * 2.) xs) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.removeManyAt raises ArgumentException where FSharp.Core does`` () =
+    let xs = [1; 2; 3]
+    raisedExceptionType (fun () -> List.removeManyAt -1 1 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.removeManyAt -1 0 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.removeManyAt 2 2 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.removeManyAt 4 0 xs) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.removeManyAt 0 1 ([]: int list)) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.removeManyAt works and removes nothing for a count that is not positive`` () =
+    let xs = [1; 2; 3]
+    List.removeManyAt 1 2 xs |> equal [1]
+    List.removeManyAt 1 0 xs |> equal [1; 2; 3]
+    List.removeManyAt 1 -1 xs |> equal [1; 2; 3]
+    List.removeManyAt 3 0 xs |> equal [1; 2; 3]
+    List.removeManyAt 0 0 ([]: int list) |> equal []

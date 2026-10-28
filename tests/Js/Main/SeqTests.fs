@@ -1190,4 +1190,41 @@ let tests =
         raisedExceptionType (fun () -> Seq.permute (fun _ -> 0) [1; 2] |> Seq.toList) |> equal "ArgumentException"
         raisedExceptionType (fun () -> Seq.randomChoiceBy (fun () -> 1.0) [1; 2]) |> equal "ArgumentOutOfRangeException"
         raisedExceptionType (fun () -> Seq.randomShuffleBy (fun () -> 1.0) [1; 2] |> Seq.toList) |> equal "ArgumentOutOfRangeException"
+
+    testCase "Seq functions check their arguments when called, before enumerating" <| fun () ->
+        let xs = seq { for x in [1; 2; 3] do yield x }
+        raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.replicate -1 "a") |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Seq.take -1 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.take -1 [1; 2]) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.chunkBySize 0 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.windowed 0 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.splitInto 0 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.removeManyAt -1 0 xs) |> equal "ArgumentException"
+        Seq.init 0 id |> Seq.toList |> equal []
+        Seq.take 0 xs |> Seq.toList |> equal []
+
+    testCase "Seq.removeManyAt raises ArgumentException only when FSharp.Core does" <| fun () ->
+        let xs = seq { for x in [1; 2; 3] do yield x }
+        let empty: int seq = Seq.empty
+        raisedExceptionType (fun () -> Seq.removeManyAt 3 0 xs |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.removeManyAt 3 0 [|1; 2; 3|] |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.removeManyAt 4 1 xs |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.removeManyAt 0 0 empty |> Seq.toList) |> equal "ArgumentException"
+        Seq.removeManyAt 0 4 xs |> Seq.toList |> equal []
+        Seq.removeManyAt 1 3 xs |> Seq.toList |> equal [1]
+        Seq.removeManyAt 1 0 xs |> Seq.toList |> equal [1; 2; 3]
+        Seq.removeManyAt 1 -1 [1; 2; 3] |> Seq.toList |> equal [1; 2; 3]
+        Seq.removeManyAt 2 2 [|1; 2; 3|] |> Seq.toList |> equal [1; 2]
+
+    testCase "Seq.transpose groups the items of jagged sequences by index" <| fun () ->
+        let transpose (xss: seq<seq<int>>) = Seq.transpose xss |> Seq.map Seq.toList |> Seq.toList
+        transpose [seq [1; 2]; seq [3]] |> equal [[1; 3]; [2]]
+        transpose [seq [1]; seq [2; 3]] |> equal [[1; 2]; [3]]
+        transpose [Seq.empty; seq [1]] |> equal [[1]]
+        transpose [seq [1]; Seq.empty] |> equal [[1]]
+        transpose [seq [1; 2; 3]; seq [4]; seq [5; 6]] |> equal [[1; 4; 5]; [2; 6]; [3]]
+        transpose (seq { for xs in [[1; 2]; [3]] do yield seq { for x in xs do yield x } }) |> equal [[1; 3]; [2]]
+        Seq.transpose [[1; 2]; [3]] |> Seq.map Seq.toList |> Seq.toList |> equal [[1; 3]; [2]]
+        Seq.transpose [| [|1|]; [|2; 3|] |] |> Seq.map Seq.toList |> Seq.toList |> equal [[1; 2]; [3]]
   ]

@@ -412,6 +412,14 @@ let tests =
         Array.blit xs 3 ys 5 4
         ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
 
+    testCase "Array.blit works with overlapping ranges in the same array" <| fun () ->
+        let xs = [| "a"; "b"; "c"; "d"; "e" |]
+        Array.blit xs 0 xs 1 3
+        xs |> equal [| "a"; "a"; "b"; "c"; "e" |]
+        let ys = [| "a"; "b"; "c"; "d"; "e" |]
+        Array.blit ys 1 ys 0 3
+        ys |> equal [| "b"; "c"; "d"; "d"; "e" |]
+
 #if FABLE_COMPILER
     testCase "Array.blit works with deceiving typed arrays" <| fun () ->
         let xs = Fable.Core.JsInterop.emitJsExpr () "[1,2,3,4,5,6,7,8,9,10]"
@@ -1392,6 +1400,14 @@ let tests =
         System.Array.Copy(source, 1, destination, 1, 2)
         equal [| "a"; "xx"; "xyz" |] destination
 
+    testCase "System.Array.Copy works with Int64 indexes and length" <| fun () ->
+        let source = [| "xy"; "xx"; "xyz" |]
+        let destination = [| "a"; "b"; "c"; "d" |]
+        System.Array.Copy(source, destination, 3L)
+        equal [| "xy"; "xx"; "xyz"; "d" |] destination
+        System.Array.Copy(source, 1L, destination, 2L, 2L)
+        equal [| "xy"; "xx"; "xx"; "xyz" |] destination
+
     testCase "Array.splitInto works" <| fun () ->
         [|1..10|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
         [|1..11|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
@@ -1771,5 +1787,74 @@ let tests =
         raisedExceptionType (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
         raisedExceptionType (fun () -> Array.randomChoicesBy (fun () -> 1.0) 2 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
         raisedExceptionType (fun () -> Array.randomSampleBy (fun () -> -0.1) 1 [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+
+    testCase "Array.sub raises FSharp.Core's exception types for out of range arguments" <| fun () ->
+        let xs = [|1; 2; 3|]
+        raisedExceptionType (fun () -> Array.sub xs -1 2) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.sub xs 1 -1) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.sub xs 2 5) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.sub xs 4 0) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.sub [|"a"; "b"; "c"|] 3 1) |> equal "ArgumentOutOfRangeException"
+        Array.sub xs 3 0 |> equal [||]
+
+    testCase "Array.fill raises FSharp.Core's exception types for out of range arguments" <| fun () ->
+        let xs = [|1; 2; 3|]
+        raisedExceptionType (fun () -> Array.fill xs -1 2 0) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.fill xs 0 -1 0) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.fill xs 3 1 0) |> equal "IndexOutOfRangeException"
+        raisedExceptionType (fun () -> Array.fill [|"a"; "b"; "c"|] 2 5 "z") |> equal "IndexOutOfRangeException"
+        xs |> equal [|1; 2; 3|]
+        Array.fill xs 4 0 0
+        xs |> equal [|1; 2; 3|]
+
+    testCase "Array.blit raises System.Array.Copy's exception types for out of range arguments" <| fun () ->
+        let xs = [|1; 2; 3|]
+        let ys: int[] = Array.zeroCreate 5
+        raisedExceptionType (fun () -> Array.blit xs 0 ys 0 -1) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.blit xs -1 ys 0 2) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.blit xs 0 ys -1 2) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.blit xs 2 ys 0 2) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.blit xs 0 ys 4 2) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.blit xs 4 ys 0 0) |> equal "ArgumentException"
+        ys |> equal [|0; 0; 0; 0; 0|]
+        let zs = [|"a"; "b"; "c"|]
+        let ws = Array.create 5 "_"
+        raisedExceptionType (fun () -> Array.blit zs 0 ws 0 -1) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.blit zs -1 ws 0 2) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.blit zs 0 ws -1 2) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> Array.blit zs 2 ws 0 2) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.blit zs 0 ws 4 2) |> equal "ArgumentException"
+        ws |> equal [|"_"; "_"; "_"; "_"; "_"|]
+        Array.blit zs 3 ws 5 0
+        Array.blit zs 1 ws 3 2
+        ws |> equal [|"_"; "_"; "_"; "b"; "c"|]
+
+    testCase "System.Array.Copy raises .NET's exception types for out of range arguments" <| fun () ->
+        let xs = [|1; 2; 3|]
+        let ys: int[] = Array.zeroCreate 5
+        raisedExceptionType (fun () -> System.Array.Copy(xs, 0, ys, 0, -1)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> System.Array.Copy(xs, -1, ys, 0, 2)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> System.Array.Copy(xs, 0, ys, -1, 2)) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> System.Array.Copy(xs, 2, ys, 0, 2)) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> System.Array.Copy(xs, 0, ys, 4, 2)) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> System.Array.Copy(xs, ys, 4)) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> System.Array.Copy([|"a"; "b"|], [|"c"|], 2)) |> equal "ArgumentException"
+        ys |> equal [|0; 0; 0; 0; 0|]
+
+    testCase "Array.removeManyAt raises ArgumentException only when FSharp.Core does" <| fun () ->
+        let xs = [|1; 2; 3|]
+        let empty: int[] = [||]
+        raisedExceptionType (fun () -> Array.removeManyAt -1 0 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.removeManyAt -1 1 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.removeManyAt 1 3 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.removeManyAt 3 1 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.removeManyAt 4 0 xs) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Array.removeManyAt 0 1 empty) |> equal "ArgumentException"
+        Array.removeManyAt 0 0 xs |> equal [|1; 2; 3|]
+        Array.removeManyAt 1 0 xs |> equal [|1; 2; 3|]
+        Array.removeManyAt 3 0 xs |> equal [|1; 2; 3|]
+        Array.removeManyAt 0 0 empty |> equal [||]
+        Array.removeManyAt 1 2 xs |> equal [|1|]
+        Array.removeManyAt 0 2 [|"a"; "b"; "c"|] |> equal [|"c"|]
 
   ]

@@ -47,6 +47,8 @@
     pairwise/1,
     exists2/3,
     forall2/3,
+    array_exists2/3,
+    array_forall2/3,
     map2/3,
     map3/4,
     mapi2/3,
@@ -79,6 +81,8 @@
     remove_many_at/3,
     index_of_value/2,
     get_slice/3,
+    sub/3,
+    blit/5,
     take/2,
     random_shuffle_by/2,
     random_shuffle_with/2,
@@ -134,6 +138,8 @@
 -spec pairwise(list()) -> list({term(), term()}).
 -spec exists2(fun(), list(), list()) -> boolean().
 -spec forall2(fun(), list(), list()) -> boolean().
+-spec array_exists2(fun(), list(), list()) -> boolean().
+-spec array_forall2(fun(), list(), list()) -> boolean().
 -spec map2(fun(), list(), list()) -> list().
 -spec map3(fun(), list(), list(), list()) -> list().
 -spec mapi2(fun(), list(), list()) -> list().
@@ -147,9 +153,9 @@
 -spec group_by(fun(), list()) -> list({term(), list()}).
 -spec unfold(fun(), term()) -> list().
 -spec split_at(non_neg_integer(), list()) -> {list(), list()}.
--spec chunk_by_size(pos_integer(), list()) -> list(list()).
--spec windowed(pos_integer(), list()) -> list(list()).
--spec split_into(pos_integer(), list()) -> list(list()).
+-spec chunk_by_size(integer(), list()) -> list(list()).
+-spec windowed(integer(), list()) -> list(list()).
+-spec split_into(integer(), list()) -> list(list()).
 -spec except(list(), list()) -> list().
 -spec all_pairs(list(), list()) -> list({term(), term()}).
 -spec permute(fun(), list()) -> list().
@@ -424,11 +430,37 @@ pairwise([]) -> [];
 pairwise([_]) -> [];
 pairwise([A, B | T]) -> [{A, B} | pairwise([B | T])].
 
-exists2(Fn, L1, L2) ->
-    lists:any(fun({A, B}) -> (Fn(A))(B) end, lists:zip(L1, L2)).
+exists2(Fn, [A | T1], [B | T2]) ->
+    case (Fn(A))(B) of
+        true -> true;
+        false -> exists2(Fn, T1, T2)
+    end;
+exists2(_Fn, [], []) ->
+    false;
+exists2(_Fn, _L1, _L2) ->
+    lists_had_different_lengths(<<"list2">>).
 
-forall2(Fn, L1, L2) ->
-    lists:all(fun({A, B}) -> (Fn(A))(B) end, lists:zip(L1, L2)).
+forall2(Fn, [A | T1], [B | T2]) ->
+    case (Fn(A))(B) of
+        true -> forall2(Fn, T1, T2);
+        false -> false
+    end;
+forall2(_Fn, [], []) ->
+    true;
+forall2(_Fn, [], _L2) ->
+    lists_had_different_lengths(<<"list1">>);
+forall2(_Fn, _L1, []) ->
+    lists_had_different_lengths(<<"list2">>).
+
+array_exists2(Fn, A1, A2) when length(A1) =:= length(A2) ->
+    exists2(Fn, A1, A2);
+array_exists2(_Fn, _A1, _A2) ->
+    invalid_arg(<<"array1">>, <<"The arrays have different lengths.">>).
+
+array_forall2(Fn, A1, A2) when length(A1) =:= length(A2) ->
+    forall2(Fn, A1, A2);
+array_forall2(_Fn, _A1, _A2) ->
+    invalid_arg(<<"array1">>, <<"The arrays have different lengths.">>).
 
 map2(Fn, L1, L2) ->
     lists:zipwith(fun(A, B) -> (Fn(A))(B) end, L1, L2).
@@ -507,6 +539,8 @@ unfold(Fn, State) ->
 split_at(Index, List) ->
     {lists:sublist(List, Index), lists:nthtail(Index, List)}.
 
+chunk_by_size(Size, _List) when Size < 1 ->
+    invalid_arg(<<"chunkSize">>, <<"The input must be positive.">>);
 chunk_by_size(Size, List) ->
     chunk_by_size(Size, List, []).
 chunk_by_size(_Size, [], Acc) ->
@@ -519,6 +553,8 @@ chunk_by_size(Size, List, Acc) ->
         end,
     chunk_by_size(Size, Rest, [Chunk | Acc]).
 
+windowed(Size, _List) when Size < 1 ->
+    invalid_arg(<<"windowSize">>, <<"The input must be positive.">>);
 windowed(Size, List) ->
     windowed(Size, List, []).
 windowed(Size, List, Acc) when length(List) < Size -> lists:reverse(Acc);
@@ -526,6 +562,10 @@ windowed(Size, [_ | T] = List, Acc) ->
     Window = lists:sublist(List, Size),
     windowed(Size, T, [Window | Acc]).
 
+split_into(Count, _List) when Count < 1 ->
+    invalid_arg(<<"count">>, <<"The input must be positive.">>);
+split_into(_Count, []) ->
+    [];
 split_into(Count, List) ->
     Len = length(List),
     ActualCount = min(Count, Len),
@@ -617,12 +657,19 @@ try_find_index_back(Fn, [H | T], Idx) ->
 
 transpose([]) ->
     [];
-transpose([[] | _]) ->
+transpose([First | Rest] = Lists) ->
+    Len = length(First),
+    case lists:all(fun(L) -> length(L) =:= Len end, Rest) of
+        true -> transpose_rows(Lists);
+        false -> invalid_arg(<<"array.[0]">>, <<"The arrays have different lengths.">>)
+    end.
+
+transpose_rows([[] | _]) ->
     [];
-transpose(Lists) ->
+transpose_rows(Lists) ->
     Heads = [hd(L) || L <- Lists],
     Tails = [tl(L) || L <- Lists],
-    [Heads | transpose(Tails)].
+    [Heads | transpose_rows(Tails)].
 
 compare_with(_Fn, [], []) ->
     0;
@@ -675,6 +722,42 @@ get_slice(Lower, Upper, List) ->
             _ -> Upper
         end,
     lists:sublist(List, Start + 1, End - Start + 1).
+
+-spec sub(list(), integer(), integer()) -> list().
+sub(_List, StartIndex, _Count) when StartIndex < 0 ->
+    invalid_arg(<<"startIndex">>, <<"The input must be non-negative.">>);
+sub(_List, _StartIndex, Count) when Count < 0 ->
+    invalid_arg(<<"count">>, <<"The input must be non-negative.">>);
+sub(List, 0, Count) ->
+    case lists:sublist(List, Count) of
+        Sub when length(Sub) =:= Count -> Sub;
+        _ -> argument_out_of_range(<<"count">>, <<"The index is outside the legal range.">>)
+    end;
+sub([_ | T], StartIndex, Count) ->
+    sub(T, StartIndex - 1, Count);
+sub([], _StartIndex, _Count) ->
+    argument_out_of_range(<<"count">>, <<"The index is outside the legal range.">>).
+
+%% HashSet.CopyTo calls fable_resize_array:blit/5 directly, its count may exceed the set
+-spec blit(list(), integer(), list(), integer(), integer()) -> list().
+blit(_Source, _SourceIdx, _Target, _TargetIdx, Count) when Count < 0 ->
+    argument_out_of_range(<<"length">>, <<"Non-negative number required.">>);
+blit(_Source, SourceIdx, _Target, _TargetIdx, _Count) when SourceIdx < 0 ->
+    argument_out_of_range(<<"sourceIndex">>, <<"Non-negative number required.">>);
+blit(Source, SourceIdx, _Target, _TargetIdx, Count) when SourceIdx + Count > length(Source) ->
+    invalid_arg(
+        <<"sourceArray">>,
+        <<"Source array was not long enough. Check the source index, length, and the array's lower bounds.">>
+    );
+blit(_Source, _SourceIdx, _Target, TargetIdx, _Count) when TargetIdx < 0 ->
+    argument_out_of_range(<<"destinationIndex">>, <<"Non-negative number required.">>);
+blit(_Source, _SourceIdx, Target, TargetIdx, Count) when TargetIdx + Count > length(Target) ->
+    invalid_arg(
+        <<"destinationArray">>,
+        <<"Destination array was not long enough. Check the destination index, length, and the array's lower bounds.">>
+    );
+blit(Source, SourceIdx, Target, TargetIdx, Count) ->
+    fable_resize_array:blit(Source, SourceIdx, Target, TargetIdx, Count).
 
 -spec take(non_neg_integer(), list()) -> list().
 take(Count, List) ->
@@ -834,3 +917,12 @@ invalid_arg(ParamName, Message) ->
         exn_type => argument_exception,
         message => fable_utils:argument_exception_message(Message, ParamName)
     }).
+
+argument_out_of_range(ParamName, Message) ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message => fable_utils:argument_exception_message(Message, ParamName)
+    }).
+
+lists_had_different_lengths(ParamName) ->
+    invalid_arg(ParamName, <<"The lists had different lengths.">>).

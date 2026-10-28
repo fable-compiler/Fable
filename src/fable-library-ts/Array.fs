@@ -36,9 +36,30 @@ let append (array1: 'T[]) (array2: 'T[]) ([<OptionalArgument; Inject>] cons: Con
 let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
 
 // intentionally returns target instead of unit
-let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] = fillImpl target value targetIndex count
+let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] =
+    if targetIndex < 0 then
+        invalidArg "targetIndex" SR.inputMustBeNonNegative
 
-let getSubArray (array: 'T[]) (start: int) (count: int) : 'T[] = subArrayImpl array start count
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
+    // .NET fills up to the end of the array before raising, this checks first
+    if count > 0 && targetIndex + count > target.Length then
+        raise (System.IndexOutOfRangeException())
+
+    fillImpl target value targetIndex count
+
+let getSubArray (array: 'T[]) (start: int) (count: int) : 'T[] =
+    if start < 0 then
+        invalidArg "startIndex" SR.inputMustBeNonNegative
+
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
+    if start + count > array.Length then
+        raise (System.ArgumentOutOfRangeException("count", "The index is outside the legal range."))
+
+    subArrayImpl array start count
 
 let last (array: 'T[]) =
     if array.Length = 0 then
@@ -338,9 +359,44 @@ let copy (array: 'T[]) =
     // else
     copyImpl array
 
+// Not inline: TypeScript accepts the typed array methods only on the obj (any) parameters
+let private copyTypedArray (source: obj) (sourceIndex: int) (target: obj) (targetIndex: int) (count: int) : unit =
+    target?set (source?subarray (sourceIndex, sourceIndex + count), targetIndex)
+
+let private argumentOutOfRange (paramName: string) (value: int) (requirement: string) =
+    raise (
+        System.ArgumentOutOfRangeException(paramName, paramName + " ('" + string value + "') must be " + requirement)
+    )
+
+// System.Array.Copy compiles to this function, so it cannot call System.Array.Copy itself
 let copyTo (source: 'T[]) (sourceIndex: int) (target: 'T[]) (targetIndex: int) (count: int) =
-    // TODO: Check array lengths
-    System.Array.Copy(source, sourceIndex, target, targetIndex, count)
+    if count < 0 then
+        argumentOutOfRange "length" count "a non-negative value."
+
+    if sourceIndex < 0 then
+        argumentOutOfRange "sourceIndex" sourceIndex "greater than or equal to '0'."
+
+    if sourceIndex + count > source.Length then
+        invalidArg
+            "sourceArray"
+            "Source array was not long enough. Check the source index, length, and the array's lower bounds."
+
+    if targetIndex < 0 then
+        argumentOutOfRange "destinationIndex" targetIndex "greater than or equal to '0'."
+
+    if targetIndex + count > target.Length then
+        invalidArg
+            "destinationArray"
+            "Destination array was not long enough. Check the destination index, length, and the array's lower bounds."
+
+    if isTypedArrayImpl source && isTypedArrayImpl target then
+        copyTypedArray (source :> obj) sourceIndex (target :> obj) targetIndex count
+    elif sourceIndex < targetIndex then
+        for i = count - 1 downto 0 do
+            arraySetItemImpl target (targetIndex + i) (arrayAccessImpl (sourceIndex + i) source)
+    else
+        for i = 0 to count - 1 do
+            arraySetItemImpl target (targetIndex + i) (arrayAccessImpl (sourceIndex + i) source)
 
 let reverse (array: 'T[]) =
     // if isTypedArrayImpl array then
@@ -788,7 +844,7 @@ let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'V[]) =
 
 let chunkBySize (chunkSize: int) (array: 'T[]) : 'T[][] =
     if chunkSize < 1 then
-        invalidArg "size" "The input must be positive."
+        invalidArg "chunkSize" "The input must be positive."
 
     let result = ResizeArray<'T[]>()
 
@@ -1133,7 +1189,7 @@ let windowed (windowSize: int) (source: 'T[]) : 'T[][] =
 
 let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
     if chunks < 1 then
-        invalidArg "chunks" "The input must be positive."
+        invalidArg "count" "The input must be positive."
 
     let result = ResizeArray<'T[]>()
 
@@ -1354,45 +1410,17 @@ let removeAt (index: int) (xs: 'T[]) : 'T[] =
     )
 
 let removeManyAt (index: int) (count: int) (xs: 'T[]) : 'T[] =
+    // Unlike FSharp.Core, a negative count removes nothing instead of duplicating items
+    if index < 0 || index > xs.Length - count || index > xs.Length then
+        invalidArg "index" "index must be within bounds of the array"
+
     let mutable i = -1
-    // incomplete -1, in-progress 0, complete 1
-    let mutable status = -1
 
-    let ys =
-        xs
-        |> filter (fun _ ->
-            i <- i + 1
-
-            if i = index then
-                status <- 0
-                false
-            elif i > index then
-                if i < index + count then
-                    false
-                else
-                    status <- 1
-                    true
-            else
-                true
-        )
-
-    let status =
-        if status = 0 && i + 1 = index + count then
-            1
-        else
-            status
-
-    if status < 1 then
-        // F# always says the wrong parameter is index but the problem may be count
-        let arg =
-            if status < 0 then
-                "index"
-            else
-                "count"
-
-        invalidArg arg SR.indexOutOfBounds
-
-    ys
+    xs
+    |> filter (fun _ ->
+        i <- i + 1
+        i < index || i >= index + count
+    )
 
 let updateAt (index: int) (y: 'T) (xs: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     let len = xs.Length

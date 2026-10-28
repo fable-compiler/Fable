@@ -940,3 +940,33 @@ let ``test List random functions raise ArgumentException for invalid inputs`` ()
     raisedExceptionType (fun () -> List.randomSample -1 [1]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> List.randomSample 3 [1; 2]) |> equal "ArgumentException"
     raisedExceptionType (fun () -> List.randomSample<int> 1 []) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.forall2 and List.exists2 stop once the result is known`` () =
+    List.forall2 (fun _ _ -> false) [1; 2] [1; 2; 3] |> equal false
+    List.exists2 (fun _ _ -> true) [1; 2] [1; 2; 3] |> equal true
+    raisedExceptionType (fun () -> List.forall2 (fun _ _ -> true) [1; 2] [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.forall2 (fun _ _ -> true) [1; 2; 3] [1; 2]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.exists2 (fun _ _ -> false) [1; 2] [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.exists2 (fun _ _ -> false) [1] []) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.chunkBySize, List.windowed and List.splitInto reject a size below 1`` () =
+    raisedExceptionType (fun () -> List.chunkBySize 0 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.chunkBySize<int> -1 []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.windowed 0 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.windowed<int> -1 []) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.splitInto 0 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.splitInto -4 [1; 2; 3]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.splitInto<int> -1 []) |> equal "ArgumentException"
+
+[<Fact>]
+let ``test List.splitInto works with an empty list`` () =
+    List.splitInto<int> 1 [] |> equal []
+    List.splitInto<int> 3 [] |> equal []
+
+[<Fact>]
+let ``test List.transpose raises ArgumentException for lists of different lengths`` () =
+    raisedExceptionType (fun () -> List.transpose [[1]; [2; 3]]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.transpose [[1; 2]; [3]]) |> equal "ArgumentException"
+    raisedExceptionType (fun () -> List.transpose [[]; [1]]) |> equal "ArgumentException"

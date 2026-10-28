@@ -13,6 +13,7 @@ type IEnumerable<'T> = System.Collections.Generic.IEnumerable<'T>
 module SR =
     let enumerationAlreadyFinished = "Enumeration already finished."
     let enumerationNotStarted = "Enumeration has not started. Call MoveNext."
+    let inputMustBePositive = "The input must be positive."
     let inputSequenceEmpty = "The input sequence was empty."
 
     let inputSequenceTooLong = "The input sequence contains more than one element."
@@ -683,6 +684,9 @@ let head (xs: seq<'T>) =
     | None -> invalidArg "source" SR.inputSequenceEmpty
 
 let initialize count f =
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
     unfold
         (fun i ->
             if (i < count) then
@@ -1002,7 +1006,12 @@ let reduceBack folder (xs: seq<'T>) =
     else
         invalidArg "source" SR.inputSequenceEmpty
 
-let replicate n x = initialize n (fun _ -> x)
+let replicate n x =
+    // FSharp.Core uses Enumerable.Repeat, which raises ArgumentOutOfRangeException
+    if n < 0 then
+        raise (System.ArgumentOutOfRangeException("count"))
+
+    initialize n (fun _ -> x)
 
 let reverse (xs: seq<'T>) =
     delay (fun () -> xs |> toArray |> Array.rev |> ofArray)
@@ -1074,6 +1083,9 @@ let tail (xs: seq<'T>) =
     )
 
 let take count (xs: seq<'T>) =
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
     generateIndexed
         (fun () -> ofSeq xs)
         (fun i e ->
@@ -1122,19 +1134,25 @@ let pairwise (xs: seq<'T>) =
     delay (fun () -> xs |> toArray |> Array.pairwise |> ofArray)
 
 let splitInto (chunks: int) (xs: seq<'T>) : 'T[] seq =
+    if chunks < 1 then
+        invalidArg "count" SR.inputMustBePositive
+
     delay (fun () -> xs |> toArray |> Array.splitInto chunks |> ofArray)
 
 let windowed (windowSize: int) (xs: seq<'T>) : 'T[] seq =
+    if windowSize < 1 then
+        invalidArg "windowSize" SR.inputMustBePositive
+
     delay (fun () -> xs |> toArray |> Array.windowed windowSize |> ofArray)
 
 let transpose (xss: seq<#seq<'T>>) : seq<seq<'T>> =
     delay (fun () ->
-        xss
-        |> toArray
-        |> Array.map toArray
-        |> Array.transpose
-        |> Array.map ofArray
-        |> ofArray
+        let rec columns (rows: 'T list list) =
+            match rows |> List.filter (List.isEmpty >> not) with
+            | [] -> []
+            | rows -> ofList (List.map List.head rows) :: columns (List.map List.tail rows)
+
+        xss |> toList |> List.map toList |> columns |> ofList
     )
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) =
@@ -1238,6 +1256,9 @@ let permute f (xs: seq<'T>) =
     delay (fun () -> xs |> toArray |> Array.permute f |> ofArray)
 
 let chunkBySize (chunkSize: int) (xs: seq<'T>) : seq<'T[]> =
+    if chunkSize < 1 then
+        invalidArg "chunkSize" SR.inputMustBePositive
+
     delay (fun () -> xs |> toArray |> Array.chunkBySize chunkSize |> ofArray)
 
 // let init = initialize
@@ -1342,28 +1363,28 @@ let removeAt (index: int) (xs: seq<'T>) : seq<'T> =
 
 let removeManyAt (index: int) (count: int) (xs: seq<'T>) : seq<'T> =
     if index < 0 then
-        invalidArg "index" SR.indexOutOfBounds
+        invalidArg "index" "index must be within bounds of the array"
 
-    generateIndexed
-        (fun () -> ofSeq xs)
-        (fun i e ->
+    let endIndex = index + count
+
+    delay (fun () ->
+        let mutable i = -1
+
+        let rest () =
             if i < index then
-                if e.MoveNext() then
-                    Some e.Current
-                else
-                    invalidArg "index" SR.indexOutOfBounds
-            else
-                if i = index then
-                    for _ = 1 to count do
-                        if not (e.MoveNext()) then
-                            invalidArg "count" SR.indexOutOfBounds
+                invalidArg "index" "index must be within bounds of the array"
 
-                if e.MoveNext() then
-                    Some e.Current
-                else
-                    None
-        )
-        (fun e -> e.Dispose())
+            empty ()
+
+        let ys =
+            xs
+            |> filter (fun _ ->
+                i <- i + 1
+                i < index || i >= endIndex
+            )
+
+        append ys (delay rest)
+    )
 
 let updateAt (index: int) (y: 'T) (xs: seq<'T>) : seq<'T> =
     let mutable isDone = false

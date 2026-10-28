@@ -2339,14 +2339,26 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "ToTuple", _ -> changeKind false args
     | _ -> None
 
+let arrayCopy (com: ICompiler) (ctx: Context) r t source sourceIndex target targetIndex count =
+    let toInt32 (arg: Expr) =
+        match arg.Type with
+        | Number(Int32, _) -> arg
+        | _ -> toInt com ctx r Int32.Number [ arg ]
+
+    let args =
+        [ source; toInt32 sourceIndex; target; toInt32 targetIndex; toInt32 count ]
+
+    Helper.LibCall(com, "Array", "copyTo", t, args, ?loc = r) |> Some
+
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ -> getFieldWith r t arg "length" |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
-    | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
+    | "Copy", None, [ source; sourceIndex; target; targetIndex; count ] ->
+        arrayCopy com ctx r t source sourceIndex target targetIndex count
     | "Copy", None, [ source; target; count ] ->
-        copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
+        arrayCopy com ctx r t source (makeIntConst 0) target (makeIntConst 0) count
     | "ConvertAll", None, [ source; mapping ] ->
         Helper.LibCall(com, "Array", "map", t, [ mapping; source ], ?loc = r) |> Some
     | "IndexOf", None, args ->

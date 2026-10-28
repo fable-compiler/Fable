@@ -161,6 +161,9 @@ def take_while[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> Nativ
 
 
 def take[T](count: int, xs: IEnumerable_1[T]) -> NativeSeq[T]:
+    if count < 0:
+        raise ArgumentException__ctor_Z384F8060("The input must be non-negative.", "count")
+
     def gen() -> Iterator[T]:
         it = _source_iter(xs)
         for _ in range(count):
