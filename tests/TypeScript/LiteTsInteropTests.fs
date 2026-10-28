@@ -46,6 +46,7 @@ module TaggedUnion =
 module TypedArrays =
     let int8s = JS.Constructors.Int8Array.Create [| 1y; -2y |]
     let uint8s = JS.Constructors.Uint8Array.Create [| 1uy; 2uy |]
+    let uint8Clamped = JS.Constructors.Uint8ClampedArray.Create [| 1; 300 |]
     let int16s = JS.Constructors.Int16Array.Create [| 1s; -2s |]
     let uint16s = JS.Constructors.Uint16Array.Create [| 1us; 2us |]
     let int32s = JS.Constructors.Int32Array.Create [| 1; -2 |]
@@ -109,6 +110,7 @@ let tests =
     testCase "Fable.Core typed arrays are annotated with native TS types" <| fun () ->
         TypedArrays.int8s.[1] |> equal -2y
         TypedArrays.uint8s.[1] |> equal 2uy
+        TypedArrays.uint8Clamped.[1] |> equal 255uy
         TypedArrays.int16s.[1] |> equal -2s
         TypedArrays.uint16s.[1] |> equal 2us
         TypedArrays.int32s.[1] |> equal -2

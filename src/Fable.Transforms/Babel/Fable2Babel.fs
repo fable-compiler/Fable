@@ -869,6 +869,7 @@ module Annotation =
         | Types.ievent2 -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
         | "Fable.Core.JS.Set`1" -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "ISet" |> Some
         | "Fable.Core.JS.Map`2" -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IMap" |> Some
+        | "Fable.Core.JS.Uint8ClampedArray" -> makeNativeTypeAnnotation com ctx [] "Uint8ClampedArray" |> Some
         // FCS erases the Fable.Core aliases, so only TypedArray<element> reaches here
         | "Fable.Core.JS.TypedArray`1" ->
             match genArgs with
