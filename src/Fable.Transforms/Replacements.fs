@@ -2375,7 +2375,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
     let createArray size value =
         match t, value with
-        | Array(Number _ as t2, _), None when com.Options.TypedArrays -> newArrayAlloc size t2
+        | Array(TypedArrayCompatible com MutableArray _ as t2, _), None -> newArrayAlloc size t2
         | Array(t2, _), value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
