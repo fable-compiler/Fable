@@ -551,6 +551,12 @@ let tests =
         let s2: String = "hello"
         isNull s2 |> equal false
 
+#if FABLE_COMPILER
+    testCase "isNull treats undefined as null" <| fun () ->
+        let s: String = unbox Fable.Core.JS.undefined
+        isNull s |> equal true
+#endif
+
     testCase "Classes must use identity hashing by default" <| fun () -> // See #2291
         let x = MyClass(5)
         let y = MyClass(5)

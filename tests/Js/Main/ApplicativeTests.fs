@@ -2,6 +2,7 @@ module Fable.Tests.Applicative
 
 open System
 open Util.Testing
+open Fable.Tests.Util
 
 let inline (|HasLength|) x =
   fun () -> (^a: (member Length: int) x)
@@ -1189,6 +1190,12 @@ let tests7 = [
         f 4 4 2 |> equal 6
         apply3 r.myFunction 5 7 4 |> equal 8
         apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
+
+    testCase "Null functions in record fields can be read back" <| fun () ->
+        let r = { myFunction = Unchecked.defaultof<_> }
+        let f = r.myFunction
+        throwsAnyError (fun () -> f 1 2 3)
+        throwsAnyError (fun () -> r.myFunction 1 2 3)
 
     testCase "Uncurried functions in record fields can be partially applied" <| fun () ->
         // Test also non-record functions just in case
