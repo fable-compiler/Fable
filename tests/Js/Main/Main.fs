@@ -92,10 +92,15 @@ run()
 
 #else
 
+open System.Globalization
 open Expecto
 
 [<EntryPoint>]
 let main args =
+    // Fable formats with the invariant culture, so the .NET run must too
+    CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
+    CultureInfo.CurrentCulture <- CultureInfo.InvariantCulture
+
     Array.toList allTests
     |> testList "All"
     |> runTestsWithCLIArgs [] args
