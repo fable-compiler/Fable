@@ -271,6 +271,15 @@ let tests =
         let b = [| |]
         throwsAnyError (fun () -> b.[0])
 
+    testCase "Array getter returns None for an in-bounds option element" <| fun () ->
+        let xs = [| Some 1; None; Some 3 |]
+        Array.get xs 1 |> equal None
+        xs[1] |> equal None
+        xs.[1] |> equal None
+        Array.item 1 xs |> equal None
+        xs[2] |> equal (Some 3)
+        throwsAnyError (fun () -> xs[3])
+
     testCase "Array setter works" <| fun () ->
         let x = [| 1.; 2.; 3.; 4.; 5. |]
         Array.set x 3 10.

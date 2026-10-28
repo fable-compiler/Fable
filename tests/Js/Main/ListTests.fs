@@ -1095,6 +1095,27 @@ let tests =
         raisedExceptionType (fun () -> [1].Tail.Head) |> equal "InvalidOperationException"
         raisedExceptionType (fun () -> [1].Tail.Tail) |> equal "InvalidOperationException"
 
+    testCase "List builders leave the empty list untouched" <| fun () ->
+        let xs = [1; 2; 3]
+        List.map ((+) 1) xs |> equal [2; 3; 4]
+        List.filter (fun x -> x > 1) xs |> equal [2; 3]
+        List.filter (fun _ -> false) xs |> equal []
+        List.choose (fun x -> if x > 2 then Some x else None) xs |> equal [3]
+        List.collect (fun x -> [x; x]) xs |> equal [1; 1; 2; 2; 3; 3]
+        List.append xs xs |> equal [1; 2; 3; 1; 2; 3]
+        List.concat [xs; xs] |> equal [1; 2; 3; 1; 2; 3]
+        List.ofSeq (seq { 1 .. 3 }) |> equal xs
+        List.partition (fun x -> x > 1) xs |> equal ([2; 3], [1])
+        List.scan (+) 0 xs |> equal [0; 1; 3; 6]
+        List.take 2 xs |> equal [1; 2]
+        List.init 3 id |> equal [0; 1; 2]
+        List.unfold (fun s -> if s < 3 then Some (s, s + 1) else None) 0 |> equal [0; 1; 2]
+        let empty: int list = []
+        List.isEmpty empty |> equal true
+        List.length empty |> equal 0
+        List.isEmpty (List.map ((+) 1) empty) |> equal true
+        empty |> equal []
+
     testCase "List functions raise FSharp.Core's exception types for out of range counts" <| fun () ->
         raisedExceptionType (fun () -> List.take 5 [1]) |> equal "InvalidOperationException"
         raisedExceptionType (fun () -> List.take -1 [1]) |> equal "ArgumentException"

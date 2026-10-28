@@ -32,6 +32,10 @@ type MyRecord = { a: int }
 
 type R = { i: int; s: string }
 
+type SetItem =
+    | Int of int
+    | Str of string
+
 type Apa<'t when 't : equality>() =
     let state = HashSet<'t>()
     member _.Add t = state.Add t |> ignore
@@ -106,6 +110,19 @@ let tests =
         xs.Remove "B" |> equal false
         xs.Contains "C" |> equal true
         xs.Count |> equal 2
+
+    testCase "HashSet works with union items" <| fun () ->
+        let xs = HashSet<SetItem>()
+        xs.Add(Int 1) |> equal true
+        xs.Add(Str "a") |> equal true
+        xs.Add(Int 1) |> equal false
+        xs.Contains(Int 1) |> equal true
+        xs.Contains(Int 2) |> equal false
+        xs.Contains(Str "a") |> equal true
+        xs.Count |> equal 2
+        xs.Remove(Int 1) |> equal true
+        xs.Contains(Int 1) |> equal false
+        xs.Count |> equal 1
 
     testCase "HashSet.UnionWith works" <| fun () ->
         let xs = hashSet [1; 2]

@@ -66,4 +66,16 @@ let tests =
         |> Seq.toList
         |> List.sum
         |> equal 55
+
+    testCase "Array enumerator can be reset" <| fun () ->
+        let e = ([| 1; 2; 3 |] :> seq<int>).GetEnumerator()
+        e.MoveNext() |> equal true
+        e.MoveNext() |> equal true
+        e.Current |> equal 2
+        e.Reset()
+        e.MoveNext() |> equal true
+        e.Current |> equal 1
+        e.MoveNext() |> equal true
+        e.MoveNext() |> equal true
+        e.MoveNext() |> equal false
   ]
