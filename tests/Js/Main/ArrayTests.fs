@@ -106,7 +106,7 @@ let tests =
         xs |> Array.sum |> equal 6
 #endif
 
-#if FABLE_COMPILER_JAVASCRIPT || FABLE_COMPILER_TYPESCRIPT
+#if FABLE_COMPILER
     testCase "Numeric array literals respect --typedArrays" <| fun () ->
         [| 1y |] |> jsConstructorIs (typedArrayOr "Int8Array") |> equal true
         [| 1uy |] |> jsConstructorIs (typedArrayOr "Uint8Array") |> equal true
