@@ -10,6 +10,7 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of 'T.
     let hashMap = Dictionary<int, ResizeArray<'T>>()
+    let mutable count = 0
 
     do
         for item in items do
@@ -18,55 +19,83 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     // new () = MutableSet (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableSet (Seq.empty, comparer)
 
-    member private this.TryFindIndex(k) =
-        let h = comparer.GetHashCode(k)
+    // An erased option of a reference type, so a hit allocates nothing
+    member private this.TryFindBucket(h: int) : ResizeArray<'T> option =
+        if hashMap.ContainsKey h then
+            Some hashMap.[h]
+        else
+            None
 
-        match hashMap.TryGetValue h with
-        | true, values -> true, h, values.FindIndex(fun v -> comparer.Equals(k, v))
-        | false, _ -> false, h, -1
+    member private this.FindIndex(k, bucket: ResizeArray<'T>) =
+        let mutable i = 0
+        let mutable found = -1
 
-    member private this.TryFind(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> Some hashMap.[h].[i]
-        | _, _, _ -> None
+        while found < 0 && i < bucket.Count do
+            if comparer.Equals(k, bucket.[i]) then
+                found <- i
+
+            i <- i + 1
+
+        found
+
+    member private this.TryFind(k: 'T) =
+        match this.TryFindBucket(comparer.GetHashCode(k)) with
+        | Some bucket ->
+            let i = this.FindIndex(k, bucket)
+
+            if i > -1 then
+                Some bucket.[i]
+            else
+                None
+        | None -> None
 
     member this.Comparer = comparer
 
-    member this.Clear() = hashMap.Clear()
+    member this.Clear() =
+        hashMap.Clear()
+        count <- 0
 
-    member this.Count =
-        let mutable count = 0
+    member this.Count = count
 
-        for items in hashMap.Values do
-            count <- count + items.Count
+    member this.Add(k: 'T) =
+        let h = comparer.GetHashCode(k)
 
-        count
-
-    member this.Add(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> false
-        | true, h, _ ->
-            hashMap.[h].Add(k) |> ignore
-            true
-        | false, h, _ ->
+        match this.TryFindBucket h with
+        | Some bucket ->
+            if this.FindIndex(k, bucket) > -1 then
+                false
+            else
+                bucket.Add(k)
+                count <- count + 1
+                true
+        | None ->
             hashMap.[h] <- ResizeArray([| k |])
+            count <- count + 1
             true
 
-    member this.Contains(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> true
-        | _, _, _ -> false
+    member this.Contains(k: 'T) =
+        match this.TryFindBucket(comparer.GetHashCode(k)) with
+        | Some bucket -> this.FindIndex(k, bucket) > -1
+        | None -> false
 
-    member this.Remove(k) =
-        match this.TryFindIndex(k) with
-        | true, h, i when i > -1 ->
-            hashMap.[h].RemoveAt(i)
+    member this.Remove(k: 'T) =
+        let h = comparer.GetHashCode(k)
 
-            if hashMap.[h].Count = 0 then
-                hashMap.Remove(h) |> ignore
+        match this.TryFindBucket h with
+        | Some bucket ->
+            let i = this.FindIndex(k, bucket)
 
-            true
-        | _, _, _ -> false
+            if i > -1 then
+                bucket.RemoveAt(i)
+                count <- count - 1
+
+                if bucket.Count = 0 then
+                    hashMap.Remove(h) |> ignore
+
+                true
+            else
+                false
+        | None -> false
 
     interface Fable.Core.Symbol_wellknown with
         member _.``Symbol.toStringTag`` = "HashSet"

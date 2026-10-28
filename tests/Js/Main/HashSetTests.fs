@@ -89,6 +89,24 @@ let tests =
         xs.Remove 3 |> equal false
         xs.Count |> equal 2
 
+    testCase "HashSet works when items share a hash" <| fun () ->
+        let comparer =
+            { new IEqualityComparer<string> with
+                member _.Equals(x, y) = x = y
+                member _.GetHashCode(_) = 1 }
+        let xs = HashSet<_>(comparer)
+        xs.Add "A" |> equal true
+        xs.Add "B" |> equal true
+        xs.Add "C" |> equal true
+        xs.Add "B" |> equal false
+        xs.Count |> equal 3
+        xs.Contains "C" |> equal true
+        xs.Contains "D" |> equal false
+        xs.Remove "B" |> equal true
+        xs.Remove "B" |> equal false
+        xs.Contains "C" |> equal true
+        xs.Count |> equal 2
+
     testCase "HashSet.UnionWith works" <| fun () ->
         let xs = hashSet [1; 2]
         let ys = hashSet [2; 4]

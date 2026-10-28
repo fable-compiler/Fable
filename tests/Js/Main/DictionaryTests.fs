@@ -196,6 +196,38 @@ let tests =
         dic.Remove("C") |> equal false
         dic.Count |> equal 1
 
+    testCase "Dictionary works when keys share a hash" <| fun () ->
+        let comparer =
+            { new IEqualityComparer<string> with
+                member _.Equals(x, y) = x = y
+                member _.GetHashCode(_) = 1 }
+        let dic = Dictionary<_,_>(comparer)
+        dic.Add("A", 1)
+        dic.Add("B", 2)
+        dic.Add("C", 3)
+        dic.Count |> equal 3
+        dic.["C"] |> equal 3
+        dic.ContainsKey("B") |> equal true
+        dic.ContainsKey("D") |> equal false
+        dic.Remove("B") |> equal true
+        dic.Remove("B") |> equal false
+        dic.ContainsKey("C") |> equal true
+        dic.Count |> equal 2
+        throwsAnyError (fun _ -> dic.Add("A", 4))
+
+    testCase "Dictionary.Count works with indexer insert" <| fun () ->
+        let dic = Dictionary<string,int>()
+        dic.["A"] <- 1
+        dic.["B"] <- 2
+        dic.Count |> equal 2
+
+    testCase "Dictionary.Count works with indexer replace" <| fun () ->
+        let dic = Dictionary<string,int>()
+        dic.Add("A", 1)
+        dic.["A"] <- 2
+        dic.Count |> equal 1
+        dic.["A"] |> equal 2
+
     testCase "Dictionary.Remove with complex keys works" <| fun () ->
         let dic = Dictionary<_, _>()
         dic.Add((0,"A"), "Hello")
