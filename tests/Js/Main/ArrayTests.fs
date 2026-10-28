@@ -14,6 +14,10 @@ open Fable.Core
 
 [<Emit("$1.constructor.name == $0")>]
 let jsConstructorIs (s: string) (ar: 'T[]) = true
+
+/// Expected JS constructor name of a numeric array, depending on the --typedArrays option
+let typedArrayOr (typedArrayName: string) =
+    if Compiler.typedArrays then typedArrayName else "Array"
 #endif
 
 type ExceptFoo = { Bar:string }
@@ -100,6 +104,67 @@ let tests =
         let xs = [| "1"; "2"; "3"; |] |> Array.map int
         xs |> jsConstructorIs "Int32Array" |> equal true
         xs |> Array.sum |> equal 6
+#endif
+
+#if FABLE_COMPILER_JAVASCRIPT || FABLE_COMPILER_TYPESCRIPT
+    testCase "Numeric array literals respect --typedArrays" <| fun () ->
+        [| 1y |] |> jsConstructorIs (typedArrayOr "Int8Array") |> equal true
+        [| 1uy |] |> jsConstructorIs (typedArrayOr "Uint8Array") |> equal true
+        [| 1s |] |> jsConstructorIs (typedArrayOr "Int16Array") |> equal true
+        [| 1us |] |> jsConstructorIs (typedArrayOr "Uint16Array") |> equal true
+        [| 1 |] |> jsConstructorIs (typedArrayOr "Int32Array") |> equal true
+        [| 1u |] |> jsConstructorIs (typedArrayOr "Uint32Array") |> equal true
+        [| 1L |] |> jsConstructorIs (typedArrayOr "BigInt64Array") |> equal true
+        [| 1UL |] |> jsConstructorIs (typedArrayOr "BigUint64Array") |> equal true
+        [| 1.f |] |> jsConstructorIs (typedArrayOr "Float32Array") |> equal true
+        [| 1. |] |> jsConstructorIs (typedArrayOr "Float64Array") |> equal true
+        [| 1M |] |> jsConstructorIs "Array" |> equal true
+        [| 1I |] |> jsConstructorIs "Array" |> equal true
+        [| 'a' |] |> jsConstructorIs "Array" |> equal true
+
+    testCase "Array.zeroCreate respects --typedArrays" <| fun () ->
+        Array.zeroCreate<int8> 2 |> jsConstructorIs (typedArrayOr "Int8Array") |> equal true
+        Array.zeroCreate<uint8> 2 |> jsConstructorIs (typedArrayOr "Uint8Array") |> equal true
+        Array.zeroCreate<int16> 2 |> jsConstructorIs (typedArrayOr "Int16Array") |> equal true
+        Array.zeroCreate<uint16> 2 |> jsConstructorIs (typedArrayOr "Uint16Array") |> equal true
+        Array.zeroCreate<int> 2 |> jsConstructorIs (typedArrayOr "Int32Array") |> equal true
+        Array.zeroCreate<uint32> 2 |> jsConstructorIs (typedArrayOr "Uint32Array") |> equal true
+        Array.zeroCreate<int64> 2 |> jsConstructorIs (typedArrayOr "BigInt64Array") |> equal true
+        Array.zeroCreate<uint64> 2 |> jsConstructorIs (typedArrayOr "BigUint64Array") |> equal true
+        Array.zeroCreate<float32> 2 |> jsConstructorIs (typedArrayOr "Float32Array") |> equal true
+        Array.zeroCreate<float> 2 |> jsConstructorIs (typedArrayOr "Float64Array") |> equal true
+        Array.zeroCreate<decimal> 2 |> jsConstructorIs "Array" |> equal true
+        Array.zeroCreate<int64> 2 |> equal [| 0L; 0L |]
+        Array.zeroCreate<float> 2 |> equal [| 0.; 0. |]
+        Array.zeroCreate<decimal> 2 |> equal [| 0M; 0M |]
+
+    testCase "Array module functions respect --typedArrays" <| fun () ->
+        let xs = Array.init 3 int8
+        xs |> jsConstructorIs (typedArrayOr "Int8Array") |> equal true
+        xs |> equal [| 0y; 1y; 2y |]
+        let xs = Array.create 2 7us
+        xs |> jsConstructorIs (typedArrayOr "Uint16Array") |> equal true
+        xs |> equal [| 7us; 7us |]
+        let xs = Array.ofSeq (seq { 1L; 2L })
+        xs |> jsConstructorIs (typedArrayOr "BigInt64Array") |> equal true
+        xs |> Array.sum |> equal 3L
+        let xs = Array.ofSeq (seq { 1UL; 2UL })
+        xs |> jsConstructorIs (typedArrayOr "BigUint64Array") |> equal true
+        xs |> Array.sum |> equal 3UL
+        let xs = [| 1; 2 |] |> Array.map float32
+        xs |> jsConstructorIs (typedArrayOr "Float32Array") |> equal true
+        xs |> equal [| 1.f; 2.f |]
+        let xs = [| 1.5; 2.5 |] |> Array.map string
+        xs |> jsConstructorIs "Array" |> equal true
+        xs |> equal [| "1.5"; "2.5" |]
+
+    testCase "Byte arrays respect --typedArrays" <| fun () ->
+        let xs = System.Text.Encoding.UTF8.GetBytes("ab")
+        xs |> jsConstructorIs (typedArrayOr "Uint8Array") |> equal true
+        xs |> equal [| 97uy; 98uy |]
+        let xs = System.BitConverter.GetBytes(1s)
+        xs |> jsConstructorIs (typedArrayOr "Uint8Array") |> equal true
+        xs |> equal [| 1uy; 0uy |]
 #endif
 
     testCase "Mapping from values to functions works" <| fun () ->
