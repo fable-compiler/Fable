@@ -630,7 +630,7 @@ export function parseRaw(input: string): [Date, Offset] {
       let timeInSeconds = 0;
       if (m[2] != null) {
         const timeParts = m[2].split(":");
-        const hourPart = parseInt(timeParts[0], 10);
+        const hourPart = parseInt(timeParts[0]!, 10);
         timeInSeconds =
           hourPart * 3600 +
           parseInt(timeParts[1] || "0", 10) * 60 +
@@ -651,7 +651,7 @@ export function parseRaw(input: string): [Date, Offset] {
         if (m[4] === "Z") {
           offset = "Z";
         } else {
-          let offsetInMinutes = parseInt(m[5], 10) * 60 + parseInt(m[6] || "0", 10);
+          let offsetInMinutes = parseInt(m[5]!, 10) * 60 + parseInt(m[6] || "0", 10);
           if (m[4][0] === "-") {
             offsetInMinutes *= -1;
           }

@@ -66,8 +66,8 @@ export function tryParse(str: string, defValue: FSharpRef<string>): boolean {
 export function newGuid() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
-  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80; // variant 1
   const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
@@ -109,7 +109,7 @@ function initConvertMaps() {
   _hexToByte = {};
   for (let i = 0; i < 256; i++) {
     _byteToHex[i] = i.toString(16).padStart(2, '0');
-    _hexToByte[_byteToHex[i]] = i;
+    _hexToByte[_byteToHex[i]!] = i;
   }
   _convertMapsInitialized = true;
 }
@@ -127,17 +127,17 @@ export function guidToArray(s: string): number[] {
       // .NET saves first three byte groups with different endianness
       // See https://stackoverflow.com/a/16722909/3922220
       case 0: case 1: case 2: case 3:
-        buf[3 - i++] = _hexToByte[oct];
+        buf[3 - i++] = _hexToByte[oct]!;
         break;
       case 4: case 5:
-        buf[9 - i++] = _hexToByte[oct];
+        buf[9 - i++] = _hexToByte[oct]!;
         break;
       case 6: case 7:
-        buf[13 - i++] = _hexToByte[oct];
+        buf[13 - i++] = _hexToByte[oct]!;
         break;
       case 8: case 9: case 10: case 11:
       case 12: case 13: case 14: case 15:
-        buf[i++] = _hexToByte[oct];
+        buf[i++] = _hexToByte[oct]!;
         break;
     }
   }) as any);
@@ -157,13 +157,13 @@ export function arrayToGuid(buf: ArrayLike<number>) {
     initConvertMaps();
   }
   const guid =
-    _byteToHex[buf[3]] + _byteToHex[buf[2]] +
-    _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
-    _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
-    _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
-    _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
-    _byteToHex[buf[10]] + _byteToHex[buf[11]] +
-    _byteToHex[buf[12]] + _byteToHex[buf[13]] +
-    _byteToHex[buf[14]] + _byteToHex[buf[15]];
+    _byteToHex[buf[3]!]! + _byteToHex[buf[2]!]! +
+    _byteToHex[buf[1]!]! + _byteToHex[buf[0]!]! + "-" +
+    _byteToHex[buf[5]!]! + _byteToHex[buf[4]!]! + "-" +
+    _byteToHex[buf[7]!]! + _byteToHex[buf[6]!]! + "-" +
+    _byteToHex[buf[8]!]! + _byteToHex[buf[9]!]! + "-" +
+    _byteToHex[buf[10]!]! + _byteToHex[buf[11]!]! +
+    _byteToHex[buf[12]!]! + _byteToHex[buf[13]!]! +
+    _byteToHex[buf[14]!]! + _byteToHex[buf[15]!]!;
   return guid;
 }

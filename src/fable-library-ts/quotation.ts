@@ -452,7 +452,7 @@ export function evaluate(expr: Expr, env?: Map<string, any>): any {
 
     if (expr instanceof ExprCall) {
         const evaluatedArgs = expr.args.map((a: any) => evaluate(a, env));
-        if (expr.method in OPERATORS) return OPERATORS[expr.method](...evaluatedArgs);
+        if (expr.method in OPERATORS) return OPERATORS[expr.method]!(...evaluatedArgs);
         throw new Error(`Unknown method: ${expr.method}`);
     }
 
@@ -467,7 +467,7 @@ export function evaluate(expr: Expr, env?: Map<string, any>): any {
     if (expr instanceof ExprNewRecord) {
         const result: Record<string, any> = {};
         for (let i = 0; i < expr.fieldNames.length; i++) {
-            result[expr.fieldNames[i]] = evaluate(expr.values[i], env);
+            result[expr.fieldNames[i]!] = evaluate(expr.values[i]!, env);
         }
         return result;
     }
@@ -529,10 +529,10 @@ export function exprToString(expr: Expr): string {
     if (expr instanceof ExprIfThenElse) return `if ${exprToString(expr.guard)} then ${exprToString(expr.thenExpr)} else ${exprToString(expr.elseExpr)}`;
     if (expr instanceof ExprCall) {
         if (expr.method in OP_SYMBOLS && expr.args.length === 2) {
-            return `(${exprToString(expr.args[0])} ${OP_SYMBOLS[expr.method]} ${exprToString(expr.args[1])})`;
+            return `(${exprToString(expr.args[0]!)} ${OP_SYMBOLS[expr.method]} ${exprToString(expr.args[1]!)})`;
         }
         if (expr.method in OP_SYMBOLS && expr.args.length === 1) {
-            return `${OP_SYMBOLS[expr.method]}${exprToString(expr.args[0])}`;
+            return `${OP_SYMBOLS[expr.method]}${exprToString(expr.args[0]!)}`;
         }
         return `${expr.method}(${expr.args.map(exprToString).join(", ")})`;
     }

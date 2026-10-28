@@ -143,11 +143,11 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   if (str == null || str === "") {
     return -1;
   }
-  const startIndex = (args.length > 0) ? args[0] : 0;
+  const startIndex = (args.length > 0) ? args[0]! : 0;
   if (startIndex < 0) {
     throw new Exception("Start index cannot be negative");
   }
-  const length = (args.length > 1) ? args[1] : str.length - startIndex;
+  const length = (args.length > 1) ? args[1]! : str.length - startIndex;
   if (length < 0) {
     throw new Exception("Length cannot be negative");
   }
@@ -157,7 +157,7 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   const endIndex = startIndex + length
   const anyOfAsStr = "".concat.apply("", anyOf);
   for (let i = startIndex; i < endIndex; i++) {
-    if (anyOfAsStr.indexOf(str[i]) > -1) {
+    if (anyOfAsStr.indexOf(str[i]!) > -1) {
       return i;
     }
   }
@@ -293,7 +293,7 @@ function createPrinter(cont: (...args: any[]) => any, _strParts: string[], _matc
     const strParts = _strParts.slice();
     const matches = _matches.slice();
     for (const arg of args) {
-      const [, , flags, _padLength, precision, format] = matches[0];
+      const [, , flags, _padLength, precision, format] = matches[0]!;
       let padLength: any = _padLength;
       if (padArg >= 0) {
         padLength = padArg;
@@ -354,7 +354,7 @@ function splitIntAndDecimalPart(value: string) {
   let [repInt, repDecimal] = value.split(".");
   repDecimal === undefined && (repDecimal = "");
   return {
-    integral: repInt,
+    integral: repInt!,
     decimal: repDecimal
   }
 }
@@ -524,7 +524,7 @@ export function format(str: string | object, ...args: any[]) {
               repDecimal ||= "";
 
               const leftZeroes = intPart.replace(/,/g, "").replace(/^#+/, "").length;
-              repInt = padLeft(repInt, leftZeroes, "0");
+              repInt = padLeft(repInt!, leftZeroes, "0");
 
               const rightZeros = decimalPart.replace(/#+$/, "").length;
               if (rightZeros > repDecimal.length) {
@@ -616,7 +616,7 @@ function notSupported(name: string): never {
 export function toBase64String(inArray: ArrayLike<number>) {
   let str = "";
   for (let i = 0; i < inArray.length; i++) {
-    str += String.fromCharCode(inArray[i]);
+    str += String.fromCharCode(inArray[i]!);
   }
   return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
 }
@@ -665,11 +665,11 @@ export function replicate(n: number, x: string) {
   return initialize(n, () => x);
 }
 
-export function getCharAtIndex(input: string, index: number) {
+export function getCharAtIndex(input: string, index: number): string {
   if (index < 0 || index >= input.length) {
     throw new Exception("Index was outside the bounds of the array.");
   }
-  return input[index];
+  return input[index]!;
 }
 
 export function split(str: string, splitters: string[], count?: number, options?: number) {

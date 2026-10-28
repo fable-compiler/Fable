@@ -138,7 +138,7 @@ export function union_type(
   cases: () => FieldInfo[][]): TypeInfo {
   const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, undefined, () => {
     const caseNames = construct.prototype.cases() as string[];
-    return cases().map((fields, i) => new CaseInfo(t, i, caseNames[i], fields))
+    return cases().map((fields, i) => new CaseInfo(t, i, caseNames[i]!, fields))
   });
   return t;
 }
@@ -439,7 +439,7 @@ export function getTupleElements(t: TypeInfo): TypeInfo[] {
 export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
   if (isFunction(t) && t.generics != null) {
     const gen = t.generics;
-    return [gen[0], gen[1]];
+    return [gen[0]!, gen[1]!];
   } else {
     throw new Exception(`${t.fullname} is not an F# function type`);
   }
@@ -469,10 +469,10 @@ export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
   // Special handling for option types (None is undefined, Some is the value or a Some wrapper)
   if (t.fullname === "Microsoft.FSharp.Core.FSharpOption`1") {
     if (v == null) {
-      return [cases[0], []]; // None case
+      return [cases[0]!, []]; // None case
     } else {
       const innerValue = v instanceof Some ? v.value : v;
-      return [cases[1], [innerValue]]; // Some case
+      return [cases[1]!, [innerValue]]; // Some case
     }
   }
   const case_ = cases[v.tag];
