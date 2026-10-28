@@ -3040,7 +3040,9 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         |> withTag "downcast"
         |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
-    | "GetString", _, [ ar; idx ] -> getExpr r t ar idx |> Some
+    | "GetString", _, [ str; idx ] ->
+        Helper.LibCall(com, "String", "getCharAtIndex", t, [ str; idx ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "GetArray", _, [ ar; idx ] -> arrayGetItem com r t [ idx; ar ] (i.SignatureArgTypes |> List.rev)
     | "SetArray", _, [ ar; idx; value ] -> setExpr r ar idx value |> Some
     | ("GetArraySlice" | "GetStringSlice"), None, [ ar; lower; upper ] ->
