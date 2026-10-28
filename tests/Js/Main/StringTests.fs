@@ -1163,6 +1163,25 @@ let tests = testList "Strings" [
         input.Chars(2)
         |> equal 'l'
 
+    testCase "String.Chars throws when index is out of bounds" <| fun () ->
+        let input = "abc"
+        throwsAnyError <| fun () ->
+            input.Chars(-1) |> ignore
+        throwsAnyError <| fun () ->
+            input.Chars(3) |> ignore
+
+    testCase "String indexer works" <| fun () ->
+        let input = "hello"
+        input.[1] |> equal 'e'
+        input.[4] |> equal 'o'
+
+    testCase "String indexer throws when index is out of bounds" <| fun () ->
+        let input = "abc"
+        throwsAnyError <| fun () ->
+            input.[-1] |> ignore
+        throwsAnyError <| fun () ->
+            input.[3] |> ignore
+
     testCase "String.Substring works" <| fun () ->
         "abcdefg".Substring(2)
         |> equal "cdefg"
