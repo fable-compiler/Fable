@@ -106,6 +106,21 @@ type BabelWriter
 
 module CodeServices =
 
+    // FCS keeps the first spelling registered for a file and drops diagnostics whose file name differs from it
+    let checkerFileName (fileName: string) =
+        (FSharp.Compiler.Text.Range.mkFirstLineOfFile fileName).FileName
+
+    let checkerFileNames (fileNames: string[]) (sourceReader: SourceReader) =
+        let checkerNames = Array.map checkerFileName fileNames
+        let originalNames = Array.zip checkerNames fileNames |> Map.ofArray
+
+        let checkerSourceReader fileName =
+            match Map.tryFind fileName originalNames with
+            | Some originalName -> sourceReader originalName
+            | None -> sourceReader fileName
+
+        checkerNames, checkerSourceReader
+
     let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
         diagnostics
         |> Array.map (fun er ->
@@ -132,7 +147,7 @@ module CodeServices =
 
             let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
 
-            LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
+            LogEntry.Make(severity, msg, fileName = Path.normalizePath er.FileName, range = range, tag = "FSHARP")
         )
 
     let compileFileToJs
@@ -166,12 +181,11 @@ module CodeServices =
         async {
             let! assemblies = checker.GetImportedAssemblies()
 
+            let fileNames, checkerSourceReader =
+                checkerFileNames crackerResponse.ProjectOptions.SourceFiles sourceReader
+
             let! checkProjectResult =
-                checker.ParseAndCheckProject(
-                    cliArgs.ProjectFile,
-                    crackerResponse.ProjectOptions.SourceFiles,
-                    sourceReader
-                )
+                checker.ParseAndCheckProject(cliArgs.ProjectFile, fileNames, checkerSourceReader)
 
             return
                 {
@@ -191,13 +205,16 @@ module CodeServices =
         async {
             let! assemblies = checker.GetImportedAssemblies()
 
+            let fileNames, checkerSourceReader =
+                checkerFileNames crackerResponse.ProjectOptions.SourceFiles sourceReader
+
             // Type-check the project up until the current file.
             let! checkProjectResult =
                 checker.ParseAndCheckProject(
                     cliArgs.ProjectFile,
-                    crackerResponse.ProjectOptions.SourceFiles,
-                    sourceReader,
-                    lastFile = currentFile
+                    fileNames,
+                    checkerSourceReader,
+                    lastFile = checkerFileName currentFile
                 )
 
             let fableProj =
@@ -326,12 +343,22 @@ module CodeServices =
                 crackerResponse.ProjectOptions.SourceFiles
                 |> Array.tryFind (fun f -> f = String.Concat(currentFile, "i"))
 
+            let fileNames, checkerSourceReader =
+                checkerFileNames crackerResponse.ProjectOptions.SourceFiles sourceReader
+
+            let originalFileNames =
+                Array.zip fileNames crackerResponse.ProjectOptions.SourceFiles |> Map.ofArray
+
             let! dependentFiles =
-                match signatureFile with
-                | None ->
-                    checker.GetDependentFiles(currentFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
-                | Some signatureFile ->
-                    checker.GetDependentFiles(signatureFile, crackerResponse.ProjectOptions.SourceFiles, sourceReader)
+                checker.GetDependentFiles(
+                    checkerFileName (Option.defaultValue currentFile signatureFile),
+                    fileNames,
+                    checkerSourceReader
+                )
+
+            let dependentFiles =
+                dependentFiles
+                |> Array.map (fun f -> Map.tryFind f originalFileNames |> Option.defaultValue f)
 
             Log.info (
                 sprintf
@@ -352,9 +379,9 @@ module CodeServices =
             let! checkProjectResult =
                 checker.ParseAndCheckProject(
                     cliArgs.ProjectFile,
-                    crackerResponse.ProjectOptions.SourceFiles,
-                    sourceReader,
-                    lastFile = lastFile
+                    fileNames,
+                    checkerSourceReader,
+                    lastFile = checkerFileName lastFile
                 )
 
             let fableProj =

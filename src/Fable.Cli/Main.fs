@@ -596,11 +596,13 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
                     (fun () ->
                         let filePaths, sourceReader = Fable.Compiler.File.MakeSourceReader sourceFiles
 
+                        let filePaths, sourceReader = CodeServices.checkerFileNames filePaths sourceReader
+
                         checker.ParseAndCheckProject(
                             projCracked.ProjectFile,
                             filePaths,
                             sourceReader,
-                            lastFile,
+                            CodeServices.checkerFileName lastFile,
                             ?subscriber = subscriber
                         )
                     )
@@ -950,6 +952,8 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
     member _.CompileToFile(outFile: string) =
         let filePaths, sourceReader =
             Fable.Compiler.File.MakeSourceReader projCracked.SourceFiles
+
+        let filePaths, sourceReader = CodeServices.checkerFileNames filePaths sourceReader
 
         checker.Compile(filePaths, sourceReader, outFile)
 
