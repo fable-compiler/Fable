@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "fantomas": {
-      "version": "8.0.10",
+      "version": "8.1.0",
       "commands": [
         "fantomas"
       ],
@@ -24,7 +24,7 @@
       "rollForward": false
     },
     "easybuild.shipit": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "commands": [
         "shipit"
       ],
