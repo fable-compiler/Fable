@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2098f64a25e96385306ef19ed8c289f3b6c84db9
+last_commit_released: ce886964cb4521dc4c01c8da089b97c9d9742814
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.11.0 - 2026-10-29
+
+### 🚀 Features
+
+* *(js/ts/python/dart/beam)* Support System.Array.BinarySearch and ResizeArray.BinarySearch (#5172) ([d332e7d4](https://github.com/fable-compiler/Fable/commit/d332e7d42c889f172bb9501f505292abf519752f))
+
+### 🐞 Bug Fixes
+
+* *(all)* Accept RegexOptions.NonBacktracking (#5178) ([a61ec8a1](https://github.com/fable-compiler/Fable/commit/a61ec8a1583830599a7ffb2dfb4d093e99902d4f))
+* *(js/ts)* Format DateTimeOffset in its own offset (#5171) ([04ddbd20](https://github.com/fable-compiler/Fable/commit/04ddbd2027e03f4cf7b0b22fe886fdabadf26d93))
+* *(js/ts)* Support %o in sprintf and interpolated strings (#5175) ([e13e7b0f](https://github.com/fable-compiler/Fable/commit/e13e7b0fdc16d26793833c77a11d242ccc61109b))
+* *(js/ts)* Parse numbers like .NET and raise its exception types (#5200) ([82e606e9](https://github.com/fable-compiler/Fable/commit/82e606e9f8567d9bdad743df1b5de6abbdda89b0))
+* *(js/ts)* Honor NumberStyles when parsing floats (#5217) ([82b935f3](https://github.com/fable-compiler/Fable/commit/82b935f3859b36923e5e0eb26771f860eadbe525))
+* *(js/ts/python/dart/beam)* Raise typed exceptions from invalidArg and invalidOp ([60f2f5b9](https://github.com/fable-compiler/Fable/commit/60f2f5b9fa0e6a26af0f3b4f3cddc2496f075ba3))
+* *(js/ts/python/dart/beam)* Align collection exception types with FSharp.Core (#5153) ([7d7ceb33](https://github.com/fable-compiler/Fable/commit/7d7ceb33afd85a25bf06dc703e9d4a471cbc3292))
+* *(js/ts/python/dart/beam)* Add FSharp.Core's argument checks to collection functions (#5154) ([5185e654](https://github.com/fable-compiler/Fable/commit/5185e6547416384fe85fcb0b0c1cf267708879db))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Standard library combine numeric hash from snapshot of object instead of mapping (#5151) ([44495104](https://github.com/fable-compiler/Fable/commit/44495104b5c7ac65bfcea184d1305fd29f1db9b4))
+* *(js/ts)* Standard library remove .map result array from record hash using snapshot (#5150) ([0ceb5e9e](https://github.com/fable-compiler/Fable/commit/0ceb5e9ec5b470d00295a5cea9ead1c621c7858e))
+* *(js/ts)* Standard library one pass List.append builder (#5148) ([2ed9d6dd](https://github.com/fable-compiler/Fable/commit/2ed9d6dd0a372e5bcf53dfe24d786bf9b9256fd3))
+* *(js/ts)* List node as a class with a shared empty node (#5185) ([187f8985](https://github.com/fable-compiler/Fable/commit/187f89852413186b52d4ecdde55e1be7cf736785))
+* *(js/ts)* Check array bounds only on undefined reads (#5188) ([435fc0bb](https://github.com/fable-compiler/Fable/commit/435fc0bb008ff2ab7c14a08c7218be94f4735029))
+* *(js/ts)* Closure-free ref cells and out-arg value cells (#5189) ([91bca925](https://github.com/fable-compiler/Fable/commit/91bca925757356191c7e6e7a71cb3e8a1bc8d52d))
+* *(js/ts)* Keep the curried original on its adapter (#5191) ([bfb4a2a4](https://github.com/fable-compiler/Fable/commit/bfb4a2a4e3bb1b5bd4491955a1e1cb90c14050b6))
+* *(js/ts)* Walk arrays by index when enumerated as seq (#5192) ([d88621c3](https://github.com/fable-compiler/Fable/commit/d88621c3b9d6ce48a72dc09b86a6805f612ac185))
+* *(js/ts)* Hash unions without allocating (#5195) ([2b66a5d2](https://github.com/fable-compiler/Fable/commit/2b66a5d2184f3a35f0d73fb397ab902e300ac4bd))
+* *(js/ts)* Probe dictionary buckets without allocating (#5196) ([9517eafd](https://github.com/fable-compiler/Fable/commit/9517eafd93aa7b84061662a421b7a39a7269318b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2098f64a25e96385306ef19ed8c289f3b6c84db9..ce886964cb4521dc4c01c8da089b97c9d9742814)</small></strong>
 
 ## 2.10.0 - 2026-10-22
 

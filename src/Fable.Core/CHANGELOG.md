@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2098f64a25e96385306ef19ed8c289f3b6c84db9
+last_commit_released: ce886964cb4521dc4c01c8da089b97c9d9742814
 ---
 
 # Changelog
@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.6.1 - 2026-10-29
+
+### 🐞 Bug Fixes
+
+* *(ts)* Give Uint8ClampedArray its own Fable.Core type ([f790bf53](https://github.com/fable-compiler/Fable/commit/f790bf534fa6a242c1a302c76512e07054f4feb2))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2098f64a25e96385306ef19ed8c289f3b6c84db9..ce886964cb4521dc4c01c8da089b97c9d9742814)</small></strong>
 
 ## 5.6.0 - 2026-10-22
 
