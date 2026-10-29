@@ -200,3 +200,46 @@ let ``test nullArg raises ArgumentNullException`` () =
         | :? System.ArgumentNullException as e -> e.Message
         | e -> "Unexpected exception: " + e.Message
     caught |> equal "Value cannot be null. (Parameter 'arg')"
+
+let private paramName (f: unit -> unit) =
+    try
+        f ()
+        "no exception"
+    with :? System.ArgumentException as e -> e.ParamName
+
+[<Fact>]
+let ``test ArgumentException.ParamName works`` () =
+    paramName (fun () -> invalidArg "x" "m") |> equal "x"
+    paramName (fun () -> nullArg "x") |> equal "x"
+    System.ArgumentException("m", "x").ParamName |> equal "x"
+    System.ArgumentException("m").ParamName |> isNull |> equal true
+    System.ArgumentException().ParamName |> isNull |> equal true
+    System.ArgumentException("m", exn "i").ParamName |> isNull |> equal true
+    System.ArgumentException("m", "x", exn "i").ParamName |> equal "x"
+    System.ArgumentNullException("x").ParamName |> equal "x"
+    System.ArgumentNullException("x", "m").ParamName |> equal "x"
+    System.ArgumentNullException().ParamName |> isNull |> equal true
+    System.ArgumentOutOfRangeException("x").ParamName |> equal "x"
+    System.ArgumentOutOfRangeException("x", "m").ParamName |> equal "x"
+    System.ArgumentOutOfRangeException("x", box 5, "m").ParamName |> equal "x"
+    System.ArgumentOutOfRangeException().ParamName |> isNull |> equal true
+
+[<Fact>]
+let ``test ArgumentException.ParamName of FSharp.Core errors works`` () =
+    paramName (fun () -> List.exactlyOne [ 1; 2 ] |> ignore) |> equal "source"
+    paramName (fun () -> Seq.head Seq.empty<int> |> ignore) |> equal "source"
+    paramName (fun () -> System.Array.BinarySearch([| 1; 3; 5 |], -1, 2, 5) |> ignore) |> equal "index"
+    paramName (fun () -> Array.sub [| 1 |] 0 5 |> ignore) |> equal "count"
+    paramName (fun () -> Array.sub [| 1 |] -1 1 |> ignore) |> equal "startIndex"
+
+[<Fact>]
+let ``test ArgumentException parameter name is evaluated once`` () =
+    let calls = ref 0
+    let name () =
+        calls.Value <- calls.Value + 1
+        "x"
+    paramName (fun () -> invalidArg (name ()) "m") |> equal "x"
+    paramName (fun () -> nullArg (name ())) |> equal "x"
+    System.ArgumentException("m", name ()).ParamName |> equal "x"
+    System.ArgumentNullException(name (), "m").ParamName |> equal "x"
+    calls.Value |> equal 4

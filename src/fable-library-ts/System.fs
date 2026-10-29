@@ -74,21 +74,25 @@ type ArgumentException(message: string, paramName: string, innerException: exn |
             innerException
         )
 
-    // Use Unchecked.defaultof rather than a `null` literal for the absent inner
-    // exception: Fable erases nullable reference annotations, so a `null` literal
+    // Use Unchecked.defaultof rather than a `null` literal for the absent parameter name
+    // and inner exception: Fable erases nullable reference annotations, so a `null` literal
     // would be emitted against a non-nullable parameter type and fail type checking.
-    new() = ArgumentException(SR.Arg_ArgumentException, "", Unchecked.defaultof<exn>)
-    new(message) = ArgumentException(message, "", Unchecked.defaultof<exn>)
+    new() = ArgumentException(SR.Arg_ArgumentException, Unchecked.defaultof<string>, Unchecked.defaultof<exn>)
+    new(message) = ArgumentException(message, Unchecked.defaultof<string>, Unchecked.defaultof<exn>)
     new(message: string, paramName: string) = ArgumentException(message, paramName, Unchecked.defaultof<exn>)
-    new(message: string, innerException: exn | null) = ArgumentException(message, "", innerException)
+
+    new(message: string, innerException: exn | null)
+        =
+        ArgumentException(message, Unchecked.defaultof<string>, innerException)
+
     member _.ParamName = paramName
 
 type ArgumentNullException(paramName: string, message: string) =
     inherit ArgumentException(message, paramName, Unchecked.defaultof<exn>)
     new(paramName) = ArgumentNullException(paramName, SR.ArgumentNull_Generic)
-    new() = ArgumentNullException("")
+    new() = ArgumentNullException(Unchecked.defaultof<string>)
 
 type ArgumentOutOfRangeException(paramName: string, message: string) =
     inherit ArgumentException(message, paramName, Unchecked.defaultof<exn>)
     new(paramName) = ArgumentOutOfRangeException(paramName, SR.Arg_ArgumentOutOfRangeException)
-    new() = ArgumentOutOfRangeException("")
+    new() = ArgumentOutOfRangeException(Unchecked.defaultof<string>)

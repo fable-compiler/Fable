@@ -510,6 +510,13 @@ let buildRecordWithMutableFnWithFor (xs: RecordWithMutableFn list) =
         let x = xs[i]
         items <- (x.MutableFn >>* ()) :: items
     items
+
+let paramName (f: unit -> unit) =
+    try
+        f ()
+        "no exception"
+    with :? System.ArgumentException as e -> e.ParamName
+
 let tests =
   testList "Miscellaneous" [
     testCase "Hoisted vars don't conflict with while loop" <| fun () -> // see #4031
@@ -1268,6 +1275,26 @@ let tests =
             | :? System.ArgumentException as e -> e.Message
             | e -> "Unexpected exception: " + e.Message
         equal "This is invalid (Parameter 'arg')" caught
+
+    testCase "ArgumentException.ParamName works" <| fun () ->
+        paramName (fun () -> invalidArg "x" "m") |> equal "x"
+        paramName (fun () -> nullArg "x") |> equal "x"
+        System.ArgumentException("m", "x").ParamName |> equal "x"
+        System.ArgumentException("m").ParamName |> isNull |> equal true
+        System.ArgumentException().ParamName |> isNull |> equal true
+        System.ArgumentException("m", exn "i").ParamName |> isNull |> equal true
+        System.ArgumentException("m", "x", exn "i").ParamName |> equal "x"
+        System.ArgumentNullException("x").ParamName |> equal "x"
+        System.ArgumentNullException("x", "m").ParamName |> equal "x"
+        System.ArgumentNullException().ParamName |> isNull |> equal true
+        System.ArgumentOutOfRangeException("x").ParamName |> equal "x"
+        System.ArgumentOutOfRangeException("x", "m").ParamName |> equal "x"
+        System.ArgumentOutOfRangeException().ParamName |> isNull |> equal true
+
+    testCase "ArgumentException.ParamName of FSharp.Core errors works" <| fun () ->
+        paramName (fun () -> List.head ([]: int list) |> ignore) |> equal "list"
+        paramName (fun () -> List.take -1 [ 1 ] |> ignore) |> equal "count"
+        paramName (fun () -> List.reduce (+) ([]: int list) |> ignore) |> equal "list"
 
     testCase "invalidOp raises InvalidOperationException" <| fun () ->
         let caught =

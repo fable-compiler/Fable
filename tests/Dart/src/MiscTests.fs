@@ -63,6 +63,12 @@ type ElmishWidget<'Model, 'View, 'Msg>(view: 'Model -> ('Msg -> unit) -> 'View) 
     let _view = view
     member _.Render(model, dispatch) = _view model dispatch
 
+let paramName (f: unit -> unit) =
+    try
+        f ()
+        "no exception"
+    with :? System.ArgumentException as e -> e.ParamName
+
 let tests() =
     testCase "ref works" <| fun () ->
         let x = ref 5
@@ -163,6 +169,27 @@ let tests() =
             | :? System.ArgumentException as e -> e.Message
             | e -> "Unexpected exception: " + e.Message
         equal "This is invalid (Parameter 'arg')" caught
+
+    testCase "ArgumentException.ParamName works" <| fun () ->
+        paramName (fun () -> invalidArg "x" "m") |> equal "x"
+        paramName (fun () -> nullArg "x") |> equal "x"
+        System.ArgumentException("m", "x").ParamName |> equal "x"
+        // Dart strings are not nullable, so an absent name reads as an empty string
+        System.ArgumentException("m").ParamName |> System.String.IsNullOrEmpty |> equal true
+        System.ArgumentException().ParamName |> System.String.IsNullOrEmpty |> equal true
+        System.ArgumentException("m", exn "i").ParamName |> System.String.IsNullOrEmpty |> equal true
+        System.ArgumentException("m", "x", exn "i").ParamName |> equal "x"
+        System.ArgumentNullException("x").ParamName |> equal "x"
+        System.ArgumentNullException("x", "m").ParamName |> equal "x"
+        System.ArgumentNullException().ParamName |> System.String.IsNullOrEmpty |> equal true
+        System.ArgumentOutOfRangeException("x").ParamName |> equal "x"
+        System.ArgumentOutOfRangeException("x", "m").ParamName |> equal "x"
+        System.ArgumentOutOfRangeException().ParamName |> System.String.IsNullOrEmpty |> equal true
+
+    testCase "ArgumentException.ParamName of FSharp.Core errors works" <| fun () ->
+        paramName (fun () -> List.head ([]: int list) |> ignore) |> equal "list"
+        paramName (fun () -> List.take -1 [ 1 ] |> ignore) |> equal "count"
+        paramName (fun () -> List.reduce (+) ([]: int list) |> ignore) |> equal "list"
 
     testCase "invalidOp raises InvalidOperationException" <| fun () ->
         let caught =

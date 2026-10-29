@@ -909,19 +909,22 @@ randomizer_out_of_range(R) ->
                 "The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0). (Parameter 'randomizer')",
                 [R]
             )
-        )
+        ),
+        param_name => <<"randomizer">>
     }).
 
 invalid_arg(ParamName, Message) ->
     erlang:error(#{
         exn_type => argument_exception,
-        message => fable_utils:argument_exception_message(Message, ParamName)
+        message => fable_utils:argument_exception_message(Message, ParamName),
+        param_name => ParamName
     }).
 
 argument_out_of_range(ParamName, Message) ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
-        message => fable_utils:argument_exception_message(Message, ParamName)
+        message => fable_utils:argument_exception_message(Message, ParamName),
+        param_name => ParamName
     }).
 
 lists_had_different_lengths(ParamName) ->

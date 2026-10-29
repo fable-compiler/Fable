@@ -3334,6 +3334,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | "get_Message", Some e -> getFieldWith r t e "message" |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | "get_InnerException", Some e -> getFieldWith r t e "innerException" |> Some
+    | "get_ParamName", Some _ -> bclType com ctx r t i thisArg args
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
