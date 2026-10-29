@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2098f64a25e96385306ef19ed8c289f3b6c84db9
+last_commit_released: ce886964cb4521dc4c01c8da089b97c9d9742814
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,44 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 4.3.0 - 2026-10-29
+
+### 🚀 Features
+
+* *(all)* Error on unsupported RegexOptions at compile time (#5180) ([a8cbc5dc](https://github.com/fable-compiler/Fable/commit/a8cbc5dc0c3a96639028057e132b39e559f40ced))
+* *(js/ts/python/dart)* Support Nullable conversions (#5183) ([6efa86d3](https://github.com/fable-compiler/Fable/commit/6efa86d35c5943dc8bbb6da0f27cc37095276064))
+* *(js/ts/python/dart/beam)* Support System.Array.BinarySearch and ResizeArray.BinarySearch (#5172) ([d332e7d4](https://github.com/fable-compiler/Fable/commit/d332e7d42c889f172bb9501f505292abf519752f))
+
+### 🐞 Bug Fixes
+
+* *(all)* Warn on duplicate names in erased unions (#5169) ([459166d2](https://github.com/fable-compiler/Fable/commit/459166d2500a963a3616d8b1a63e1d8585d61ec6))
+* *(all)* Recompile inline users of a file with a signature (#5179) ([b383673d](https://github.com/fable-compiler/Fable/commit/b383673da61cfe3ca06416a624aaafbd732f876c))
+* *(all)* Accept RegexOptions.NonBacktracking (#5178) ([a61ec8a1](https://github.com/fable-compiler/Fable/commit/a61ec8a1583830599a7ffb2dfb4d093e99902d4f))
+* *(beam)* Raise ArgumentNullException from nullArg ([0b8f77f9](https://github.com/fable-compiler/Fable/commit/0b8f77f9880bcbd9317272d9b0d89f8fe8ac0257))
+* *(beam)* Keep parameter name in ArgumentException ([9e5d34f7](https://github.com/fable-compiler/Fable/commit/9e5d34f7b32cfdfb8b1adc93378895b26a5d69b9))
+* *(js/ts)* Zero-fill Array.zeroCreate for numeric types without a typed array (#5211) ([d96b6ab8](https://github.com/fable-compiler/Fable/commit/d96b6ab82f0181be4a379c806abcedde23f1359a))
+* *(js/ts)* Throw on out-of-range string indexer (#5214) ([d5f1f8fd](https://github.com/fable-compiler/Fable/commit/d5f1f8fdfab535eaff5c492661d0178be1c4c76a))
+* *(js/ts)* Parse numbers like .NET and raise its exception types (#5200) ([82e606e9](https://github.com/fable-compiler/Fable/commit/82e606e9f8567d9bdad743df1b5de6abbdda89b0))
+* *(js/ts)* Honor NumberStyles when parsing floats (#5217) ([82b935f3](https://github.com/fable-compiler/Fable/commit/82b935f3859b36923e5e0eb26771f860eadbe525))
+* *(js/ts/dart)* Float to small integer and char conversions (#5182) ([bb0faa79](https://github.com/fable-compiler/Fable/commit/bb0faa794080a04e7791d419b2fa4d2ad107c186))
+* *(js/ts/python)* Compare ReferenceEquality types by ref (#5174) ([9c351626](https://github.com/fable-compiler/Fable/commit/9c3516268674b54aec2efae381cad920d4f15922))
+* *(js/ts/python/dart/beam)* Raise typed exceptions from invalidArg and invalidOp ([60f2f5b9](https://github.com/fable-compiler/Fable/commit/60f2f5b9fa0e6a26af0f3b4f3cddc2496f075ba3))
+* *(js/ts/python/dart/beam)* Align collection exception types with FSharp.Core (#5153) ([7d7ceb33](https://github.com/fable-compiler/Fable/commit/7d7ceb33afd85a25bf06dc703e9d4a471cbc3292))
+* *(js/ts/python/dart/beam)* Add FSharp.Core's argument checks to collection functions (#5154) ([5185e654](https://github.com/fable-compiler/Fable/commit/5185e6547416384fe85fcb0b0c1cf267708879db))
+* *(python/beam/rust)* Implicit DateTime to DateTimeOffset (#5173) ([401c881f](https://github.com/fable-compiler/Fable/commit/401c881f729494d06d20da9687e78f7315f5efb2))
+* *(ts)* Annotate Fable.Core typed arrays with native TS types ([e35d06c3](https://github.com/fable-compiler/Fable/commit/e35d06c36ba8ce4ab6cce75d6b332b9dcd50d711))
+* *(ts)* Give Uint8ClampedArray its own Fable.Core type ([f790bf53](https://github.com/fable-compiler/Fable/commit/f790bf534fa6a242c1a302c76512e07054f4feb2))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Cast erased option unwraps in TypeScript output (#5181) ([65cd419d](https://github.com/fable-compiler/Fable/commit/65cd419d78e4dbc2008f8a707d5298e390defbee))
+* *(js/ts)* Compile isNull to a plain null check (#5186) ([71a0ad92](https://github.com/fable-compiler/Fable/commit/71a0ad92237586e9569fd1483f35c88f8477f478))
+* *(js/ts)* Closure-free ref cells and out-arg value cells (#5189) ([91bca925](https://github.com/fable-compiler/Fable/commit/91bca925757356191c7e6e7a71cb3e8a1bc8d52d))
+* *(js/ts)* Throw invalidArg and invalidOp at the call site (#5194) ([e6a742b1](https://github.com/fable-compiler/Fable/commit/e6a742b1ebda71342d4445705ea9198c2059ae90))
+* *(js/ts)* Pass array literals to typed array constructors as plain arrays (#5209) ([cb7d6d6e](https://github.com/fable-compiler/Fable/commit/cb7d6d6e49bb43b83afe80477ea2d6d667be3f5b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2098f64a25e96385306ef19ed8c289f3b6c84db9..ce886964cb4521dc4c01c8da089b97c9d9742814)</small></strong>
 
 ## 4.2.0 - 2026-10-22
 
