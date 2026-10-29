@@ -2670,14 +2670,12 @@ let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | _ -> None
 
 let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) format =
-    // token is None when the format is only known at runtime
     let libCallFormat (token: string option) =
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
         let thisArg = thisArg.Value
 
         let meth, thisArg =
             match thisArg.Type, token |> Option.map (fun token -> token.ToLower()) with
-            // float32 has its own shortest round-trip digits
             | Number(Float32, _), (None | Some("g" | "r")) -> "formatSingle", thisArg
             // "G" and "R" would print the sign of an int that JS holds as -0
             | Number(Integers _, _), (None | Some("g" | "r")) ->

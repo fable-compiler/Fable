@@ -363,13 +363,11 @@ function thousandSeparate(value: string) {
   return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// The digits and the exponent of toExponential's output
 function splitExponential(s: string): [string, number] {
   const eIdx = s.indexOf("e");
   return [s.slice(0, eIdx).replace(".", ""), Number(s.slice(eIdx + 1))];
 }
 
-// The nearest of the shortest digits that round-trip through float32 (ties to even, as .NET picks them)
 function shortestSingle(x: number): [string, number] {
   // 100 digits tell where a float32 lies between two candidates, and 9 digits always round-trip
   const [digits, exponent] = splitExponential(x.toExponential(99));
@@ -410,7 +408,6 @@ function formatGeneral(x: number, format: string, precision: number | null, isSi
   }
 }
 
-// format for a float32, whose "G" and "R" give the shortest digits that round-trip through float32
 export function formatSingle(str: string, x: number) {
   const m = /^\{0:([GgRr])(\d{0,2})\}$/.exec(str);
   return m != null ? formatGeneral(Math.fround(x), m[1], m[2] ? parseInt(m[2], 10) : null, true) : format(str, x);
@@ -493,7 +490,6 @@ export function format(str: string | object, ...args: any[]) {
             rep = formatGeneral(rep, format, precision);
             break;
           }
-          // Decimals and bigints treat R like G
           if (precision == null) {
             rep = String(rep);
             break;
