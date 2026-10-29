@@ -1,5 +1,5 @@
 ---
-last_commit_released: ce886964cb4521dc4c01c8da089b97c9d9742814
+last_commit_released: cac5ddd9a99205e0bb5272f1ffd8f0cca937824c
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.25.0 - 2026-10-29
+
+### 🚀 Features
+
+* *(js/ts)* Support the "R" numeric format and choose "G" notation like .NET (#5212) ([24d9c41a](https://github.com/fable-compiler/Fable/commit/24d9c41ad69993f0c4e843558133bcd787a960d4))
+* *(js/ts/python/dart/beam)* Support ArgumentException.ParamName (#5203) ([8ed77788](https://github.com/fable-compiler/Fable/commit/8ed7778893bab48c7dd41d7322d26d2bcaba6d99))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/ce886964cb4521dc4c01c8da089b97c9d9742814..cac5ddd9a99205e0bb5272f1ffd8f0cca937824c)</small></strong>
 
 ## 5.24.0 - 2026-10-29
 
