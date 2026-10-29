@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: If you use Fable in your work, please cite it using this metadata.
+type: software
+title: "Fable: F# to JavaScript, TypeScript, Python, Rust, Erlang and Dart compiler"
+abstract: Fable compiles F# to JavaScript, TypeScript, Python, Rust, Dart and Erlang/BEAM. It is built on the F# Compiler Services and ships runtime libraries for each target, so F# code can run natively in those ecosystems.
+authors:
+  - family-names: García-Caro
+    given-names: Alfonso
+  - family-names: Brattli
+    given-names: Dag
+  - name: ncave
+  - family-names: Mangel
+    given-names: Maxime
+repository-code: https://github.com/fable-compiler/Fable
+url: https://fable.io
+license: MIT
+keywords:
+  - F#
+  - compiler
+  - transpiler
+  - JavaScript
+  - TypeScript
+  - Python
+  - Rust
+  - Dart
+  - Erlang
+  - BEAM

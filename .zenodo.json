@@ -1,0 +1,667 @@
+{
+  "title": "Fable: F# to JavaScript, TypeScript, Python, Rust, Erlang and Dart compiler",
+  "description": "Fable compiles F# to JavaScript, TypeScript, Python, Rust, Dart and Erlang/BEAM. It is built on the F# Compiler Services and ships runtime libraries for each target, so F# code can run natively in those ecosystems.",
+  "license": "MIT",
+  "upload_type": "software",
+  "access_right": "open",
+  "keywords": [
+    "F#",
+    "compiler",
+    "transpiler",
+    "JavaScript",
+    "TypeScript",
+    "Python",
+    "Rust",
+    "Dart",
+    "Erlang",
+    "BEAM"
+  ],
+  "creators": [
+    {
+      "name": "García-Caro, Alfonso"
+    },
+    {
+      "name": "Brattli, Dag"
+    },
+    {
+      "name": "ncave"
+    },
+    {
+      "name": "Mangel, Maxime"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Forkmann, Steffen",
+      "type": "Other"
+    },
+    {
+      "name": "Verdonck, Florian",
+      "type": "Other"
+    },
+    {
+      "name": "Ajaj, Zaid",
+      "type": "Other"
+    },
+    {
+      "name": "Swan, Alex",
+      "type": "Other"
+    },
+    {
+      "name": "Podhola, David",
+      "type": "Other"
+    },
+    {
+      "name": "Nosik, Ilja",
+      "type": "Other"
+    },
+    {
+      "name": "Petricek, Tomas",
+      "type": "Other"
+    },
+    {
+      "name": "fdcastel",
+      "type": "Other"
+    },
+    {
+      "name": "Grund, Joe",
+      "type": "Other"
+    },
+    {
+      "name": "Hietanen, Tuomas",
+      "type": "Other"
+    },
+    {
+      "name": "Teasdale, David",
+      "type": "Other"
+    },
+    {
+      "name": "kerams",
+      "type": "Other"
+    },
+    {
+      "name": "Corrado, Alex",
+      "type": "Other"
+    },
+    {
+      "name": "Claes, Jens",
+      "type": "Other"
+    },
+    {
+      "name": "Cieślak, Krzysztof",
+      "type": "Other"
+    },
+    {
+      "name": "Laïly, Melvyn",
+      "type": "Other"
+    },
+    {
+      "name": "Booksbaum",
+      "type": "Other"
+    },
+    {
+      "name": "Heintz, Aleksander",
+      "type": "Other"
+    },
+    {
+      "name": "Jansson, Tomas",
+      "type": "Other"
+    },
+    {
+      "name": "goswinr",
+      "type": "Other"
+    },
+    {
+      "name": "Johnson, Cody",
+      "type": "Other"
+    },
+    {
+      "name": "shayanhabibi",
+      "type": "Other"
+    },
+    {
+      "name": "zach-interstates",
+      "type": "Other"
+    },
+    {
+      "name": "Young, Zack",
+      "type": "Other"
+    },
+    {
+      "name": "K, Mark",
+      "type": "Other"
+    },
+    {
+      "name": "Zhao, Taine",
+      "type": "Other"
+    },
+    {
+      "name": "Vitko, Valery",
+      "type": "Other"
+    },
+    {
+      "name": "Dummann, Kolja",
+      "type": "Other"
+    },
+    {
+      "name": "stroborobo",
+      "type": "Other"
+    },
+    {
+      "name": "Shaw, Dave",
+      "type": "Other"
+    },
+    {
+      "name": "Ohlrich, Jonathan",
+      "type": "Other"
+    },
+    {
+      "name": "Trelford, Phillip",
+      "type": "Other"
+    },
+    {
+      "name": "njlr",
+      "type": "Other"
+    },
+    {
+      "name": "Chassaing, Jérémie",
+      "type": "Other"
+    },
+    {
+      "name": "Thomas, Dave",
+      "type": "Other"
+    },
+    {
+      "name": "Pauan",
+      "type": "Other"
+    },
+    {
+      "name": "chadunit",
+      "type": "Other"
+    },
+    {
+      "name": "Scites, Scott",
+      "type": "Other"
+    },
+    {
+      "name": "Rivaille, PY",
+      "type": "Other"
+    },
+    {
+      "name": "Clarke, Tom",
+      "type": "Other"
+    },
+    {
+      "name": "Rieger, Lukas",
+      "type": "Other"
+    },
+    {
+      "name": "Wostenberg, John",
+      "type": "Other"
+    },
+    {
+      "name": "Soikin, Fyodor",
+      "type": "Other"
+    },
+    {
+      "name": "Conforti, Leo",
+      "type": "Other"
+    },
+    {
+      "name": "Thornton, Matt",
+      "type": "Other"
+    },
+    {
+      "name": "piaste",
+      "type": "Other"
+    },
+    {
+      "name": "Carter, Phillip",
+      "type": "Other"
+    },
+    {
+      "name": "gusty",
+      "type": "Other"
+    },
+    {
+      "name": "Brodeur, Francois",
+      "type": "Other"
+    },
+    {
+      "name": "Esmerio, Diego",
+      "type": "Other"
+    },
+    {
+      "name": "Dawkins, David",
+      "type": "Other"
+    },
+    {
+      "name": "cannorin",
+      "type": "Other"
+    },
+    {
+      "name": "i-p",
+      "type": "Other"
+    },
+    {
+      "name": "Ott, Caroline",
+      "type": "Other"
+    },
+    {
+      "name": "oopbase",
+      "type": "Other"
+    },
+    {
+      "name": "Frèrebeau, Rémy",
+      "type": "Other"
+    },
+    {
+      "name": "Leko, Tomas",
+      "type": "Other"
+    },
+    {
+      "name": "McLellan, Michael",
+      "type": "Other"
+    },
+    {
+      "name": "Harding, Eric",
+      "type": "Other"
+    },
+    {
+      "name": "roboz0r",
+      "type": "Other"
+    },
+    {
+      "name": "Sousa, Henrique",
+      "type": "Other"
+    },
+    {
+      "name": "anchann",
+      "type": "Other"
+    },
+    {
+      "name": "Smith, Stephen",
+      "type": "Other"
+    },
+    {
+      "name": "Treanor, Simon",
+      "type": "Other"
+    },
+    {
+      "name": "Hester, Jared",
+      "type": "Other"
+    },
+    {
+      "name": "Sada, Enrico",
+      "type": "Other"
+    },
+    {
+      "name": "Grebeniuk, Evgenii",
+      "type": "Other"
+    },
+    {
+      "name": "Zafeiris, Orfeas",
+      "type": "Other"
+    },
+    {
+      "name": "human-bean-555",
+      "type": "Other"
+    },
+    {
+      "name": "Blair, Paul",
+      "type": "Other"
+    },
+    {
+      "name": "Keše, Peter",
+      "type": "Other"
+    },
+    {
+      "name": "Cullmann, Stefan",
+      "type": "Other"
+    },
+    {
+      "name": "Sauleau, Sven",
+      "type": "Other"
+    },
+    {
+      "name": "Bouquain, Thierry",
+      "type": "Other"
+    },
+    {
+      "name": "do-wa",
+      "type": "Other"
+    },
+    {
+      "name": "halfabench",
+      "type": "Other"
+    },
+    {
+      "name": "irium",
+      "type": "Other"
+    },
+    {
+      "name": "Verschatse, Gien",
+      "type": "Other"
+    },
+    {
+      "name": "zanaptak",
+      "type": "Other"
+    },
+    {
+      "name": "Segay, Gauthier",
+      "type": "Other"
+    },
+    {
+      "name": "mizzle-mo",
+      "type": "Other"
+    },
+    {
+      "name": "Rizzotto, Alessandro",
+      "type": "Other"
+    },
+    {
+      "name": "Ågren, Andreas",
+      "type": "Other"
+    },
+    {
+      "name": "Kurdiumov, Andrii",
+      "type": "Other"
+    },
+    {
+      "name": "Hally, Bill",
+      "type": "Other"
+    },
+    {
+      "name": "Churchill, Dave",
+      "type": "Other"
+    },
+    {
+      "name": "Manske, Ian",
+      "type": "Other"
+    },
+    {
+      "name": "Chang, Ji",
+      "type": "Other"
+    },
+    {
+      "name": "Price, Joseph",
+      "type": "Other"
+    },
+    {
+      "name": "Roncaglia, Julien",
+      "type": "Other"
+    },
+    {
+      "name": "Tseing",
+      "type": "Other"
+    },
+    {
+      "name": "Dittrich, Matthias",
+      "type": "Other"
+    },
+    {
+      "name": "Malook, Max",
+      "type": "Other"
+    },
+    {
+      "name": "Wilson, Max",
+      "type": "Other"
+    },
+    {
+      "name": "Gumus, Onur",
+      "type": "Other"
+    },
+    {
+      "name": "Frèrebeau, Rémy",
+      "type": "Other"
+    },
+    {
+      "name": "Sim, Robert",
+      "type": "Other"
+    },
+    {
+      "name": "ritcoder",
+      "type": "Other"
+    },
+    {
+      "name": "Joux, Phil de",
+      "type": "Other"
+    },
+    {
+      "name": "Pelech, Ondra",
+      "type": "Other"
+    },
+    {
+      "name": "Forral, Oliver",
+      "type": "Other"
+    },
+    {
+      "name": "Dunets, Nick",
+      "type": "Other"
+    },
+    {
+      "name": "Darvey, Nick",
+      "type": "Other"
+    },
+    {
+      "name": "Samudro, Naser Anjum",
+      "type": "Other"
+    },
+    {
+      "name": "Janger, Mike",
+      "type": "Other"
+    },
+    {
+      "name": "Stangarlin, Luiz Felipe",
+      "type": "Other"
+    },
+    {
+      "name": "Luis, Leo Lorenzo",
+      "type": "Other"
+    },
+    {
+      "name": "Battermann, Leif",
+      "type": "Other"
+    },
+    {
+      "name": "Nischal, Kurren",
+      "type": "Other"
+    },
+    {
+      "name": "Gerasimenko, Kirill",
+      "type": "Other"
+    },
+    {
+      "name": "rbauduin",
+      "type": "Other"
+    },
+    {
+      "name": "olivercoad",
+      "type": "Other"
+    },
+    {
+      "name": "jonasdw",
+      "type": "Other"
+    },
+    {
+      "name": "cr3wdayt5p",
+      "type": "Other"
+    },
+    {
+      "name": "Podlovics, Zoltan",
+      "type": "Other"
+    },
+    {
+      "name": "Shchur, Vladimir",
+      "type": "Other"
+    },
+    {
+      "name": "Heimowski, Tomasz",
+      "type": "Other"
+    },
+    {
+      "name": "Forkmann, Tim",
+      "type": "Other"
+    },
+    {
+      "name": "Badger, The Gitter",
+      "type": "Other"
+    },
+    {
+      "name": "Skar, Tengel",
+      "type": "Other"
+    },
+    {
+      "name": "drk-mtr",
+      "type": "Other"
+    },
+    {
+      "name": "TeaDrivenDev",
+      "type": "Other"
+    },
+    {
+      "name": "Officer, Steve",
+      "type": "Other"
+    },
+    {
+      "name": "Kirkvik, Simen L.",
+      "type": "Other"
+    },
+    {
+      "name": "Tihon, Sergey",
+      "type": "Other"
+    },
+    {
+      "name": "Melnikov, Roman",
+      "type": "Other"
+    },
+    {
+      "name": "Boudereau, Clément",
+      "type": "Other"
+    },
+    {
+      "name": "Queiróz, Adelar da Silva",
+      "type": "Other"
+    },
+    {
+      "name": "Ball, Alan",
+      "type": "Other"
+    },
+    {
+      "name": "Gorchakov, Artyom V.",
+      "type": "Other"
+    },
+    {
+      "name": "bklop",
+      "type": "Other"
+    },
+    {
+      "name": "Taylor, Ben",
+      "type": "Other"
+    },
+    {
+      "name": "Taggart, Cameron",
+      "type": "Other"
+    },
+    {
+      "name": "Meeren, Christer van der",
+      "type": "Other"
+    },
+    {
+      "name": "Bouillier, Clément",
+      "type": "Other"
+    },
+    {
+      "name": "McMinn, Damon",
+      "type": "Other"
+    },
+    {
+      "name": "DashieTM",
+      "type": "Other"
+    },
+    {
+      "name": "weebs",
+      "type": "Other"
+    },
+    {
+      "name": "Programmerino",
+      "type": "Other"
+    },
+    {
+      "name": "Gusarov, Eugene",
+      "type": "Other"
+    },
+    {
+      "name": "Gabasova, Evelina",
+      "type": "Other"
+    },
+    {
+      "name": "Romain, Flechner",
+      "type": "Other"
+    },
+    {
+      "name": "fbehrens",
+      "type": "Other"
+    },
+    {
+      "name": "Bilkus, Gary",
+      "type": "Other"
+    },
+    {
+      "name": "Bouquain, Gaël",
+      "type": "Other"
+    },
+    {
+      "name": "Tang, Hadrian",
+      "type": "Other"
+    },
+    {
+      "name": "iyegoroff",
+      "type": "Other"
+    },
+    {
+      "name": "Titkov, Ilya",
+      "type": "Other"
+    },
+    {
+      "name": "Fajfr, Jan",
+      "type": "Other"
+    },
+    {
+      "name": "Beekmann, Joerg",
+      "type": "Other"
+    },
+    {
+      "name": "Egger, Johannes",
+      "type": "Other"
+    },
+    {
+      "name": "Mols, Johannes",
+      "type": "Other"
+    },
+    {
+      "name": "josselinauguste",
+      "type": "Other"
+    },
+    {
+      "name": "Skripsky, Juraj",
+      "type": "Other"
+    },
+    {
+      "name": "jstarkadf",
+      "type": "Other"
+    },
+    {
+      "name": "Sacks, Justin",
+      "type": "Other"
+    },
+    {
+      "name": "Frey, Kevin",
+      "type": "Other"
+    },
+    {
+      "name": "Lambert, Kevin",
+      "type": "Other"
+    }
+  ]
+}
