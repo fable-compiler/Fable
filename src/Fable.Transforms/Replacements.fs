@@ -2698,18 +2698,19 @@ let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | _ -> None
 
 let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) format =
-    let libCallFormat () =
+    let libCallFormat (token: string option) =
         let format = emitExpr r String [ format ] "'{0:' + $0 + '}'"
+        let thisArg = thisArg.Value
 
-        Helper.LibCall(
-            com,
-            "String",
-            "format",
-            t,
-            [ format; thisArg.Value ],
-            [ format.Type; thisArg.Value.Type ],
-            ?loc = r
-        )
+        let meth, thisArg =
+            match thisArg.Type, token |> Option.map (fun token -> token.ToLower()) with
+            | Number(Float32, _), (None | Some("g" | "r")) -> "formatSingle", thisArg
+            // "G" and "R" would print the sign of an int that JS holds as -0
+            | Number(Integers _, _), (None | Some("g" | "r")) ->
+                "format", makeBinOp r thisArg.Type thisArg (makeIntConst 0) BinaryPlus
+            | _ -> "format", thisArg
+
+        Helper.LibCall(com, "String", meth, t, [ format; thisArg ], [ format.Type; thisArg.Type ], ?loc = r)
         |> Some
 
     match format with
@@ -2747,8 +2748,8 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
                 | "f"
                 | "g"
                 | "n"
-                | "p" -> None
-                | "r" -> "with round-trip format specifier is not support by Fable" |> Some
+                | "p"
+                | "r" -> None
                 | "x" ->
                     match numberKind with
                     | Integers _
@@ -2762,11 +2763,11 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
                 |> addError com ctx.InlinePath r
 
                 None
-            | None -> libCallFormat ()
+            | None -> libCallFormat (Some token)
         else
-            libCallFormat ()
+            libCallFormat (Some format)
 
-    | _ -> libCallFormat ()
+    | _ -> libCallFormat None
 
 
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

@@ -37,6 +37,9 @@ let private toPlainArray (bytes: byte[]) : byte[] =
     bytes
 #endif
 
+// Computed, since the standalone compiler writes a -0. literal as 0
+let private negZero = 1. / Double.NegativeInfinity
+
 let private adaptExponentValue (value: string) =
     value.ToLowerInvariant().Replace("e+00", "e+").Replace("e+0", "e+")
 
@@ -1054,6 +1057,11 @@ let tests =
         |> adaptExponentValue
         |> equal "2.4e+8"
 
+        // JS holds this int as -0
+        [ -("0".Length - 1) ]
+        |> List.map (fun x -> x.ToString("G", CultureInfo.InvariantCulture), x.ToString("g5", CultureInfo.InvariantCulture))
+        |> equal [ ("0", "0") ]
+
     testCase "uint32.ToString 'G' works"
     <| fun () ->
         (255u).ToString("G2", CultureInfo.InvariantCulture)
@@ -1112,9 +1120,40 @@ let tests =
         |> adaptExponentValue
         |> equal "255.24"
 
-        // (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
-        // |> adaptExponentValue
-        // |> equal "-255.2357"
+        (-255.2357f).ToString("G", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-255.2357"
+
+    testCase "float.ToString 'G' chooses the notation like .NET"
+    <| fun () ->
+        (1e-4).ToString("G", CultureInfo.InvariantCulture) |> equal "0.0001"
+        (1.5e-5).ToString("G", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1.5e-5).ToString("g", CultureInfo.InvariantCulture) |> equal "1.5e-05"
+        (1e16).ToString("G", CultureInfo.InvariantCulture) |> equal "10000000000000000"
+        (1e17).ToString("G", CultureInfo.InvariantCulture) |> equal "1E+17"
+        (123456789012345678901.0).ToString("G", CultureInfo.InvariantCulture) |> equal "1.2345678901234568E+20"
+        negZero.ToString("G", CultureInfo.InvariantCulture) |> equal "-0"
+        (123.456).ToString("G0", CultureInfo.InvariantCulture) |> equal "123.456"
+        (1.5e-5).ToString("G3", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1.5e-5).ToString("G17", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (5e-5).ToString("G17", CultureInfo.InvariantCulture) |> equal "5.0000000000000002E-05"
+        negZero.ToString("G17", CultureInfo.InvariantCulture) |> equal "-0"
+        (1e16).ToString("G16", CultureInfo.InvariantCulture) |> equal "1E+16"
+        (1e17).ToString("G20", CultureInfo.InvariantCulture) |> equal "100000000000000000"
+        (0.1 + 0.2).ToString("G20", CultureInfo.InvariantCulture) |> equal "0.30000000000000004441"
+        $"{1.5e-5:G}" |> equal "1.5E-05"
+        String.Format(CultureInfo.InvariantCulture, "{0:g}", 1e17) |> equal "1e+17"
+
+    testCase "float32.ToString 'G' chooses the digits and notation like .NET"
+    <| fun () ->
+        (0.1f).ToString("G", CultureInfo.InvariantCulture) |> equal "0.1"
+        (float32 negZero).ToString("G", CultureInfo.InvariantCulture) |> equal "-0"
+        (1.5e-5f).ToString("G", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1e8f).ToString("G", CultureInfo.InvariantCulture) |> equal "100000000"
+        (1e9f).ToString("g", CultureInfo.InvariantCulture) |> equal "1e+09"
+        (123456789.f).ToString("G", CultureInfo.InvariantCulture) |> equal "123456790"
+        (0.1f).ToString("G9", CultureInfo.InvariantCulture) |> equal "0.100000001"
+        (1e8f).ToString("G5", CultureInfo.InvariantCulture) |> equal "1E+08"
 
     testCase "ToString 'G' keeps the trailing zeros of the integer part"
     <| fun () ->
@@ -1363,6 +1402,69 @@ let tests =
 
         (-255.2357f).ToString("P", CultureInfo.InvariantCulture)
         |> equal "-25,523.57 %"
+
+    testCase "float.ToString 'R' works"
+    <| fun () ->
+        (0.).ToString("R", CultureInfo.InvariantCulture) |> equal "0"
+        negZero.ToString("R", CultureInfo.InvariantCulture) |> equal "-0"
+        (1.5).ToString("R") |> equal "1.5"
+        (0.1 + 0.2).ToString("R", CultureInfo.InvariantCulture) |> equal "0.30000000000000004"
+        (1e-4).ToString("R", CultureInfo.InvariantCulture) |> equal "0.0001"
+        (1.5e-5).ToString("R", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1.5e-5).ToString("r", CultureInfo.InvariantCulture) |> equal "1.5e-05"
+        (1.5e-5).ToString("R3", CultureInfo.InvariantCulture) |> equal "1.5E-05"
+        (1e-7).ToString("R", CultureInfo.InvariantCulture) |> equal "1E-07"
+        (1e15).ToString("R", CultureInfo.InvariantCulture) |> equal "1000000000000000"
+        (1e16).ToString("R", CultureInfo.InvariantCulture) |> equal "10000000000000000"
+        (1e17).ToString("R", CultureInfo.InvariantCulture) |> equal "1E+17"
+        (12345678901234567.0).ToString("R", CultureInfo.InvariantCulture) |> equal "12345678901234568"
+        (123456789012345678901.0).ToString("R", CultureInfo.InvariantCulture) |> equal "1.2345678901234568E+20"
+        (1e21).ToString("r", CultureInfo.InvariantCulture) |> equal "1e+21"
+        Double.Epsilon.ToString("R", CultureInfo.InvariantCulture) |> equal "5E-324"
+        Double.MaxValue.ToString("R", CultureInfo.InvariantCulture) |> equal "1.7976931348623157E+308"
+        Double.MinValue.ToString("R", CultureInfo.InvariantCulture) |> equal "-1.7976931348623157E+308"
+        nan.ToString("R", CultureInfo.InvariantCulture) |> equal "NaN"
+        infinity.ToString("R", CultureInfo.InvariantCulture) |> equal "Infinity"
+        (-infinity).ToString("R", CultureInfo.InvariantCulture) |> equal "-Infinity"
+
+    testCase "float32.ToString 'R' works"
+    <| fun () ->
+        (0.1f).ToString("R", CultureInfo.InvariantCulture) |> equal "0.1"
+        (0.1f + 0.2f).ToString("R", CultureInfo.InvariantCulture) |> equal "0.3"
+        (float32 negZero).ToString("R", CultureInfo.InvariantCulture) |> equal "-0"
+        (1.5e-5f).ToString("r", CultureInfo.InvariantCulture) |> equal "1.5e-05"
+        (1e8f).ToString("R", CultureInfo.InvariantCulture) |> equal "100000000"
+        (1e9f).ToString("R", CultureInfo.InvariantCulture) |> equal "1E+09"
+        (123456789.f).ToString("R", CultureInfo.InvariantCulture) |> equal "123456790"
+        (1234.5678f).ToString("R", CultureInfo.InvariantCulture) |> equal "1234.5677"
+        (-306242.625f).ToString("R", CultureInfo.InvariantCulture) |> equal "-306242.62"
+        (1.2621775e-29f).ToString("R", CultureInfo.InvariantCulture) |> equal "1.2621775E-29"
+        Single.Epsilon.ToString("R", CultureInfo.InvariantCulture) |> equal "1E-45"
+        Single.MaxValue.ToString("R", CultureInfo.InvariantCulture) |> equal "3.4028235E+38"
+        nanf.ToString("R", CultureInfo.InvariantCulture) |> equal "NaN"
+
+    testCase "ToString 'R' works for integers and decimals"
+    <| fun () ->
+        (5).ToString("R", CultureInfo.InvariantCulture) |> equal "5"
+        (-2147483648).ToString("r", CultureInfo.InvariantCulture) |> equal "-2147483648"
+        (5uy).ToString("R", CultureInfo.InvariantCulture) |> equal "5"
+        Int64.MaxValue.ToString("R", CultureInfo.InvariantCulture) |> equal "9223372036854775807"
+        UInt64.MaxValue.ToString("R", CultureInfo.InvariantCulture) |> equal "18446744073709551615"
+        (1.50M).ToString("R", CultureInfo.InvariantCulture) |> equal "1.50"
+        (1.2345M).ToString("R3", CultureInfo.InvariantCulture) |> equal "1.23"
+        // JS holds this int as -0
+        [ -("0".Length - 1) ] |> List.map (fun x -> x.ToString("R", CultureInfo.InvariantCulture)) |> equal [ "0" ]
+
+    testCase "String.Format and interpolation support 'R'"
+    <| fun () ->
+        String.Format("{0:R}", 1.5e-5) |> equal "1.5E-05"
+        String.Format(CultureInfo.InvariantCulture, "{0:r}", negZero) |> equal "-0"
+        String.Format(CultureInfo.InvariantCulture, "{0,8:R}", 1.5) |> equal "     1.5"
+        String.Format("{0:R}", 12345678901234567890I) |> equal "12345678901234567890"
+        $"{1e17:R}" |> equal "1E+17"
+        $"{0.1 + 0.2:R}" |> equal "0.30000000000000004"
+        let format = "R"
+        (1e-7).ToString(format, CultureInfo.InvariantCulture) |> equal "1E-07"
 
     testCase "byte.ToString 'X' works" <| fun () ->
         (255uy).ToString("X2") |> equal "FF"
