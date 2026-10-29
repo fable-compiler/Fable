@@ -923,7 +923,8 @@ invalid_arg(ParamName, Message) ->
 argument_out_of_range(ParamName, Message) ->
     erlang:error(#{
         exn_type => argument_out_of_range_exception,
-        message => fable_utils:argument_exception_message(Message, ParamName)
+        message => fable_utils:argument_exception_message(Message, ParamName),
+        param_name => ParamName
     }).
 
 lists_had_different_lengths(ParamName) ->

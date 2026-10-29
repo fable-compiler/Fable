@@ -229,6 +229,8 @@ let ``test ArgumentException.ParamName of FSharp.Core errors works`` () =
     paramName (fun () -> List.exactlyOne [ 1; 2 ] |> ignore) |> equal "source"
     paramName (fun () -> Seq.head Seq.empty<int> |> ignore) |> equal "source"
     paramName (fun () -> System.Array.BinarySearch([| 1; 3; 5 |], -1, 2, 5) |> ignore) |> equal "index"
+    paramName (fun () -> Array.sub [| 1 |] 0 5 |> ignore) |> equal "count"
+    paramName (fun () -> Array.sub [| 1 |] -1 1 |> ignore) |> equal "startIndex"
 
 [<Fact>]
 let ``test ArgumentException parameter name is evaluated once`` () =

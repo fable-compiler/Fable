@@ -6311,7 +6311,7 @@ let tryCall
             typeName = "System.ArgumentNullException"
             || typeName = "System.ArgumentOutOfRangeException"
 
-        // Argument exceptions also keep the parameter name for ParamName, so both are captured once in source order
+        // message and paramName are evaluated once, in source order
         let makeArg msg paramName inner =
             let build msg paramName =
                 let msg =
