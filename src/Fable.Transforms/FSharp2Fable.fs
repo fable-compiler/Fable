@@ -763,6 +763,101 @@ let rec private transformDecisionTargets
             return! transformDecisionTargets com ctx ((idents, expr) :: acc) tail
     }
 
+// F# omits the `init@` field it adds for `new() as x` from the record expression of the constructor
+let private withOmittedFieldDefaults (com: IFableCompiler) (ctx: Context) (fsType: FSharpType) (args: Fable.Expr list) =
+    let ent = fsType.TypeDefinition
+
+    if hasCompilerGeneratedConstructor ent then
+        let genArgs =
+            getGenericArguments fsType |> Seq.map (makeType ctx.GenericArgs) |> List.ofSeq
+
+        let genArgs =
+            Seq.zip ent.GenericParameters genArgs
+            |> Seq.map (fun (param, typ) -> genParamName param, typ)
+            |> Map.ofSeq
+
+        let fields =
+            ent.FSharpFields |> Seq.filter (fun field -> not field.IsStatic) |> List.ofSeq
+
+        let omitted =
+            List.skip (min args.Length fields.Length) fields
+            |> List.map (fun field -> makeType genArgs field.FieldType |> Replacements.Api.defaultof com ctx None)
+
+        args @ omitted
+    else
+        args
+
+let private isBaseCallOfRecord com (ctx: Context) (baseCons: FSharpMemberOrFunctionOrValue) (fsType: FSharpType) =
+    ctx.CaptureBaseConsCall.IsNone
+    && supportsCompilerGeneratedBaseCall com
+    && fsType.HasTypeDefinition
+    && (
+        match baseCons.DeclaringEntity, tryGetBaseEntity fsType.TypeDefinition with
+        | Some callee, Some(baseEnt, _) -> callee = baseEnt
+        | _ -> false
+    )
+    && (tryGetCompilerGeneratedBases fsType.TypeDefinition
+        |> Option.exists (List.isEmpty >> not))
+
+let private transformBaseCallAndRecord
+    (com: IFableCompiler)
+    (ctx: Context)
+    r
+    (baseCall: FSharpExpr)
+    (fsType: FSharpType)
+    (ownArgs: FSharpExpr list)
+    =
+    trampoline {
+        let! baseValue = transformExpr com ctx [] baseCall
+        let! ownArgs = transformExprList com ctx ownArgs
+        let ownArgs = withOmittedFieldDefaults com ctx fsType ownArgs
+
+        let baseIdent = getIdentUniqueName com ctx "base" |> makeTypedIdent baseValue.Type
+
+        let inheritedArgs =
+            getInheritedValFields fsType.TypeDefinition ctx.GenericArgs
+            |> List.map (fun (field, typ) -> getFieldWith None typ (Fable.IdentExpr baseIdent) field.Name)
+
+        let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+        let entRef = FsEnt.Ref fsType.TypeDefinition
+        entRef.SourcePath |> Option.iter com.AddSignatureDependency
+
+        let newRecord =
+            Fable.NewRecord(inheritedArgs @ ownArgs, entRef, genArgs) |> makeValue r
+
+        return Fable.Let(baseIdent, baseValue, newRecord)
+    }
+
+// F# emits `new() = { ... } then body` as sequences nested after the created object, with any base call before it
+let private (|ExplicitConstructorThen|_|) com (ctx: Context) (fsExpr: FSharpExpr) =
+    match ctx.EnclosingMember with
+    | Some m when m.IsConstructor && not m.IsImplicitConstructor ->
+        let isCreated (e: FSharpExpr) =
+            e.Type.HasTypeDefinition
+            && m.DeclaringEntity |> Option.exists (fun ent -> ent = e.Type.TypeDefinition)
+
+        let rec split (e: FSharpExpr) =
+            match e with
+            | FSharpExprPatterns.Sequential(first, second) when isCreated first ->
+                let created, rest = split first
+                created, rest @ [ second ]
+            | _ -> e, []
+
+        match fsExpr with
+        | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as baseCall, second) when
+            not (isCreated baseCall)
+            ->
+            match split second with
+            | FSharpExprPatterns.NewRecord(fsType, ownArgs), (_ :: _ as rest) when
+                isBaseCallOfRecord com ctx baseCons fsType
+                ->
+                Some(Choice2Of2(baseCall, fsType, ownArgs), rest)
+            | _ -> None
+        | FSharpExprPatterns.Sequential(first, _) when isCreated first ->
+            let created, rest = split fsExpr
+            Some(Choice1Of2 created, rest)
+        | _ -> None
+    | _ -> None
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fsExpr =
     trampoline {
@@ -957,6 +1052,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 // Check if `this` has been bound previously to avoid conflicts with an object expression
                 | _, Some i -> identWithRange r i |> Fable.IdentExpr
                 | _, None -> Fable.Value(makeType Map.empty typ |> Fable.ThisValue, r)
+
+        // F# reads the `x` of an explicit `new() as x` through the IL instruction loading `this`
+        | FSharpExprPatterns.ILAsm("[I_ldarg 0us]", [], []) ->
+            let r = makeRangeFrom fsExpr
+
+            return
+                match ctx.BoundConstructorThis with
+                | Some i -> identWithRange r i |> Fable.IdentExpr
+                | None -> Fable.Value(makeType ctx.GenericArgs fsExpr.Type |> Fable.ThisValue, r)
 
         | FSharpExprPatterns.Value var ->
             let r = makeRangeFrom fsExpr
@@ -1580,35 +1684,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as first,
                                         FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
-            ctx.CaptureBaseConsCall.IsNone
-            && supportsCompilerGeneratedBaseCall com
-            && fsType.HasTypeDefinition
-            && (
-                match baseCons.DeclaringEntity, tryGetBaseEntity fsType.TypeDefinition with
-                | Some callee, Some(baseEnt, _) -> callee = baseEnt
-                | _ -> false
-            )
-            && (tryGetCompilerGeneratedBases fsType.TypeDefinition
-                |> Option.exists (List.isEmpty >> not))
+            isBaseCallOfRecord com ctx baseCons fsType
             ->
-            let r = makeRangeFrom fsExpr
-            let! baseValue = transformExpr com ctx [] first
-            let! ownArgs = transformExprList com ctx ownArgs
+            return! transformBaseCallAndRecord com ctx (makeRangeFrom fsExpr) first fsType ownArgs
 
-            let baseIdent = getIdentUniqueName com ctx "base" |> makeTypedIdent baseValue.Type
+        | ExplicitConstructorThen com ctx (created, rest) when ctx.BoundConstructorThis.IsNone ->
+            let! created =
+                match created with
+                | Choice1Of2 created -> transformExpr com ctx [] created
+                | Choice2Of2(baseCall, fsType, ownArgs) ->
+                    transformBaseCallAndRecord com ctx (makeRangeFrom fsExpr) baseCall fsType ownArgs
 
-            let inheritedArgs =
-                getInheritedValFields fsType.TypeDefinition ctx.GenericArgs
-                |> List.map (fun (field, typ) -> getFieldWith None typ (Fable.IdentExpr baseIdent) field.Name)
+            let thisIdent = getIdentUniqueName com ctx "this" |> makeTypedIdent created.Type
 
-            let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-            let entRef = FsEnt.Ref fsType.TypeDefinition
-            entRef.SourcePath |> Option.iter com.AddSignatureDependency
+            let! rest =
+                transformExprList com { ctx with BoundConstructorThis = Some thisIdent } rest
 
-            let newRecord =
-                Fable.NewRecord(inheritedArgs @ ownArgs, entRef, genArgs) |> makeValue r
-
-            return Fable.Let(baseIdent, baseValue, newRecord)
+            return Fable.Let(thisIdent, created, Fable.Sequential(rest @ [ Fable.IdentExpr thisIdent ]))
 
         | FSharpExprPatterns.Sequential(first, second) ->
             let exprs =
@@ -1636,6 +1728,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         | FSharpExprPatterns.NewRecord(fsType, argExprs) ->
             let r = makeRangeFrom fsExpr
             let! argExprs = transformExprList com ctx argExprs
+            let argExprs = withOmittedFieldDefaults com ctx fsType argExprs
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
             let entRef = FsEnt.Ref fsType.TypeDefinition

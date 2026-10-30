@@ -948,6 +948,23 @@ type ValClassPairBox<'U> =
     val Count: int
     new (a: 'U, b: 'U) = { inherit ValClassGenericBase<'U * 'U>((a, b)); Count = 2 }
 
+let mutable valClassThenCalls = 0
+
+type ValClassThen =
+    val mutable Value: int
+    new () = { Value = 1 } then valClassThenCalls <- valClassThenCalls + 1
+
+type ValClassSelf =
+    val mutable Name: string
+    val mutable Count: int
+    new (name: string) as self = { Name = name; Count = 0 } then self.Count <- self.Name.Length
+    new () as self = ValClassSelf("ab") then self.Count <- self.Count * 10
+
+type ValClassSelfChild =
+    inherit ValClassBase
+    val mutable Extra: float
+    new (id: int, extra: float) as this = { inherit ValClassBase(id); Extra = extra } then this.Extra <- this.Extra + float this.Id
+
 let tests =
   testList "Types" [
 
@@ -1929,4 +1946,22 @@ let tests =
         let pairBox = ValClassPairBox("a", "b")
         pairBox.Value |> equal ("a", "b")
         pairBox.Count |> equal 2
+
+    testCase "Explicit constructor returns the object after its then block" <| fun () ->
+        let before = valClassThenCalls
+        let c = ValClassThen()
+        c.Value |> equal 1
+        valClassThenCalls - before |> equal 1
+
+    testCase "Explicit constructor with a self identifier works" <| fun () -> // See #5166
+        let a = ValClassSelf("abc")
+        a.Name |> equal "abc"
+        a.Count |> equal 3
+        let b = ValClassSelf()
+        b.Name |> equal "ab"
+        b.Count |> equal 20
+        let c = ValClassSelfChild(3, 1.5)
+        c.Id |> equal 30
+        c.Extra |> equal 31.5
+        c.Describe() |> equal "base:30"
   ]
