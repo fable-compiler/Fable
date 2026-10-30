@@ -953,6 +953,27 @@ let tests =
         xs |> Array.minBy (fun x -> -x)
         |> equal 2.
 
+    testCase "Array.minBy and Array.maxBy keep the first of tied elements" <| fun () ->
+        let xs = [| "a", 1; "b", 0; "c", 0; "d", 1 |]
+        xs |> Array.minBy snd |> equal ("b", 0)
+        xs |> Array.maxBy snd |> equal ("a", 1)
+        xs |> Array.minBy (fun _ -> 0) |> equal ("a", 1)
+
+    testCase "Array.minBy and Array.maxBy call the projection once per element" <| fun () ->
+        let mutable calls = 0
+        let f x = calls <- calls + 1; x
+        [| 5; 3; 8; 1; 9 |] |> Array.minBy f |> equal 1
+        [| 5; 3; 8; 1; 9 |] |> Array.maxBy f |> equal 9
+        calls |> equal 10
+
+    testCase "Array.min and Array.max keep the first of equal elements" <| fun () ->
+        Array.min [| 1.0m; 1.00m |] |> string |> equal "1.0"
+        Array.max [| 1.00m; 1.0m |] |> string |> equal "1.00"
+        // Computed, since the standalone compiler writes a -0. literal as 0
+        let negZero = 1. / System.Double.NegativeInfinity
+        1. / Array.min [| negZero; 0. |] |> equal System.Double.NegativeInfinity
+        1. / Array.max [| 0.; negZero |] |> equal System.Double.PositiveInfinity
+
     testCase "Array.ofList works" <| fun () ->
         let xs = [1.; 2.]
         let ys = Array.ofList xs

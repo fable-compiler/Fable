@@ -421,6 +421,13 @@ let ``min works with records`` () =
     let r2 = {a=1; b=2}
     min r1 r2 |> equal r1
 
+[<Fact>]
+let ``max and min of equal values return the same argument as .NET`` () =
+    max 1.0m 1.00m |> string |> equal "1.0"
+    min 1.0m 1.00m |> string |> equal "1.00"
+    max (1.0m, 0) (1.00m, 0) |> fst |> string |> equal "1.0"
+    min (1.0m, 0) (1.00m, 0) |> fst |> string |> equal "1.00"
+
 // [<Fact>]
 // let ``min with objects implementing IComparable works`` () =
 //     let c1 = Test(5)

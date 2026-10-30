@@ -499,6 +499,26 @@ let ``test Seq.minBy works`` () =
     |> equal 2.
 
 [<Fact>]
+let ``test Seq.minBy and Seq.maxBy keep the first of tied elements`` () =
+    let xs = Seq.ofList [ "a", 1; "b", 0; "c", 0; "d", 1 ]
+    xs |> Seq.minBy snd |> equal ("b", 0)
+    xs |> Seq.maxBy snd |> equal ("a", 1)
+    xs |> Seq.minBy (fun _ -> 0) |> equal ("a", 1)
+
+[<Fact>]
+let ``test Seq.minBy and Seq.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f x = calls <- calls + 1; x
+    seq { 5; 3; 8; 1; 9 } |> Seq.minBy f |> equal 1
+    seq { 5; 3; 8; 1; 9 } |> Seq.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
+let ``test Seq.min and Seq.max keep the first of equal elements`` () =
+    1. / Seq.min (seq { -0.; 0. }) |> equal System.Double.NegativeInfinity
+    1. / Seq.max (seq { 0.; -0. }) |> equal System.Double.PositiveInfinity
+
+[<Fact>]
 let ``test Seq.max with non numeric types works`` () =
     let p1 = {x=1; y=1}
     let p2 = {x=2; y=2}

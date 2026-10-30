@@ -594,42 +594,62 @@ let inline sumBy (projection: 'T -> 'U) (xs: 'T list) : 'U =
     fold (fun acc x -> acc + (projection x)) zero xs
 
 let maxBy (projection: 'T -> 'U) (xs: 'T list) : 'T =
-    reduce
-        (fun x y ->
-            if (projection x) > (projection y) then
-                x
-            else
-                y
-        )
-        xs
+    if isEmpty xs then
+        invalidOp SR.inputListWasEmpty
+
+    let mutable acc = head xs
+    let mutable accv = projection acc
+    let mutable xs = tail xs
+
+    while not (isEmpty xs) do
+        let x = head xs
+        let v = projection x
+
+        if v > accv then
+            acc <- x
+            accv <- v
+
+        xs <- tail xs
+
+    acc
 
 let max (xs: 'T list) : 'T =
     reduce
         (fun x y ->
-            if x > y then
-                x
-            else
+            if y > x then
                 y
+            else
+                x
         )
         xs
 
 let minBy (projection: 'T -> 'U) (xs: 'T list) : 'T =
-    reduce
-        (fun x y ->
-            if (projection x) < (projection y) then
-                x
-            else
-                y
-        )
-        xs
+    if isEmpty xs then
+        invalidOp SR.inputListWasEmpty
+
+    let mutable acc = head xs
+    let mutable accv = projection acc
+    let mutable xs = tail xs
+
+    while not (isEmpty xs) do
+        let x = head xs
+        let v = projection x
+
+        if v < accv then
+            acc <- x
+            accv <- v
+
+        xs <- tail xs
+
+    acc
 
 let min (xs: 'T list) : 'T =
     reduce
         (fun x y ->
-            if x < y then
-                x
-            else
+            if y < x then
                 y
+            else
+                x
         )
         xs
 

@@ -40,8 +40,8 @@ pub mod Decimal_ {
         if x.is_sign_negative() == sign.is_sign_negative() { x } else { -x }
     }
 
-    pub fn max(x: decimal, y: decimal) -> decimal { x.max(y) }
-    pub fn min(x: decimal, y: decimal) -> decimal { x.min(y) }
+    pub fn max(x: decimal, y: decimal) -> decimal { if x < y { y } else { x } }
+    pub fn min(x: decimal, y: decimal) -> decimal { if x < y { x } else { y } }
 
     pub fn maxMagnitude(x: decimal, y: decimal) -> decimal { if abs(x) > abs(y) {x} else {y} }
     pub fn minMagnitude(x: decimal, y: decimal) -> decimal { if abs(x) < abs(y) {x} else {y} }
