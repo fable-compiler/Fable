@@ -48,7 +48,7 @@ type Context =
         OptimizeTailCall: unit -> unit
         ScopedTypeParams: Set<string>
         BoundTypes: Map<string, Fable.Type>
-        /// Local functions bound to a value other than a lambda, so TypeScript infers their type from that value
+        /// Locals whose type TypeScript infers from a non-lambda value
         InferredFunctionIdents: Set<string>
         ForcedIdents: Set<string>
     }
@@ -739,8 +739,7 @@ module Annotation =
         |> List.toArray
         |> TupleTypeAnnotation
 
-    /// Only arrays of generic or numeric elements can be typed arrays at runtime,
-    /// so all other arrays are annotated as `T[]` instead of `MutableArray<T>`
+    /// Only arrays of generic or numeric elements can be typed arrays at runtime
     let isPlainArray com genArg kind =
         match kind, genArg with
         | Fable.ResizeArray, _ -> true
@@ -748,7 +747,6 @@ module Annotation =
         | _, JS.Replacements.TypedArrayCompatible com kind _ -> false
         | _ -> true
 
-    /// Whether the type has an F# array annotated as `T[]` that a generic declaration types as `MutableArray<T>`
     let rec containsPlainFSharpArray com (t: Fable.Type) =
         match t with
         | Fable.Array(genArg, (Fable.MutableArray | Fable.ImmutableArray as kind)) when isPlainArray com genArg kind ->
@@ -1396,8 +1394,7 @@ module Util =
             { ctx with InferredFunctionIdents = Set.add ident.Name ctx.InferredFunctionIdents }
         | _ -> ctx
 
-    /// A local generic lambda returns `MutableArray<T>`, and so may a function bound to another value,
-    /// like `let toArray = Seq.toArray`, because TypeScript infers its type from the generic value
+    /// TypeScript infers the type of `let f = Seq.toArray` from the generic value
     let localFunctionMayReturnGenericArray ctx (ident: Fable.Ident) =
         Set.contains ident.Name ctx.InferredFunctionIdents
         || Map.tryFind ident.Name ctx.BoundTypes |> Option.exists containsGenericArray
