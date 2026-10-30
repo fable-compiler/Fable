@@ -647,14 +647,14 @@ export function isNullOrWhiteSpace(str: string | any) {
 }
 
 export function concat(...xs: any[]): string {
-  return xs.map((x) => String(x)).join("");
+  return xs.map((x) => (x == null ? "" : String(x))).join("");
 }
 
 export function join<T>(delimiter: string, xs: Iterable<T>): string {
   if (Array.isArray(xs)) {
-    return xs.join(delimiter);
+    return xs.join(delimiter ?? "");
   } else {
-    return Array.from(xs).join(delimiter);
+    return Array.from(xs).join(delimiter ?? "");
   }
 }
 
@@ -663,7 +663,7 @@ export function joinWithIndices(delimiter: string, xs: string[], startIndex: num
   if (endIndexPlusOne > xs.length) {
     throw new Exception("Index and count must refer to a location within the buffer.");
   }
-  return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
+  return xs.slice(startIndex, endIndexPlusOne).join(delimiter ?? "");
 }
 
 function notSupported(name: string): never {

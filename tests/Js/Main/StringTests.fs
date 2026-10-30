@@ -1272,6 +1272,22 @@ let tests = testList "Strings" [
         String.Join(",", [|"abc"|]) |> equal "abc"
         String.Join(",", ["abc"]) |> equal "abc"
 
+    testCase "String.Join treats a null separator as empty" <| fun () -> // See #5167
+        String.Join((null: string), [| "a"; "b" |]) |> equal "ab"
+        String.Join((null: string), seq { yield "a"; yield "b" }) |> equal "ab"
+        String.Join((null: string), "a", "b") |> equal "ab"
+        String.Join((null: string), [| "a"; "b"; "c" |], 1, 2) |> equal "bc"
+
+    testCase "String.Join treats null elements as empty" <| fun () ->
+        String.Join(",", [| "a"; null; "b" |]) |> equal "a,,b"
+        String.Join(",", [| box "a"; null; box 1 |]) |> equal "a,,1"
+
+    testCase "System.String.Concat treats null arguments as empty" <| fun () -> // See #5167
+        String.Concat("a", (null: string), "b") |> equal "ab"
+        String.Concat((null: string), "b") |> equal "b"
+        String.Concat([| "a"; null; "b" |]) |> equal "ab"
+        String.Concat(box "a", null, box 1) |> equal "a1"
+
     testCase "System.String.Concat works" <| fun () ->
         String.Concat("a", "b", "c")
         |> equal "abc"
