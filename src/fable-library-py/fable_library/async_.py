@@ -38,6 +38,7 @@ from .system import InvalidOperationException__ctor_Z721C83C5, TimeoutException_
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
+from .util import to_iterable
 
 
 def cancellation_token() -> Async[CancellationToken]:
@@ -191,6 +192,75 @@ def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
         return protected_bind(await_task(all), to_array)
 
     return delay(delayed)
+
+
+def choice[T](computations: IEnumerable_1[Async[T | None]]) -> Async[T | None]:
+    def cont(ctx: IAsyncContext[T | None]) -> None:
+        works = list(to_iterable(computations))
+        if not works:
+            ctx.on_success(None)
+            return
+        token = CancellationToken()
+
+        def cancel_children() -> None:
+            try:
+                token.cancel()
+            except Exception:
+                pass
+
+        async def run_choice() -> T | None:
+            registration = ctx.cancel_token.register(cancel_children)
+            tasks = [asyncio.ensure_future(start_as_task(work, cancellation_token=token)) for work in works]
+            # Observe sibling failures after a winner cancels them.
+            asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                for completed in asyncio.as_completed(tasks):
+                    result = await completed
+                    if result is not None:
+                        cancel_children()
+                        return result
+                return None
+            except Exception:
+                cancel_children()
+                raise
+            finally:
+                registration.Dispose()
+
+        await_task(run_choice())(ctx)
+
+    return protected_cont(cont)
+
+
+class _OnCancelRegistration:
+    def __init__(self, token: CancellationToken, interruption: Callable[[], None]) -> None:
+        self._token = token
+        self._interruption = interruption
+        self._interrupted = False
+        self._gate = RLock()
+        self._listener_id = token.add_listener(self._interrupt)
+
+    def _interrupt(self) -> None:
+        with self._gate:
+            if self._interrupted:
+                return
+            self._interrupted = True
+        self._interruption()
+
+    def Dispose(self) -> None:
+        self._token.remove_listener(self._listener_id)
+        # decision: a use! finalizer may dispose during cancellation before its callback is visited.
+        if self._token.is_cancelled:
+            try:
+                self._interrupt()
+            except Exception:
+                pass
+
+
+def on_cancel(interruption: Callable[[], None]) -> Async[_OnCancelRegistration]:
+    def cont(ctx: IAsyncContext[_OnCancelRegistration]) -> None:
+        ctx.on_success(_OnCancelRegistration(ctx.cancel_token, interruption))
+
+    return protected_cont(cont)
 
 
 def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
@@ -426,6 +496,12 @@ def start_as_task[T](
     return tcs.get_task()
 
 
+def start_immediate_as_task[T](
+    computation: Async[T], cancellation_token: CancellationToken | None = None
+) -> Awaitable[T]:
+    return start_as_task(computation, cancellation_token=cancellation_token)
+
+
 def _start_child_timeout[T](computation: Async[T], ms: int | TimeSpan) -> Async[Async[T]]:
     # Return the child result when ready, or raise TimeoutException when the deadline expires.
     task = asyncio.ensure_future(start_as_task(computation))
@@ -445,6 +521,33 @@ def _start_child_timeout[T](computation: Async[T], ms: int | TimeSpan) -> Async[
     return protected_cont(cont)
 
 
+def _start_child_timeout_linked[T](computation: Async[T], ms: int | TimeSpan) -> Async[Async[T]]:
+    def cont(ctx: IAsyncContext[Async[T]]) -> None:
+        # The child uses a linked token, so its deadline never cancels the parent.
+        child_token = CancellationToken()
+        registration = ctx.cancel_token.register(child_token.cancel)
+        task = asyncio.ensure_future(start_as_task(computation, cancellation_token=child_token))
+
+        async def with_timeout() -> T:
+            try:
+                return await asyncio.wait_for(task, timeout=to_milliseconds(ms) / 1000.0)
+            except TimeoutError:
+                # invariant: a completed child retains its exception; only deadline cancellation is translated.
+                if not task.cancelled():
+                    raise
+                try:
+                    child_token.cancel()
+                except Exception:
+                    pass
+                raise TimeoutException__ctor()
+            finally:
+                registration.Dispose()
+
+        protected_return(await_task(with_timeout()))(ctx)
+
+    return protected_cont(cont)
+
+
 def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
     # decision: share TimeoutException across callers; its native base preserves Python TimeoutError handlers
     if ms is not None:
@@ -453,6 +556,17 @@ def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> A
     task = start_as_task(computation)
 
     def cont(ctx: IAsyncContext[Async[T]]) -> None:
+        protected_return(await_task(task))(ctx)
+
+    return protected_cont(cont)
+
+
+def start_child_linked[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
+    if ms is not None:
+        return _start_child_timeout_linked(computation, ms)
+
+    def cont(ctx: IAsyncContext[Async[T]]) -> None:
+        task = start_as_task(computation, cancellation_token=ctx.cancel_token)
         protected_return(await_task(task))(ctx)
 
     return protected_cont(cont)
