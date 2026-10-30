@@ -2421,6 +2421,48 @@ module Util =
     let getGenParamNames (types: Fable.Type list) : string list = getGenParams types |> List.map fst
     let getGenParamTypes (types: Fable.Type list) : Fable.Type list = getGenParams types |> List.map snd
 
+    let supportsCompilerGeneratedBaseCall (com: Compiler) =
+        match com.Options.Language with
+        | JavaScript
+        | TypeScript
+        | Python -> true
+        | _ -> false
+
+    /// A class without a primary constructor gets a compiler-generated one that takes its fields
+    let hasCompilerGeneratedConstructor (ent: FSharpEntity) =
+        ent.IsClass
+        && not ent.IsFSharpExceptionDeclaration
+        && not ent.IsValueType
+        && not (isGlobalOrImportedFSharpEntity ent)
+        && (FsEnt.Ref ent).SourcePath.IsSome
+        && not (ent.MembersFunctionsAndValues |> Seq.exists _.IsImplicitConstructor)
+
+    /// Base classes with compiler-generated constructors, root first, or None when a base has a primary constructor
+    let rec tryGetCompilerGeneratedBases (ent: FSharpEntity) : FSharpEntity list option =
+        match tryGetBaseEntity ent with
+        | None -> Some []
+        | Some(baseEnt, _) when hasCompilerGeneratedConstructor baseEnt ->
+            tryGetCompilerGeneratedBases baseEnt
+            |> Option.map (fun bases -> bases @ [ baseEnt ])
+        | Some _ -> None
+
+    let getInheritedValFields (bases: FSharpEntity list) : (FSharpField * Fable.Type) list =
+        bases
+        |> List.collect (fun baseEnt ->
+            baseEnt.FSharpFields
+            |> Seq.filter (fun field -> not field.IsStatic)
+            |> Seq.map (fun field ->
+                let typ =
+                    if baseEnt.GenericParameters.Count = 0 then
+                        makeType Map.empty field.FieldType
+                    else
+                        Fable.Any
+
+                field, typ
+            )
+            |> List.ofSeq
+        )
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
         let error msg =
@@ -2438,6 +2480,27 @@ module Util =
                 makeInternalClassImport com ent entityName file
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) = entityIdentWithSuffix com ent ""
+
+    /// Compiler-generated constructors of derived classes receive the inherited fields and pass them to the base
+    let tryMakeCompilerGeneratedBaseCall (com: Compiler) (ent: FSharpEntity) =
+        if supportsCompilerGeneratedBaseCall com && hasCompilerGeneratedConstructor ent then
+            match tryGetCompilerGeneratedBases ent with
+            | Some(_ :: _ as bases) ->
+                let baseEnt = List.last bases
+
+                let args =
+                    getInheritedValFields bases
+                    |> List.map (fun (field, typ) -> makeTypedIdentExpr typ field.Name)
+
+                let baseExpr =
+                    match tryGlobalOrImportedFSharpEntity com baseEnt with
+                    | Some baseExpr -> baseExpr
+                    | None -> FsEnt.Ref baseEnt |> entityIdent com
+
+                Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
+            | _ -> None
+        else
+            None
 
     /// In Python a union is emitted as a public type alias (`type Demo = Demo_A | Demo_B`)
     /// plus a private base class (`_Demo`) that holds the runtime members: attached static

@@ -4498,6 +4498,7 @@ let transformClassWithCompilerGeneratedConstructor
     ctx
     (ent: Fable.Entity)
     (entName: string)
+    (baseCall: Fable.Expr option)
     classMembers
     (classAttributes: ClassAttributes)
     =
@@ -4512,18 +4513,34 @@ let transformClassWithCompilerGeneratedConstructor
     let isOptional =
         Helpers.isOptional fieldIds || ent.IsFSharpRecord || ent.IsValueType
 
-    let baseExpr =
+    let baseExpr, superArgs, baseFieldIds, baseStmts =
         if ent.IsFSharpExceptionDeclaration then
-            libValue com ctx "exceptions" "FSharpException" |> Some
+            libValue com ctx "exceptions" "FSharpException" |> Some, [], [], []
         elif ent.IsFSharpRecord || ent.IsValueType then
-            libValue com ctx "record" "Record" |> Some
+            libValue com ctx "record" "Record" |> Some, [], [], []
         else
-            None
+            match extractBaseExprFromBaseCall com ctx ent.BaseType baseCall with
+            | Some(baseExpr, (superArgs, _keywords, stmts)) ->
+                let baseFieldIds =
+                    match baseCall with
+                    | Some(Fable.Call(_, info, _, _)) ->
+                        info.Args
+                        |> List.choose (
+                            function
+                            | Fable.IdentExpr id -> Some id
+                            | _ -> None
+                        )
+                    | _ -> []
+
+                Some baseExpr, superArgs, baseFieldIds, stmts
+            | None -> None, [], [], []
 
     let body =
         [
+            yield! baseStmts
+
             if Option.isSome baseExpr then
-                yield callSuperAsStatement []
+                yield callSuperAsStatement superArgs
 
             // For attributes style, use direct attribute names and proper parameter handling
             if classAttributes.Style = ClassStyle.Attributes then
@@ -4562,8 +4579,8 @@ let transformClassWithCompilerGeneratedConstructor
         ]
 
     let args =
-        fieldIds
-        |> Array.mapToList (fun id ->
+        baseFieldIds @ Array.toList fieldIds
+        |> List.map (fun id ->
             let ta, _ = Annotation.typeAnnotation com ctx None id.Type
             Arg.arg (ident com ctx id, annotation = ta)
         )
@@ -5388,7 +5405,14 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                     allStatements @ classStmts
             | _, None ->
                 let classStmts =
-                    transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name allClassMembers classAttributes
+                    transformClassWithCompilerGeneratedConstructor
+                        com
+                        ctx
+                        ent
+                        decl.Name
+                        decl.BaseCall
+                        allClassMembers
+                        classAttributes
 
                 allStatements @ classStmts
 

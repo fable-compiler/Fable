@@ -1578,6 +1578,41 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
             return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
 
+        | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as first,
+                                        FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
+            ctx.CaptureBaseConsCall.IsNone
+            && supportsCompilerGeneratedBaseCall com
+            && fsType.HasTypeDefinition
+            && (
+                match baseCons.DeclaringEntity, tryGetBaseEntity fsType.TypeDefinition with
+                | Some callee, Some(baseEnt, _) -> callee = baseEnt
+                | _ -> false
+            )
+            && (tryGetCompilerGeneratedBases fsType.TypeDefinition
+                |> Option.exists (List.isEmpty >> not))
+            ->
+            let r = makeRangeFrom fsExpr
+            let! baseValue = transformExpr com ctx [] first
+            let! ownArgs = transformExprList com ctx ownArgs
+
+            let bases =
+                tryGetCompilerGeneratedBases fsType.TypeDefinition |> Option.defaultValue []
+
+            let baseIdent = getIdentUniqueName com ctx "base" |> makeTypedIdent baseValue.Type
+
+            let inheritedArgs =
+                getInheritedValFields bases
+                |> List.map (fun (field, typ) -> getFieldWith None typ (Fable.IdentExpr baseIdent) field.Name)
+
+            let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+            let entRef = FsEnt.Ref fsType.TypeDefinition
+            entRef.SourcePath |> Option.iter com.AddSignatureDependency
+
+            let newRecord =
+                Fable.NewRecord(inheritedArgs @ ownArgs, entRef, genArgs) |> makeValue r
+
+            return Fable.Let(baseIdent, baseValue, newRecord)
+
         | FSharpExprPatterns.Sequential(first, second) ->
             let exprs =
                 match ctx.CaptureBaseConsCall with
@@ -2418,7 +2453,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                                     Name = name
                                     Entity = entRef
                                     Constructor = None
-                                    BaseCall = None
+                                    BaseCall = tryMakeCompilerGeneratedBaseCall com fsEnt
                                     AttachedMembers = []
                                     Tags = Fable.Tags.empty
                                     XmlDoc = tryGetXmlDoc fsEnt.XmlDoc
@@ -3162,7 +3197,7 @@ let rec attachClassMembers (com: FableCompiler) =
         |> Option.map (fun members ->
             { decl with
                 Constructor = members.Cons
-                BaseCall = members.BaseCall
+                BaseCall = members.BaseCall |> Option.orElse decl.BaseCall
                 AttachedMembers = members.Members.ToArray() |> List.ofArray
             }
             |> Fable.ClassDeclaration
