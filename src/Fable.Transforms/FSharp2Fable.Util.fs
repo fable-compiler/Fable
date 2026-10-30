@@ -2706,8 +2706,13 @@ module Util =
             | _ -> true
         )
 
-    let isMangledAbstractEntity (com: Compiler) (ent: FSharpEntity) =
-        match ent.TryFullName with
+    let private isMangledAbstract
+        (fullName: string option)
+        (isInterface: bool)
+        (mangleAttribute: bool option)
+        (isNativeOrAttached: unit -> bool)
+        =
+        match fullName with
         // By default mangle interfaces in System namespace as they are not meant to interact with JS
         // except those that are used in fable-library Typescript files
         | Some fullName when fullName.StartsWith("System.", StringComparison.Ordinal) ->
@@ -2728,13 +2733,46 @@ module Util =
         // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.Py namespaces
         | Some fullName when fullName.StartsWithAny("Fable.Core.JS.", "Fable.Core.Py.") -> false
         // Don't mangle interfaces by default (for better interop) unless they have Mangle attribute
-        | _ when ent.IsInterface -> tryMangleAttribute ent.Attributes |> Option.defaultValue false
+        | _ when isInterface -> mangleAttribute |> Option.defaultValue false
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
-        | _ ->
-            not (
+        | _ -> not (isNativeOrAttached ())
+
+    let isMangledAbstractEntity (com: Compiler) (ent: FSharpEntity) =
+        isMangledAbstract
+            ent.TryFullName
+            ent.IsInterface
+            (tryMangleAttribute ent.Attributes)
+            (fun () ->
                 isGlobalOrImportedFSharpEntity ent
                 || isAttachMembersEntity com ent
                 || isPojoDefinedByConsArgsFSharpEntity ent
+            )
+
+    let isMangledAbstractFableEntity (com: Compiler) (ent: Fable.Entity) =
+        let hasAttributeNamed fullName =
+            ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = fullName)
+
+        let mangleAttribute =
+            ent.Attributes
+            |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.mangle)
+            |> Option.map (fun att ->
+                match att.ConstructorArgs with
+                | (:? bool as value) :: _ -> value
+                | _ -> true
+            )
+
+        let isAttachMembers =
+            not (ent.IsFSharpModule || ent.IsInterface)
+            && (com.Options.Language = Rust || hasAttributeNamed Atts.attachMembers)
+
+        isMangledAbstract
+            (Some ent.FullName)
+            ent.IsInterface
+            mangleAttribute
+            (fun () ->
+                isGlobalOrImportedEntity ent
+                || isAttachMembers
+                || hasAttributeNamed Atts.pojoDefinedByConsArgs
             )
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
