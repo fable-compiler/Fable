@@ -10,6 +10,11 @@
     to_string_with_base/3,
     to_base64/1,
     from_base64/1,
+    to_hex_string/1,
+    to_hex_string/3,
+    to_hex_string_lower/1,
+    to_hex_string_lower/3,
+    from_hex_string/1,
     boolean_parse/1,
     boolean_try_parse/2,
     int_to_string_with_format/2,
@@ -28,6 +33,11 @@
 -spec to_string_with_base(integer(), integer(), integer()) -> binary().
 -spec to_base64(tuple() | list() | binary()) -> binary().
 -spec from_base64(binary()) -> tuple().
+-spec to_hex_string(tuple() | list() | binary() | reference() | undefined) -> binary().
+-spec to_hex_string(tuple() | list() | binary() | reference() | undefined, integer(), integer()) -> binary().
+-spec to_hex_string_lower(tuple() | list() | binary() | reference() | undefined) -> binary().
+-spec to_hex_string_lower(tuple() | list() | binary() | reference() | undefined, integer(), integer()) -> binary().
+-spec from_hex_string(binary() | undefined) -> tuple().
 -spec boolean_parse(binary()) -> boolean().
 -spec boolean_try_parse(binary(), reference()) -> boolean().
 -spec int_to_string_with_format(integer(), binary()) -> binary().
@@ -195,6 +205,67 @@ to_base64(Bin) when is_binary(Bin) ->
 
 from_base64(Str) when is_binary(Str) ->
     fable_utils:new_byte_array(binary_to_list(base64:decode(Str))).
+
+to_hex_string(Bytes) ->
+    binary:encode_hex(hex_input(Bytes)).
+
+to_hex_string(Bytes, Offset, Length) ->
+    binary:encode_hex(hex_input(Bytes, Offset, Length)).
+
+%% binary:encode_hex/2 with lowercase needs OTP 26
+to_hex_string_lower(Bytes) ->
+    string:lowercase(to_hex_string(Bytes)).
+
+to_hex_string_lower(Bytes, Offset, Length) ->
+    string:lowercase(to_hex_string(Bytes, Offset, Length)).
+
+hex_input(undefined) ->
+    argument_null(<<"inArray">>);
+hex_input({byte_array, _, _} = BA) ->
+    list_to_binary(fable_utils:byte_array_to_list(BA));
+hex_input(Bytes) when is_list(Bytes) ->
+    list_to_binary(Bytes);
+hex_input(Bin) when is_binary(Bin) ->
+    Bin;
+hex_input(Ref) when is_reference(Ref) ->
+    hex_input(get(Ref)).
+
+hex_input(Bytes, Offset, Length) ->
+    Bin = hex_input(Bytes),
+    if
+        Length < 0 -> argument_out_of_range(<<"length">>, <<"Non-negative number required.">>);
+        Offset < 0 -> argument_out_of_range(<<"offset">>, <<"Non-negative number required.">>);
+        Offset > byte_size(Bin) - Length ->
+            argument_out_of_range(<<"offset">>, <<"Specified argument was out of the range of valid values.">>);
+        true -> binary:part(Bin, Offset, Length)
+    end.
+
+from_hex_string(undefined) ->
+    argument_null(<<"s">>);
+from_hex_string(Str) when byte_size(Str) rem 2 =/= 0 ->
+    bad_hex_string(<<"The input is not a valid hex string as its length is not a multiple of 2.">>);
+from_hex_string(Str) ->
+    try binary:decode_hex(Str) of
+        Bin -> fable_utils:new_byte_array(binary_to_list(Bin))
+    catch
+        error:badarg ->
+            bad_hex_string(<<"The input is not a valid hex string as it contains a non-hex character.">>)
+    end.
+
+argument_null(ParamName) ->
+    erlang:error(#{
+        exn_type => argument_null_exception,
+        message => fable_utils:argument_exception_message(<<"Value cannot be null.">>, ParamName)
+    }).
+
+argument_out_of_range(ParamName, Message) ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message => fable_utils:argument_exception_message(Message, ParamName)
+    }).
+
+bad_hex_string(Message) ->
+    erlang:error(#{exn_type => format_exception, message => Message}).
 
 %% TryParse: returns bool and sets out-param via put(OutRef, Value).
 %% F# uses out-parameter pattern: result = TryParse(str, &outRef).

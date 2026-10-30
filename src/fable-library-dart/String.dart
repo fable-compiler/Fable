@@ -1,5 +1,7 @@
 // ignore_for_file: file_names, constant_identifier_names
 
+import 'System.dart' as system;
+
 class StringComparison {
   static const CurrentCulture = 0;
   static const CurrentCultureIgnoreCase = 1;
@@ -279,4 +281,42 @@ String mapIndexed(int Function(int, int) mapping, String str) {
     index++;
     return mapping(index, rune);
   }));
+}
+
+String toHexStringLower(List<int> inArray, [int? offset, int? length]) {
+  offset ??= 0;
+  length ??= inArray.length - offset;
+  if (length < 0) {
+    throw system.ArgumentOutOfRangeException_$ctor_Z384F8060(
+        'length', 'Non-negative number required.');
+  }
+  if (offset < 0) {
+    throw system.ArgumentOutOfRangeException_$ctor_Z384F8060(
+        'offset', 'Non-negative number required.');
+  }
+  if (offset > inArray.length - length) {
+    throw system.ArgumentOutOfRangeException_$ctor_Z721C83C5('offset');
+  }
+  return inArray
+      .sublist(offset, offset + length)
+      .map((b) => b.toRadixString(16).padLeft(2, '0'))
+      .join();
+}
+
+String toHexString(List<int> inArray, [int? offset, int? length]) {
+  return toHexStringLower(inArray, offset, length).toUpperCase();
+}
+
+List<int> fromHexString(String s) {
+  if (s.length % 2 != 0) {
+    throw system.FormatException_$ctor_Z721C83C5(
+        'The input is not a valid hex string as its length is not a multiple of 2.');
+  }
+  if (!RegExp(r'^[0-9A-Fa-f]*$').hasMatch(s)) {
+    throw system.FormatException_$ctor_Z721C83C5(
+        'The input is not a valid hex string as it contains a non-hex character.');
+  }
+  return List<int>.generate(
+      s.length ~/ 2, (i) => int.parse(s.substring(2 * i, 2 * i + 2), radix: 16),
+      growable: false);
 }

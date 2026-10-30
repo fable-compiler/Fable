@@ -113,8 +113,10 @@ let raisedExceptionType (f: unit -> 'a): string =
         "no exception"
     with
     | :? ArgumentOutOfRangeException -> "ArgumentOutOfRangeException"
+    | :? ArgumentNullException -> "ArgumentNullException"
     | :? ArgumentException -> "ArgumentException"
     | :? InvalidOperationException -> "InvalidOperationException"
+    | :? FormatException -> "FormatException"
     | e -> "Unexpected exception: " + e.Message
 
 let Int32Array = [|1;2|]

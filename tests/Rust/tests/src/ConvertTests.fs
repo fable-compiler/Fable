@@ -1019,6 +1019,11 @@ let ``Convert.FromHexString works`` () =
     |> equal [| 250uy; 251uy; 252uy; 253uy; 254uy |]
 
 [<Fact>]
+let ``Convert.FromHexString checks its input`` () =
+    throwsAnyError (fun () -> Convert.FromHexString("abc"))
+    throwsAnyError (fun () -> Convert.FromHexString("zz"))
+
+[<Fact>]
 let ``Convert.ToBase64String works`` () =
     let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
     Convert.ToBase64String(bytes)

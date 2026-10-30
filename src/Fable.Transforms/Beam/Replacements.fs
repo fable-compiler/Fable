@@ -1768,6 +1768,14 @@ let private convert
     | "FromBase64String", [ arg ] ->
         Helper.LibCall(com, "fable_convert", "from_base64", t, [ arg ], ?loc = r)
         |> Some
+    | "ToHexString", ([ _ ] | [ _; _; _ ]) ->
+        Helper.LibCall(com, "fable_convert", "to_hex_string", t, args, ?loc = r) |> Some
+    | "ToHexStringLower", ([ _ ] | [ _; _; _ ]) ->
+        Helper.LibCall(com, "fable_convert", "to_hex_string_lower", t, args, ?loc = r)
+        |> Some
+    | "FromHexString", [ arg ] ->
+        Helper.LibCall(com, "fable_convert", "from_hex_string", t, [ arg ], ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific List module replacements.

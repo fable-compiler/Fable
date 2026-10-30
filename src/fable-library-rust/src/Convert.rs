@@ -268,6 +268,9 @@ pub mod Convert_ {
             }
         }
         let chars = s.as_bytes();
+        if chars.len() % 2 != 0 {
+            panic!("The input is not a valid hex string as its length is not a multiple of 2.");
+        }
         let bytes = chars
             .chunks_exact(2)
             .map(|x| decode(x[0]) << 4 | decode(x[1]))
