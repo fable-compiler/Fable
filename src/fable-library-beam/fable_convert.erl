@@ -206,7 +206,6 @@ to_base64(Bin) when is_binary(Bin) ->
 from_base64(Str) when is_binary(Str) ->
     fable_utils:new_byte_array(binary_to_list(base64:decode(Str))).
 
-%% Hex encoding/decoding, checking the arguments like .NET's Convert.ToHexString and FromHexString
 to_hex_string(Bytes) ->
     binary:encode_hex(hex_input(Bytes)).
 

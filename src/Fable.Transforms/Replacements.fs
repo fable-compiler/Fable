@@ -3432,6 +3432,13 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
         Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
+// The library decodes into a Uint8Array regardless of the typedArrays option
+let private decodedBytes (com: ICompiler) r t expr =
+    if com.Options.TypedArrays then
+        expr
+    else
+        toArray r t expr
+
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "ToSByte"
@@ -3456,14 +3463,19 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
         if not (List.isSingle args) then
             WarningCodes.base64ArgumentsIgnored |> addWarningWithCode com ctx.InlinePath r
 
-        Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        let expr =
+            Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc = r)
+
+        match i.CompiledName with
+        | "FromBase64String" -> decodedBytes com r t expr |> Some
+        | _ -> Some expr
     | "ToHexString"
     | "ToHexStringLower" ->
         Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "FromHexString" when List.isSingle args ->
         Helper.LibCall(com, "String", "fromHexString", t, args, i.SignatureArgTypes, ?loc = r)
+        |> decodedBytes com r t
         |> Some
     | _ -> None
 

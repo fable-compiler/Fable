@@ -16,7 +16,6 @@ _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 
 
 def _hex_input(in_array: Array[byte], offset: SupportsInt | None, length: SupportsInt | None) -> bytes:
-    """Return the bytes to convert to hex, checking the arguments like .NET."""
     if in_array is None:
         raise ArgumentNullException__ctor_Z721C83C5("inArray")
     data = bytes(in_array)
