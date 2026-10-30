@@ -57,8 +57,17 @@ module TypedArrays =
     let makeFloat32s () = JS.Constructors.Float32Array.Create [| 0.0; 1.0 |]
 #endif
 
+type GenericNameRecord<'a> =
+    { Value: 'a }
+
+    static member Stringify v = string v
+
 let tests =
   testList "LiteTsInterop" [
+    testCase "Compiler-generated generic names do not clash with the type's own" <| fun () ->
+        GenericNameRecord<string>.Stringify 456 |> equal "456"
+        { Value = "x" }.Value |> equal "x"
+
     #if FABLE_COMPILER
     testCase "jsOptions works" <| fun _ ->
         let opts = jsOptions<JsOptions>(fun o ->

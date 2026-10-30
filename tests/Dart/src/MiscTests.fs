@@ -69,7 +69,16 @@ let paramName (f: unit -> unit) =
         "no exception"
     with :? System.ArgumentException as e -> e.ParamName
 
+type GenericNameRecord<'a> =
+    { Value: 'a }
+
+    static member Stringify v = string v
+
 let tests() =
+    testCase "Compiler-generated generic names do not clash with the type's own" <| fun () ->
+        GenericNameRecord<string>.Stringify 456 |> equal "456"
+        { Value = "x" }.Value |> equal "x"
+
     testCase "ref works" <| fun () ->
         let x = ref 5
         increase x
