@@ -333,6 +333,22 @@ let tests =
         Math.Round(-1.426M, 2) |> equal -1.43M
         Math.Round(-1.426M, 1) |> equal -1.4M
 
+    testCase "Decimal round with MidpointRounding works" <| fun () ->
+        let round mode = [ 2.5M; -2.5M; 3.5M; -3.5M; 2.4M; -2.6M ] |> List.map (fun x -> Math.Round(x, (mode: MidpointRounding)))
+        round MidpointRounding.ToEven |> equal [ 2.M; -2.M; 4.M; -4.M; 2.M; -3.M ]
+        round MidpointRounding.AwayFromZero |> equal [ 3.M; -3.M; 4.M; -4.M; 2.M; -3.M ]
+        round MidpointRounding.ToZero |> equal [ 2.M; -2.M; 3.M; -3.M; 2.M; -2.M ]
+        round MidpointRounding.ToNegativeInfinity |> equal [ 2.M; -3.M; 3.M; -4.M; 2.M; -3.M ]
+        round MidpointRounding.ToPositiveInfinity |> equal [ 3.M; -2.M; 4.M; -3.M; 3.M; -2.M ]
+        let roundDigits mode = [ 1.25M, 1; -1.25M, 1; 1.235M, 2; -1.235M, 2; 1.426M, 2 ] |> List.map (fun (x, d) -> Math.Round(x, d, (mode: MidpointRounding)))
+        roundDigits MidpointRounding.ToEven |> equal [ 1.2M; -1.2M; 1.24M; -1.24M; 1.43M ]
+        roundDigits MidpointRounding.AwayFromZero |> equal [ 1.3M; -1.3M; 1.24M; -1.24M; 1.43M ]
+        roundDigits MidpointRounding.ToZero |> equal [ 1.2M; -1.2M; 1.23M; -1.23M; 1.42M ]
+        roundDigits MidpointRounding.ToNegativeInfinity |> equal [ 1.2M; -1.3M; 1.23M; -1.24M; 1.42M ]
+        roundDigits MidpointRounding.ToPositiveInfinity |> equal [ 1.3M; -1.2M; 1.24M; -1.23M; 1.43M ]
+        Decimal.Round(2.5M, MidpointRounding.AwayFromZero) |> equal 3.M
+        Decimal.Round(-1.25M, 1, MidpointRounding.AwayFromZero) |> equal -1.3M
+
     testCase "Decimal truncate works" <| fun () ->
         truncate 11.0M |> equal 11.M
         truncate 11.01M |> equal 11.M
@@ -879,6 +895,26 @@ let tests =
         Math.Round(1.426, 1) |> equal 1.4
         Math.Round(-1.426, 2) |> equal -1.43
         Math.Round(-1.426, 1) |> equal -1.4
+
+    testCase "Math.Round with MidpointRounding works" <| fun () ->
+        let round mode = [ 2.5; -2.5; 3.5; -3.5; 2.4; -2.6; 0.5; -0.5 ] |> List.map (fun x -> Math.Round(x, (mode: MidpointRounding)))
+        round MidpointRounding.ToEven |> equal [ 2.; -2.; 4.; -4.; 2.; -3.; 0.; -0. ]
+        round MidpointRounding.AwayFromZero |> equal [ 3.; -3.; 4.; -4.; 2.; -3.; 1.; -1. ]
+        round MidpointRounding.ToZero |> equal [ 2.; -2.; 3.; -3.; 2.; -2.; 0.; -0. ]
+        round MidpointRounding.ToNegativeInfinity |> equal [ 2.; -3.; 3.; -4.; 2.; -3.; 0.; -1. ]
+        round MidpointRounding.ToPositiveInfinity |> equal [ 3.; -2.; 4.; -3.; 3.; -2.; 1.; -0. ]
+        Math.Round(0.49999999999999994, MidpointRounding.AwayFromZero) |> equal 0.
+        Math.Round(4503599627370497., MidpointRounding.AwayFromZero) |> equal 4503599627370497.
+        1. / Math.Round(-0.4, MidpointRounding.AwayFromZero) |> equal -infinity
+
+    testCase "Math.Round with digits and MidpointRounding works" <| fun () ->
+        let round mode = [ 1.25, 1; -1.25, 1; 1.235, 2; 2.675, 2; -2.675, 2; 1.426, 2; 0.125, 2; -1.005, 2 ] |> List.map (fun (x, d) -> Math.Round(x, d, (mode: MidpointRounding)))
+        round MidpointRounding.ToEven |> equal [ 1.2; -1.2; 1.24; 2.68; -2.68; 1.43; 0.12; -1. ]
+        round MidpointRounding.AwayFromZero |> equal [ 1.3; -1.3; 1.24; 2.68; -2.68; 1.43; 0.13; -1. ]
+        round MidpointRounding.ToZero |> equal [ 1.2; -1.2; 1.23; 2.67; -2.67; 1.42; 0.12; -1. ]
+        round MidpointRounding.ToNegativeInfinity |> equal [ 1.2; -1.3; 1.23; 2.67; -2.68; 1.42; 0.12; -1.01 ]
+        round MidpointRounding.ToPositiveInfinity |> equal [ 1.3; -1.2; 1.24; 2.68; -2.67; 1.43; 0.13; -1. ]
+        Math.Round(1e17, 2, MidpointRounding.AwayFromZero) |> equal 1e17
 
     testCase "Math.Truncate works" <| fun () ->
         Math.Truncate -12.5 |> equal -12.

@@ -465,6 +465,17 @@ let round com (args: Expr list) =
         rounded :: args.Tail
     | _ -> args
 
+let roundCall (com: ICompiler) r t moduleName (i: CallInfo) (args: Expr list) =
+    match List.tryLast i.SignatureArgTypes, args with
+    | Some(Number(_, NumberInfo.IsEnum ent)), _ when ent.FullName = "System.MidpointRounding" ->
+        let args =
+            match args with
+            | [ value; mode ] -> [ value; makeIntConst 0; mode ]
+            | args -> args
+
+        Helper.LibCall(com, moduleName, "roundWithMode", t, args, ?loc = r)
+    | _ -> Helper.LibCall(com, moduleName, "round", t, args, i.SignatureArgTypes, ?loc = r)
+
 let toList com returnType expr =
     Helper.LibCall(com, "List", "ofSeq", returnType, [ expr ])
 
@@ -1657,12 +1668,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "Round", _ ->
         match args with
-        | ExprType(Number(Decimal, _)) :: _ ->
-            Helper.LibCall(com, "Decimal", "round", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
-        | _ ->
-            Helper.LibCall(com, "Util", "round", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-            |> Some
+        | ExprType(Number(Decimal, _)) :: _ -> roundCall com r t "Decimal" i args |> Some
+        | _ -> roundCall com r t "Util" i args |> Some
     | "Truncate", _ ->
         match args with
         | ExprType(Number(Decimal, _)) :: _ ->
@@ -2950,7 +2957,8 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Decimal -> toDecimal com ctx r t args |> Some
             | _ -> None
         | _ -> None
-    | ("Ceiling" | "Floor" | "Round" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth),
+    | "Round", _ -> roundCall com r t "Decimal" i args |> Some
+    | ("Ceiling" | "Floor" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth),
       _ ->
         let meth = Naming.lowerFirst meth
 

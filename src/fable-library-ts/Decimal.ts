@@ -73,6 +73,17 @@ export function round(x: Decimal, digits: number = 0) {
   return x.round(digits, 2 /* ROUND_HALF_EVEN */);
 }
 
+export function roundWithMode(x: Decimal, digits: number, mode: number) {
+  switch (mode) {
+    case 0: return x.round(digits, 2 /* ROUND_HALF_EVEN */);
+    case 1: return x.round(digits, 1 /* ROUND_HALF_UP */);
+    case 2: return x.round(digits, 0 /* ROUND_DOWN */);
+    case 3: return x.round(digits, x.cmp(0) >= 0 ? 0 /* ROUND_DOWN */ : 3 /* ROUND_UP */);
+    case 4: return x.round(digits, x.cmp(0) >= 0 ? 3 /* ROUND_UP */ : 0 /* ROUND_DOWN */);
+    default: throw new Exception(`The value '${mode}' is not valid for this usage of the type MidpointRounding. (Parameter 'mode')`);
+  }
+}
+
 export function truncate(x: Decimal) {
   return x.round(0, 0 /* ROUND_DOWN */);
 }
