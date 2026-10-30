@@ -963,6 +963,41 @@ let ``test Array.randomSampleBy works`` () =
     throwsAnyError (fun () -> Array.randomSampleBy (fun () -> 1.0) 1 [|1; 2|] |> ignore)
     throwsAnyError (fun () -> Array.randomSampleBy (fun () -> -0.1) 1 [|1; 2|] |> ignore)
 
+[<Fact>]
+let ``test Array.randomShuffleBy matches FSharp.Core`` () =
+    Array.randomShuffleBy (fun () -> 0.0) [|0 .. 4|] |> equal [|0; 1; 2; 3; 4|]
+    Array.randomShuffleBy (fun () -> 0.999) [|0 .. 4|] |> equal [|4; 0; 1; 2; 3|]
+    let xs = [|0 .. 4|]
+    Array.randomShuffleInPlaceBy (fun () -> 0.999) xs
+    xs |> equal [|4; 0; 1; 2; 3|]
+    let mutable calls = 0
+    let next () =
+        calls <- calls + 1
+        float ((calls * 37) % 100) / 100.0
+    Array.randomShuffleBy next [|0 .. 9|] |> equal [|3; 7; 2; 6; 9; 0; 8; 4; 5; 1|]
+    calls |> equal 9
+
+[<Fact>]
+let ``test Array.randomSampleBy matches FSharp.Core`` () =
+    Array.randomSampleBy (fun () -> 0.0) 3 [|0 .. 4|] |> equal [|0; 4; 3|]
+    Array.randomSampleBy (fun () -> 0.999) 3 [|0 .. 4|] |> equal [|4; 3; 2|]
+    Array.randomSampleBy (fun () -> 0.0) 0 ([||]: int[]) |> equal [||]
+    // Above the max set size it draws again on a repeated index
+    let values = [|0.0; 0.0; 0.5|]
+    let mutable calls = 0
+    let next () =
+        calls <- calls + 1
+        values[calls - 1]
+    Array.randomSampleBy next 2 [|0 .. 21|] |> equal [|0; 11|]
+    calls |> equal 3
+
+[<Fact>]
+let ``test Array random functions give FSharp.Core's errors`` () =
+    throwsAnyError (fun () -> Array.randomShuffleBy (fun () -> nan) [|1; 2|])
+    raisedExceptionType (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1; 2|]) |> equal "ArgumentOutOfRangeException"
+    throwsErrorContaining "The input must be non-negative.\ncount = -1" (fun () -> Array.randomSampleBy (fun () -> 0.0) -1 [|1|])
+    throwsErrorContaining "The input must be non-negative.\ncount = -1" (fun () -> Array.randomChoicesBy (fun () -> 0.0) -1 [|1|])
+
 // --- CompareWith ---
 
 [<Fact>]

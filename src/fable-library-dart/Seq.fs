@@ -1355,20 +1355,36 @@ let randomShuffleBy (randomizer: unit -> float) (xs: 'T seq) : 'T seq =
     ofArray arr
 
 let randomShuffleWith (random: System.Random) (xs: 'T seq) : 'T seq =
-    randomShuffleBy (fun () -> random.NextDouble()) xs
+    let arr = toArray xs
+    Array.randomShuffleInPlaceWith random arr
+    ofArray arr
 
 let randomShuffle (xs: 'T seq) : 'T seq = randomShuffleWith (System.Random()) xs
 
+let private randomChoiceSource (count: int) (xs: 'T seq) : 'T[] =
+    if count < 0 then
+        invalidArg "count" (SR.inputMustBeNonNegative + "\ncount = " + string count)
+
+    let arr = toArray xs
+
+    if count > 0 && Array.isEmpty arr then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    arr
+
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T seq) : 'T =
-    xs |> toArray |> Array.randomChoiceBy randomizer
+    randomChoiceSource 1 xs |> Array.randomChoiceBy randomizer
 
 let randomChoiceWith (random: System.Random) (xs: 'T seq) : 'T =
-    xs |> toArray |> Array.randomChoiceWith random
+    randomChoiceSource 1 xs |> Array.randomChoiceWith random
 
-let randomChoice (xs: 'T seq) : 'T = xs |> toArray |> Array.randomChoice
+let randomChoice (xs: 'T seq) : 'T =
+    randomChoiceSource 1 xs |> Array.randomChoice
 
+// Draws on enumeration, like FSharp.Core
 let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomChoicesBy randomizer count |> ofArray
+    let arr = randomChoiceSource count xs
+    initialize count (fun _ -> Array.randomChoiceBy randomizer arr)
 
 let randomChoicesWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
     randomChoicesBy (fun () -> random.NextDouble()) count xs
@@ -1380,7 +1396,7 @@ let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T se
     xs |> toArray |> Array.randomSampleBy randomizer count |> ofArray
 
 let randomSampleWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
-    randomSampleBy (fun () -> random.NextDouble()) count xs
+    xs |> toArray |> Array.randomSampleWith random count |> ofArray
 
 let randomSample (count: int) (xs: 'T seq) : 'T seq =
     randomSampleWith (System.Random()) count xs

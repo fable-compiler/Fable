@@ -1412,3 +1412,22 @@ let ``Seq.randomSampleBy works`` () =
     Array.distinct sample |> Array.length |> equal 3
     throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toArray |> ignore)
     throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> Seq.toArray |> ignore)
+
+[<Fact>]
+let ``Seq.randomShuffleWith and randomSampleWith draw like Array's`` () =
+    Seq.randomShuffleWith (System.Random(42)) [0 .. 9] |> Seq.toArray |> equal (Array.randomShuffleWith (System.Random(42)) [|0 .. 9|])
+    Seq.randomSampleWith (System.Random(42)) 3 [0 .. 9] |> Seq.toArray |> equal (Array.randomSampleWith (System.Random(42)) 3 [|0 .. 9|])
+
+[<Fact>]
+let ``Seq.randomChoicesBy draws on enumeration`` () =
+    let mutable calls = 0
+    let xs = Seq.randomChoicesBy (fun () -> calls <- calls + 1; 0.5) 3 [0 .. 9]
+    calls |> equal 0
+    xs |> Seq.toList |> equal [5; 5; 5]
+    xs |> Seq.toList |> equal [5; 5; 5]
+    calls |> equal 6
+    let rng = System.Random(42)
+    let ys = Seq.randomChoicesWith rng 3 [0 .. 9]
+    rng.Next() |> equal (System.Random(42).Next())
+    ys |> Seq.length |> equal 3
+    throwsErrorContaining "The input must be non-negative.\ncount = -1" (fun () -> Seq.randomChoicesWith rng -1 [1])

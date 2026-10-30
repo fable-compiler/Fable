@@ -3,6 +3,7 @@
 -export([
     new/0,
     new_seeded/1,
+    shared/0,
     next/1,
     next/2,
     next/3,
@@ -27,6 +28,18 @@ new_seeded(Seed) ->
     put(Ref, rand:seed_s(exsss, Seed)),
     Ref.
 
+%% Random.Shared: one unseeded instance per process.
+-spec shared() -> reference().
+shared() ->
+    case get(fable_random_shared) of
+        undefined ->
+            Ref = new(),
+            put(fable_random_shared, Ref),
+            Ref;
+        Ref ->
+            Ref
+    end.
+
 %% Random.Next() — returns a non-negative integer less than Int32.MaxValue.
 -spec next(reference()) -> non_neg_integer().
 next(Ref) ->
@@ -36,24 +49,29 @@ next(Ref) ->
 
 %% Random.Next(maxValue) — returns a non-negative integer less than maxValue.
 -spec next(reference(), integer()) -> non_neg_integer().
+next(_Ref, MaxValue) when MaxValue < 0 ->
+    out_of_range(
+        <<"maxValue">>,
+        <<"maxValue ('", (erlang:integer_to_binary(MaxValue))/binary, "') must be a non-negative value.">>
+    );
 next(_Ref, 0) ->
     0;
-next(Ref, MaxValue) when MaxValue > 0 ->
+next(Ref, MaxValue) ->
     {Val, NewState} = rand:uniform_s(MaxValue, get(Ref)),
     put(Ref, NewState),
-    Val - 1;
-next(_, _) ->
-    erlang:error(badarg).
+    Val - 1.
 
 %% Random.Next(minValue, maxValue) — returns an integer in [minValue, maxValue).
 -spec next(reference(), integer(), integer()) -> integer().
-next(Ref, MinValue, MaxValue) when MaxValue > MinValue ->
+next(_Ref, MinValue, MaxValue) when MinValue > MaxValue ->
+    out_of_range(<<"minValue">>, <<"'minValue' cannot be greater than maxValue.">>);
+next(_Ref, MinValue, MinValue) ->
+    MinValue;
+next(Ref, MinValue, MaxValue) ->
     Range = MaxValue - MinValue,
     {Val, NewState} = rand:uniform_s(Range, get(Ref)),
     put(Ref, NewState),
-    MinValue + Val - 1;
-next(_, _, _) ->
-    erlang:error(badarg).
+    MinValue + Val - 1.
 
 %% Random.NextDouble() — returns a float in [0.0, 1.0).
 -spec next_double(reference()) -> float().
@@ -76,3 +94,9 @@ fill_random_bytes(Ref, AtomicsRef, Remaining, Idx) ->
     put(Ref, NewState),
     atomics:put(AtomicsRef, Idx, Val - 1),
     fill_random_bytes(Ref, AtomicsRef, Remaining - 1, Idx + 1).
+
+out_of_range(ParamName, Message) ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message => fable_utils:argument_exception_message(Message, ParamName)
+    }).

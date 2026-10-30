@@ -1279,22 +1279,40 @@ let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]) ([<OptionalArgument; Inje
 
     target
 
-let randomShuffleInPlaceBy (randomizer: unit -> float) (xs: 'T[]) : unit =
+// Ports FSharp.Core's Random helpers so results and draw counts match .NET for the same seed
+let private randomNext (randomizer: unit -> float) (minValue: int) (maxValue: int) : int =
+    let r = randomizer ()
+
+    if not (r >= 0.0 && r < 1.0) then
+        let msg =
+            "The index is outside the legal range.\nrandomizer returned "
+            + string r
+            + ", should be in range [0.0, 1.0)."
+
+        raise (System.ArgumentOutOfRangeException("randomizer", msg))
+
+    int (r * float (maxValue - minValue)) + minValue
+
+let private checkRandomCount (count: int) =
+    if count < 0 then
+        invalidArg "count" (SR.inputMustBeNonNegative + "\ncount = " + string count)
+
+let private shuffleInPlace (next: int -> int -> int) (xs: 'T[]) : unit =
     let len = xs.Length
 
-    for i = len - 1 downto 1 do
-        let r = randomizer ()
+    for i = 0 to len - 2 do
+        let j = next i len
 
-        if r < 0.0 || r >= 1.0 then
-            raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
+        if j <> i then
+            let tmp = xs[i]
+            xs[i] <- xs[j]
+            xs[j] <- tmp
 
-        let j = int (r * float (i + 1))
-        let tmp = xs[i]
-        xs[i] <- xs[j]
-        xs[j] <- tmp
+let randomShuffleInPlaceBy (randomizer: unit -> float) (xs: 'T[]) : unit =
+    shuffleInPlace (randomNext randomizer) xs
 
 let randomShuffleInPlaceWith (random: System.Random) (xs: 'T[]) : unit =
-    randomShuffleInPlaceBy (fun () -> random.NextDouble()) xs
+    shuffleInPlace (fun i n -> random.Next(i, n)) xs
 
 let randomShuffleInPlace (xs: 'T[]) : unit =
     randomShuffleInPlaceWith (System.Random()) xs
@@ -1305,21 +1323,17 @@ let randomShuffleBy (randomizer: unit -> float) (xs: 'T[]) : 'T[] =
     arr
 
 let randomShuffleWith (random: System.Random) (xs: 'T[]) : 'T[] =
-    randomShuffleBy (fun () -> random.NextDouble()) xs
+    let arr = copy xs
+    randomShuffleInPlaceWith random arr
+    arr
 
 let randomShuffle (xs: 'T[]) : 'T[] = randomShuffleWith (System.Random()) xs
 
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T[]) : 'T =
     if isEmpty xs then
-        invalidArg "source" SR.inputSequenceEmpty
+        invalidArg "source" "The input array was empty."
 
-    let len = xs.Length
-    let r = randomizer ()
-
-    if r < 0.0 || r >= 1.0 then
-        raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
-
-    xs[int (r * float len)]
+    xs[randomNext randomizer 0 xs.Length]
 
 let randomChoiceWith (random: System.Random) (xs: 'T[]) : 'T =
     randomChoiceBy (fun () -> random.NextDouble()) xs
@@ -1333,25 +1347,13 @@ let randomChoicesBy
     ([<OptionalArgument; Inject>] cons: Cons<'T>)
     : 'T[]
     =
-    if count < 0 then
-        invalidArg "count" SR.inputMustBeNonNegative
+    checkRandomCount count
 
     if count > 0 && isEmpty xs then
         invalidArg "source" SR.inputSequenceEmpty
 
     let len = xs.Length
-
-    initialize
-        count
-        (fun _ ->
-            let r = randomizer ()
-
-            if r < 0.0 || r >= 1.0 then
-                raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
-
-            xs[int (r * float len)]
-        )
-        cons
+    initialize count (fun _ -> xs[randomNext randomizer 0 len]) cons
 
 let randomChoicesWith
     (random: System.Random)
@@ -1365,12 +1367,16 @@ let randomChoicesWith
 let randomChoices (count: int) (xs: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[] =
     randomChoicesWith (System.Random()) count xs cons
 
-let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
-    if count < 0 then
-        invalidArg "count" SR.inputMustBeNonNegative
+let private getMaxSetSizeForSampling (count: int) =
+    if count > 5 then
+        21 + int (4.0 ** ceil (System.Math.Log(float (count * 3), 4.0)))
+    else
+        21
 
-    let arr = copy xs
-    let len = arr.Length
+// Picks from a shrinking pool for small inputs, otherwise draws indices until unseen (FSharp.Core, after CPython)
+let private randomSampleWithNext (next: int -> int -> int) (count: int) (xs: 'T[]) : 'T[] =
+    checkRandomCount count
+    let len = xs.Length
 
     if len = 0 && count > 0 then
         invalidArg "source" SR.inputSequenceEmpty
@@ -1378,21 +1384,33 @@ let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
     if count > len then
         invalidArg "count" SR.notEnoughElements
 
-    for i = 0 to count - 1 do
-        let r = randomizer ()
+    let result = getSubArray xs 0 count
 
-        if r < 0.0 || r >= 1.0 then
-            raise (System.ArgumentOutOfRangeException("randomizer", "The index is outside the legal range."))
+    if len <= getMaxSetSizeForSampling count then
+        let pool = copy xs
 
-        let j = i + int (r * float (len - i))
-        let tmp = arr[i]
-        arr[i] <- arr[j]
-        arr[j] <- tmp
+        for i = 0 to count - 1 do
+            let j = next 0 (len - i)
+            result[i] <- pool[j]
+            pool[j] <- pool[len - i - 1]
+    else
+        let selected = HashSet<int>()
 
-    getSubArray arr 0 count
+        for i = 0 to count - 1 do
+            let mutable j = next 0 len
+
+            while not (selected.Add j) do
+                j <- next 0 len
+
+            result[i] <- xs[j]
+
+    result
+
+let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
+    randomSampleWithNext (randomNext randomizer) count xs
 
 let randomSampleWith (random: System.Random) (count: int) (xs: 'T[]) : 'T[] =
-    randomSampleBy (fun () -> random.NextDouble()) count xs
+    randomSampleWithNext (fun a b -> random.Next(a, b)) count xs
 
 let randomSample (count: int) (xs: 'T[]) : 'T[] =
     randomSampleWith (System.Random()) count xs

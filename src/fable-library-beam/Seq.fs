@@ -1418,16 +1418,30 @@ let randomShuffleWith (random: System.Random) (xs: 'T seq) : 'T seq =
 
 let randomShuffle (xs: 'T seq) : 'T seq = randomShuffleWith (System.Random()) xs
 
+let private randomChoiceSource (count: int) (xs: 'T seq) : 'T[] =
+    if count < 0 then
+        invalidArg "count" (SR.inputMustBeNonNegative + "\ncount = " + string count)
+
+    let arr = toArray xs
+
+    if count > 0 && Array.isEmpty arr then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    arr
+
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T seq) : 'T =
-    xs |> toArray |> Array.randomChoiceBy randomizer
+    randomChoiceSource 1 xs |> Array.randomChoiceBy randomizer
 
 let randomChoiceWith (random: System.Random) (xs: 'T seq) : 'T =
-    xs |> toArray |> Array.randomChoiceWith random
+    randomChoiceSource 1 xs |> Array.randomChoiceWith random
 
-let randomChoice (xs: 'T seq) : 'T = xs |> toArray |> Array.randomChoice
+let randomChoice (xs: 'T seq) : 'T =
+    randomChoiceSource 1 xs |> Array.randomChoice
 
+// Draws on enumeration, like FSharp.Core
 let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomChoicesBy randomizer count |> ofArray
+    let arr = randomChoiceSource count xs
+    initialize count (fun _ -> Array.randomChoiceBy randomizer arr)
 
 let randomChoicesWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
     randomChoicesBy (fun () -> random.NextDouble()) count xs

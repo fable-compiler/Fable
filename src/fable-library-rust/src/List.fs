@@ -1009,11 +1009,16 @@ let randomShuffleBy (randomizer: unit -> float) (xs: 'T list) : 'T list =
     ofArray arr
 
 let randomShuffleWith (random: System.Random) (xs: 'T list) : 'T list =
-    randomShuffleBy (fun () -> random.NextDouble()) xs
+    let arr = toArray xs
+    Array.randomShuffleInPlaceWith random arr
+    ofArray arr
 
 let randomShuffle (xs: 'T list) : 'T list = randomShuffleWith (System.Random()) xs
 
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T list) : 'T =
+    if isEmpty xs then
+        invalidArg "source" SR.inputSequenceEmpty
+
     toArray xs |> Array.randomChoiceBy randomizer
 
 let randomChoiceWith (random: System.Random) (xs: 'T list) : 'T =
@@ -1034,7 +1039,7 @@ let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T l
     toArray xs |> Array.randomSampleBy randomizer count |> ofArray
 
 let randomSampleWith (random: System.Random) (count: int) (xs: 'T list) : 'T list =
-    randomSampleBy (fun () -> random.NextDouble()) count xs
+    toArray xs |> Array.randomSampleWith random count |> ofArray
 
 let randomSample (count: int) (xs: 'T list) : 'T list =
     randomSampleWith (System.Random()) count xs

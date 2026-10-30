@@ -1061,6 +1061,9 @@ let randomShuffleWith (random: System.Random) (xs: 'T list) : 'T list =
 let randomShuffle (xs: 'T list) : 'T list = randomShuffleWith (System.Random()) xs
 
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T list) : 'T =
+    if isEmpty xs then
+        invalidArg "source" SR.inputSequenceEmpty
+
     toArray xs |> Array.randomChoiceBy randomizer
 
 let randomChoiceWith (random: System.Random) (xs: 'T list) : 'T =

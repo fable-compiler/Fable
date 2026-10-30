@@ -2,6 +2,16 @@ module Random
 
 open System
 
+let private checkMaxValue (maxValue: int) =
+    if maxValue < 0 then
+        let msg = "maxValue ('" + string maxValue + "') must be a non-negative value."
+        raise <| ArgumentOutOfRangeException("maxValue", msg)
+
+let private checkMinMaxValue (minValue: int) (maxValue: int) =
+    if minValue > maxValue then
+        let msg = "'minValue' cannot be greater than maxValue."
+        raise <| ArgumentOutOfRangeException("minValue", msg)
+
 module private Native =
     open Fable.Core
     open Fable.Core.JsInterop
@@ -9,8 +19,7 @@ module private Native =
     let random () = JS.Math.random ()
 
     let randomNext (minValue: int, maxValue: int) : int =
-        if (maxValue < minValue) then
-            raise <| ArgumentOutOfRangeException("minValue must be less than maxValue")
+        checkMinMaxValue minValue maxValue
 
         emitJsStatement
             (box () |> nonNull)
@@ -48,7 +57,10 @@ type IRandom =
 type NonSeeded() =
     interface IRandom with
         member _.Next0() = Native.randomNext (0, Int32.MaxValue)
-        member _.Next1(maxValue) = Native.randomNext (0, maxValue)
+
+        member _.Next1(maxValue) =
+            checkMaxValue maxValue
+            Native.randomNext (0, maxValue)
 
         member _.Next2(minValue, maxValue) = Native.randomNext (minValue, maxValue)
 
@@ -145,23 +157,19 @@ type Seeded(seed: int) =
 
         let mutable d = result
         d <- d + float (Int32.MaxValue - 1)
-        d <- d / (2.0 * float (uint (Int32.MaxValue - 1)))
+        d <- d / (2.0 * float Int32.MaxValue - 1.0)
         d
 
     interface IRandom with
         member this.Next0() = this.InternalSample()
 
         member this.Next1(maxValue: int) =
-            if maxValue < 0 then
-                raise <| ArgumentOutOfRangeException("maxValue must be positive")
-
+            checkMaxValue maxValue
             int (this.Sample() * float maxValue)
 
         member this.Next2(minValue: int, maxValue: int) =
-            if minValue > maxValue then
-                raise <| ArgumentOutOfRangeException("minValue must be less than maxValue")
-
-            let range = int64 (maxValue - minValue)
+            checkMinMaxValue minValue maxValue
+            let range = int64 maxValue - int64 minValue
 
             if range <= int64 Int32.MaxValue then
                 int (int (this.Sample() * float range) + minValue)
@@ -177,5 +185,8 @@ type Seeded(seed: int) =
             for i = 0 to buffer.Length - 1 do
                 buffer.[i] <- byte ((int (this.InternalSample())) % (int Byte.MaxValue + 1))
 
+let private sharedRandom = NonSeeded()
+
 let nonSeeded () = NonSeeded()
 let seeded seed = Seeded(seed)
+let shared () = sharedRandom

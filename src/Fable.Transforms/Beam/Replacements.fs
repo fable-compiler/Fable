@@ -4641,6 +4641,7 @@ let private randoms
         match args with
         | [ seed ] -> Helper.LibCall(com, "fable_random", "new_seeded", t, [ seed ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_random", "new", t, [], ?loc = r) |> Some
+    | "get_Shared", None -> Helper.LibCall(com, "fable_random", "shared", t, [], ?loc = r) |> Some
     | "Next", Some thisArg ->
         match args with
         | [] -> Helper.LibCall(com, "fable_random", "next", t, [ thisArg ], ?loc = r) |> Some

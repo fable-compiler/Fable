@@ -106,3 +106,17 @@ let tests () =
         Random(5432).NextBytes(buffer1)
         Random(5432).NextBytes(buffer2)
         buffer1 |> equal buffer2
+
+    testCase "System.Random gives .NET's argument errors" <| fun () ->
+        for rnd in [Random(42); Random()] do
+            throwsErrorContaining "maxValue ('-1') must be a non-negative value. (Parameter 'maxValue')" (fun () -> rnd.Next(-1))
+            throwsErrorContaining "'minValue' cannot be greater than maxValue. (Parameter 'minValue')" (fun () -> rnd.Next(5, 3))
+            raisedExceptionType (fun () -> rnd.Next(-1)) |> equal "ArgumentOutOfRangeException"
+            raisedExceptionType (fun () -> rnd.Next(5, 3)) |> equal "ArgumentOutOfRangeException"
+
+    testCase "System.Random.Shared works" <| fun () ->
+        let x = Random.Shared.Next(5)
+        (x >= 0 && x < 5) |> equal true
+        let x = Random.Shared.NextDouble()
+        (x >= 0.0 && x < 1.0) |> equal true
+        obj.ReferenceEquals(Random.Shared, Random.Shared) |> equal true

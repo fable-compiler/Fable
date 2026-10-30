@@ -3297,6 +3297,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
             ?loc = r
         )
         |> Some
+    | "get_Shared", None -> Helper.LibCall(com, "Random", "shared", t, [], ?loc = r) |> Some
     // Not yet supported
     | ("NextInt64" | "NextSingle"), _ -> None
     | meth, Some thisArg ->

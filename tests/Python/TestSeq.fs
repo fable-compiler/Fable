@@ -1321,6 +1321,20 @@ let ``test Seq.randomSampleBy works`` () =
     throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> Seq.toArray |> ignore)
 
 [<Fact>]
+let ``test Seq.randomChoicesBy draws on enumeration`` () =
+    let mutable calls = 0
+    let xs = Seq.randomChoicesBy (fun () -> calls <- calls + 1; 0.5) 3 [0 .. 9]
+    calls |> equal 0
+    xs |> Seq.toList |> equal [5; 5; 5]
+    xs |> Seq.toList |> equal [5; 5; 5]
+    calls |> equal 6
+    let rng = System.Random(42)
+    let ys = Seq.randomChoicesWith rng 3 [0 .. 9]
+    rng.Next() |> equal (System.Random(42).Next())
+    ys |> Seq.length |> equal 3
+    throwsErrorContaining "The input must be non-negative.\ncount = -1" (fun () -> Seq.randomChoicesWith rng -1 [1])
+
+[<Fact>]
 let ``test Seq.reduce and Seq.reduceBack raise ArgumentException on empty input`` () =
     let xs = Seq.empty<int>
     raisedExceptionType (fun () -> Seq.reduce (+) xs) |> equal "ArgumentException"

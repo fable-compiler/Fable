@@ -3380,16 +3380,11 @@ impl FSharpArray {
         randomizer: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
         let len = self.storage.len();
-        for i in (1..len).rev() {
-            let r: f64 = randomizer.call0()?.extract()?;
-            if r < 0.0 || r >= 1.0 {
-                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
-                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
-                    r
-                )));
+        for i in 0..len.saturating_sub(1) {
+            let j = random_next(randomizer, i, len)?;
+            if j != i {
+                self.swap_items(i, j);
             }
-            let j = (r * (i + 1) as f64) as usize;
-            self.swap_items(i, j);
         }
         Ok(())
     }
@@ -3397,10 +3392,9 @@ impl FSharpArray {
     pub fn random_shuffle_in_place_with(
         &mut self,
         py: Python<'_>,
-        _random: &Bound<'_, PyAny>,
+        random: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let random_module = py.import("random")?;
-        let randomizer = random_module.getattr("random")?;
+        let randomizer = random.getattr("random")?;
         self.random_shuffle_in_place_by(py, &randomizer)
     }
 
@@ -3423,10 +3417,9 @@ impl FSharpArray {
     pub fn random_shuffle_with(
         &self,
         py: Python<'_>,
-        _random: &Bound<'_, PyAny>,
+        random: &Bound<'_, PyAny>,
     ) -> PyResult<FSharpArray> {
-        let random_module = py.import("random")?;
-        let randomizer = random_module.getattr("random")?;
+        let randomizer = random.getattr("random")?;
         self.random_shuffle_by(py, &randomizer)
     }
 
@@ -3444,26 +3437,18 @@ impl FSharpArray {
         let len = self.storage.len();
         if len == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
-                "The input sequence was empty.",
+                "The input array was empty.",
             ));
         }
-        let r: f64 = randomizer.call0()?.extract()?;
-        if r < 0.0 || r >= 1.0 {
-            return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
-                "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
-                r
-            )));
-        }
-        self.storage.get(py, (r * len as f64) as usize)
+        self.storage.get(py, random_next(randomizer, 0, len)?)
     }
 
     pub fn random_choice_with(
         &self,
         py: Python<'_>,
-        _random: &Bound<'_, PyAny>,
+        random: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let random_module = py.import("random")?;
-        let randomizer = random_module.getattr("random")?;
+        let randomizer = random.getattr("random")?;
         self.random_choice_by(py, &randomizer)
     }
 
@@ -3479,11 +3464,7 @@ impl FSharpArray {
         randomizer: &Bound<'_, PyAny>,
         count: isize,
     ) -> PyResult<FSharpArray> {
-        if count < 0 {
-            return Err(PyErr::new::<exceptions::PyValueError, _>(
-                "The input must be non-negative.",
-            ));
-        }
+        check_random_count(count)?;
         let count = count as usize;
         let xs_len = self.storage.len();
         if count > 0 && xs_len == 0 {
@@ -3501,14 +3482,7 @@ impl FSharpArray {
         let first = self.storage.get(py, 0)?;
         let mut result = FSharpArray::create(py, count, first.bind(py))?;
         for i in 0..count {
-            let r: f64 = randomizer.call0()?.extract()?;
-            if r < 0.0 || r >= 1.0 {
-                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
-                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
-                    r
-                )));
-            }
-            let src_idx = (r * xs_len as f64) as usize;
+            let src_idx = random_next(randomizer, 0, xs_len)?;
             let val = self.storage.get(py, src_idx)?;
             result.__setitem__(i as isize, val.bind(py), py)?;
         }
@@ -3518,11 +3492,10 @@ impl FSharpArray {
     pub fn random_choices_with(
         &self,
         py: Python<'_>,
-        _random: &Bound<'_, PyAny>,
+        random: &Bound<'_, PyAny>,
         count: isize,
     ) -> PyResult<FSharpArray> {
-        let random_module = py.import("random")?;
-        let randomizer = random_module.getattr("random")?;
+        let randomizer = random.getattr("random")?;
         self.random_choices_by(py, &randomizer, count)
     }
 
@@ -3538,14 +3511,9 @@ impl FSharpArray {
         randomizer: &Bound<'_, PyAny>,
         count: isize,
     ) -> PyResult<FSharpArray> {
-        if count < 0 {
-            return Err(PyErr::new::<exceptions::PyValueError, _>(
-                "The input must be non-negative.",
-            ));
-        }
+        check_random_count(count)?;
         let count = count as usize;
-        let mut arr = self.clone();
-        let length = arr.storage.len();
+        let length = self.storage.len();
         if length == 0 && count > 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
                 "The input sequence was empty.",
@@ -3556,28 +3524,40 @@ impl FSharpArray {
                 "The input sequence has an insufficient number of elements.",
             ));
         }
-        for i in 0..count {
-            let r: f64 = randomizer.call0()?.extract()?;
-            if r < 0.0 || r >= 1.0 {
-                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
-                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
-                    r
-                )));
-            }
-            let j = i + (r * (length - i) as f64) as usize;
-            arr.swap_items(i, j);
+        if length == 0 {
+            return FSharpArray::empty(py, None);
         }
-        arr.get_sub_array(py, 0, count, None)
+        // FSharp.Core's algorithm: a shrinking pool for small inputs, otherwise redraw seen indices
+        let mut result = self.get_sub_array(py, 0, count, None)?;
+        if length <= max_set_size_for_sampling(count) {
+            let mut pool: Vec<usize> = (0..length).collect();
+            for i in 0..count {
+                let j = random_next(randomizer, 0, length - i)?;
+                let item = self.storage.get(py, pool[j])?;
+                result.__setitem__(i as isize, item.bind(py), py)?;
+                pool[j] = pool[length - i - 1];
+            }
+        } else {
+            let mut selected = std::collections::HashSet::new();
+            for i in 0..count {
+                let mut j = random_next(randomizer, 0, length)?;
+                while !selected.insert(j) {
+                    j = random_next(randomizer, 0, length)?;
+                }
+                let item = self.storage.get(py, j)?;
+                result.__setitem__(i as isize, item.bind(py), py)?;
+            }
+        }
+        Ok(result)
     }
 
     pub fn random_sample_with(
         &self,
         py: Python<'_>,
-        _random: &Bound<'_, PyAny>,
+        random: &Bound<'_, PyAny>,
         count: isize,
     ) -> PyResult<FSharpArray> {
-        let random_module = py.import("random")?;
-        let randomizer = random_module.getattr("random")?;
+        let randomizer = random.getattr("random")?;
         self.random_sample_by(py, &randomizer, count)
     }
 
@@ -3585,6 +3565,40 @@ impl FSharpArray {
         let random_module = py.import("random")?;
         let randomizer = random_module.getattr("random")?;
         self.random_sample_by(py, &randomizer, count)
+    }
+}
+
+// FSharp.Core's Random.next, which rejects a randomizer result outside [0.0, 1.0), NaN included
+fn random_next(
+    randomizer: &Bound<'_, PyAny>,
+    min_value: usize,
+    max_value: usize,
+) -> PyResult<usize> {
+    let r: f64 = randomizer.call0()?.extract()?;
+    if !(0.0..1.0).contains(&r) {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+            "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+            r
+        )));
+    }
+    Ok((r * (max_value - min_value) as f64) as usize + min_value)
+}
+
+fn check_random_count(count: isize) -> PyResult<()> {
+    if count < 0 {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+            "The input must be non-negative.\ncount = {}",
+            count
+        )));
+    }
+    Ok(())
+}
+
+fn max_set_size_for_sampling(count: usize) -> usize {
+    if count > 5 {
+        21 + 4f64.powf((count as f64 * 3.0).log(4.0).ceil()) as usize
+    } else {
+        21
     }
 }
 

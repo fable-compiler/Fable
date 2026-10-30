@@ -1241,6 +1241,13 @@ let ``test List.randomSampleBy works`` () =
     throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)
 
 [<Fact>]
+let ``test List random functions match FSharp.Core`` () =
+    List.randomShuffleBy (fun () -> 0.999) [0 .. 4] |> equal [4; 0; 1; 2; 3]
+    List.randomSampleBy (fun () -> 0.0) 3 [0 .. 4] |> equal [0; 4; 3]
+    throwsErrorContaining "randomizer returned NaN, should be in range [0.0, 1.0)." (fun () -> List.randomChoiceBy (fun () -> nan) [1; 2])
+    throwsErrorContaining "The input sequence was empty." (fun () -> List.randomChoiceWith (System.Random(1)) ([]: int list))
+
+[<Fact>]
 let ``test List.collect works II`` () =
     let xs = ["a"; "fable"; "bar" ]
     xs
