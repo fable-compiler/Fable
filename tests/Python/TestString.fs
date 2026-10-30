@@ -1215,3 +1215,15 @@ let ``test unicode categories`` () =
         Char.IsLetterOrDigit c |> ignore
       )
 #endif
+
+[<Fact>]
+let ``test String slices clamp the bounds like .NET`` () =
+    let s = "abc"
+    s.[-1..1] |> equal "ab"
+    s.[-5..] |> equal "abc"
+    s.[1..5] |> equal "bc"
+    s.[.. -2] |> equal ""
+    s.[-3.. -2] |> equal ""
+    s.[2..1] |> equal ""
+    let lower, upper = -1, 1
+    s.[lower..upper] |> equal "ab"

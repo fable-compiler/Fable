@@ -694,6 +694,17 @@ let tests = testList "Strings" [
         sprintf "%s" s.[2..] |> equal "t and dog"
         sprintf "%s" s.[..8] |> equal "cat and d"
 
+    testCase "String slices clamp the bounds like .NET" <| fun () -> // See #5164
+        let s = "abc"
+        s.[-1..1] |> equal "ab"
+        s.[-5..] |> equal "abc"
+        s.[1..5] |> equal "bc"
+        s.[.. -2] |> equal ""
+        s.[-3.. -2] |> equal ""
+        s.[2..1] |> equal ""
+        let lower, upper = -1, 1
+        s.[lower..upper] |> equal "ab"
+
     testCase "String.Format works" <| fun () ->
         let arg1, arg2, arg3 = "F#", "Fable", "Babel"
         String.Format(CultureInfo.InvariantCulture, "{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)

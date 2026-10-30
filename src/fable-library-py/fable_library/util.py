@@ -762,6 +762,11 @@ def random_shared() -> random.Random:
     return _shared_random
 
 
+def slice_index(index: int) -> int:
+    """Clamp a slice bound to 0, as .NET does where Python would count from the end."""
+    return index if index > 0 else 0
+
+
 def random_int(rand: random.Random, a: int, b: int) -> int:
     if a == b:
         return int32(a)
@@ -990,6 +995,7 @@ __all__ = [
     "random_shared",
     "range",
     "round",
+    "slice_index",
     "to_iterable",
     "unescape_data_string",
 ]

@@ -230,6 +230,21 @@ let tests =
         a.[3..3] <- [|999|]
         a |> equal [|999; 2; 3; 999; 5; 6|]
 
+    testCase "Array slices clamp the bounds like .NET" <| fun () -> // See #5164
+        let xs = [| 1; 2; 3 |]
+        xs.[-1..1] |> equal [| 1; 2 |]
+        xs.[-5..] |> equal [| 1; 2; 3 |]
+        xs.[1..5] |> equal [| 2; 3 |]
+        xs.[..5] |> equal [| 1; 2; 3 |]
+        xs.[.. -2] |> equal [||]
+        xs.[-5.. -1] |> equal [||]
+        xs.[5..6] |> equal [||]
+        xs.[2..1] |> equal [||]
+        let lower, upper = -1, 1
+        xs.[lower..upper] |> equal [| 1; 2 |]
+        let strings = [| "a"; "b"; "c" |]
+        strings.[-1..1] |> equal [| "a"; "b" |]
+
     testCase "Array literals work" <| fun () ->
         let x = [| 1; 2; 3; 4; 5 |]
         equal 5 x.Length
