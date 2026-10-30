@@ -4448,6 +4448,18 @@ but thanks to the optimisation done below we get
 
             declareType com ctx ent entName doc args body baseExpr classMembers
 
+    let baseCallIdents (baseCall: Fable.Expr option) =
+        match baseCall with
+        | Some(Fable.Call(_, info, _, _)) ->
+            info.Args
+            |> List.choose (
+                function
+                | Fable.IdentExpr id -> Some id
+                | _ -> None
+            )
+            |> List.toArray
+        | _ -> [||]
+
     let transformClassWithCompilerGeneratedConstructor
         (com: IBabelCompiler)
         ctx
@@ -4459,19 +4471,25 @@ but thanks to the optimisation done below we get
         let fieldIds = getEntityFieldsAsIdents ent |> List.toArray
         let args = fieldIds |> Array.map identAsExpr
 
-        let baseExpr =
+        let baseExpr, superArgs, baseFieldIds =
             if ent.IsFSharpExceptionDeclaration then
-                libValue com ctx "Types" "FSharpException" |> SuperExpression |> Some
+                libValue com ctx "Types" "FSharpException" |> SuperExpression |> Some, [], [||]
             elif ent.IsFSharpRecord || ent.IsValueType then
-                libValue com ctx "Types" "Record" |> SuperExpression |> Some
+                libValue com ctx "Types" "Record" |> SuperExpression |> Some, [], [||]
             else
-                None
+                let baseType =
+                    ent.BaseType
+                    |> Option.map (fun d -> Fable.DeclaredType(d.Entity, d.GenericArgs))
+
+                match extractSuperClassFromBaseCall com ctx baseType decl.BaseCall with
+                | Some(baseExpr, superArgs) -> Some baseExpr, superArgs, baseCallIdents decl.BaseCall
+                | None -> None, [], [||]
 
         let body =
             BlockStatement(
                 [|
                     if Option.isSome baseExpr then
-                        yield callSuperAsStatement []
+                        yield callSuperAsStatement superArgs
                     yield!
                         ent.FSharpFields
                         |> List.filter (fun field -> not field.IsStatic)
@@ -4487,7 +4505,7 @@ but thanks to the optimisation done below we get
             )
 
         let args =
-            fieldIds
+            Array.append baseFieldIds fieldIds
             |> Array.map (fun fi ->
                 Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
             )

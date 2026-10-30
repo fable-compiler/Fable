@@ -1020,7 +1020,7 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
 
         let cons, baseCall =
             match decl.Constructor, decl.BaseCall with
-            | None, _ -> None, None
+            | None, baseCall -> None, baseCall
             | Some cons, None -> uncurryMemberArgs cons |> transformMemberBody com |> Some, None
             | Some cons, Some baseCall ->
                 // In order to uncurry correctly the baseCall arguments,

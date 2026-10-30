@@ -894,6 +894,60 @@ let walkLazyTree (tree: LazyTree<Lazy<'a>>) : string =
 
     loop tree
 
+type ValClassBase =
+    val Id: int
+    val Label: string
+    new (id: int) = { Id = id * 10; Label = "base" }
+    member this.Describe() = this.Label + ":" + string this.Id
+
+type ValClassChild =
+    inherit ValClassBase
+    val Extra: float
+    new (id: int, extra: float) = { inherit ValClassBase(id); Extra = extra }
+
+type ValClassGrandChild =
+    inherit ValClassChild
+    val Flag: bool
+    new (id: int, extra: float, flag: bool) =
+        let doubled = id * 2
+        { inherit ValClassChild(doubled, extra); Flag = flag }
+
+let mutable valClassBaseCalls = 0
+
+type ValClassCounting =
+    val N: int
+    new (n: int) =
+        valClassBaseCalls <- valClassBaseCalls + 1
+        { N = n }
+
+type ValClassCountingChild =
+    inherit ValClassCounting
+    val M: int
+    new (n: int, m: int) = { inherit ValClassCounting(n); M = m }
+
+type ValClassDefaultBase =
+    val Tag: string
+    new () = { Tag = "default" }
+
+type ValClassDefaultChild =
+    inherit ValClassDefaultBase
+    val Value: int
+    new (value: int) = { inherit ValClassDefaultBase(); Value = value }
+
+type ValClassGenericBase<'T> =
+    val Value: 'T
+    new (v: 'T) = { Value = v }
+
+type ValClassIntBox =
+    inherit ValClassGenericBase<int>
+    val Tag: string
+    new (v: int, t: string) = { inherit ValClassGenericBase<int>(v); Tag = t }
+
+type ValClassPairBox<'U> =
+    inherit ValClassGenericBase<'U * 'U>
+    val Count: int
+    new (a: 'U, b: 'U) = { inherit ValClassGenericBase<'U * 'U>((a, b)); Count = 2 }
+
 let tests =
   testList "Types" [
 
@@ -1838,4 +1892,41 @@ let tests =
     testCase "Nested lambda does not shadow an outer generic type parameter" <| fun () ->
         let box = mapGenericMethodBox 42
         box.Get() |> List.ofSeq |> equal [ 42 ]
+
+    testCase "Explicit constructor calls the base constructor" <| fun () ->
+        let child = ValClassChild(3, 1.5)
+        child.Id |> equal 30
+        child.Label |> equal "base"
+        child.Extra |> equal 1.5
+        child.Describe() |> equal "base:30"
+        (child :> ValClassBase).Id |> equal 30
+        (box child :? ValClassBase) |> equal true
+
+    testCase "Explicit constructors chain through several levels" <| fun () ->
+        let g = ValClassGrandChild(2, 0.5, true)
+        g.Id |> equal 40
+        g.Label |> equal "base"
+        g.Extra |> equal 0.5
+        g.Flag |> equal true
+        g.Describe() |> equal "base:40"
+
+    testCase "Explicit constructor runs the base constructor once" <| fun () ->
+        valClassBaseCalls <- 0
+        let c = ValClassCountingChild(5, 6)
+        valClassBaseCalls |> equal 1
+        c.N |> equal 5
+        c.M |> equal 6
+
+    testCase "Explicit constructor calls a parameterless base constructor" <| fun () ->
+        let c = ValClassDefaultChild(9)
+        c.Tag |> equal "default"
+        c.Value |> equal 9
+
+    testCase "Explicit constructor resolves the generic arguments of the base class" <| fun () ->
+        let intBox = ValClassIntBox(5, "x")
+        intBox.Value |> equal 5
+        intBox.Tag |> equal "x"
+        let pairBox = ValClassPairBox("a", "b")
+        pairBox.Value |> equal ("a", "b")
+        pairBox.Count |> equal 2
   ]
