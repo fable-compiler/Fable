@@ -2644,10 +2644,17 @@ let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (th
     | _ -> None
 
 let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let toArray r t arg =
+    // The array element type is the option's, not the type returned by the replaced call
+    let toArray r (arg: Expr) =
         let genArgs = List.truncate 1 i.GenericArgs
 
-        Helper.LibCall(com, "Option", "toArray", Array(t, MutableArray), [ arg ], genArgs = genArgs, ?loc = r)
+        let elementType =
+            match arg.Type, genArgs with
+            | Option(t, _), _
+            | _, [ t ] -> t
+            | _ -> Any
+
+        Helper.LibCall(com, "Option", "toArray", Array(elementType, MutableArray), [ arg ], genArgs = genArgs, ?loc = r)
 
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
@@ -2668,9 +2675,9 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "Map3", [ mapping; opt1; opt2; opt3 ] -> Options.map3 com ctx r t isStruct mapping opt1 opt2 opt3 |> Some
     | "Bind", [ binder; opt ] -> Options.bind com ctx r t isStruct binder opt |> Some
     | "Filter", [ predicate; opt ] -> Options.filter com ctx r isStruct predicate opt |> Some
-    | "ToArray", [ arg ] -> toArray r t arg |> Some
+    | "ToArray", [ arg ] -> toArray r arg |> Some
     | "ToList", [ arg ] ->
-        let args = args |> List.replaceLast (toArray None t)
+        let args = args |> List.replaceLast (toArray None)
         Helper.LibCall(com, "List", "ofArray", t, args, ?loc = r) |> Some
     | "FoldBack", [ folder; opt; state ] ->
         Helper.LibCall(
@@ -2678,7 +2685,7 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
             "Seq",
             "foldBack",
             t,
-            [ folder; toArray None t opt; state ],
+            [ folder; toArray None opt; state ],
             i.SignatureArgTypes,
             genArgs = i.GenericArgs,
             ?loc = r
@@ -2691,7 +2698,7 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "Iterate", [ action; opt ] -> Options.iterate com ctx r t action opt |> Some
     | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" as meth), _ ->
         let meth = Naming.lowerFirst meth
-        let args = args |> List.replaceLast (toArray None t)
+        let args = args |> List.replaceLast (toArray None)
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
 
         Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
@@ -3419,12 +3426,14 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | Number(UInt64, _) -> "getBytesUInt64"
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
 
-        let expr =
-            Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
-
         if com.Options.TypedArrays then
-            expr |> Some
+            Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
         else
+            // The library returns a typed array regardless of the typedArrays option
+            let expr =
+                Helper.LibCall(com, "BitConverter", memberName, Any, args, i.SignatureArgTypes, ?loc = r)
+
             toArray r t expr |> Some // convert to dynamic array
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
