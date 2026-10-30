@@ -21,7 +21,7 @@ function formatDateLike(rep: any, format: string | undefined): string {
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/g;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
-const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
+const formatRegExp = /\{\{|\}\}|\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 
 function isLessThan(x: Numeric, y: number) {
   return numericCompare(x, y) < 0;
@@ -424,7 +424,10 @@ export function format(str: string | object, ...args: any[]) {
     str2 = str;
   }
 
-  return str2.replace(formatRegExp, (_, idx: number, padLength, format, precision, pattern) => {
+  return str2.replace(formatRegExp, (match, idx: number, padLength, format, precision, pattern) => {
+    if (match === "{{" || match === "}}") {
+      return match[0];
+    }
     if (idx < 0 || idx >= args.length) {
       throw new Exception("Index must be greater or equal to zero and less than the arguments' length.")
     }

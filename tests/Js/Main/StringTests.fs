@@ -706,6 +706,13 @@ let tests = testList "Strings" [
                 .Replace(",", ".").Replace(" %", "%")
         |> equal "0.55 54.67% 2014-09-26 00:19"
 
+    testCase "String.Format unescapes doubled braces" <| fun () -> // See #5163
+        String.Format(CultureInfo.InvariantCulture, "{{{0}}}", 5) |> equal "{5}"
+        String.Format(CultureInfo.InvariantCulture, "{{x}} {0}", 1) |> equal "{x} 1"
+        String.Format(CultureInfo.InvariantCulture, "}}{{", 1) |> equal "}{"
+        String.Format(CultureInfo.InvariantCulture, "{{{0:N1}}}", 2.26) |> equal "{2.3}"
+        String.Format(CultureInfo.InvariantCulture, "{{{0,4}}}", 5) |> equal "{   5}"
+
 // String.Format has to recognise the value at runtime. The default JS
 // representation passes a Date for DateOnly and a number for TimeOnly and
 // TimeSpan, which are indistinguishable from a DateTime and a float, so only
