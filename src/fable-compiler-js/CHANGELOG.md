@@ -1,5 +1,5 @@
 ---
-last_commit_released: cac5ddd9a99205e0bb5272f1ffd8f0cca937824c
+last_commit_released: 7319a994a9c3be7d31348d29d2c464482b5f21f9
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 4.5.0 - 2026-10-30
+
+### 🚀 Features
+
+* *(js/ts/python/dart/rust/beam)* Support Convert.ToHexString, ToHexStringLower and FromHexString (#5204) ([3a3acf4e](https://github.com/fable-compiler/Fable/commit/3a3acf4ee213abb07fc4f7b98af69a6f8e68b571))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Round float32 results like .NET (#5222) ([7b176e7e](https://github.com/fable-compiler/Fable/commit/7b176e7e13bee118a21b8358e6eed65c19ac9549))
+* *(js/ts/python)* Call base ctor from explicit constructors (#5226) ([508026e7](https://github.com/fable-compiler/Fable/commit/508026e73511f2636245515b8ec9476176e34b5c))
+* *(js/ts/python)* Clamp negative slice bounds like .NET (#5232) ([7319a994](https://github.com/fable-compiler/Fable/commit/7319a994a9c3be7d31348d29d2c464482b5f21f9))
+* *(js/ts/python/dart/rust/beam)* Use FSharp.Core's algorithms for random collection functions (#5197) ([dd860cc1](https://github.com/fable-compiler/Fable/commit/dd860cc179e0802d46eebb4110580e1edbf64cb8))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/cac5ddd9a99205e0bb5272f1ffd8f0cca937824c..7319a994a9c3be7d31348d29d2c464482b5f21f9)</small></strong>
 
 ## 4.4.0 - 2026-10-29
 
