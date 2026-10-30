@@ -55,6 +55,19 @@ module TypedArrays =
     let float64s = JS.Constructors.Float64Array.Create [| 1.5; -2.5 |]
     let bigInt64s = JS.Constructors.BigInt64Array.Create 2
     let makeFloat32s () = JS.Constructors.Float32Array.Create [| 0.0; 1.0 |]
+
+// Arrays that can't be typed arrays are annotated as `T[]`, so tsc accepts them for TS APIs taking `T[]`, see #5223
+module PlainArrays =
+    type Item = { Names: string[] }
+
+    // lib.dom declares the Blob constructor with a `BlobPart[]` parameter
+    [<Emit("new Blob($0).size")>]
+    let blobSize (parts: obj[]) : int = nativeOnly
+
+    let blobSizeOf (parts: obj[]) = blobSize parts
+
+    [<Emit("$0.concat($1)")>]
+    let concat (xs: string[]) (ys: string[]) : string[] = nativeOnly
 #endif
 
 let tests =
@@ -119,5 +132,11 @@ let tests =
         TypedArrays.float64s.[1] |> equal -2.5
         TypedArrays.bigInt64s.length |> equal 2
         TypedArrays.makeFloat32s().[1] |> equal 1.0f
+
+    testCase "Arrays that can't be typed arrays can be passed to TS APIs taking T[]" <| fun () ->
+        PlainArrays.blobSizeOf [| box "ab"; box "c" |] |> equal 3
+        [| "ab"; "c" |] |> Array.map box |> PlainArrays.blobSize |> equal 3
+        let item: PlainArrays.Item = { Names = [| "a" |] }
+        PlainArrays.concat item.Names (Array.map string [| 1; 2 |]) |> equal [| "a"; "1"; "2" |]
     #endif
   ]

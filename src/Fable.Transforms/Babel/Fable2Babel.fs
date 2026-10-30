@@ -48,6 +48,8 @@ type Context =
         OptimizeTailCall: unit -> unit
         ScopedTypeParams: Set<string>
         BoundTypes: Map<string, Fable.Type>
+        /// Local functions bound to a value other than a lambda, so TypeScript infers their type from that value
+        InferredFunctionIdents: Set<string>
         ForcedIdents: Set<string>
     }
 
@@ -737,13 +739,36 @@ module Annotation =
         |> List.toArray
         |> TupleTypeAnnotation
 
+    /// Only arrays of generic or numeric elements can be typed arrays at runtime,
+    /// so all other arrays are annotated as `T[]` instead of `MutableArray<T>`
+    let isPlainArray com genArg kind =
+        match kind, genArg with
+        | Fable.ResizeArray, _ -> true
+        | _, Fable.GenericParam _
+        | _, JS.Replacements.TypedArrayCompatible com kind _ -> false
+        | _ -> true
+
+    /// Whether the type has an F# array annotated as `T[]` that a generic declaration types as `MutableArray<T>`
+    let rec containsPlainFSharpArray com (t: Fable.Type) =
+        match t with
+        | Fable.Array(genArg, (Fable.MutableArray | Fable.ImmutableArray as kind)) when isPlainArray com genArg kind ->
+            true
+        // Function types aren't cast, see OptionValue in transformGet
+        | Fable.LambdaType _
+        | Fable.DelegateType _ -> false
+        | t -> t.Generics |> List.exists (containsPlainFSharpArray com)
+
+    let rec containsGenericArray (t: Fable.Type) =
+        match t with
+        | Fable.Array(Fable.GenericParam _, (Fable.MutableArray | Fable.ImmutableArray)) -> true
+        | t -> t.Generics |> List.exists containsGenericArray
+
     let makeArrayTypeAnnotation com ctx genArg kind =
-        match kind with
-        | Fable.ResizeArray ->
+        if isPlainArray com genArg kind then
             // makeNativeTypeAnnotation com ctx [genArg] "Array"
             makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
-        | Fable.MutableArray
-        | Fable.ImmutableArray -> makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "MutableArray"
+        else
+            makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "MutableArray"
 
     let makeListTypeAnnotation com ctx genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "List" "FSharpList"
@@ -1353,6 +1378,29 @@ module Util =
         let genArgs = makeTypeParamInstantiationIfTypeScript com ctx genArgs
 
         Expression.callExpression (funcExpr, List.toArray args, ?typeArguments = genArgs, ?loc = r)
+
+    /// Generic declarations type `'T[]` as `MutableArray<T>`, which TypeScript won't assign to
+    /// the `T[]` annotation of an array that can't be a typed array, see makeArrayTypeAnnotation
+    let castFromGenericArray (com: IBabelCompiler) ctx typ isFromGenericArray (expr: Expression) =
+        if com.IsTypeScript && isFromGenericArray && containsPlainFSharpArray com typ then
+            AsExpression(expr, makeTypeAnnotation com ctx typ)
+        else
+            expr
+
+    let bindLocalType ctx (ident: Fable.Ident) (value: Fable.Expr) =
+        let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
+
+        match ident.Type, value with
+        | (Fable.LambdaType _ | Fable.DelegateType _), Function _ -> ctx
+        | (Fable.LambdaType _ | Fable.DelegateType _), _ ->
+            { ctx with InferredFunctionIdents = Set.add ident.Name ctx.InferredFunctionIdents }
+        | _ -> ctx
+
+    /// A local generic lambda returns `MutableArray<T>`, and so may a function bound to another value,
+    /// like `let toArray = Seq.toArray`, because TypeScript infers its type from the generic value
+    let localFunctionMayReturnGenericArray ctx (ident: Fable.Ident) =
+        Set.contains ident.Name ctx.InferredFunctionIdents
+        || Map.tryFind ident.Name ctx.BoundTypes |> Option.exists containsGenericArray
 
     let callFunctionWithThisContext r funcExpr (args: Expression list) =
         let args = thisExpr :: args |> List.toArray
@@ -2504,6 +2552,15 @@ but thanks to the optimisation done below we get
             | Some memberInfo when hasAttribute Atts.jsxComponent memberInfo.Attributes ->
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
+                let mayReturnGenericArray =
+                    match memberInfo, callee with
+                    | Some memberInfo, _ -> containsGenericArray memberInfo.ReturnParameter.Type
+                    | None, MaybeCasted(Fable.IdentExpr id) -> localFunctionMayReturnGenericArray ctx id
+                    // The call type is the value type, but createAtom returns a getter/setter function
+                    | None, Fable.Import({ Selector = "createAtom" }, _, _) -> false
+                    | None, Fable.Import({ Kind = Fable.LibraryImport _ }, _, _) -> true
+                    | None, _ -> not (List.isEmpty callInfo.GenericArgs)
+
                 let callee = com.TransformAsExpr(ctx, callee)
 
                 let nonNamedArgs, namedArgs = transformCallArgsWithNamedArgs com ctx callInfo
@@ -2535,17 +2592,25 @@ but thanks to the optimisation done below we get
                             ?typeArguments = typeParamInst,
                             ?loc = range
                         )
-                | None -> callFunction com ctx range callee callInfo.GenericArgs args
+                | None ->
+                    callFunction com ctx range callee callInfo.GenericArgs args
+                    |> castFromGenericArray com ctx typ mayReturnGenericArray
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
+                    |> castFromGenericArray com ctx typ mayReturnGenericArray
 
-    let transformCurriedApply (com: IBabelCompiler) ctx range (applied: Fable.Expr) args =
+    let transformCurriedApply (com: IBabelCompiler) ctx range typ (applied: Fable.Expr) args =
         // decision: declaration types preserve generic unit arguments despite specialized identifier types at call sites
         let appliedType =
             match applied with
             // invariant: FSharp2Fable makes local names unique within a declaration (getIdentUniqueName)
             | MaybeCasted(Fable.IdentExpr id) -> Map.tryFind id.Name ctx.BoundTypes |> Option.defaultValue id.Type
             | _ -> applied.Type
+
+        let mayReturnGenericArray =
+            match applied with
+            | MaybeCasted(Fable.IdentExpr id) -> localFunctionMayReturnGenericArray ctx id
+            | _ -> false
 
         let applied = com.TransformAsExpr(ctx, applied)
 
@@ -2568,6 +2633,7 @@ but thanks to the optimisation done below we get
             callFunction com ctx range expr [] args, returnType
         )
         |> fst
+        |> castFromGenericArray com ctx typ mayReturnGenericArray
 
     let transformCallAsStatements com ctx range typ returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -2598,7 +2664,7 @@ but thanks to the optimisation done below we get
             optimizeTailCall com ctx range tc args
         | _ ->
             [|
-                transformCurriedApply com ctx range callee args
+                transformCurriedApply com ctx range typ callee args
                 |> resolveExpr typ returnStrategy
             |]
 
@@ -2696,7 +2762,9 @@ but thanks to the optimisation done below we get
                 | _ -> fableExpr
 
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            get range expr info.Name
+            let isGenericArrayField = info.FieldType |> Option.exists containsGenericArray
+
+            get range expr info.Name |> castFromGenericArray com ctx typ isGenericArrayField
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -3286,7 +3354,7 @@ but thanks to the optimisation done below we get
 
         | Fable.Call(callee, info, typ, range) -> transformCall com ctx range typ callee info
 
-        | Fable.CurriedApply(callee, args, _, range) -> transformCurriedApply com ctx range callee args
+        | Fable.CurriedApply(callee, args, typ, range) -> transformCurriedApply com ctx range typ callee args
 
         | Fable.Operation(kind, _, _, range) -> transformOperation com ctx range kind
 
@@ -3306,7 +3374,7 @@ but thanks to the optimisation done below we get
         | Fable.Let(ident, value, body) ->
             if ctx.HoistVars [ ident ] then
                 let assignment = transformBindingAsExpr com ctx ident value
-                let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
+                let ctx = bindLocalType ctx ident value
 
                 Expression.sequenceExpression ([| assignment; com.TransformAsExpr(ctx, body) |])
             else
@@ -3427,7 +3495,7 @@ but thanks to the optimisation done below we get
 
         | Fable.Let(ident, value, body) ->
             let binding = transformBindingAsStatements com ctx ident value
-            let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
+            let ctx = bindLocalType ctx ident value
 
             Array.append binding (transformAsStatements com ctx returnStrategy body)
 
@@ -5235,6 +5303,7 @@ module Compiler =
                 OptimizeTailCall = fun () -> ()
                 ScopedTypeParams = Set.empty
                 BoundTypes = Map.empty
+                InferredFunctionIdents = Set.empty
                 ForcedIdents = Set.empty
             }
 
