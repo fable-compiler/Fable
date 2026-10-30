@@ -868,6 +868,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeImportLib com Any "Exception" "Util" |> Some
     | "System.OperationCanceledException" -> makeImportLib com Any "OperationCanceledException" "AsyncBuilder" |> Some
+    | "System.Threading.Tasks.TaskCanceledException" ->
+        makeImportLib com Any "TaskCanceledException" "AsyncBuilder" |> Some
     | "System.Collections.Generic.KeyNotFoundException" ->
         makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic"
         |> Some
@@ -3346,6 +3348,19 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        // The library classes have no CancellationToken or Task property
+        | "System.OperationCanceledException"
+        | "System.Threading.Tasks.TaskCanceledException" as entName ->
+            let args =
+                match List.tryLast i.SignatureArgTypes with
+                | Some(DeclaredTypeFullName(Types.cancellationToken | Types.task)) ->
+                    List.truncate (List.length args - 1) args
+                | _ -> args
+
+            let className = entName.Substring(entName.LastIndexOf('.') + 1)
+
+            Helper.LibCall(com, "AsyncBuilder", className, t, args, isConstructor = true, ?loc = r)
+            |> Some
         | _ ->
             Helper.LibCall(com, "Util", "Exception", Any, args, isConstructor = true)
             |> Some
@@ -4097,12 +4112,15 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let isRegistration =
+        i.DeclaringEntityFullName = "System.Threading.CancellationTokenRegistration"
+
     match i.CompiledName with
     | "get_None" // TODO: implement as non-cancellable token
     | ".ctor" ->
         Helper.LibCall(com, "Async", "createCancellationToken", t, args, i.SignatureArgTypes)
         |> Some
-    | "get_Token" -> thisArg
+    | "get_Token" when not isRegistration -> thisArg
     | "Cancel"
     | "CancelAfter"
     | "get_IsCancellationRequested"
@@ -4122,8 +4140,21 @@ let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             ?loc = r
         )
         |> Some
+    | "CreateLinkedTokenSource" ->
+        let tokens =
+            match args with
+            | [ ExprType(Array _) as tokens ] -> tokens
+            | tokens -> makeArray (List.head i.SignatureArgTypes) tokens
+
+        Helper.LibCall(com, "Async", "createLinkedTokenSource", t, [ tokens ], ?loc = r)
+        |> Some
+    // A default registration is null, see disposables
+    | "Dispose" when isRegistration ->
+        Helper.LibCall(com, "Util", "disposeSafe", t, [ thisArg.Value ], ?loc = r)
+        |> Some
     // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
-    | "Dispose" -> Null Type.Unit |> makeValue r |> Some
+    | "Dispose"
+    | "Unregister" -> Helper.InstanceCall(thisArg.Value, i.CompiledName, t, [], ?loc = r) |> Some
     | "Register" ->
         Helper.InstanceCall(thisArg.Value, "register", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -4413,7 +4444,7 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "RunSynchronously" -> None
     // Task<T> is Promise<T> in JS/TS
     | "AwaitTask" ->
-        Helper.LibCall(com, "Async", "awaitPromise", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        Helper.LibCall(com, "Async", "awaitTask", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     // Fable.Core extensions
     | meth ->
@@ -4505,6 +4536,14 @@ let tasks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             isConstructor = true,
             ?loc = r
         )
+        |> Some
+    // Like awaiting on .NET, awaiters see the first exception of the seq overloads
+    | Some x, ("SetException" | "TrySetException" as meth) when
+        (match i.SignatureArgTypes with
+         | [ IEnumerable ] -> true
+         | _ -> false)
+        ->
+        Helper.InstanceCall(x, meth + "s", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | Some x, meth ->
         Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
@@ -5035,6 +5074,7 @@ let private replacedModules =
             Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
+            "System.Threading.CancellationTokenRegistration", cancels
             "System.Threading.Monitor", monitor
             "System.Activator", activator
             "System.Text.Encoding", encoding
@@ -5058,6 +5098,7 @@ let private replacedModules =
             "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
             Types.task, tasks
             Types.taskGeneric, tasks
+            "System.Threading.Tasks.TaskCompletionSource", tasks
             "System.Threading.Tasks.TaskCompletionSource`1", tasks
             "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
             "Microsoft.FSharp.Control.TaskBuilder", taskBuilder
