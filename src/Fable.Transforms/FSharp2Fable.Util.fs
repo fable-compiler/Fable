@@ -2446,22 +2446,26 @@ module Util =
             |> Option.map (fun bases -> bases @ [ baseEnt ])
         | Some _ -> None
 
-    let getInheritedValFields (bases: FSharpEntity list) : (FSharpField * Fable.Type) list =
-        bases
-        |> List.collect (fun baseEnt ->
-            baseEnt.FSharpFields
-            |> Seq.filter (fun field -> not field.IsStatic)
-            |> Seq.map (fun field ->
-                let typ =
-                    if baseEnt.GenericParameters.Count = 0 then
-                        makeType Map.empty field.FieldType
-                    else
-                        Fable.Any
+    /// Inherited val fields root first, with the base generic arguments resolved through the chain
+    let getInheritedValFields (ent: FSharpEntity) (genArgs: Map<string, Fable.Type>) =
+        let rec collect (ent: FSharpEntity) genArgs acc =
+            match tryGetBaseEntity ent with
+            | Some(baseEnt, baseGenArgs) when hasCompilerGeneratedConstructor baseEnt ->
+                let baseGenArgs =
+                    Seq.zip baseEnt.GenericParameters baseGenArgs
+                    |> Seq.map (fun (param, typ) -> genParamName param, makeType genArgs typ)
+                    |> Map.ofSeq
 
-                field, typ
-            )
-            |> List.ofSeq
-        )
+                let fields =
+                    baseEnt.FSharpFields
+                    |> Seq.filter (fun field -> not field.IsStatic)
+                    |> Seq.map (fun field -> field, makeType baseGenArgs field.FieldType)
+                    |> List.ofSeq
+
+                collect baseEnt baseGenArgs (fields @ acc)
+            | _ -> acc
+
+        collect ent genArgs []
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
@@ -2489,7 +2493,7 @@ module Util =
                 let baseEnt = List.last bases
 
                 let args =
-                    getInheritedValFields bases
+                    getInheritedValFields ent Map.empty
                     |> List.map (fun (field, typ) -> makeTypedIdentExpr typ field.Name)
 
                 let baseExpr =

@@ -1595,13 +1595,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! baseValue = transformExpr com ctx [] first
             let! ownArgs = transformExprList com ctx ownArgs
 
-            let bases =
-                tryGetCompilerGeneratedBases fsType.TypeDefinition |> Option.defaultValue []
-
             let baseIdent = getIdentUniqueName com ctx "base" |> makeTypedIdent baseValue.Type
 
             let inheritedArgs =
-                getInheritedValFields bases
+                getInheritedValFields fsType.TypeDefinition ctx.GenericArgs
                 |> List.map (fun (field, typ) -> getFieldWith None typ (Fable.IdentExpr baseIdent) field.Name)
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)

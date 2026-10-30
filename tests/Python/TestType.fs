@@ -1950,3 +1950,26 @@ let ``test explicit constructor calls a parameterless base constructor`` () =
     let c = ValClassDefaultChild(9)
     c.Tag |> equal "default"
     c.Value |> equal 9
+
+type ValClassGenericBase<'T> =
+    val Value: 'T
+    new (v: 'T) = { Value = v }
+
+type ValClassIntBox =
+    inherit ValClassGenericBase<int>
+    val Tag: string
+    new (v: int, t: string) = { inherit ValClassGenericBase<int>(v); Tag = t }
+
+type ValClassPairBox<'U> =
+    inherit ValClassGenericBase<'U * 'U>
+    val Count: int
+    new (a: 'U, b: 'U) = { inherit ValClassGenericBase<'U * 'U>((a, b)); Count = 2 }
+
+[<Fact>]
+let ``test explicit constructor resolves the generic arguments of the base class`` () =
+    let intBox = ValClassIntBox(5, "x")
+    intBox.Value |> equal 5
+    intBox.Tag |> equal "x"
+    let pairBox = ValClassPairBox("a", "b")
+    pairBox.Value |> equal ("a", "b")
+    pairBox.Count |> equal 2
