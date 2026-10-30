@@ -2610,6 +2610,12 @@ but thanks to the optimisation done below we get
         let mayReturnGenericArray =
             match applied with
             | MaybeCasted(Fable.IdentExpr id) -> localFunctionMayReturnGenericArray ctx id
+            | MaybeCasted(Fable.Get(_, Fable.FieldGet info, _, _)) ->
+                info.FieldType |> Option.exists containsGenericArray
+            | MaybeCasted(Fable.Call(_, callInfo, _, _)) ->
+                callInfo.MemberRef
+                |> Option.bind com.TryGetMember
+                |> Option.exists (fun memberInfo -> containsGenericArray memberInfo.ReturnParameter.Type)
             | _ -> false
 
         let applied = com.TransformAsExpr(ctx, applied)

@@ -68,6 +68,10 @@ module PlainArrays =
 
     [<Emit("$0.concat($1)")>]
     let concat (xs: string[]) (ys: string[]) : string[] = nativeOnly
+
+    type Bag<'T> = { Make: int -> 'T[] }
+
+    let rev = Array.rev
 #endif
 
 let tests =
@@ -138,5 +142,7 @@ let tests =
         [| "ab"; "c" |] |> Array.map box |> PlainArrays.blobSize |> equal 3
         let item: PlainArrays.Item = { Names = [| "a" |] }
         PlainArrays.concat item.Names (Array.map string [| 1; 2 |]) |> equal [| "a"; "1"; "2" |]
+        let bag: PlainArrays.Bag<string> = { Make = fun n -> Array.replicate n "x" }
+        PlainArrays.concat (bag.Make 2) (PlainArrays.rev [| "b"; "a" |]) |> equal [| "x"; "x"; "a"; "b" |]
     #endif
   ]
