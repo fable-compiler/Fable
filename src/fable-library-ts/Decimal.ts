@@ -210,9 +210,9 @@ function decimalToHex(dec: Uint8Array, bitSize: number) {
   const hex = new Uint8Array(bitSize / 4 | 0);
   let hexCount = 1;
   for (let d = 0; d < dec.length; d++) {
-    let value = dec[d];
+    let value = dec[d]!;
     for (let i = 0; i < hexCount; i++) {
-      const digit = hex[i] * 10 + value | 0;
+      const digit = hex[i]! * 10 + value | 0;
       hex[i] = digit & 0xF;
       value = digit >> 4;
     }
@@ -227,9 +227,9 @@ function hexToDecimal(hex: Uint8Array, bitSize: number) {
   const dec = new Uint8Array(bitSize * 301 / 1000 + 1 | 0);
   let decCount = 1;
   for (let d = hex.length - 1; d >= 0; d--) {
-    let carry = hex[d];
+    let carry = hex[d]!;
     for (let i = 0; i < decCount; i++) {
-      const val = dec[i] * 16 + carry | 0;
+      const val = dec[i]! * 16 + carry | 0;
       dec[i] = (val % 10) | 0;
       carry = (val / 10) | 0;
     }
@@ -250,7 +250,7 @@ function setInt32Bits(hexDigits: Uint8Array, bits: number, offset: number) {
 function getInt32Bits(hexDigits: Uint8Array, offset: number) {
   let bits = 0;
   for (let i = 0; i < 8; i++) {
-    bits = bits | (hexDigits[offset + i] << (i * 4));
+    bits = bits | (hexDigits[offset + i]! << (i * 4));
   }
   return bits;
 }
@@ -287,7 +287,7 @@ export function fromFloat32(n: number): Decimal {
 }
 
 export function fromIntArray(bits: ArrayLike<number>) {
-  return fromInts(bits[0], bits[1], bits[2], bits[3]);
+  return fromInts(bits[0]!, bits[1]!, bits[2]!, bits[3]!);
 }
 
 export function fromInts(low: number, mid: number, high: number, signExp: number) {
