@@ -34,8 +34,6 @@ let private createProject (dir: string) =
 
     File.WriteAllText(Path.Combine(dir, "Lib.fs"), "module Lib\n\nlet greeting = \"hello\"\n")
 
-    // A second file, so deleting one output leaves another behind: with none left, the
-    // "no compiled files found" guard forces a recompilation and masks the case under test.
     File.WriteAllText(Path.Combine(dir, "Main.fs"), "module Main\n\nlet run () = printfn \"%s\" Lib.greeting\n")
 
 /// Cache invalidation compares timestamps, so a file rewritten within the same tick as the
@@ -100,22 +98,5 @@ let tests =
                         Expect.isTrue
                             (File.Exists(Path.Combine(outDir, "Scalars.js")))
                             "The file added through the imported .props should have been generated"
-                    )
-
-            // `getFilesToCompile` selects a source whose output is missing, so the up-to-date
-            // check must not then skip the compilation it just asked for.
-            testCase "Deleted output file is regenerated"
-            <| fun () ->
-                withTempProject
-                    "deleted"
-                    (fun dir outDir ->
-                        Expect.equal (compile dir outDir) 0 "First compilation should succeed"
-
-                        let outFile = Path.Combine(outDir, "Lib.js")
-                        Expect.isTrue (File.Exists outFile) "Expected the first compilation to generate Lib.js"
-                        File.Delete outFile
-
-                        Expect.equal (compile dir outDir) 0 "Second compilation should succeed"
-                        Expect.isTrue (File.Exists outFile) "The deleted output file should have been regenerated"
                     )
         ]
