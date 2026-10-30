@@ -3367,12 +3367,32 @@ let taskBuilder (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Ex
         Helper.LibCall(com, "fable_async_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
+let taskBuilderAsync (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let startAsTask computation =
+        Helper.LibCall(com, "fable_async", "start_as_task", Any, [ computation ], ?loc = r)
+
+    match i.CompiledName, args with
+    | "TaskBuilderBase.Bind", [ computation; binder ] ->
+        taskBuilder com ctx r t i thisArg [ startAsTask computation; binder ]
+    | "TaskBuilderBase.ReturnFrom", [ computation ] -> taskBuilder com ctx r t i thisArg [ startAsTask computation ]
+    | _ -> None
+
 let tasks (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
-    | Some x, ("GetAwaiter" | "GetResult" | "get_Result" | "Result") ->
+    | Some x, "GetAwaiter" -> Some x
+    | Some x, ("GetResult" | "get_Result" | "Result") ->
         // Task.Result / GetAwaiter().GetResult() → run_synchronously
         Helper.LibCall(com, "fable_async", "run_synchronously", t, [ x ], i.SignatureArgTypes, ?loc = r)
         |> Some
+    | None, "Delay" ->
+        let args =
+            match args with
+            | ExprType(Builtin BclTimeSpan) as duration :: rest ->
+                emitExpr r (Number(Int32, NumberInfo.Empty)) [ duration ] "trunc(fable_timespan:total_milliseconds($0))"
+                :: rest
+            | _ -> args
+
+        Helper.LibCall(com, "fable_async", "task_delay", t, args, ?loc = r) |> Some
     | None, "FromResult" ->
         Helper.LibCall(com, "fable_async_builder", "return", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -6080,6 +6100,7 @@ let tryCall
     | "Microsoft.FSharp.Control.TaskBuilderModule"
     | "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority"
     | "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority" -> taskBuilder com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority" -> taskBuilderAsync com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.TaskBuilder" -> taskBuilder com ctx r t info thisArg args
     | "System.Threading.Tasks.Task"
     | "System.Threading.Tasks.Task`1"
