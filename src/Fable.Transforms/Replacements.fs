@@ -264,27 +264,38 @@ let needToCast fromKind toKind =
     let h = kindIndex toKind // return type (horizontal)
     ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
 
+let roundToFloat32 r t (expr: Expr) =
+    match t with
+    | Number(Float32, _) -> emitExpr r t [ expr ] "Math.fround($0)"
+    | _ -> expr
+
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
+    let value =
+        match args.Head.Type with
+        | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
+        | String ->
+            let style =
+                int (
+                    System.Globalization.NumberStyles.Float
+                    ||| System.Globalization.NumberStyles.AllowThousands
+                )
+
+            Helper.LibCall(com, "Double", "parse", targetType, [ args.Head; makeIntConst style ])
+        | Number(kind, _) ->
+            match kind with
+            | Decimal -> Helper.LibCall(com, "Decimal", "toFloat64", targetType, args)
+            | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toFloat64", targetType, args)
+            | _ -> TypeCast(args.Head, targetType)
+        | _ ->
+            addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
+
+            TypeCast(args.Head, targetType)
+
     match args.Head.Type with
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
-    | String ->
-        let style =
-            int (
-                System.Globalization.NumberStyles.Float
-                ||| System.Globalization.NumberStyles.AllowThousands
-            )
-
-        Helper.LibCall(com, "Double", "parse", targetType, [ args.Head; makeIntConst style ])
-    | Number(kind, _) ->
-        match kind with
-        | Decimal -> Helper.LibCall(com, "Decimal", "toFloat64", targetType, args)
-        | BigIntegers _ -> Helper.LibCall(com, "BigInt", "toFloat64", targetType, args)
-        | _ -> TypeCast(args.Head, targetType)
-    | _ ->
-        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-
-        TypeCast(args.Head, targetType)
+    | Char
+    | Number((Float32 | Int8 | UInt8 | Int16 | UInt16), _) -> value
+    | _ -> roundToFloat32 r targetType value
 
 let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
     match args.Head.Type with
@@ -1537,6 +1548,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Unlike Double.Parse, FSharp.Core's float and float32 remove underscores
     | ("ToSingle" | "ToDouble"), [ ExprType String as str ] ->
         Helper.LibCall(com, "Double", "parseIgnoringUnderscores", t, [ str ], ?loc = r)
+        |> roundToFloat32 r t
         |> Some
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
@@ -2790,6 +2802,11 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 [ str; style ] @ outValue
             else
                 [ str; style; makeBoolConst unsigned; makeIntConst bitsize ] @ outValue
+
+        let meth =
+            match kind with
+            | Float32 -> meth + "Single"
+            | _ -> meth
 
         let callExpr =
             Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)

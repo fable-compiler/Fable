@@ -35,6 +35,18 @@ export function parse(str: string, style: number = defaultStyle): number {
   }
 }
 
+export function tryParseSingle(str: string, style: number, defValue: FSharpRef<number>): boolean {
+  if (tryParse(str, style, defValue)) {
+    defValue.contents = Math.fround(defValue.contents);
+    return true;
+  }
+  return false;
+}
+
+export function parseSingle(str: string, style?: number): number {
+  return Math.fround(parse(str, style));
+}
+
 export function parseIgnoringUnderscores(str: string): number {
   return parse(str == null ? str : str.replace(/_/g, ""), NumberStyles.Float);
 }
