@@ -765,6 +765,30 @@ let tests =
         let result = Double.Parse("10.5", culture)
         result |> equal 10.5
 
+    testCase "float32 arithmetic rounds every operation like .NET" <| fun () ->
+        let a, b, c = 1.5f, 1.2f, 3.3f
+        (a + b) * c |> equal 8.9099998f
+        a + b + c |> equal 6.f
+        0.1f + 0.2f |> equal 0.3f
+        16777216.f + 1.f |> equal 16777216.f
+        1.f / 3.f |> equal 0.33333334f
+        5.5f % 2.2f |> equal 1.0999999f
+        -(a + b) |> equal -2.7f
+        let arr = [| 0.f |]
+        arr.[0] <- a * c
+        arr.[0] |> equal 4.95f
+
+    testCase "float32 conversions round like .NET" <| fun () ->
+        float32 2.7 |> equal 2.7f
+        float32 16777217 |> equal 16777216.f
+        float32 16777217L |> equal 16777216.f
+        float32 2.7M |> equal 2.7f
+        float32 "2.7" |> equal 2.7f
+        Single.Parse("2.7", CultureInfo.InvariantCulture) |> equal 2.7f
+        let mutable parsed = 0.f
+        Single.TryParse("2.7", NumberStyles.Float, CultureInfo.InvariantCulture, &parsed) |> equal true
+        parsed |> equal 2.7f
+
     testCase "Single.Parse works with IFormatProvider" <| fun () ->
         // culture compiles to { } for now and it is ignored on the call-site
         let culture = Globalization.CultureInfo.InvariantCulture
