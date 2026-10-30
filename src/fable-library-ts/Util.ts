@@ -714,8 +714,16 @@ export function round(value: number, digits: number = 0) {
   return digits ? r / m : r;
 }
 
+export const MidpointRounding = {
+  ToEven: 0,
+  AwayFromZero: 1,
+  ToZero: 2,
+  ToNegativeInfinity: 3,
+  ToPositiveInfinity: 4,
+} as const;
+
 export function roundWithMode(value: number, digits: number, mode: number): number {
-  if (mode === 0) {
+  if (mode === MidpointRounding.ToEven) {
     return round(value, digits);
   }
   // .NET leaves values of magnitude 1e16 or more unchanged
@@ -725,15 +733,15 @@ export function roundWithMode(value: number, digits: number, mode: number): numb
   const m = Math.pow(10, digits);
   let v = value * m;
   switch (mode) {
-    case 1: {
+    case MidpointRounding.AwayFromZero: {
       const i = Math.trunc(v);
       const f = v - i;
       v = Math.abs(f) >= 0.5 ? i + Math.sign(f) : i;
       break;
     }
-    case 2: v = Math.trunc(v); break;
-    case 3: v = Math.floor(v); break;
-    case 4: v = Math.ceil(v); break;
+    case MidpointRounding.ToZero: v = Math.trunc(v); break;
+    case MidpointRounding.ToNegativeInfinity: v = Math.floor(v); break;
+    case MidpointRounding.ToPositiveInfinity: v = Math.ceil(v); break;
     default: throw new Exception(`The value '${mode}' is not valid for this usage of the type MidpointRounding. (Parameter 'mode')`);
   }
   return v / m;

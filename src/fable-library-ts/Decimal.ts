@@ -1,7 +1,7 @@
 import Decimal, { BigSource } from "./lib/big.js";
 import { Numeric, symbol } from "./Numeric.ts";
 import { FSharpRef } from "./Types.ts";
-import { Exception, combineHashCodes } from "./Util.ts";
+import { Exception, MidpointRounding, combineHashCodes } from "./Util.ts";
 import { NumberStyles, splitNumber } from "./NumberStyles.ts";
 import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
@@ -75,11 +75,11 @@ export function round(x: Decimal, digits: number = 0) {
 
 export function roundWithMode(x: Decimal, digits: number, mode: number) {
   switch (mode) {
-    case 0: return x.round(digits, 2 /* ROUND_HALF_EVEN */);
-    case 1: return x.round(digits, 1 /* ROUND_HALF_UP */);
-    case 2: return x.round(digits, 0 /* ROUND_DOWN */);
-    case 3: return x.round(digits, x.cmp(0) >= 0 ? 0 /* ROUND_DOWN */ : 3 /* ROUND_UP */);
-    case 4: return x.round(digits, x.cmp(0) >= 0 ? 3 /* ROUND_UP */ : 0 /* ROUND_DOWN */);
+    case MidpointRounding.ToEven: return x.round(digits, 2 /* ROUND_HALF_EVEN */);
+    case MidpointRounding.AwayFromZero: return x.round(digits, 1 /* ROUND_HALF_UP */);
+    case MidpointRounding.ToZero: return x.round(digits, 0 /* ROUND_DOWN */);
+    case MidpointRounding.ToNegativeInfinity: return x.round(digits, x.cmp(0) >= 0 ? 0 /* ROUND_DOWN */ : 3 /* ROUND_UP */);
+    case MidpointRounding.ToPositiveInfinity: return x.round(digits, x.cmp(0) >= 0 ? 3 /* ROUND_UP */ : 0 /* ROUND_DOWN */);
     default: throw new Exception(`The value '${mode}' is not valid for this usage of the type MidpointRounding. (Parameter 'mode')`);
   }
 }
