@@ -249,6 +249,22 @@ let ``test Array slice with non-numeric arrays work`` () =
     equal xs.[3] "D"
 
 [<Fact>]
+let ``test Array slices clamp the bounds like .NET`` () =
+    let xs = [| 1; 2; 3 |]
+    xs.[-1..1] |> equal [| 1; 2 |]
+    xs.[-5..] |> equal [| 1; 2; 3 |]
+    xs.[1..5] |> equal [| 2; 3 |]
+    xs.[..5] |> equal [| 1; 2; 3 |]
+    xs.[.. -2] |> equal [||]
+    xs.[-5.. -1] |> equal [||]
+    xs.[5..6] |> equal [||]
+    xs.[2..1] |> equal [||]
+    let lower, upper = -1, 1
+    xs.[lower..upper] |> equal [| 1; 2 |]
+    let strings = [| "a"; "b"; "c" |]
+    strings.[-1..1] |> equal [| "a"; "b" |]
+
+[<Fact>]
 let ``test Array literals work`` () =
     let x = [| 1; 2; 3; 4; 5 |]
     equal 5 x.Length

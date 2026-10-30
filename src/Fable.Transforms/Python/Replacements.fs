@@ -2676,10 +2676,26 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GetArray", _, [ ar; idx ] -> getExpr r t ar idx |> Some
     | "SetArray", _, [ ar; idx; value ] -> setExpr r ar idx value |> Some
     | ("GetArraySlice" | "GetStringSlice"), None, [ ar; lower; upper ] ->
+        // Python slicing counts a negative index from the end, .NET clamps it to 0
+        let clampToZero (index: Expr) =
+            match index with
+            | Value(NumberConstant(NumberValue.Int32 n, _), _) when n >= 0 -> index
+            | _ -> Helper.LibCall(com, "util", "slice_index", Int32.Number, [ index ], ?loc = r)
+
+        let lower =
+            match lower with
+            | Value(NewOption(None, _, _), _) -> makeIntConst 0
+            | Value(NewOption(Some lower, _, _), _)
+            | lower -> clampToZero lower
+
         let upper =
             match upper with
             | Value(NewOption(None, _, _), _) -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)
-            | _ -> add upper (makeIntConst 1)
+            | Value(NewOption(Some upper, _, _), _)
+            | upper ->
+                match upper with
+                | Value(NumberConstant(NumberValue.Int32 n, _), _) when n >= 0 -> makeIntConst (n + 1)
+                | upper -> add upper (makeIntConst 1) |> clampToZero
 
         Helper.InstanceCall(ar, "slice", t, [ lower; upper ], ?loc = r) |> Some
     | "SetArraySlice", None, args ->
