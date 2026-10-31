@@ -439,6 +439,20 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     match argTypes with
     // | Number(BigInt as kind,_)::_ ->
     //     libCallTyped com r t "BigInt" opName [ left; right ] argTypes
+    | Number(Decimal, _) :: _ ->
+        let decimalMethod =
+            match opName with
+            | Operators.addition -> Some "add"
+            | Operators.subtraction -> Some "subtract"
+            | Operators.multiply -> Some "multiply"
+            | Operators.division -> Some "divide"
+            | Operators.modulus -> Some "remainder"
+            | Operators.unaryNegation -> Some "negate"
+            | _ -> None
+
+        match decimalMethod with
+        | Some meth -> libCallTyped com r t "Decimal" meth args argTypes
+        | None -> nativeOp opName argTypes args
     | Builtin(BclDateTime | BclDateTimeOffset | BclTimeOnly | BclTimeSpan | BclRune) :: _ ->
         nativeOp opName argTypes args
     | Builtin(FSharpSet _) :: _ ->
@@ -474,25 +488,23 @@ let isCompatibleWithNativeComparison =
 // * `.GetHashCode` called directly defaults to identity hash (for reference types except string) if not implemented.
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 
-let referenceHash (com: ICompiler) ctx r (arg: Expr) =
+let referenceHash (com: ICompiler) ctx r t (arg: Expr) =
     match arg.Type with
     | Boolean
     | Char
     | String
-    | Number _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
-    | _ -> libCall com r Int32.Number "Native" "referenceHash" [ makeRef arg ]
+    | Number _ -> libCall com r t "Native" "getHashCode" [ makeRef arg ]
+    | _ -> libCall com r t "Native" "referenceHash" [ makeRef arg ]
 
-let getHashCode (com: ICompiler) ctx r (arg: Expr) =
+let getHashCode (com: ICompiler) ctx r t (arg: Expr) =
     match arg.Type with
-    | HasReferenceEquality com _ -> referenceHash com ctx r arg
-    | Builtin BclRune -> libCall com r Int32.Number "Rune" "getHashCode" [ arg ]
-    | Char -> libCall com r Int32.Number "Char" "GetHashCode" [ arg ]
-    | _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
+    | HasReferenceEquality com _ -> referenceHash com ctx r t arg
+    | _ -> libCall com r t "Native" "getHashCode" [ makeRef arg ]
 
-let objectHash (com: ICompiler) ctx r (arg: Expr) =
+let objectHash (com: ICompiler) ctx r t (arg: Expr) =
     match arg.Type with
-    | Array _ -> referenceHash com ctx r arg
-    | _ -> getHashCode com ctx r arg
+    | Array _ -> referenceHash com ctx r t arg
+    | _ -> getHashCode com ctx r t arg
 
 let referenceEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left, right with
@@ -1245,7 +1257,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Concatenates two lists
     | "op_Append", _ -> libCallThis com r t i "List" "append" thisArg args |> Some
     | "IsNull", [ arg ] -> nullCheck r true arg |> Some
-    | "Hash", [ arg ] -> getHashCode com ctx r arg |> Some
+    | "Hash", [ arg ] -> getHashCode com ctx r t arg |> Some
     // Comparison
     | Patterns.SetContains Operators.compareSet, [ left; right ] ->
         applyCompareOp com ctx r t i.CompiledName left right |> Some
@@ -1255,7 +1267,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         match args.Head.Type with
         | Boolean
         | Char
-        | String
+        | String -> math r t args i.SignatureArgTypes i.CompiledName |> Some
+        | Number(Decimal, _) -> libCall com r t "Decimal" (Naming.lowerFirst meth) args |> Some
         | Number _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
         | _ -> libCall com r t "Native" (Naming.lowerFirst meth) args |> Some
     | ("MinMagnitude" | "MaxMagnitude") as meth, _ ->
@@ -1285,7 +1298,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | Array _, _
         | _, Array _ -> referenceEquals com ctx r arg1 arg2 |> Some
         | _ -> TypeCast(arg2, arg1.Type) |> equals com ctx r arg1 |> Some
-    | "GetHashCode", Some arg, _ -> objectHash com ctx r arg |> Some
+    | "GetHashCode", Some arg, _ -> objectHash com ctx r t arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
             // Dynamic type of a boxed value: resolve via the runtime reflection
@@ -1302,7 +1315,7 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "Equals", Some arg1, [ arg2 ]
     | "Equals", None, [ arg1; arg2 ] -> equals com ctx r arg1 arg2 |> Some
-    | "GetHashCode", Some arg, _ -> getHashCode com ctx r arg |> Some
+    | "GetHashCode", Some arg, _ -> getHashCode com ctx r t arg |> Some
     | "CompareTo", Some arg1, [ arg2 ]
     | "Compare", None, [ arg1; arg2 ] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
@@ -2165,6 +2178,9 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         makeLibCall com r t i "Decimal" meth args |> Some
     | ("CopySign" | "FromOACurrency" | "GetTypeCode" | "ToOACurrency") as meth, _, _ ->
         makeLibCall com r t i "Decimal" (Naming.lowerFirst meth) args |> Some
+    | ("ToByte" | "ToSByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToSingle" | "ToDouble"),
+      None,
+      [ _ ] -> convertTo com ctx r t args |> Some
     | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _, _ ->
         libValue com r t "Decimal" (Naming.removeGetSetPrefix i.CompiledName) [] |> Some
     | ("IsInteger" | "IsEvenInteger" | "IsOddInteger" | "IsCanonical" | "IsNegative" | "IsPositive"), _, _ ->
@@ -2178,10 +2194,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         | [ x; mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
         | [ x; dp; mode ] -> makeLibCall com r t i "Decimal" "roundToMode" args |> Some
         | _ -> None
-    // | "ToString", [StringConst fmt] ->
-    //     let rustFmt = fmt // TODO: replace format specifiers with proper Rust format
-    //     let format = makeStrConst ("{0:" + rustFmt + "}")
-    //     "sprintf!" |> emitFormat com r t [format; thisArg] |> Some
+    | "ToString", Some c, [ format ] -> libCall com r t "Decimal" "toStringWithFormat" [ c; format ] |> Some
     | "ToString", Some c, [] ->
         // For d.ToString(provider) the provider is the only argument, so dropping
         // it leaves nothing for toString's decimal parameter; the receiver takes
@@ -2241,9 +2254,9 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
       [ arg ] -> arg |> Some
     | "EnumOfValue", [ arg ] -> TypeCast(arg, t) |> Some
     | "EnumToValue", [ arg ] -> TypeCast(arg, t) |> Some
-    | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] -> getHashCode com ctx r arg |> Some
-    | ("FastHashTuple2" | "FastHashTuple3" | "FastHashTuple4" | "FastHashTuple5" | "GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"),
-      [ comp; arg ] -> makeInstanceCall r t i comp "GetHashCode" [ arg ] |> Some
+    | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] -> getHashCode com ctx r t arg |> Some
+    // | ("FastHashTuple2" | "FastHashTuple3" | "FastHashTuple4" | "FastHashTuple5" | "GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"),
+    //   [ comp; arg ] -> makeInstanceCall r t i comp "GetHashCode" [ arg ] |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [ left; right ] -> compare com ctx r left right |> Some
     | ("FastCompareTuple2" | "FastCompareTuple3" | "FastCompareTuple4" | "FastCompareTuple5" | "GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"),
       [ comp; left; right ] -> makeInstanceCall r t i comp "Compare" [ left; right ] |> Some
@@ -2263,7 +2276,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
       [ comp; left; right ] -> makeInstanceCall r t i comp "Equals" [ left; right ] |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] ->
         referenceEquals com ctx r left right |> Some
-    | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] -> referenceHash com ctx r arg |> Some
+    | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] -> referenceHash com ctx r t arg |> Some
     | ("GenericEqualityComparer" | "GenericEqualityERComparer" | "FastGenericComparer" | "FastGenericComparerFromTable" | "FastGenericEqualityComparer" | "FastGenericEqualityComparerFromTable"),
       _ -> fsharpModule com ctx r t i thisArg args
     | ("ParseInt32" | "ParseUInt32" | "ParseInt64" | "ParseUInt64"), [ arg ] -> convertTo com ctx r t args |> Some
@@ -2310,7 +2323,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 
 let runtimeHelpers (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, args with
-    | "GetHashCode", [ arg ] -> getHashCode com ctx r arg |> Some
+    | "GetHashCode", [ arg ] -> getHashCode com ctx r t arg |> Some
     | _ -> None
 
 // ExceptionDispatchInfo is used to raise exceptions through different threads in async workflows
@@ -2412,7 +2425,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> getZero com ctx |> Some
-    | "Hash", [ arg ] -> getHashCode com ctx r arg |> Some
+    | "Hash", [ arg ] -> getHashCode com ctx r t arg |> Some
     | "Equals", [ arg1; arg2 ] -> equals com ctx r arg1 arg2 |> Some
     | "Compare", [ arg1; arg2 ] -> compare com ctx r arg1 arg2 |> Some
     | "NonNull", [ arg ] -> arg |> Some
@@ -2851,19 +2864,9 @@ let files (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
 // Initial support, making at least InvariantCulture compile-able
 // to be used System.Double.Parse and System.Single.Parse
 // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
-let globalization
-    (com: ICompiler)
-    (ctx: Context)
-    (_: SourceLocation option)
-    t
-    (i: CallInfo)
-    (_: Expr option)
-    (_: Expr list)
-    =
+let globalization (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "get_InvariantCulture" ->
-        // System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to an empty object literal
-        ObjectExpr([], t, None) |> Some
+    | "get_InvariantCulture" -> bclType com ctx r t i thisArg args
     | _ -> None
 
 let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2879,7 +2882,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
             else
                 meth |> Naming.lowerFirst
 
-        Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+        makeInstanceCall r t i c meth args |> Some
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

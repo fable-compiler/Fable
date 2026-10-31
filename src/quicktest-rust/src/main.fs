@@ -1,39 +1,21 @@
 open System
+open System.Collections.Generic
 
-type RefC(v: int) =
-    member _.V = v
-
-let twoSwitchRef (x: RefC option) (b: bool) =
-    match x with
-    | Some c when b -> c.V + 1
-    | Some c -> c.V
-    | None -> -1
-
-type RefU =
-    | RA of RefC
-    | RB of RefC
-
-let orPatRef (u: RefU) =
-    match u with
-    | RA c
-    | RB c -> c.V
-
-type ObjU =
-    | OA of obj
-    | OB of obj
-
-let orPatObj (u: ObjU) : obj =
-    match u with
-    | OA o
-    | OB o -> o
+let genericHash<'T when 'T: equality> (x: 'T) : int =
+    let cmp = EqualityComparer<'T>.Default
+    cmp.GetHashCode(x)
 
 [<EntryPoint>]
 let main argv =
-    Console.WriteLine(twoSwitchRef (Some(RefC 5)) true)
-    Console.WriteLine(twoSwitchRef (Some(RefC 5)) false)
-    Console.WriteLine(twoSwitchRef None false)
-    Console.WriteLine(orPatRef (RA(RefC 5)))
-    Console.WriteLine(orPatRef (RB(RefC 7)))
-    Console.WriteLine((orPatObj (OA(box 9))) :? int)
-    Console.WriteLine((orPatObj (OB(box 11))) :? string)
+    Console.WriteLine("Hello {0}!", "World")
+
+    let o1 = [| 1; 2 |]
+    let o2 = [| 1; 2 |]
+    let o3 = [| 2; 1 |]
+    let h1 = genericHash o1
+    let h2 = genericHash o2
+    let h3 = genericHash o3
+
+    Console.WriteLine(" h1 = {0}\n h2 = {1}\n h3 = {2}", h1, h2, h3)
+
     0
