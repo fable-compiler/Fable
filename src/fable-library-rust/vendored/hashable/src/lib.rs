@@ -22,6 +22,7 @@ fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
 
     Ok(quote! {
         impl #impl_generics ::core::hash::Hash for #ident #ty_generics #where_clause {
+            #[inline]
             fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
                 #hash_body
             }
@@ -30,7 +31,7 @@ fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
         impl #impl_generics #runtime::Native_::Hashable for #ident #ty_generics #where_clause {
             #[inline]
             fn getHashCode(&self) -> i32 {
-                #runtime::Native_::getHashCode(self)
+                #runtime::Native_::hash_code(self)
             }
         }
     })

@@ -1,6 +1,7 @@
 module Fable.Tests.ArithmeticTests
 
 open System
+open System.Globalization
 open Util.Testing
 
 let [<Literal>] posLiteral = 5
@@ -482,6 +483,271 @@ let ``Decimal floor works`` () =
     Math.Floor -11.25M |> equal -12.M
 
 [<Fact>]
+let ``Decimal rounding works for values below 0.1`` () =
+    Math.Floor (decimal -0.0836) |> equal -1.M
+    Math.Floor (decimal (sin (-5. * Math.PI / 180.))) |> equal -1.M
+    Math.Floor (decimal "-0.0836") |> equal -1.M
+    Math.Floor (decimal "-0.0000123") |> equal -1.M
+    Math.Floor -0.0836M |> equal -1.M
+    Math.Floor (decimal 0.0836) |> equal 0.M
+    Math.Ceiling (decimal 0.0836) |> equal 1.M
+    Math.Ceiling (decimal "0.0000123") |> equal 1.M
+    Math.Ceiling (decimal -0.0836) |> equal 0.M
+    Math.Round (decimal 0.06) |> equal 0.M
+    Math.Round (decimal 0.0836, 2) |> equal 0.08M
+    Math.Round (decimal -0.0836, 3) |> equal -0.084M
+    Math.Truncate (decimal -0.0836) |> equal 0.M
+    Math.Floor (0.M - 0.0836M) |> equal -1.M
+
+[<Fact>]
+let ``Decimal values below 0.1 hash the same however they are built`` () =
+    (decimal -0.0836).GetHashCode() |> equal ((0.M - 0.0836M).GetHashCode())
+    (decimal "0.05").GetHashCode() |> equal ((0.1M / 2.M).GetHashCode())
+    let set = Collections.Generic.HashSet<decimal>()
+    set.Add(decimal -0.0836) |> equal true
+    set.Add(0.M - 0.0836M) |> equal false
+    let dict = Collections.Generic.Dictionary<decimal, string>()
+    dict.[decimal "0.05"] <- "a"
+    dict.ContainsKey(0.1M / 2.M) |> equal true
+
+[<Fact>]
+let ``Decimal hash ignores trailing zeros and the sign of zero`` () =
+    (decimal "1.0").GetHashCode() |> equal ((decimal "1").GetHashCode())
+    (decimal "0.050").GetHashCode() |> equal ((0.1M / 2.M).GetHashCode())
+    (decimal "0.00").GetHashCode() |> equal ((decimal "0").GetHashCode())
+    (-(0.M)).GetHashCode() |> equal ((0.M).GetHashCode())
+    let set = Collections.Generic.HashSet<decimal>([ 1.M ])
+    set.Contains 1.0M |> equal true
+    set.Add 0.M |> equal true
+    set.Add(Math.Truncate -0.0836M) |> equal false
+    let dict = Collections.Generic.Dictionary<decimal, string>()
+    dict.[0.050M] <- "a"
+    dict.ContainsKey(0.1M / 2.M) |> equal true
+
+[<Fact>]
+let ``Decimal parsing rounds to 28 places and keeps the scale of zero`` () =
+    string (decimal "0.0000000000000000000000000000004") |> equal "0.0000000000000000000000000000"
+    string (decimal "0.00000000000000000000000000005") |> equal "0.0000000000000000000000000000"
+    string (decimal "0.00000000000000000000000000015") |> equal "0.0000000000000000000000000002"
+    string (decimal "0.000000000000000000000000000012") |> equal "0.0000000000000000000000000000"
+    Decimal.GetBits(decimal "0.0000000000000000000000000000004") |> equal [| 0; 0; 0; 1835008 |]
+    Decimal.GetBits(decimal "0.00") |> equal [| 0; 0; 0; 131072 |]
+    string (-(0.00M)) |> equal "0.00"
+    string (abs 0.00M) |> equal "0.00"
+    string (Math.Round(0.004M, 2)) |> equal "0.00"
+    (0.00M).ToString("E3", CultureInfo.InvariantCulture) |> equal "0.000E+000"
+    (decimal "0.00").GetHashCode() |> equal (Decimal(0, 0, 0, false, 2uy).GetHashCode())
+
+[<Fact>]
+let ``Decimal parsing rounds long fractions with carry and at the mantissa limit`` () =
+    string (decimal ("0." + "9999999" + "9999999" + "9999999" + "9999999" + "5"))
+    |> equal ("1." + "0000000" + "0000000" + "0000000" + "0000000")
+    string (decimal ("7922816251426433759354395033.5" + "0000000" + "0000000" + "0000000" + "0000000"))
+    |> equal "7922816251426433759354395033.5"
+    Decimal.TryParse("79228162514264337593543950335.5" + "0000000" + "0000000" + "0000000" + "0000000")
+    |> fst
+    |> equal false
+
+[<Fact>]
+let ``Decimal addition and subtraction keep the larger scale`` () =
+    string (1.50M + 0.5M) |> equal "2.00"
+    string (1.5M + 0.50M) |> equal "2.00"
+    string (0.1M + 0.2M) |> equal "0.3"
+    string (1M + 1M) |> equal "2"
+    string (0.00M + 0M) |> equal "0.00"
+    string (0.00M + 1.5M) |> equal "1.50"
+    string (1.0M + (-1.0M)) |> equal "0.0"
+    string (0.05M - 0.05M) |> equal "0.00"
+    string (1.00M - 0.50M) |> equal "0.50"
+    string (100.5M - 0.5M) |> equal "100.0"
+    string (1.5M - 0.00M) |> equal "1.50"
+
+[<Fact>]
+let ``Decimal multiplication adds the scales up to 28 places`` () =
+    string (2.0M * 3.0M) |> equal "6.00"
+    string (1.5M * 2M) |> equal "3.0"
+    string (0.5M * 0.5M) |> equal "0.25"
+    string (1.50M * 1.0M) |> equal "1.500"
+    string (10M * 0.1M) |> equal "1.0"
+    string (1.10M * 1.10M) |> equal "1.2100"
+    string (0.0M * 5M) |> equal "0.0"
+    string (0M * 1.50M) |> equal "0.00"
+    string (pown 1.50M 2) |> equal "2.2500"
+    string (0.1234567890123456789012345678M * 0.1M) |> equal "0.0123456789012345678901234568"
+    string (0.0000000000000000000000000025M * 0.1M) |> equal "0.0000000000000000000000000002"
+    string (0.0000000000000000000000000035M * 0.1M) |> equal "0.0000000000000000000000000004"
+    string (123456789012345678901234567.89M * 1.1M) |> equal "135802467913580246791358024.68"
+
+[<Fact>]
+let ``Decimal division keeps the scale of an exact quotient`` () =
+    string (1.00M / 2M) |> equal "0.50"
+    string (10M / 2M) |> equal "5"
+    string (1M / 4M) |> equal "0.25"
+    string (1.0M / 0.5M) |> equal "2"
+    string (2M / 1.0M) |> equal "2"
+    string (5.0M / 2.0M) |> equal "2.5"
+    string (1.000M / 8M) |> equal "0.125"
+    string (1.23M / 0.1M) |> equal "12.3"
+    string (0.0M / 5M) |> equal "0.0"
+
+[<Fact>]
+let ``Decimal division rounds an inexact quotient half to even to fit a decimal`` () =
+    string (1M / 3M) |> equal "0.3333333333333333333333333333"
+    string (2M / 3M) |> equal "0.6666666666666666666666666667"
+    string (10M / 3M) |> equal "3.3333333333333333333333333333"
+    string (100M / 3M) |> equal "33.333333333333333333333333333"
+    string (1M / 30000M) |> equal "0.0000333333333333333333333333"
+    string (1M / 7M) |> equal "0.1428571428571428571428571429"
+    string (80M / 9M) |> equal "8.888888888888888888888888889"
+    string (1000000000000000000000000000M / 3M) |> equal "333333333333333333333333333.33"
+    string (10000000000000000000000000001M / 2M) |> equal "5000000000000000000000000000.5"
+    string (0.0000000000000000000000000005M / 2M) |> equal "0.0000000000000000000000000002"
+    string (0.0000000000000000000000000007M / 2M) |> equal "0.0000000000000000000000000004"
+    string (0.0000000000000000000000000001M / 2M) |> equal "0"
+
+[<Fact>]
+let ``Decimal remainder keeps the larger scale`` () =
+    string (5.0M % 2M) |> equal "1.0"
+    string (5M % 2.0M) |> equal "1.0"
+    string (5.5M % 2M) |> equal "1.5"
+    string (7.00M % 2.5M) |> equal "2.00"
+    string (-5.0M % 2M) |> equal "-1.0"
+    string (1.5M % 2.00M) |> equal "1.5"
+
+[<Fact>]
+let ``Decimal arithmetic and parsing throw on overflow`` () =
+    (fun () -> Decimal.MaxValue + 1M) |> throwsAnyError
+    (fun () -> Decimal.MaxValue + 0.5M) |> throwsAnyError
+    string (Decimal.MaxValue + 0.4M) |> equal "79228162514264337593543950335"
+    string ((Decimal.MaxValue - 1M) + 1M) |> equal "79228162514264337593543950335"
+    (fun () -> Decimal.MinValue - 1M) |> throwsAnyError
+    (fun () -> Decimal.MaxValue * 1.1M) |> throwsAnyError
+    string (Decimal.MaxValue * 1.0M) |> equal "79228162514264337593543950335"
+    (fun () -> Decimal.MaxValue / 0.5M) |> throwsAnyError
+    (fun () -> decimal "1e30") |> throwsAnyError
+    (fun () -> decimal "79228162514264337593543950336") |> throwsAnyError
+    (fun () -> decimal "79228162514264337593543950335.5") |> throwsAnyError
+    string (decimal "79228162514264337593543950335.4") |> equal "79228162514264337593543950335"
+    (fun () -> decimal 1e30) |> throwsAnyError
+
+[<Fact>]
+let ``Decimal from float rounds to 15 significant digits`` () =
+    let inv = CultureInfo.InvariantCulture
+    string (decimal 0.1) |> equal "0.1"
+    string (decimal (0.1 + 0.2)) |> equal "0.3"
+    string (decimal 123456789.123456789) |> equal "123456789.123457"
+    string (decimal (1.0 / 3.0)) |> equal "0.333333333333333"
+    string (decimal 123456789012345.6789) |> equal "123456789012346"
+    string (decimal 123456789012345678.0) |> equal "123456789012346000"
+    string (decimal 1e20) |> equal "100000000000000000000"
+    string (decimal 1e28) |> equal "10000000000000000000000000000"
+    string (decimal 1e-10) |> equal "0.0000000001"
+    string (decimal 1.5e-28) |> equal "0.0000000000000000000000000002"
+    string (decimal 5e-29) |> equal "0"
+    string (decimal 1e-30) |> equal "0"
+    string (decimal -0.0) |> equal "0"
+    string (decimal 100000000000001.5) |> equal "100000000000002"
+    string (decimal 100000000000002.5) |> equal "100000000000002"
+    (fun () -> decimal 1e29) |> throwsAnyError
+    (fun () -> decimal nan) |> throwsAnyError
+    (fun () -> decimal infinity) |> throwsAnyError
+
+[<Fact>]
+let ``Decimal from float32 rounds to 7 significant digits`` () =
+    let inv = CultureInfo.InvariantCulture
+    string (decimal 1.1f) |> equal "1.1"
+    string (decimal (0.1f + 0.2f)) |> equal "0.3"
+    string (decimal 16777216.f) |> equal "16777220"
+    string (decimal 1.23456789f) |> equal "1.234568"
+    string (decimal 123456.789f) |> equal "123456.8"
+    string (decimal 1000001.5f) |> equal "1000002"
+    string (decimal 1000002.5f) |> equal "1000002"
+    string (decimal 1e-30f) |> equal "0"
+    (fun () -> decimal 3.4e38f) |> throwsAnyError
+
+[<Fact>]
+let ``Decimal.Parse follows NumberStyles`` () =
+    let inv = CultureInfo.InvariantCulture
+    Decimal.Parse("+5", inv) |> equal 5M
+    Decimal.Parse(" 5 ", inv) |> equal 5M
+    Decimal.Parse("5-", inv) |> equal -5M
+    Decimal.Parse("1,234.5", inv) |> equal 1234.5M
+    Decimal.Parse("1,23,4", inv) |> equal 1234M
+    Decimal.Parse(".5", inv) |> equal 0.5M
+    Decimal.Parse("5.", inv) |> equal 5M
+    string (Decimal.Parse("-0.00", inv)) |> equal "0.00"
+    (fun () -> Decimal.Parse("1e3", inv)) |> throwsAnyError
+    (fun () -> Decimal.Parse(",5", inv)) |> throwsAnyError
+    (fun () -> Decimal.Parse("1,234.5,6", inv)) |> throwsAnyError
+    (fun () -> Decimal.Parse("(5)", inv)) |> throwsAnyError
+    (fun () -> Decimal.Parse("", inv)) |> throwsAnyError
+    Decimal.Parse("1.5E+2", NumberStyles.Float, inv) |> equal 150M
+    string (Decimal.Parse("1.50e1", NumberStyles.Float, inv)) |> equal "15.0"
+    Decimal.Parse("1e3", NumberStyles.Any, inv) |> equal 1000M
+    Decimal.Parse("(5)", NumberStyles.Any, inv) |> equal -5M
+    (fun () -> Decimal.Parse("1,234", NumberStyles.Float, inv)) |> throwsAnyError
+    (fun () -> Decimal.Parse("1e30", NumberStyles.Float, inv)) |> throwsAnyError
+    let ok1, v1 = Decimal.TryParse("1,5", NumberStyles.Number, inv)
+    ok1 |> equal true
+    v1 |> equal 15M
+    let ok2, _ = Decimal.TryParse("1e3", NumberStyles.Number, inv)
+    ok2 |> equal false
+
+[<Fact>]
+let ``Decimal G format keeps the scale without a precision`` () =
+    let inv = CultureInfo.InvariantCulture
+    (1.10M).ToString("G", inv) |> equal "1.10"
+    (0.00M).ToString("G", inv) |> equal "0.00"
+    (1.10M).ToString("G5", inv) |> equal "1.1"
+    (123456M).ToString("G3", inv) |> equal "1.23E+05"
+    (0.0001234M).ToString("G3", inv) |> equal "0.000123"
+    (2.5M).ToString("G1", inv) |> equal "3"
+    (1.5M).ToString("G1", inv) |> equal "2"
+
+[<Fact>]
+let ``Decimal max returns the first of two equal values`` () =
+    let inv = CultureInfo.InvariantCulture
+    string (max 1.0M 1.00M) |> equal "1.0"
+    string (min 1.0M 1.00M) |> equal "1.00"
+    string (Math.Max(1.0M, 1.00M)) |> equal "1.0"
+    string (Math.Min(1.0M, 1.00M)) |> equal "1.00"
+
+[<Fact>]
+let ``Decimal static conversions truncate and check the range`` () =
+    Decimal.ToInt32 2.9M |> equal 2
+    Decimal.ToInt32 -2.9M |> equal -2
+    Decimal.ToInt64 -2.9M |> equal -2L
+    Decimal.ToInt64 9223372036854775807.5M |> equal 9223372036854775807L
+    Decimal.ToUInt64 18446744073709551615M |> equal 18446744073709551615UL
+    Decimal.ToInt16 32767.5M |> equal 32767s
+    Decimal.ToUInt16 65535.9M |> equal 65535us
+    Decimal.ToByte 255.9M |> equal 255uy
+    Decimal.ToSByte -128.9M |> equal -128y
+    Decimal.ToUInt32 4294967295.9M |> equal 4294967295u
+    Decimal.ToDouble 0.1M |> equal 0.1
+    Decimal.ToSingle 1.5M |> equal 1.5f
+    (fun () -> Decimal.ToInt32 2147483648M) |> throwsAnyError
+    (fun () -> Decimal.ToByte -1M) |> throwsAnyError
+    Decimal.ToUInt64 -0.5M |> equal 0UL
+
+[<Fact>]
+let ``Decimal rounding keeps the requested scale`` () =
+    string (Math.Round(1.20001M, 2)) |> equal "1.20"
+    string (Math.Round(1.2M, 3)) |> equal "1.2"
+    string (Math.Round(1.99M, 1)) |> equal "2.0"
+    string (Math.Floor 1.50M) |> equal "1"
+    string (Math.Ceiling 1.50M) |> equal "2"
+    string (Math.Truncate 1.50M) |> equal "1"
+
+[<Fact>]
+let ``Decimal rounding is half to even when a trailing zero follows the 5`` () =
+    Math.Round 2.50M |> equal 2.M
+    Math.Round 0.50M |> equal 0.M
+    Math.Round(1.250M, 1) |> equal 1.2M
+    Math.Round(0.050M, 1) |> equal 0.0M
+    Math.Round(0.0050M, 2) |> equal 0.00M
+
+[<Fact>]
 let ``Decimal pown works`` () =
     pown 2.2M 3 |> equal 10.648M
 
@@ -700,14 +966,14 @@ let ``Double comparison works`` () =
 // [<Fact>]
 // let ``Double.Parse works with IFormatProvider`` () =
 //     // culture compiles to { } for now and it is ignored on the call-site
-//     let culture = Globalization.CultureInfo.InvariantCulture
+//     let culture = CultureInfo.InvariantCulture
 //     let result = Double.Parse("10.5", culture)
 //     result |> equal 10.5
 
 // [<Fact>]
 // let ``Single.Parse works with IFormatProvider`` () =
 //     // culture compiles to { } for now and it is ignored on the call-site
-//     let culture = Globalization.CultureInfo.InvariantCulture
+//     let culture = CultureInfo.InvariantCulture
 //     let result = Single.Parse("10.5", culture)
 //     float result |> equal 10.5
 

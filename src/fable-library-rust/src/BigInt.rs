@@ -2,7 +2,7 @@
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{compare, getHashCode, DivideByInt, Hashable, Lrc, MutCell, ToString, Vec};
+    use crate::Native_::{compare, hash_code, DivideByInt, Hashable, Lrc, MutCell, ToString, Vec};
     use crate::String_::{string, toString as toString_1};
 
     use num_bigint::*;
@@ -43,7 +43,7 @@ pub mod BigInt_ {
     impl Hashable for bigint {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(self)
+            hash_code(self)
         }
     }
 
@@ -103,7 +103,8 @@ pub mod BigInt_ {
     pub fn one() -> bigint { BigInt::one().into() }
     pub fn minusOne() -> bigint { (-BigInt::one()).into() }
 
-    // pub fn getHashCode(x: bigint) = x.GetHashCode()
+    // pub fn getHashCode(x: bigint) = hash_code(&x)
+
     pub fn equals(x: bigint, y: bigint) -> bool { x.eq(&y) }
     pub fn compareTo(x: bigint, y: bigint) -> i32 { compare(&x, &y) }
 

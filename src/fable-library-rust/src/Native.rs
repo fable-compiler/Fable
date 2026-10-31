@@ -258,7 +258,7 @@ pub mod Native_ {
                 fn getHashCode(&self) -> i32 {
                     #[allow(non_snake_case)]
                     let ($($ty,)+) = self;
-                    getHashCodeFromHashCodes([$($ty.getHashCode(),)+])
+                    appendHashCodes([$($ty.getHashCode(),)+])
                 }
             }
         };
@@ -278,7 +278,7 @@ pub mod Native_ {
             impl Hashable for $ident {
                 #[inline]
                 fn getHashCode(&self) -> i32 {
-                    getHashCode(self)
+                    hash_code(self)
                 }
             }
         };
@@ -372,8 +372,14 @@ pub mod Native_ {
         ((h >> 32) ^ h) as i32
     }
 
-    pub fn getHashCode<T: Hash>(x: &T) -> i32 {
+    #[inline]
+    pub fn hash_code<T: Hash>(x: &T) -> i32 {
         hash_to_i32(|hasher| x.hash(hasher))
+    }
+
+    #[inline]
+    pub fn getHashCode<T: Hashable>(x: &T) -> i32 {
+        x.getHashCode()
     }
 
     #[inline]
@@ -381,19 +387,19 @@ pub mod Native_ {
         x.wrapping_shl(1).wrapping_add(y).wrapping_add(631)
     }
 
-    pub fn getHashCodeFromHashCodes<I>(hash_codes: I) -> i32
+    pub fn appendHashCodes<I>(hash_codes: I) -> i32
     where
         I: IntoIterator<Item = i32>,
     {
         hash_to_i32(|hasher| {
-            for hash_code in hash_codes {
-                hash_code.hash(hasher);
+            for code in hash_codes {
+                code.hash(hasher);
             }
         })
     }
 
     pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {
-        getHashCode(&(p as *const T))
+        hash_code(&(p as *const T))
     }
 
     pub fn compare<T: PartialOrd>(x: T, y: T) -> i32 {

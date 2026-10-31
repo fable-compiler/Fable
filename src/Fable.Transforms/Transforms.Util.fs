@@ -226,6 +226,9 @@ module Types =
     let datetimeOffset = "System.DateTimeOffset"
 
     [<Literal>]
+    let datetimeKind = "System.DateTimeKind"
+
+    [<Literal>]
     let dateOnly = "System.DateOnly"
 
     [<Literal>]
@@ -236,6 +239,12 @@ module Types =
 
     [<Literal>]
     let cultureInfo = "System.Globalization.CultureInfo"
+
+    [<Literal>]
+    let numberStyles = "System.Globalization.NumberStyles"
+
+    [<Literal>]
+    let stringSplitOptions = "System.StringSplitOptions"
 
     [<Literal>]
     let timer = "System.Timers.Timer"
@@ -755,6 +764,25 @@ module AST =
     let inline (|IdentType|) (id: Ident) = id.Type
     let inline (|EntFullName|) (e: Entity) = e.FullName
     let inline (|EntRefFullName|) (e: EntityRef) = e.FullName
+
+    [<return: Struct>]
+    let (|ExprTypeEnum|_|) (fullName: string) (expr: Expr) =
+        match expr.Type with
+        | Number(_, NumberInfo.IsEnum entRef) when entRef.FullName = fullName -> ValueSome expr
+        | _ -> ValueNone
+
+    [<return: Struct>]
+    let (|ExprTypeObj|_|) (fullName: string) (expr: Expr) =
+        match expr.Type with
+        | DeclaredType(entRef, _) when entRef.FullName = fullName -> ValueSome expr
+        | _ -> ValueNone
+
+    [<return: Struct>]
+    let (|FormatProvider|_|) (expr: Expr) =
+        match expr with
+        | ExprTypeObj Types.cultureInfo _
+        | ExprTypeObj "System.IFormatProvider" _ -> ValueSome expr
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|DeclaredTypeFullName|_|) =

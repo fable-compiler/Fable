@@ -51,7 +51,7 @@ impl<T: ?Sized> Clone for LrcPtr<T> {
 impl<T: Hashable + ?Sized> Hashable for LrcPtr<T> {
     #[inline]
     fn getHashCode(&self) -> i32 {
-        self.0.as_ref().map_or(0, |value| value.getHashCode())
+        self.0.getHashCode()
     }
 }
 
