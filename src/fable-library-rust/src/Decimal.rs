@@ -14,6 +14,9 @@ pub mod Decimal_ {
     pub const MaxValue: decimal = Decimal::MAX;
     pub const MinValue: decimal = Decimal::MIN;
 
+    const NUMBER_STYLE_NUMBER: i32 = 0x6F;
+    const NUMBER_STYLE_FLOAT: i32 = 0xA7;
+
     impl DivideByInt for decimal {
         #[inline]
         fn divide_by_int(self, rhs: i32) -> Self {
@@ -66,17 +69,20 @@ pub mod Decimal_ {
     }
 
     pub fn add(x: decimal, y: decimal) -> decimal {
-        preserveScale(x + y, x.scale().max(y.scale()))
+        let value = x.checked_add(y).unwrap_or_else(|| panic!(""));
+        preserveScale(value, x.scale().max(y.scale()))
     }
     pub fn subtract(x: decimal, y: decimal) -> decimal {
-        preserveScale(x - y, x.scale().max(y.scale()))
+        let value = x.checked_sub(y).unwrap_or_else(|| panic!(""));
+        preserveScale(value, x.scale().max(y.scale()))
     }
     pub fn multiply(x: decimal, y: decimal) -> decimal {
-        preserveScale(x * y, (x.scale() + y.scale()).min(28))
+        let value = x.checked_mul(y).unwrap_or_else(|| panic!(""));
+        preserveScale(value, (x.scale() + y.scale()).min(28))
     }
     pub fn divide(x: decimal, y: decimal) -> decimal {
-        let quotient = x / y;
-        if quotient * y == x {
+        let quotient = x.checked_div(y).unwrap_or_else(|| panic!(""));
+        if quotient.checked_mul(y) == Some(x) {
             let quotient = quotient.normalize();
             let scale = quotient.scale().max(x.scale().saturating_sub(y.scale()));
             preserveScale(quotient, scale)
@@ -220,126 +226,284 @@ pub mod Decimal_ {
 
     pub fn getTypeCode() -> i32 { 15 }
 
+    fn incrementDigits(digits: &mut String) {
+        let mut carry = true;
+        let mut index = digits.len();
+        while index > 0 && carry {
+            index -= 1;
+            let digit = digits.as_bytes()[index];
+            if digit == b'9' {
+                digits.replace_range(index..index + 1, "0");
+            } else {
+                let nextDigit = [digit + 1];
+                digits.replace_range(
+                    index..index + 1,
+                    core::str::from_utf8(&nextDigit).unwrap(),
+                );
+                carry = false;
+            }
+        }
+        if carry {
+            digits.insert(0, '1');
+        }
+    }
+
     fn roundInputToScale28(value: &str) -> Option<decimal> {
         let bytes = value.as_bytes();
         let signLength = match bytes.first() {
             Some(b'+' | b'-') => 1,
             _ => 0,
         };
-        let Some(decimalIndex) = value.find('.') else {
+        if signLength == bytes.len() {
             return None;
+        }
+
+        let decimalIndex = value.find('.').unwrap_or(bytes.len());
+        let integerDigits = &bytes[signLength..decimalIndex];
+        let fraction = if decimalIndex < bytes.len() {
+            &bytes[decimalIndex + 1..]
+        } else {
+            &bytes[bytes.len()..]
         };
-        let Some(fraction) = bytes.get(decimalIndex + 1..) else {
-            return None;
-        };
-        if fraction.len() <= 28
-            || !bytes.iter().enumerate().all(|(index, byte)| {
-                (index == 0 && signLength == 1 && (*byte == b'+' || *byte == b'-'))
-                    || (index == decimalIndex && *byte == b'.')
-                    || (index != decimalIndex && byte.is_ascii_digit())
-            })
+        if !bytes.iter().enumerate().all(|(index, byte)| {
+            (index == 0 && signLength == 1 && (*byte == b'+' || *byte == b'-'))
+                || (index == decimalIndex && decimalIndex < bytes.len() && *byte == b'.')
+                || (index != decimalIndex && byte.is_ascii_digit())
+        }) || (integerDigits.is_empty() && fraction.is_empty())
         {
             return None;
         }
 
-        let discarded = &fraction[28..];
-        let roundUp = match discarded[0] {
-            b'0'..=b'4' => false,
-            b'6'..=b'9' => true,
-            b'5' => {
-                discarded[1..].iter().any(|digit| *digit != b'0')
-                    || (fraction[27] - b'0') % 2 == 1
-            }
-            _ => return None,
-        };
-
-        let integerDigits = &bytes[signLength..decimalIndex];
-        let retainedFraction = &fraction[..28];
-        let carryIndex = if roundUp {
-            retainedFraction
-                .iter()
-                .rposition(|digit| *digit != b'9')
-                .map(|index| integerDigits.len() + index)
-                .or_else(|| integerDigits.iter().rposition(|digit| *digit != b'9'))
-        } else {
-            None
-        };
-        let allNines = roundUp && carryIndex.is_none();
+        let integerLength = integerDigits.len().max(1);
+        let maxScale = fraction.len().min(28);
         let isNegative = bytes.first() == Some(&b'-');
-        let roundedDigit = |digit: u8, position: usize| match carryIndex {
-            Some(carryIndex) if position > carryIndex => 0,
-            Some(carryIndex) if position == carryIndex => digit - b'0' + 1,
-            _ if allNines => 0,
-            _ => digit - b'0',
-        };
-        let toDecimal = |mantissa: u128, scale: u32| {
-            Decimal::from_parts(
-                mantissa as u32,
-                (mantissa >> 32) as u32,
-                (mantissa >> 64) as u32,
-                isNegative,
-                scale,
-            )
-        };
-        let maxMantissa = (1u128 << 96) - 1;
-        let mut mantissa = if allNines { 1 } else { 0 };
-        let mut position = 0;
 
-        for digit in integerDigits.iter().copied() {
-            let digit = roundedDigit(digit, position);
-            let next = mantissa * 10 + digit as u128;
-            if next > maxMantissa {
-                return None;
+        for scale in (0..=maxScale).rev() {
+            let discarded = &fraction[scale..];
+            let mut digits = String::with_capacity(integerLength + scale + 1);
+            if integerDigits.is_empty() {
+                digits.push('0');
+            } else {
+                digits.push_str(core::str::from_utf8(integerDigits).ok()?);
             }
-            mantissa = next;
-            position += 1;
-        }
+            digits.push_str(core::str::from_utf8(&fraction[..scale]).ok()?);
 
-        let mut scale = 0;
-        for digit in retainedFraction.iter().copied() {
-            let digit = roundedDigit(digit, position);
-            let next = mantissa * 10 + digit as u128;
-            if next > maxMantissa {
-                if digit >= 5 {
-                    mantissa += 1;
-                    if mantissa > maxMantissa {
-                        if scale == 0 {
-                            return None;
-                        }
-                        mantissa = (mantissa + 4) / 10;
-                        scale -= 1;
-                    }
+            let roundUp = match discarded.first() {
+                Some(b'0'..=b'4') | None => false,
+                Some(b'6'..=b'9') => true,
+                Some(b'5') => {
+                    discarded[1..].iter().any(|digit| *digit != b'0')
+                        || digits.as_bytes().last().unwrap_or(&b'0') % 2 == 1
                 }
-                return Some(toDecimal(mantissa, scale));
+                _ => return None,
+            };
+            let originalLength = digits.len();
+            if roundUp {
+                incrementDigits(&mut digits);
             }
-            mantissa = next;
-            scale += 1;
-            position += 1;
+
+            let roundedIntegerLength = integerLength + digits.len().saturating_sub(originalLength);
+            let mut candidate = String::with_capacity(digits.len() + 2);
+            if isNegative {
+                candidate.push('-');
+            }
+            candidate.push_str(&digits[..roundedIntegerLength]);
+            if scale > 0 {
+                candidate.push('.');
+                candidate.push_str(&digits[roundedIntegerLength..]);
+            }
+
+            if let Ok(parsed) = Decimal::from_str(&candidate) {
+                return Some(if parsed.is_zero() { parsed.abs() } else { parsed });
+            }
         }
-        Some(toDecimal(mantissa, scale))
+        None
     }
 
     fn parseDecimal(value: &str) -> Option<decimal> {
-        // More than 28 fractional digits require at least 30 ASCII bytes.
-        if value.len() < 30 {
-            return Decimal::from_str(value).ok();
-        }
-        roundInputToScale28(value).or_else(|| Decimal::from_str(value).ok())
+        roundInputToScale28(value)
     }
 
-    pub fn tryParse(s: string, res: &MutCell<Decimal>) -> bool {
-        match parseDecimal(s.trim()) {
+    fn expandExponent(value: &str, exponent: i32) -> Option<String> {
+        if exponent > 1000 {
+            return None;
+        }
+        if exponent < -1000 {
+            return Some(String::from("0"));
+        }
+
+        let signLength = usize::from(value.starts_with('-'));
+        let unsigned = &value[signLength..];
+        let integerLength = unsigned.find('.').unwrap_or(unsigned.len());
+        let digits: String = unsigned.chars().filter(|digit| *digit != '.').collect();
+        let decimalPosition = integerLength as i32 + exponent;
+        let mut expanded = String::with_capacity(digits.len() + exponent.unsigned_abs() as usize + 2);
+
+        if signLength > 0 {
+            expanded.push('-');
+        }
+        if decimalPosition <= 0 {
+            expanded.push('0');
+            expanded.push('.');
+            for _ in 0..decimalPosition.unsigned_abs() {
+                expanded.push('0');
+            }
+            expanded.push_str(&digits);
+        } else if decimalPosition as usize >= digits.len() {
+            expanded.push_str(&digits);
+            for _ in digits.len()..decimalPosition as usize {
+                expanded.push('0');
+            }
+        } else {
+            let decimalPosition = decimalPosition as usize;
+            expanded.push_str(&digits[..decimalPosition]);
+            expanded.push('.');
+            expanded.push_str(&digits[decimalPosition..]);
+        }
+
+        Some(expanded)
+    }
+
+    fn parseDecimalWithStyle(value: &str, style: i32) -> Option<decimal> {
+        let allowLeadingWhite = style & 0x01 != 0;
+        let allowTrailingWhite = style & 0x02 != 0;
+        let allowLeadingSign = style & 0x04 != 0;
+        let allowTrailingSign = style & 0x08 != 0;
+        let allowParentheses = style & 0x10 != 0;
+        let allowDecimalPoint = style & 0x20 != 0;
+        let allowThousands = style & 0x40 != 0;
+        let allowExponent = style & 0x80 != 0;
+        let allowCurrencySymbol = style & 0x100 != 0;
+
+        let mut value = value;
+        if allowLeadingWhite {
+            value = value.trim_start();
+        } else if value.chars().next().is_some_and(char::is_whitespace) {
+            return None;
+        }
+        if allowTrailingWhite {
+            value = value.trim_end();
+        } else if value.chars().last().is_some_and(char::is_whitespace) {
+            return None;
+        }
+        if value.is_empty() {
+            return None;
+        }
+
+        let mut isNegative = false;
+        if value.starts_with('(') || value.ends_with(')') {
+            if !allowParentheses || !value.starts_with('(') || !value.ends_with(')') {
+                return None;
+            }
+            value = &value[1..value.len() - 1];
+            isNegative = true;
+        }
+
+        if allowCurrencySymbol {
+            if let Some(stripped) = value.strip_prefix('$') {
+                value = stripped;
+            } else if let Some(stripped) = value.strip_suffix('$') {
+                value = stripped;
+            }
+        }
+
+        let leadingSign = value.as_bytes().first().copied();
+        if matches!(leadingSign, Some(b'+' | b'-')) {
+            if !allowLeadingSign || isNegative {
+                return None;
+            }
+            isNegative = leadingSign == Some(b'-');
+            value = &value[1..];
+        } else if matches!(value.as_bytes().last(), Some(b'+' | b'-')) {
+            if !allowTrailingSign || isNegative {
+                return None;
+            }
+            isNegative = value.as_bytes().last() == Some(&b'-');
+            value = &value[..value.len() - 1];
+        }
+
+        let (mantissa, exponent) = match value.find(|character| character == 'e' || character == 'E') {
+            Some(index) => {
+                if !allowExponent || value[index + 1..].contains(['e', 'E']) {
+                    return None;
+                }
+                let exponentText = &value[index + 1..];
+                let exponentDigits = exponentText.strip_prefix('+').or_else(|| exponentText.strip_prefix('-')).unwrap_or(exponentText);
+                if exponentDigits.is_empty() || !exponentDigits.bytes().all(|digit| digit.is_ascii_digit()) {
+                    return None;
+                }
+                ( &value[..index], exponentText.parse::<i32>().ok()? )
+            }
+            None => (value, 0),
+        };
+
+        let bytes = mantissa.as_bytes();
+        let mut integerDigits = String::new();
+        let mut fractionDigits = String::new();
+        let mut hasDecimalPoint = false;
+        let mut digitCount = 0;
+
+        for (index, byte) in bytes.iter().copied().enumerate() {
+            match byte {
+                b'0'..=b'9' => {
+                    digitCount += 1;
+                    if hasDecimalPoint {
+                        fractionDigits.push(byte as char);
+                    } else {
+                        integerDigits.push(byte as char);
+                    }
+                }
+                b'.' if allowDecimalPoint && !hasDecimalPoint => hasDecimalPoint = true,
+                b',' if allowThousands
+                    && !hasDecimalPoint
+                    && index > 0
+                    && index + 1 < bytes.len()
+                    && bytes[index - 1].is_ascii_digit()
+                    && bytes[index + 1].is_ascii_digit() => {}
+                _ => return None,
+            }
+        }
+
+        if digitCount == 0 {
+            return None;
+        }
+        if integerDigits.is_empty() {
+            integerDigits.push('0');
+        }
+
+        let mut normalized = String::new();
+        if isNegative {
+            normalized.push('-');
+        }
+        normalized.push_str(&integerDigits);
+        if !fractionDigits.is_empty() {
+            normalized.push('.');
+            normalized.push_str(&fractionDigits);
+        }
+
+        let normalized = expandExponent(&normalized, exponent)?;
+        parseDecimal(&normalized)
+    }
+
+    pub fn tryParseWithStyle(s: string, style: i32, res: &MutCell<Decimal>) -> bool {
+        match parseDecimalWithStyle(&s, style) {
             Some(d) => { res.set(d); true },
             None => false,
         }
     }
 
-    pub fn parse(s: string) -> decimal {
-        match parseDecimal(s.trim()) {
+    pub fn tryParse(s: string, res: &MutCell<Decimal>) -> bool {
+        tryParseWithStyle(s, NUMBER_STYLE_NUMBER, res)
+    }
+
+    pub fn parseWithStyle(s: string, style: i32) -> decimal {
+        match parseDecimalWithStyle(&s, style) {
             Some(d) => d,
-            None => panic!("The input string {} was not in a correct format.", s),
+            None => panic!(""),
         }
     }
+
+    pub fn parse(s: string) -> decimal { parseWithStyle(s, NUMBER_STYLE_NUMBER) }
 
     pub fn fromInt8(n: i8) -> decimal { Decimal::from_i8(n).unwrap() }
     pub fn fromUInt8(n: u8) -> decimal { Decimal::from_u8(n).unwrap() }
@@ -352,8 +516,16 @@ pub mod Decimal_ {
     pub fn fromNativeInt(n: isize) -> decimal { Decimal::from_isize(n).unwrap() }
     pub fn fromUNativeInt(n: usize) -> decimal { Decimal::from_usize(n).unwrap() }
 
-    pub fn fromFloat32(n: f32) -> decimal { Decimal::from_f32(n).unwrap() }
-    pub fn fromFloat64(n: f64) -> decimal { Decimal::from_f64(n).unwrap() }
+    fn fromFloatString(value: &str) -> decimal {
+        match parseDecimalWithStyle(value, NUMBER_STYLE_FLOAT) {
+            Some(value) if value.is_zero() => Decimal::ZERO,
+            Some(value) => value.normalize(),
+            None => panic!(""),
+        }
+    }
+
+    pub fn fromFloat32(n: f32) -> decimal { fromFloatString(&format!("{:.6e}", n)) }
+    pub fn fromFloat64(n: f64) -> decimal { fromFloatString(&format!("{:.14e}", n)) }
 
     pub fn fromDecimal(d: decimal) -> decimal { d }
 
@@ -370,7 +542,7 @@ pub mod Decimal_ {
     }
 
     pub fn fromString(s: string) -> decimal {
-        parseDecimal(s.trim()).unwrap()
+        parseWithStyle(s, NUMBER_STYLE_NUMBER)
     }
 
     pub fn fromParts(low: i32, mid: i32, high: i32, isNegative: bool, scale: u8) -> decimal {

@@ -1568,45 +1568,43 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ ExprTypeAs(String, arg1) ] ->
             libCall com r t "String" "split" [ c; arg1; makeIntConst -1; makeIntConst 0 ]
             |> Some
-        | [ ExprTypeAs(String, arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
+        | [ ExprTypeAs(String, arg1); ExprTypeEnum Types.stringSplitOptions arg2 ] ->
             libCall com r t "String" "split" [ c; arg1; makeIntConst -1; arg2 ] |> Some
-        | [ ExprTypeAs(String, arg1)
-            ExprTypeAs(Number(Int32, _), arg2)
-            ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
+        | [ ExprTypeAs(String, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeEnum Types.stringSplitOptions arg3 ] ->
             libCall com r t "String" "split" [ c; arg1; arg2; arg3 ] |> Some
 
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _) ] ->
             libCall com r t "String" "split" [ c; arg1; makeIntConst -1; makeIntConst 0 ]
             |> Some
-        | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
+        | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _); ExprTypeEnum Types.stringSplitOptions arg2 ] ->
             libCall com r t "String" "split" [ c; arg1; makeIntConst -1; arg2 ] |> Some
-        | [ ExprTypeAs(Array(String, _), arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
+        | [ ExprTypeAs(Array(String, _), arg1); ExprTypeEnum Types.stringSplitOptions arg2 ] ->
             libCall com r t "String" "splitStrings" [ c; arg1; arg2 ] |> Some
         | [ Value(NewArray(ArrayValues [ arg1 ], String, _), _)
             ExprTypeAs(Number(Int32, _), arg2)
-            ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
+            ExprTypeEnum Types.stringSplitOptions arg3 ] ->
             libCall com r t "String" "split" [ c; arg1; arg2; arg3 ] |> Some
 
         | [ ExprTypeAs(Char, arg1) ] ->
             libCall com r t "String" "splitChars" [ c; makeArray Char [ arg1 ]; makeIntConst -1; makeIntConst 0 ]
             |> Some
-        | [ ExprTypeAs(Char, arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
+        | [ ExprTypeAs(Char, arg1); ExprTypeEnum Types.stringSplitOptions arg2 ] ->
             libCall com r t "String" "splitChars" [ c; makeArray Char [ arg1 ]; makeIntConst -1; arg2 ]
             |> Some
-        | [ ExprTypeAs(Char, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
+        | [ ExprTypeAs(Char, arg1); ExprTypeAs(Number(Int32, _), arg2); ExprTypeEnum Types.stringSplitOptions arg3 ] ->
             libCall com r t "String" "splitChars" [ c; makeArray Char [ arg1 ]; arg2; arg3 ]
             |> Some
 
         | [ ExprTypeAs(Array(Char, _), arg1) ] ->
             libCall com r t "String" "splitChars" [ c; arg1; makeIntConst -1; makeIntConst 0 ]
             |> Some
-        | [ ExprTypeAs(Array(Char, _), arg1); ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg2) ] ->
+        | [ ExprTypeAs(Array(Char, _), arg1); ExprTypeEnum Types.stringSplitOptions arg2 ] ->
             libCall com r t "String" "splitChars" [ c; arg1; makeIntConst -1; arg2 ] |> Some
         | [ ExprTypeAs(Array(Char, _), arg1); ExprTypeAs(Number(Int32, _), arg2) ] ->
             libCall com r t "String" "splitChars" [ c; arg1; arg2; makeIntConst 0 ] |> Some
         | [ ExprTypeAs(Array(Char, _), arg1)
             ExprTypeAs(Number(Int32, _), arg2)
-            ExprTypeAs(Number(_, NumberInfo.IsEnum _), arg3) ] ->
+            ExprTypeEnum Types.stringSplitOptions arg3 ] ->
             libCall com r t "String" "splitChars" [ c; arg1; arg2; arg3 ] |> Some
 
         // Remaining gap: the count-bearing string[] overload Split(string[], int, options)
@@ -2127,37 +2125,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg, _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
-/// Drops culture and style arguments from a call.
-///
-/// Rust's formatting and parsing are invariant, which is exactly what
-/// InvariantCulture asks for, so the overloads that take a provider are
-/// equivalent to the ones that do not. Passing the argument on was not: the
-/// runtime functions have no parameter for it, so `Decimal.Parse(s, style,
-/// culture)` reached a one-argument function and `d.ToString(culture)` put a
-/// provider where a format string belongs.
-///
-/// Filtering by argument type rather than by position leaves the arity of every
-/// other overload alone.
-let dropCultureArgs (args: Expr list) =
-    let isCultureOrStyle (e: Expr) =
-        match e.Type with
-        | DeclaredType(ent, _) ->
-            match ent.FullName with
-            | Types.cultureInfo
-            | "System.IFormatProvider" -> true
-            | _ -> false
-        | Number(_, NumberInfo.IsEnum ent) ->
-            match ent.FullName with
-            | "System.Globalization.NumberStyles"
-            | "System.Globalization.DateTimeStyles" -> true
-            | _ -> false
-        | _ -> false
-
-    args |> List.filter (isCultureOrStyle >> not)
-
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let args = dropCultureArgs args
-
     match i.CompiledName, thisArg, args with
     | (".ctor" | "MakeDecimal"), _, ([ low; mid; high; isNegative; scale ] as args) ->
         makeLibCall com r t i "Decimal" "fromParts" args |> Some
@@ -2165,6 +2133,21 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         makeLibCall com r t i "Decimal" "fromInts" args |> Some
     | ".ctor", _, [ arg ] -> convertTo com ctx r t args |> Some
     | "GetBits", _, _ -> makeLibCall com r t i "Decimal" "getBits" args |> Some
+    | "Parse", _, [ input; ExprTypeEnum Types.numberStyles style; FormatProvider _ ] ->
+        makeLibCall com r t i "Decimal" "parseWithStyle" [ input; style ] |> Some
+    | "Parse", _, [ input; FormatProvider _ ] -> makeLibCall com r t i "Decimal" "parse" [ input ] |> Some
+    | "Parse", _, [ input; ExprTypeEnum Types.numberStyles style ] ->
+        makeLibCall com r t i "Decimal" "parseWithStyle" [ input; style ] |> Some
+    | "Parse", _, [ input ] -> makeLibCall com r t i "Decimal" "parse" args |> Some
+    | "TryParse", _, [ input; ExprTypeEnum Types.numberStyles style; FormatProvider _; result ] ->
+        makeLibCall com r t i "Decimal" "tryParseWithStyle" [ input; style; result ]
+        |> Some
+    | "TryParse", _, [ input; FormatProvider _; result ] ->
+        makeLibCall com r t i "Decimal" "tryParse" [ input; result ] |> Some
+    | "TryParse", _, [ input; ExprTypeEnum Types.numberStyles style; result ] ->
+        makeLibCall com r t i "Decimal" "tryParseWithStyle" [ input; style; result ]
+        |> Some
+    | "TryParse", _, [ input; result ] -> makeLibCall com r t i "Decimal" "tryParse" args |> Some
     | "Parse", _, _ -> makeLibCall com r t i "Decimal" "parse" args |> Some
     | "TryParse", _, _ -> makeLibCall com r t i "Decimal" "tryParse" args |> Some
     | Patterns.SetContains Operators.compareSet, _, [ left; right ] ->
@@ -2194,15 +2177,11 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         | [ x; mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
         | [ x; dp; mode ] -> makeLibCall com r t i "Decimal" "roundToMode" args |> Some
         | _ -> None
+    | "ToString", Some c, [ format; FormatProvider _ ] ->
+        libCall com r t "Decimal" "toStringWithFormat" [ c; format ] |> Some
+    | "ToString", Some c, [ FormatProvider _ ] -> makeLibCall com r t i "Decimal" "toString" [ c ] |> Some
     | "ToString", Some c, [ format ] -> libCall com r t "Decimal" "toStringWithFormat" [ c; format ] |> Some
-    | "ToString", Some c, [] ->
-        // For d.ToString(provider) the provider is the only argument, so dropping
-        // it leaves nothing for toString's decimal parameter; the receiver takes
-        // its place.
-        let args = [ c ]
-
-        makeLibCall com r t i "Decimal" "toString" args |> Some
-    | "ToString", _, _ -> makeLibCall com r t i "Decimal" "toString" args |> Some
+    | "ToString", Some c, [] -> makeLibCall com r t i "Decimal" "toString" [ c ] |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), thisArg, _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
@@ -2575,8 +2554,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
-            ExprType(Number(_, NumberInfo.IsEnum ent)) ] when ent.FullName = "System.DateTimeKind" ->
-            "new_ymdhms_kind" |> Some
+            ExprTypeEnum Types.datetimeKind _ ] -> "new_ymdhms_kind" |> Some
         | [ ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
@@ -2584,8 +2562,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
-            ExprType(Number(_, NumberInfo.IsEnum ent)) ] when ent.FullName = "System.DateTimeKind" ->
-            "new_ymdhms_milli_kind" |> Some
+            ExprTypeEnum Types.datetimeKind _ ] -> "new_ymdhms_milli_kind" |> Some
         | [ ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
@@ -2594,8 +2571,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
-            ExprType(Number(_, NumberInfo.IsEnum ent)) ] when ent.FullName = "System.DateTimeKind" ->
-            "new_ymdhms_micro_kind" |> Some
+            ExprTypeEnum Types.datetimeKind _ ] -> "new_ymdhms_micro_kind" |> Some
         | [ ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
             ExprType(Number(Int32, _))
