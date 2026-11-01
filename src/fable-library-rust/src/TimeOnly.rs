@@ -3,7 +3,7 @@ pub mod TimeOnly_ {
     use crate::{
         DateTime_::{DateTime, duration_to_ticks, ticks_to_duration},
         Format::DateTime::{format_dotnet_custom, split_meridiem_suffix, try_parse_time_str},
-        Native_::{Hashable, MutCell, ToString, compare, format, getHashCode},
+        Native_::{Hashable, MutCell, ToString, compare, format, hash_code},
         String_::{fromString, string},
         TimeSpan_::{TimeSpan, nanoseconds_per_tick, ticks_per_day},
     };
@@ -23,7 +23,7 @@ pub mod TimeOnly_ {
     impl Hashable for TimeOnly {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(self)
+            hash_code(self)
         }
     }
 

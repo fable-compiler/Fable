@@ -6,7 +6,7 @@ pub mod DateTimeOffset_ {
         Format::DateTime::{
             format_dotnet_custom, format_roundtrip_datetime, try_parse_datetime_offset_str,
         },
-        Native_::{Hashable, MutCell, ToString, compare, format, getHashCode},
+        Native_::{Hashable, MutCell, ToString, compare, format, hash_code},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{
@@ -57,6 +57,7 @@ pub mod DateTimeOffset_ {
     }
 
     impl Hash for DateTimeOffset {
+        #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.utcTicks().hash(state)
         }
@@ -65,7 +66,7 @@ pub mod DateTimeOffset_ {
     impl Hashable for DateTimeOffset {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(&self.utcTicks())
+            hash_code(&self.utcTicks())
         }
     }
 

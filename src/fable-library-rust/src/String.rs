@@ -5,7 +5,7 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{compare, iter_to_seq, getHashCode, seq_to_iter, Func1, Func2, Hashable, NullableRef, Seq, String, ToString, Vec};
+    use crate::Native_::{compare, iter_to_seq, hash_code, seq_to_iter, Func1, Func2, Hashable, NullableRef, Seq, String, ToString, Vec};
     use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
@@ -285,7 +285,7 @@ pub mod String_ {
     impl Hashable for string {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(self)
+            hash_code(self)
         }
     }
 

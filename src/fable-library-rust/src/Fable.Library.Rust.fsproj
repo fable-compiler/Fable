@@ -25,6 +25,7 @@
     <Compile Include="System.fs" />
     <Compile Include="Microsoft.FSharp.Core.fs" />
     <Compile Include="System.Collections.Generic.fs" />
+    <Compile Include="System.Globalization.fs" />
     <Compile Include="System.Text.fs" />
     <Compile Include="System.Threading.fs" />
     <Compile Include="Interfaces.fs" />

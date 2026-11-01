@@ -1,7 +1,7 @@
 pub mod TimeSpan_ {
     use crate::{
         Format::TimeSpan::{format_time_span, try_parse_time_span_str},
-        Native_::{Hashable, MutCell, ToString, compare, getHashCode},
+        Native_::{Hashable, MutCell, ToString, compare, hash_code},
         String_::{fromString, string},
     };
     use core::ops::{Add, Div, Mul, Sub};
@@ -44,7 +44,7 @@ pub mod TimeSpan_ {
     impl Hashable for TimeSpan {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(&self.ticks())
+            hash_code(&self.ticks())
         }
     }
 

@@ -128,6 +128,7 @@ pub mod SetExt {
     }
 
     impl<T: Clone + Hashable + PartialOrd + Hash> Hash for Set<T> {
+        #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.clone().into_iter().for_each(|x| x.hash(state))
         }
@@ -231,6 +232,7 @@ pub mod MapExt {
     }
 
     impl<K: Clone + Hashable + PartialOrd + Hash, V: Clone + Hash> Hash for Map<K, V> {
+        #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.clone().into_iter().for_each(|kvp| kvp.hash(state))
         }

@@ -6,7 +6,7 @@ pub mod DateTime_ {
             format_dotnet_custom, format_offset_token, format_roundtrip_datetime,
             try_parse_datetime_str,
         },
-        Native_::{Hashable, MutCell, String, ToString, compare, getHashCode},
+        Native_::{Hashable, MutCell, String, ToString, compare, hash_code},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{TimeSpan, nanoseconds_per_tick, ticks_per_second},
@@ -64,6 +64,7 @@ pub mod DateTime_ {
     }
 
     impl Hash for DateTime {
+        #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.ticks().hash(state)
         }
@@ -72,7 +73,7 @@ pub mod DateTime_ {
     impl Hashable for DateTime {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(&self.ticks())
+            hash_code(&self.ticks())
         }
     }
 

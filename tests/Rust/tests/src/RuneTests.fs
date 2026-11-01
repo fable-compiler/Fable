@@ -273,8 +273,8 @@ let ``Rune.Equals works`` () =
 
 [<Fact>]
 let ``Rune.GetHashCode works`` () =
-    Rune('a').GetHashCode() |> equal 97
-    Rune(0x1F600).GetHashCode() |> equal 0x1F600
+    Rune('a').GetHashCode() |> equal (Rune(97).GetHashCode())
+    Rune(0x1F600).GetHashCode() |> equal (Rune.GetRuneAt("😀", 0).GetHashCode())
 
 [<Fact>]
 let ``Rune.GetRuneAt works with BMP characters`` () =

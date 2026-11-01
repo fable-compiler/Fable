@@ -95,6 +95,7 @@ mod NonSyncCell {
     }
 
     impl<T: Hash> Hash for MutCell<T> {
+        #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.get().hash(state);
         }

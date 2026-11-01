@@ -5565,11 +5565,13 @@ module Util =
         // }
         // impl Eq for {self_ty} {}
         // impl core::hash::Hash for {self_ty} {
+        //     #[inline]
         //     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         //         core::hash::Hash::hash(&(self as *const Self as usize), state)
         //     }
         // }
         // impl Native_::Hashable for {self_ty} {
+        //     #[inline]
         //     fn getHashCode(&self) -> i32 { Native_::referenceHash(self) }
         // }
 
@@ -5611,7 +5613,7 @@ module Util =
 
             let generics = [ hParam ] |> mkGenerics
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics fnBody
-            mkFnAssocItem [] "hash" fnKind
+            mkFnAssocItem [ mkAttr "inline" [] ] "hash" fnKind
 
         let getHashCodeFnItem =
             let referenceHashName = getLibraryImportName com ctx "Native" "referenceHash"

@@ -1,7 +1,7 @@
 #[cfg(feature = "guid")]
 pub mod Guid_ {
     use crate::DateTimeOffset_::DateTimeOffset;
-    use crate::Native_::{Hashable, MutCell, ToString, compare, format, getHashCode};
+    use crate::Native_::{Hashable, MutCell, ToString, compare, format, hash_code};
     use crate::NativeArray_::{Array, new_array};
     use crate::String_::{fromString, string};
     use uuid::{NoContext, Timestamp, Uuid};
@@ -22,7 +22,7 @@ pub mod Guid_ {
         #[inline]
         fn getHashCode(&self) -> i32 {
             let bytes = self.toByteArray();
-            getHashCode(&bytes)
+            hash_code(&bytes)
         }
     }
 
