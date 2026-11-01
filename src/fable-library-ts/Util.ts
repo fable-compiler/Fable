@@ -714,6 +714,63 @@ export function round(value: number, digits: number = 0) {
   return digits ? r / m : r;
 }
 
+export const MidpointRounding = {
+  ToEven: 0,
+  AwayFromZero: 1,
+  ToZero: 2,
+  ToNegativeInfinity: 3,
+  ToPositiveInfinity: 4,
+} as const;
+
+function invalidMidpointRounding(mode: number) {
+  return new Exception(`The value '${mode}' is not valid for this usage of the type MidpointRounding. (Parameter 'mode')`);
+}
+
+function roundToModeWithLimits(value: number, digits: number, mode: number, maxDigits: number, limit: number): number {
+  if (!(digits >= 0 && digits <= maxDigits)) {
+    throw new Exception(`Rounding digits must be between 0 and ${maxDigits}, inclusive. (Parameter 'digits')`);
+  }
+  // .NET returns values at or above the limit unchanged, without validating mode
+  if (!(Math.abs(value) < limit)) {
+    return value;
+  }
+  const m = Math.pow(10, digits);
+  let v = value * m;
+  switch (mode) {
+    case MidpointRounding.ToEven: {
+      const r = Math.round(v);
+      v = r - v === 0.5 && r % 2 !== 0 ? r - 1 : r;
+      break;
+    }
+    case MidpointRounding.AwayFromZero: {
+      const i = Math.trunc(v);
+      const f = v - i;
+      v = Math.abs(f) >= 0.5 ? i + Math.sign(f) : i;
+      break;
+    }
+    case MidpointRounding.ToZero: v = Math.trunc(v); break;
+    case MidpointRounding.ToNegativeInfinity: v = Math.floor(v); break;
+    case MidpointRounding.ToPositiveInfinity: v = Math.ceil(v); break;
+    default: throw invalidMidpointRounding(mode);
+  }
+  return v / m;
+}
+
+export function roundMode(value: number, mode: number): number {
+  if (!(mode >= MidpointRounding.ToEven && mode <= MidpointRounding.ToPositiveInfinity)) {
+    throw invalidMidpointRounding(mode);
+  }
+  return roundToModeWithLimits(value, 0, mode, 15, 1e16);
+}
+
+export function roundToMode(value: number, digits: number, mode: number): number {
+  return roundToModeWithLimits(value, digits, mode, 15, 1e16);
+}
+
+export function roundToModeFloat32(value: number, digits: number, mode: number): number {
+  return roundToModeWithLimits(value, digits, mode, 6, 1e8);
+}
+
 export function sign(x: number): number {
   return x > 0 ? 1 : x < 0 ? -1 : 0;
 }
