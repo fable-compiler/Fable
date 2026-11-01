@@ -19,15 +19,17 @@ jobs:
     name: Claude
     runs-on: ubuntu-latest
 
-    # Only trigger on @claude mentions from trusted contributors
-    # (NONE = first-time contributors with no prior contributions)
+    # Only trigger on @claude mentions from maintainers; a review carries its author on `review`, not `comment`
     if: |
-      (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
-      ) &&
-      github.event.comment.author_association != 'NONE'
+      (github.event_name == 'issue_comment'
+        && contains(github.event.comment.body, '@claude')
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review_comment'
+        && contains(github.event.comment.body, '@claude')
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review'
+        && contains(github.event.review.body, '@claude')
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association))
 
     steps:
       - name: Checkout repository

@@ -20,8 +20,11 @@ jobs:
     name: ShipIt - Pull Request
     runs-on: ubuntu-latest
     # Only run on the upstream repository, and only if the build workflow succeeded
+    # The branches filter matches the head branch name, which a fork PR also controls
     if: >-
       !github.event.repository.fork
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
       && github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v7.0.1
@@ -45,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       !github.event.repository.fork
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
       && github.event.workflow_run.conclusion == 'success'
       && startsWith(github.event.workflow_run.head_commit.message, 'chore: release ')
     steps:
