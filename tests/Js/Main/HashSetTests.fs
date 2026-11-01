@@ -30,6 +30,12 @@ type RefEqRecord = { a: int; b: int }
 
 type MyRecord = { a: int }
 
+type NameSet() =
+    inherit HashSet<string>()
+
+    member this.AddAll(names: string list) =
+        names |> List.filter this.Add |> List.length
+
 type R = { i: int; s: string }
 
 type SetItem =
@@ -416,4 +422,13 @@ let tests =
         coll.Remove(("D", 3)) |> equal false
         coll.Remove(("B", 2)) |> equal true
         coll.Count |> equal 2
+  
+
+    testCase "HashSet subclasses work" <| fun () ->
+        let names = NameSet()
+        names.AddAll [ "a"; "b"; "a" ] |> equal 2
+        names.Count |> equal 2
+        names.Contains "b" |> equal true
+        names.Remove "b" |> equal true
+        names |> List.ofSeq |> equal [ "a" ]
   ]
