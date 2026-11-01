@@ -1857,6 +1857,11 @@ module Util =
         | Some(Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
                 match com.Options.Language, baseType, baseRef with
+                // A BCL base like Dictionary is annotated with an interface, so extend the library class it runs as
+                | TypeScript, Some(Fable.DeclaredType(_, genArgs)), Fable.Import({ Kind = Fable.LibraryImport _ }, _, _) ->
+                    match transformAsExpr com ctx baseRef with
+                    | Expression.Identifier id -> makeGenericTypeAnnotation com ctx genArgs id |> SuperType
+                    | expr -> SuperExpression expr
                 | TypeScript, Some typ, _ -> makeTypeAnnotation com ctx typ |> SuperType
                 | TypeScript, None, Fable.IdentExpr id -> makeTypeAnnotation com ctx id.Type |> SuperType
                 | _ -> transformAsExpr com ctx baseRef |> SuperExpression

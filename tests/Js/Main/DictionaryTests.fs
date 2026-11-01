@@ -28,6 +28,12 @@ type Table<'K, 'V when 'K: equality and 'K: not null> () =
 
     member _.Dic = dic
 
+type CountingDictionary() =
+    inherit Dictionary<string, int>()
+
+    member this.Increment(key: string) =
+        this.[key] <- (if this.ContainsKey key then this.[key] else 0) + 1
+
 let tests =
   testList "Dictionaries" [
     testCase "Dictionary KeyValuePattern works" <| fun () -> // See #509
@@ -384,4 +390,16 @@ let tests =
         coll.Remove(KeyValuePair("D", 3)) |> equal false
         coll.Remove(KeyValuePair("B", 2)) |> equal true
         coll.Count |> equal 2
+  
+
+    testCase "Dictionary subclasses work" <| fun () ->
+        let dic = CountingDictionary()
+        dic.Increment "a"
+        dic.Increment "a"
+        dic.Increment "b"
+        dic.["a"] |> equal 2
+        dic.Count |> equal 2
+        dic.ContainsKey "b" |> equal true
+        dic.Remove "b" |> equal true
+        dic |> Seq.map (fun kv -> kv.Key, kv.Value) |> List.ofSeq |> equal [ "a", 2 ]
   ]
