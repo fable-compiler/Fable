@@ -122,6 +122,12 @@ let tests = testList "Strings" [
         sb.Append(8.0f) |> ignore // float32
         sb.ToString().Replace(",", ".") |> equal "12345678"
 
+    testCase "StringBuilder.Append treats null as empty" <| fun () -> // See #5162
+        let n: string = null
+        let o: obj = null
+        let sb = System.Text.StringBuilder()
+        sb.Append("a").Append(n).Append(o).Append("b").ToString() |> equal "ab"
+
     testCase "StringBuilder.AppendFormat works" <| fun () ->
         let sb = System.Text.StringBuilder()
         sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
@@ -255,6 +261,14 @@ let tests = testList "Strings" [
 
     testCase "sprintf without arguments works" <| fun () ->
         sprintf "hello" |> equal "hello"
+
+    testCase "sprintf \"%s\" prints null as empty" <| fun () -> // See #5162
+        let n: string = null
+        sprintf "%s" n |> equal ""
+        sprintf "a%sb" n |> equal "ab"
+        sprintf "[%5s]" n |> equal "[     ]"
+        sprintf "[%-5s]" n |> equal "[     ]"
+        (try failwithf "x%sy" n with e -> e.Message) |> equal "xy"
 
     testCase "input of print format can be retrieved" <| fun () ->
         let pathScan (pf:PrintfFormat<_,_,_,_,'t>) =
@@ -495,6 +509,13 @@ let tests = testList "Strings" [
 
     testCase "String.Format should fail if there are less arguments than placeholders" <| fun () -> // See #2768
         throwsAnyError <| fun () -> String.Format ("Hello {0}", args = Array.empty)
+
+    testCase "String.Format treats null arguments as empty" <| fun () -> // See #5162
+        let n: string = null
+        let o: obj = null
+        String.Format("a{0}b", n) |> equal "ab"
+        String.Format("a{0}b", o) |> equal "ab"
+        String.Format("[{0,3}]", n) |> equal "[   ]"
 
     testCase "String.Format combining padding and zeroes pattern works" <| fun () ->
         String.Format(CultureInfo.InvariantCulture, "{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
@@ -1298,6 +1319,15 @@ let tests = testList "Strings" [
         String.Concat((null: string), "b") |> equal "b"
         String.Concat([| "a"; null; "b" |]) |> equal "ab"
         String.Concat(box "a", null, box 1) |> equal "a1"
+
+    testCase "string treats null as empty" <| fun () -> // See #5162
+        let n: string = null
+        let o: obj = null
+        string n |> equal ""
+        string (box n) |> equal ""
+        string o |> equal ""
+        string (None: int option) |> equal ""
+        string "a" |> equal "a"
 
     testCase "System.String.Concat works" <| fun () ->
         String.Concat("a", "b", "c")

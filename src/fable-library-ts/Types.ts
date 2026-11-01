@@ -45,6 +45,10 @@ export function toString(x: any, callStack = 0): string {
   return String(x);
 }
 
+export function toStringOrEmpty(x: any): string {
+  return x == null ? "" : toString(x);
+}
+
 export function unionToString(name: string, fields: any[]) {
   if (fields.length === 0) {
     return name;
