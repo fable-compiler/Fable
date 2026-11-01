@@ -680,6 +680,7 @@ module Imports =
             if isAbsolutePath importPath then
                 if
                     importPath.EndsWith(".fs", StringComparison.Ordinal)
+                    || importPath.EndsWith(".fsx", StringComparison.Ordinal)
                     || importPath.EndsWith(".rs", StringComparison.Ordinal)
                 then
                     getTargetRelativePath pathResolver importPath targetDir projDir outDir

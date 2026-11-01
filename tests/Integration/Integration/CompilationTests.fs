@@ -63,7 +63,10 @@ let tests =
             testCaseDir
             (async {
                 let project =
-                    Directory.GetFileSystemEntries(testCaseDir, "*.fsproj") |> Seq.exactlyOne
+                    match Directory.GetFileSystemEntries(testCaseDir, "*.fsproj") with
+                    | [| project |] -> project
+                    | [||] -> Path.Combine(testCaseDir, "main.fsx")
+                    | projects -> failwith $"Expected one project in {testCaseDir}, found {projects.Length}"
                 // clean up old actual files
                 for f in Directory.GetFileSystemEntries(testCaseDir, "*.actual") do
                     File.Delete f

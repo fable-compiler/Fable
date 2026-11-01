@@ -139,7 +139,10 @@ module Js =
                 let path =
                     Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
 
-                if path.EndsWith(".fs", StringComparison.Ordinal) then
+                if
+                    path.EndsWith(".fs", StringComparison.Ordinal)
+                    || path.EndsWith(".fsx", StringComparison.Ordinal)
+                then
                     let isInFableModules = Path.Combine(targetDir, path) |> Naming.isInFableModules
 
                     File.changeExtensionButUseDefaultExtensionInFableModules JavaScript isInFableModules path fileExt
@@ -412,7 +415,10 @@ module Php =
                 let path =
                     Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
 
-                if path.EndsWith(".fs", StringComparison.Ordinal) then
+                if
+                    path.EndsWith(".fs", StringComparison.Ordinal)
+                    || path.EndsWith(".fsx", StringComparison.Ordinal)
+                then
                     Path.ChangeExtension(path, fileExt)
                 else
                     path
@@ -451,7 +457,10 @@ module Dart =
                 let path =
                     Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
 
-                if path.EndsWith(".fs", StringComparison.Ordinal) then
+                if
+                    path.EndsWith(".fs", StringComparison.Ordinal)
+                    || path.EndsWith(".fsx", StringComparison.Ordinal)
+                then
                     Path.ChangeExtension(path, fileExt)
                 else
                     path
@@ -507,7 +516,10 @@ module Rust =
                 let path =
                     Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
 
-                if path.EndsWith(".fs", StringComparison.Ordinal) then
+                if
+                    path.EndsWith(".fs", StringComparison.Ordinal)
+                    || path.EndsWith(".fsx", StringComparison.Ordinal)
+                then
                     Path.ChangeExtension(path, fileExt)
                 else
                     path

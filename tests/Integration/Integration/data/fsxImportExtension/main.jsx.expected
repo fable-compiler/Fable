@@ -1,0 +1,7 @@
+
+import { a } from "./a.jsx.actual";
+
+export function b(v) {
+    return (a(v) + 1) | 0;
+}
+
