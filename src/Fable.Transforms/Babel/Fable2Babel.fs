@@ -467,9 +467,20 @@ module Reflection =
                         |> Map
                         |> Some
 
-                    yield
+                    let parent =
                         Fable.DeclaredType(d.Entity, d.GenericArgs)
                         |> transformTypeInfoFor Reflection com ctx r genMap
+
+                    let rec hasDeclaredType (t: Fable.Type) =
+                        match t with
+                        | Fable.DeclaredType _ -> true
+                        | t -> t.Generics |> List.exists hasDeclaredType
+
+                    // A generic argument can be this type or one that inherits from it, so evaluating it eagerly recurses forever
+                    if d.GenericArgs |> List.exists hasDeclaredType then
+                        yield Expression.arrowFunctionExpression ([||], parent)
+                    else
+                        yield parent
                 | None -> ()
             ]
             |> libReflectionCall com ctx r "class"
