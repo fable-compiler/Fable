@@ -349,6 +349,13 @@ let tests =
         Decimal.Round(2.5M, MidpointRounding.AwayFromZero) |> equal 3.M
         Decimal.Round(-1.25M, 1, MidpointRounding.AwayFromZero) |> equal -1.3M
 
+    testCase "Decimal round with MidpointRounding validates its arguments" <| fun () ->
+        (fun () -> Math.Round(1.5M, enum<MidpointRounding> 5)) |> throwsAnyError
+        (fun () -> Math.Round(1.5M, 2, enum<MidpointRounding> -1)) |> throwsAnyError
+        (fun () -> Math.Round(1.5M, 29, MidpointRounding.AwayFromZero)) |> throwsAnyError
+        (fun () -> Math.Round(1.5M, -1, MidpointRounding.AwayFromZero)) |> throwsAnyError
+        Math.Round(1.5M, 28, MidpointRounding.AwayFromZero) |> equal 1.5M
+
     testCase "Decimal truncate works" <| fun () ->
         truncate 11.0M |> equal 11.M
         truncate 11.01M |> equal 11.M
@@ -915,6 +922,51 @@ let tests =
         round MidpointRounding.ToNegativeInfinity |> equal [ 1.2; -1.3; 1.23; 2.67; -2.68; 1.42; 0.12; -1.01 ]
         round MidpointRounding.ToPositiveInfinity |> equal [ 1.3; -1.2; 1.24; 2.68; -2.67; 1.43; 0.13; -1. ]
         Math.Round(1e17, 2, MidpointRounding.AwayFromZero) |> equal 1e17
+
+    testCase "Math.Round with MidpointRounding.ToEven rounds the exact value" <| fun () ->
+        Math.Round(2.500000001, MidpointRounding.ToEven) |> equal 3.
+        Math.Round(-2.500000001, MidpointRounding.ToEven) |> equal -3.
+        Math.Round(2.499999999, MidpointRounding.ToEven) |> equal 2.
+        Math.Round(1.015, 2, MidpointRounding.ToEven) |> equal 1.01
+        Math.Round(1.015, 2, MidpointRounding.AwayFromZero) |> equal 1.01
+        Math.Round(1.025, 2, MidpointRounding.ToEven) |> equal 1.02
+        1. / Math.Round(-0.5, MidpointRounding.ToEven) |> equal -infinity
+        1. / Math.Round(-0.04, 1, MidpointRounding.ToEven) |> equal -infinity
+
+    testCase "Math.Round with MidpointRounding keeps NaN and infinities" <| fun () ->
+        let modes = [ MidpointRounding.ToEven; MidpointRounding.AwayFromZero; MidpointRounding.ToZero; MidpointRounding.ToNegativeInfinity; MidpointRounding.ToPositiveInfinity ]
+        for mode in modes do
+            Double.IsNaN(Math.Round(nan, mode)) |> equal true
+            Double.IsNaN(Math.Round(nan, 2, mode)) |> equal true
+            Math.Round(infinity, mode) |> equal infinity
+            Math.Round(-infinity, 2, mode) |> equal -infinity
+
+    testCase "Math.Round with MidpointRounding validates its arguments" <| fun () ->
+        (fun () -> Math.Round(1.5, enum<MidpointRounding> 5)) |> throwsAnyError
+        (fun () -> Math.Round(1e17, enum<MidpointRounding> 5)) |> throwsAnyError
+        (fun () -> Math.Round(nan, enum<MidpointRounding> 5)) |> throwsAnyError
+        (fun () -> Math.Round(1.5, 2, enum<MidpointRounding> -1)) |> throwsAnyError
+        (fun () -> Math.Round(1.5, 16, MidpointRounding.AwayFromZero)) |> throwsAnyError
+        (fun () -> Math.Round(1.5, -1, MidpointRounding.ToEven)) |> throwsAnyError
+        (fun () -> Math.Round(nan, 16, MidpointRounding.ToEven)) |> throwsAnyError
+        Math.Round(1.5, 15, MidpointRounding.AwayFromZero) |> equal 1.5
+
+    testCase "Math.Round with digits and MidpointRounding skips mode validation for unrounded values" <| fun () ->
+        Math.Round(1e17, 2, enum<MidpointRounding> 5) |> equal 1e17
+        Math.Round(infinity, 2, enum<MidpointRounding> 5) |> equal infinity
+        Double.IsNaN(Math.Round(nan, 2, enum<MidpointRounding> 5)) |> equal true
+
+    testCase "MathF.Round with MidpointRounding works" <| fun () ->
+        MathF.Round(2.5f, MidpointRounding.AwayFromZero) |> equal 3.f
+        MathF.Round(-2.5f, MidpointRounding.AwayFromZero) |> equal -3.f
+        MathF.Round(2.5f, MidpointRounding.ToEven) |> equal 2.f
+        MathF.Round(2.5f, MidpointRounding.ToZero) |> equal 2.f
+        MathF.Round(-2.5f, MidpointRounding.ToNegativeInfinity) |> equal -3.f
+        MathF.Round(-2.5f, MidpointRounding.ToPositiveInfinity) |> equal -2.f
+        MathF.Round(1.5f, 6, MidpointRounding.AwayFromZero) |> equal 1.5f
+        MathF.Round(1e9f, 2, enum<MidpointRounding> 5) |> equal 1e9f
+        (fun () -> MathF.Round(1.5f, 7, MidpointRounding.AwayFromZero)) |> throwsAnyError
+        (fun () -> MathF.Round(1e9f, enum<MidpointRounding> 5)) |> throwsAnyError
 
     testCase "Math.Truncate works" <| fun () ->
         Math.Truncate -12.5 |> equal -12.

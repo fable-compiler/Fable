@@ -73,7 +73,10 @@ export function round(x: Decimal, digits: number = 0) {
   return x.round(digits, 2 /* ROUND_HALF_EVEN */);
 }
 
-export function roundWithMode(x: Decimal, digits: number, mode: number) {
+export function roundToMode(x: Decimal, digits: number, mode: number) {
+  if (!(digits >= 0 && digits <= 28)) {
+    throw new Exception("Decimal can only round to between 0 and 28 digits of precision. (Parameter 'decimals')");
+  }
   switch (mode) {
     case MidpointRounding.ToEven: return x.round(digits, 2 /* ROUND_HALF_EVEN */);
     case MidpointRounding.AwayFromZero: return x.round(digits, 1 /* ROUND_HALF_UP */);
@@ -82,6 +85,10 @@ export function roundWithMode(x: Decimal, digits: number, mode: number) {
     case MidpointRounding.ToPositiveInfinity: return x.round(digits, x.cmp(0) >= 0 ? 3 /* ROUND_UP */ : 0 /* ROUND_DOWN */);
     default: throw new Exception(`The value '${mode}' is not valid for this usage of the type MidpointRounding. (Parameter 'mode')`);
   }
+}
+
+export function roundMode(x: Decimal, mode: number) {
+  return roundToMode(x, 0, mode);
 }
 
 export function truncate(x: Decimal) {

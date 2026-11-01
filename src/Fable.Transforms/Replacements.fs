@@ -466,14 +466,16 @@ let round com (args: Expr list) =
     | _ -> args
 
 let roundCall (com: ICompiler) r t moduleName (i: CallInfo) (args: Expr list) =
-    match List.tryLast i.SignatureArgTypes, args with
-    | Some(Number(_, NumberInfo.IsEnum ent)), _ when ent.FullName = "System.MidpointRounding" ->
-        let args =
-            match args with
-            | [ value; mode ] -> [ value; makeIntConst 0; mode ]
-            | args -> args
+    let isMidpointRounding =
+        match List.tryLast i.SignatureArgTypes with
+        | Some(Number(_, NumberInfo.IsEnum ent)) -> ent.FullName = "System.MidpointRounding"
+        | _ -> false
 
-        Helper.LibCall(com, moduleName, "roundWithMode", t, args, ?loc = r)
+    match args with
+    | [ _; _ ] when isMidpointRounding -> Helper.LibCall(com, moduleName, "roundMode", t, args, ?loc = r)
+    | [ ExprType(Number(Float32, _)); _; _ ] when isMidpointRounding ->
+        Helper.LibCall(com, moduleName, "roundToModeFloat32", t, args, ?loc = r)
+    | [ _; _; _ ] when isMidpointRounding -> Helper.LibCall(com, moduleName, "roundToMode", t, args, ?loc = r)
     | _ -> Helper.LibCall(com, moduleName, "round", t, args, i.SignatureArgTypes, ?loc = r)
 
 let toList com returnType expr =
