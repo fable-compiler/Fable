@@ -1085,8 +1085,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 | _, Some i -> identWithRange r i |> Fable.IdentExpr
                 | _, None -> Fable.Value(makeType Map.empty typ |> Fable.ThisValue, r)
 
-        // F# reads the `x` of an explicit `new() as x` through the IL instruction loading `this`
-        | FSharpExprPatterns.ILAsm("[I_ldarg 0us]", [], []) ->
+        // The `x` of `new() as x` is read through an IL `this` load, printed `0us` by FCS on .NET and `0` by FCS on JS
+        | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) ->
             let r = makeRangeFrom fsExpr
 
             return
