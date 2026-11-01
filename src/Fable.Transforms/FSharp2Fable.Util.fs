@@ -2737,6 +2737,11 @@ module Util =
                 || isPojoDefinedByConsArgsFSharpEntity ent
             )
 
+    let isMangledAbstractFableEntity (com: Compiler) (ent: Fable.Entity) =
+        match ent with
+        | :? FsEnt as ent -> isMangledAbstractEntity com ent.FSharpEntity
+        | _ -> false
+
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
         // TODO: Error if entity doesn't have fullName?
         let entityName = defaultArg ent.TryFullName ""

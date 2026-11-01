@@ -4633,24 +4633,8 @@ but thanks to the optimisation done below we get
         let name = fullNamePath + genericSuffix + "." + memb.CompiledName + overloadSuffix
         name
 
-    let transformAbstractMember com ctx (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
-        // TODO: replicate the mangling logic from FSharp2Fable.Util.getAbstractMemberInfo
-        // let info = FSharp2Fable.Util.getAbstractMemberInfo com ent memb
-        let hasMangleEnabled =
-            ent.Attributes
-            |> Seq.exists (fun att ->
-                att.Entity.FullName = Atts.mangle
-                && (
-                    match att.ConstructorArgs with
-                    | (:? bool as value) :: _ -> value
-                    | _ -> true
-                )
-            )
-
-        let isMangled =
-            (ent.IsAbstractClass && not (hasAttribute Atts.attachMembers ent.Attributes))
-            || hasMangleEnabled
-
+    let transformAbstractMember (com: IBabelCompiler) ctx (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
+        let isMangled = FSharp2Fable.Util.isMangledAbstractFableEntity com ent
         let isGetter = memb.IsGetter
         let isSetter = memb.IsSetter
 

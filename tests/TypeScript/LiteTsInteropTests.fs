@@ -71,6 +71,17 @@ module MangleInterfaces =
     let useNotMangled (x: INotMangled) = x.Foo 1, x.Bar
     let incrementBaz (x: INotMangled) = x.Baz <- x.Baz + 1
     let useMangled (x: IMangled) = x.Foo 1
+
+module MangleAbstractClasses =
+    [<AbstractClass; AttachMembers; Mangle>]
+    type AttachedBase() =
+        abstract Run: int -> int
+
+    type AttachedImpl() =
+        inherit AttachedBase()
+        override _.Run x = x + 3
+
+    let useAttached (x: AttachedBase) = x.Run 1
 #endif
 
 type GenericNameRecord<'a> =
@@ -159,5 +170,10 @@ let tests =
         notMangled?Baz |> equal 2
         let mangled = { new MangleInterfaces.IMangled with member _.Foo x = x + 2 }
         MangleInterfaces.useMangled mangled |> equal 3
+
+    testCase "Abstract classes with [<AttachMembers>] ignore [<Mangle>] in declarations" <| fun () ->
+        let attached = MangleAbstractClasses.AttachedImpl()
+        MangleAbstractClasses.useAttached attached |> equal 4
+        attached?Run(2) |> equal 5
     #endif
   ]
