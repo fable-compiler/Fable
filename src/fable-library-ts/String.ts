@@ -267,6 +267,8 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     rep = formatDateLike(rep, undefined);
   } else if (format === "A" && typeof rep === "string") {
     rep = "\"" + rep + "\"";
+  } else if (format === "s" && rep == null) {
+    rep = "";
   } else {
     rep = toString(rep);
   }
@@ -609,7 +611,7 @@ export function format(str: string | object, ...args: any[]) {
     } else if (rep instanceof Date || isNetDateFormattable(rep)) {
       rep = formatDateLike(rep, pattern || format);
     } else {
-      rep = toString(rep)
+      rep = rep == null ? "" : toString(rep);
     }
     padLength = parseInt((padLength || " ").substring(1), 10);
     if (!isNaN(padLength)) {

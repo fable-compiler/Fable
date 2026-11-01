@@ -1,6 +1,6 @@
 import { class_type } from "./fable_modules/fable-library-js.5.4.0/Reflection.js";
 import { int32ToString } from "./fable_modules/fable-library-js.5.4.0/Util.js";
-import { toString } from "./fable_modules/fable-library-js.5.4.0/Types.js";
+import { toStringOrEmpty } from "./fable_modules/fable-library-js.5.4.0/Types.js";
 import { some, defaultArg } from "./fable_modules/fable-library-js.5.4.0/Option.js";
 
 export function jsBinding(v, sp) {
@@ -33,7 +33,7 @@ export function Native_$ctor() {
 }
 
 export function Native_Show_21A309C4(x, y) {
-    return int32ToString(x) + toString(defaultArg(y, "-"));
+    return int32ToString(x) + toStringOrEmpty(defaultArg(y, "-"));
 }
 
 export function fSharpMember(n) {

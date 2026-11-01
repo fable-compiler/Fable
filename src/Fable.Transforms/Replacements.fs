@@ -421,14 +421,18 @@ let toChar com (ctx: Context) r (arg: Expr) =
         let code = toInt com ctx r UInt16.Number [ arg ]
         Helper.GlobalCall("String", Char, [ code ], memb = "fromCharCode")
 
-let toString com (ctx: Context) r (args: Expr list) =
+let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
         "toString is called with empty args"
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
-        | String -> head
+        | String ->
+            match head with
+            | Value(StringConstant _, _) -> head
+            | _ when nullAsEmpty -> Operation(Logical(LogicalOr, head, makeStrConst ""), Tags.empty, String, r)
+            | _ -> head
         | Char -> TypeCast(head, String)
         | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin BclDateOnly -> Helper.LibCall(com, dateOnlyModule com, "toString", String, args)
@@ -453,7 +457,19 @@ let toString com (ctx: Context) r (args: Expr list) =
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
-        | _ -> Helper.LibCall(com, "Types", "toString", String, [ head ], ?loc = r)
+        | _ ->
+            let funcName =
+                if nullAsEmpty then
+                    "toStringOrEmpty"
+                else
+                    "toString"
+
+            Helper.LibCall(com, "Types", funcName, String, [ head ], ?loc = r)
+
+let toString com ctx r args = toStringWith false com ctx r args
+
+/// F#'s `string` operator returns an empty string for null
+let stringOperator com ctx r args = toStringWith true com ctx r args
 
 let round com (args: Expr list) =
     match args.Head.Type with
@@ -1566,7 +1582,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar com ctx r args.Head |> Some
-    | "ToString", _ -> toString com ctx r args |> Some
+    | "ToString", _ -> stringOperator com ctx r args |> Some
     | "CreateSequence", [ xs ] -> TypeCast(xs, t) |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] -> makeDictionary com ctx r t arg |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
