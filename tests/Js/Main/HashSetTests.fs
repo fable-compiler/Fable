@@ -28,6 +28,9 @@ let inline hashSet l =
 [<ReferenceEquality>]
 type RefEqRecord = { a: int; b: int }
 
+type ArrayHashSet() =
+    inherit HashSet<int[]>()
+
 type MyRecord = { a: int }
 
 type NameSet() =
@@ -422,7 +425,6 @@ let tests =
         coll.Remove(("D", 3)) |> equal false
         coll.Remove(("B", 2)) |> equal true
         coll.Count |> equal 2
-  
 
     testCase "HashSet subclasses work" <| fun () ->
         let names = NameSet()
@@ -431,4 +433,37 @@ let tests =
         names.Contains "b" |> equal true
         names.Remove "b" |> equal true
         names |> List.ofSeq |> equal [ "a" ]
+
+    testCase "HashSet compares arrays by reference" <| fun _ -> // See #5165
+        let item = [| 1 |]
+        let xs = HashSet<int[]>()
+        xs.Add item |> equal true
+        xs.Add item |> equal false
+        xs.Add [| 1 |] |> equal true
+        xs.Count |> equal 2
+        xs.Contains item |> equal true
+        xs.Contains [| 1 |] |> equal false
+        HashSet<int[]>([ [| 1 |]; [| 1 |] ]).Count |> equal 2
+
+    testCase "HashSet subclasses compare arrays by reference" <| fun _ ->
+        let item = [| 1 |]
+        let xs = ArrayHashSet()
+        xs.Add item |> equal true
+        xs.Contains item |> equal true
+        xs.Contains [| 1 |] |> equal false
+
+    testCase "HashSet compares ResizeArrays by reference" <| fun _ ->
+        let item = ResizeArray [ 1 ]
+        let xs = HashSet<ResizeArray<int>>()
+        xs.Add item |> equal true
+        xs.Add(ResizeArray [ 1 ]) |> equal true
+        xs.Count |> equal 2
+        xs.Contains item |> equal true
+        xs.Contains(ResizeArray [ 1 ]) |> equal false
+
+    testCase "HashSet with a structural comparer compares arrays by value" <| fun _ ->
+        let xs = HashSet<int[]>(HashIdentity.Structural)
+        xs.Add [| 1 |] |> equal true
+        xs.Add [| 1 |] |> equal false
+        xs.Contains [| 1 |] |> equal true
   ]

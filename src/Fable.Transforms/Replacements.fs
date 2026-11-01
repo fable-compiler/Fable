@@ -832,6 +832,23 @@ let makeEqualityComparer (com: ICompiler) ctx typArg =
             "GetHashCode", Delegate([ x ], structuralHash com None (IdentExpr x), None, Tags.empty)
         ]
 
+/// Matches EqualityComparer<T>.Default, which compares arrays and List<T> by reference in .NET
+let makeDefaultEqualityComparer (com: ICompiler) ctx typArg =
+    match typArg with
+    | Array _ ->
+        let x = makeUniqueIdent com ctx typArg "x"
+        let y = makeUniqueIdent com ctx typArg "y"
+
+        let hash =
+            Helper.LibCall(com, "Util", "physicalHash", Int32.Number, [ IdentExpr x ])
+
+        objExpr
+            [
+                "Equals", Delegate([ x; y ], makeEqOp None (IdentExpr x) (IdentExpr y) BinaryEqual, None, Tags.empty)
+                "GetHashCode", Delegate([ x ], hash, None, Tags.empty)
+            ]
+    | _ -> makeEqualityComparer com ctx typArg
+
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e = e // leave it as is, if implementation supports it
 // Helper.LibCall(com, "Util", "comparerFromEqualityComparer", Any, [e])
@@ -849,12 +866,18 @@ let makeMap (com: ICompiler) ctx r t methName args genArg =
 let makeDictionaryWithComparer com r t sourceSeq comparer =
     Helper.LibCall(com, "MutableMap", "Dictionary", t, [ sourceSeq; comparer ], isConstructor = true, ?loc = r)
 
-let makeDictionary (com: ICompiler) ctx r t sourceSeq =
+let private makeDictionaryWithKeyComparer makeKeyComparer (com: ICompiler) ctx r t sourceSeq =
     match t with
     | DeclaredType(_, [ key; _ ]) when not (isCompatibleWithNativeComparison com key) ->
         // makeComparer com ctx key
-        makeEqualityComparer com ctx key |> makeDictionaryWithComparer com r t sourceSeq
+        makeKeyComparer com ctx key |> makeDictionaryWithComparer com r t sourceSeq
     | _ -> Helper.GlobalCall("Map", t, [ sourceSeq ], isConstructor = true, ?loc = r)
+
+let makeDictionary (com: ICompiler) ctx r t sourceSeq =
+    makeDictionaryWithKeyComparer makeEqualityComparer com ctx r t sourceSeq
+
+let makeBclDictionary (com: ICompiler) ctx r t sourceSeq =
+    makeDictionaryWithKeyComparer makeDefaultEqualityComparer com ctx r t sourceSeq
 
 let makeHashSetWithComparer com r t sourceSeq comparer =
     Helper.LibCall(com, "MutableSet", "HashSet", t, [ sourceSeq; comparer ], isConstructor = true, ?loc = r)
@@ -863,7 +886,8 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
     match t with
     | DeclaredType(_, [ key ]) when not (isCompatibleWithNativeComparison com key) ->
         // makeComparer com ctx key
-        makeEqualityComparer com ctx key |> makeHashSetWithComparer com r t sourceSeq
+        makeDefaultEqualityComparer com ctx key
+        |> makeHashSetWithComparer com r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [ sourceSeq ], isConstructor = true, ?loc = r)
 
 let tryEntityIdent (com: Compiler) entFullName =
@@ -3222,13 +3246,13 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
         match i.SignatureArgTypes, args with
-        | ([] | [ Number _ ]), _ -> makeDictionary com ctx r t (makeArray Any []) |> Some
-        | [ IDictionary ], [ arg ] -> makeDictionary com ctx r t arg |> Some
+        | ([] | [ Number _ ]), _ -> makeBclDictionary com ctx r t (makeArray Any []) |> Some
+        | [ IDictionary ], [ arg ] -> makeBclDictionary com ctx r t arg |> Some
         | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] ->
             makeComparerFromEqualityComparer eqComp
             |> makeDictionaryWithComparer com r t arg
             |> Some
-        | [ IEnumerable ], [ arg ] -> makeDictionary com ctx r t arg |> Some
+        | [ IEnumerable ], [ arg ] -> makeBclDictionary com ctx r t arg |> Some
         | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
             makeComparerFromEqualityComparer eqComp
             |> makeDictionaryWithComparer com r t arg
@@ -5208,8 +5232,8 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
     | Types.dictionary ->
         let args =
             match argTypes.Value, args with
-            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
-            | [ IDictionary ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeDefaultEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IDictionary ], [ arg ] -> [ arg; makeDefaultEqualityComparer com ctx (Seq.head genArgs) ]
             | [ IDictionary; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
             | [ IEqualityComparer ], [ eqComp ]
             | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
@@ -5222,8 +5246,8 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
     | Types.hashset ->
         let args =
             match argTypes.Value, args with
-            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
-            | [ IEnumerable ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeDefaultEqualityComparer com ctx (Seq.head genArgs) ]
+            | [ IEnumerable ], [ arg ] -> [ arg; makeDefaultEqualityComparer com ctx (Seq.head genArgs) ]
             | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
             | [ IEqualityComparer ], [ eqComp ]
             | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
