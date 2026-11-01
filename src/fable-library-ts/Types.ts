@@ -177,7 +177,9 @@ export abstract class Record implements IEquatable<Record>, IComparable<Record>,
 
 export class FSharpRef<T> {
   private readonly getter: (() => T) | undefined;
-  private readonly setter: ((v: T) => void) | undefined;
+  // A method signature keeps T covariant, like in Array<T>, so FSharpRef<string[]>
+  // can be passed where a generic byref of FSharpRef<MutableArray<T>> is expected
+  private readonly setter: { set(v: T): void }["set"] | undefined;
   private value: T | undefined;
 
   get contents() {

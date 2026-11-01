@@ -1,5 +1,9 @@
 export type Nullable<T> = T | null | undefined;
 
+/**
+ * This is either a regular JS array or a typed numeric array (like `Int32Array`),
+ * so it only declares the members both have in common.
+ */
 export interface MutableArray<T> extends Iterable<T> {
   readonly length: number;
   [index: number]: T;
