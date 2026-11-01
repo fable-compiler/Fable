@@ -1211,6 +1211,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Round", _ ->
         match args with
         | [ ExprType(Number(Decimal, _)) ] -> libCallThis com r t i "Decimal" "round" thisArg args |> Some
+        | [ ExprType(Number(Decimal, _)); ExprTypeEnum "System.MidpointRounding" _ ] ->
+            makeLibCall com r t i "Decimal" "roundMode" args |> Some
         | [ ExprType(Number(Decimal, _)); ExprType(Number(Int32, _)) ] ->
             libCallThis com r t i "Decimal" "roundTo" thisArg args |> Some
         | [ ExprType(Number(Decimal, _)); mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
@@ -2173,6 +2175,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | "Round", _, _ ->
         match args with
         | [ x ] -> makeLibCall com r t i "Decimal" "round" args |> Some
+        | [ x; ExprTypeEnum "System.MidpointRounding" mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
         | [ x; ExprTypeAs(Number(Int32, _), dp) ] -> makeLibCall com r t i "Decimal" "roundTo" args |> Some
         | [ x; mode ] -> makeLibCall com r t i "Decimal" "roundMode" args |> Some
         | [ x; dp; mode ] -> makeLibCall com r t i "Decimal" "roundToMode" args |> Some
@@ -2468,6 +2471,9 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
       [ ExprType(String); ExprType(Number(Int32, _)) ] -> toRadixInt com ctx r t i args |> Some
     | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"), [ arg ] ->
         toRoundInt com ctx r t i args |> Some
+    | "ToDecimal", [ ExprTypeAs(String, input) ] -> libCall com r t "Decimal" "convert" [ input ] |> Some
+    | "ToDecimal", [ ExprTypeAs(String, input); FormatProvider _ ] ->
+        libCall com r t "Decimal" "convert" [ input ] |> Some
     | ("ToSingle" | "ToDouble" | "ToDecimal"), [ arg ] -> convertTo com ctx r t args |> Some
     | "ToChar", [ arg ] -> convertTo com ctx r t args |> Some
     | "ToString", [ arg ] -> toString com ctx r args |> Some

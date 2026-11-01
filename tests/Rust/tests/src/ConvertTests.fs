@@ -46,6 +46,28 @@ let ``System.Decimal.TryParse works`` () =
     Decimal.TryParse "-1.5" |> equal (true, -1.5M)
 
 [<Fact>]
+let ``System.Decimal.TryParse handles null strings`` () =
+    let text: string = null
+    let mutable result = 42M
+    Decimal.TryParse(text, &result) |> equal false
+    result |> equal 0M
+    result <- 42M
+    Decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, &result) |> equal false
+    result |> equal 0M
+    result <- 42M
+    (fun () -> Decimal.TryParse(text, enum<NumberStyles> 0x4000, CultureInfo.InvariantCulture, &result) |> ignore)
+    |> throwsAnyError
+    result |> equal 42M
+
+[<Fact>]
+let ``System.Decimal.Parse handles null strings`` () =
+    let text: string = null
+    (fun () -> Decimal.Parse(text)) |> throwsAnyError
+    (fun () -> Decimal.Parse(text, CultureInfo.InvariantCulture)) |> throwsAnyError
+    (fun () -> decimal text) |> throwsAnyError
+    decimal "1.50e1" |> equal 15M
+
+[<Fact>]
 let ``System.Single.Parse works`` () =
     Single.Parse "1.5" |> equal 1.5f
 
@@ -766,6 +788,24 @@ let ``System.Convert.ToDecimal works`` () =
     Convert.ToDecimal(1.) |> equal x
     Convert.ToDecimal(1.m) |> equal x
     Convert.ToDecimal("1.") |> equal x
+
+[<Fact>]
+let ``System.Convert.ToDecimal string uses NumberStyles.Number`` () =
+    Convert.ToDecimal("1,000") |> equal 1000M
+    Convert.ToDecimal("1-") |> equal (-1M)
+    Convert.ToDecimal("1000,") |> equal 1000M
+    Convert.ToDecimal("1,,000") |> equal 1000M
+    Convert.ToDecimal("1,000", CultureInfo.InvariantCulture) |> equal 1000M
+    (fun () -> Convert.ToDecimal("1e3")) |> throwsAnyError
+    (fun () -> Convert.ToDecimal(",1")) |> throwsAnyError
+
+[<Fact>]
+let ``System.Convert.ToDecimal handles null strings`` () =
+    let text: string = null
+    Convert.ToDecimal(text) |> equal 0M
+    Convert.ToDecimal(text, CultureInfo.InvariantCulture) |> equal 0M
+    Convert.ToDecimal("1,234.50", CultureInfo.InvariantCulture) |> equal 1234.50M
+    (fun () -> Convert.ToDecimal("invalid")) |> throwsAnyError
 
 //-------------------------------------
 // Convert.ToString

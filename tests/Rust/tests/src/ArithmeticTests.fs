@@ -202,6 +202,9 @@ let ``Decimal.IsEvenInteger works`` () =
     System.Decimal.IsEvenInteger(-4M) |> equal true
     System.Decimal.IsEvenInteger(3.5M) |> equal false
     System.Decimal.IsEvenInteger(-3.5M) |> equal false
+    System.Decimal.IsEvenInteger(4.00M) |> equal true
+    System.Decimal.IsEvenInteger(-3.00M) |> equal false
+    System.Decimal.IsEvenInteger(Decimal.MaxValue) |> equal false
 
 [<Fact>]
 let ``Decimal.IsOddInteger works`` () =
@@ -211,6 +214,9 @@ let ``Decimal.IsOddInteger works`` () =
     System.Decimal.IsOddInteger(-4M) |> equal false
     System.Decimal.IsOddInteger(3.5M) |> equal false
     System.Decimal.IsOddInteger(-3.5M) |> equal false
+    System.Decimal.IsOddInteger(-3.00M) |> equal true
+    System.Decimal.IsOddInteger(4.00M) |> equal false
+    System.Decimal.IsOddInteger(Decimal.MinValue) |> equal true
 
 [<Fact>]
 let ``Decimal.IsNegative works`` () =
@@ -396,6 +402,40 @@ let ``Decimal GetBits works`` () =
     d3 |> equal -d
 
 [<Fact>]
+let ``Decimal bits preserve negative sign and scale`` () =
+    for scale in [0uy; 1uy; 28uy] do
+        let value = Decimal(123, 0, 0, true, scale)
+        let bits = Decimal.GetBits(value)
+        bits[3] |> equal (Int32.MinValue ||| (int scale <<< 16))
+        Decimal.GetBits(Decimal(bits)) |> equal bits
+    throwsAnyError (fun () -> Decimal([| 0; 0; 0; 1 |]) |> ignore)
+    throwsAnyError (fun () -> Decimal(0, 0, 0, false, 29uy) |> ignore)
+    Decimal.GetBits(Decimal.Negate(0.00M))[3] |> equal (Int32.MinValue ||| (2 <<< 16))
+    Decimal.GetBits(Decimal(0, 0, 0, true, 2uy))[3] |> equal (Int32.MinValue ||| (2 <<< 16))
+    Decimal.GetBits(Decimal([| 0; 0; 0; Int32.MinValue |]))[3] |> equal Int32.MinValue
+    throwsAnyError (fun () -> Decimal.Round(1M, -1) |> ignore)
+    throwsAnyError (fun () -> Decimal.Round(1M, 29, MidpointRounding.ToEven) |> ignore)
+    throwsAnyError (fun () -> Decimal.Round(1M, 0, enum<MidpointRounding> 5) |> ignore)
+    Decimal.Round(2.5M, MidpointRounding.AwayFromZero) |> equal 3M
+    Math.Round(2.5M, MidpointRounding.AwayFromZero) |> equal 3M
+    Decimal.Round(-2.5M, 0, MidpointRounding.ToNegativeInfinity) |> equal -3M
+
+[<Fact>]
+let ``Decimal formatting rounds significant digits`` () =
+    let inv = System.Globalization.CultureInfo.InvariantCulture
+    (2M).ToString("F0", inv) |> equal "2"
+    (2M).ToString("E0", inv) |> equal "2E+000"
+    (2.5M).ToString("F0", inv) |> equal "3"
+    (2.5M).ToString("E0", inv) |> equal "3E+000"
+    (-2.5M).ToString("E0", inv) |> equal "-3E+000"
+    (9.99M).ToString("G1", inv) |> equal "1E+01"
+    (999.9M).ToString("G3", inv) |> equal "1E+03"
+    (0.00009999M).ToString("G3", inv) |> equal "0.0001"
+    (100000M).ToString("G3", inv) |> equal "1E+05"
+    (2500M).ToString("G1", inv) |> equal "3E+03"
+    Decimal.MaxValue.ToString("E0", inv) |> equal "8E+028"
+
+[<Fact>]
 let ``Decimal abs works`` () =
     abs -4M |> equal 4M
 
@@ -539,6 +579,14 @@ let ``Decimal parsing rounds to 28 places and keeps the scale of zero`` () =
     (decimal "0.00").GetHashCode() |> equal (Decimal(0, 0, 0, false, 2uy).GetHashCode())
 
 [<Fact>]
+let ``Decimal parsing handles precision limits and resets failed results`` () =
+    string (decimal "1.12345678901234567890123456789") |> equal "1.1234567890123456789012345679"
+    string (decimal "79228162514264337593543950335.4") |> equal "79228162514264337593543950335"
+    let mutable result = 1M
+    Decimal.TryParse("invalid", &result) |> equal false
+    result |> equal 0M
+
+[<Fact>]
 let ``Decimal parsing rounds long fractions with carry and at the mantissa limit`` () =
     string (decimal ("0." + "9999999" + "9999999" + "9999999" + "9999999" + "5"))
     |> equal ("1." + "0000000" + "0000000" + "0000000" + "0000000")
@@ -547,6 +595,9 @@ let ``Decimal parsing rounds long fractions with carry and at the mantissa limit
     Decimal.TryParse("79228162514264337593543950335.5" + "0000000" + "0000000" + "0000000" + "0000000")
     |> fst
     |> equal false
+    string (decimal ("000000000000000000000000000000001.25")) |> equal "1.25"
+    string (decimal ("0.00000000000000000000000000005" + String.replicate 1000 "0" + "1"))
+    |> equal "0.0000000000000000000000000001"
 
 [<Fact>]
 let ``Decimal addition and subtraction keep the larger scale`` () =
@@ -692,6 +743,68 @@ let ``Decimal.Parse follows NumberStyles`` () =
     v1 |> equal 15M
     let ok2, _ = Decimal.TryParse("1e3", NumberStyles.Number, inv)
     ok2 |> equal false
+
+[<Fact>]
+let ``Decimal parsing handles grouping currency and extreme exponents`` () =
+    let inv = CultureInfo.InvariantCulture
+    Decimal.Parse("1,,2", inv) |> equal 12M
+    Decimal.Parse("1,", inv) |> equal 1M
+    Decimal.Parse("1,.2", inv) |> equal 1.2M
+    string (Decimal.Parse("1e-1001", NumberStyles.Float, inv)) |> equal "0.0000000000000000000000000000"
+    Decimal.Parse("0e1001", NumberStyles.Float, inv) |> equal 0M
+    let hugeExponent = String.replicate 1000 "9"
+    string (Decimal.Parse("1e-" + hugeExponent, NumberStyles.Float, inv))
+    |> equal "0.0000000000000000000000000000"
+    Decimal.TryParse("1e" + hugeExponent, NumberStyles.Float, inv) |> fst |> equal false
+    Decimal.TryParse("0e" + hugeExponent + "x", NumberStyles.Float, inv) |> fst |> equal false
+    Decimal.TryParse("0e-" + hugeExponent + "x", NumberStyles.Float, inv) |> fst |> equal false
+    Decimal.Parse("1" + String.replicate 1001 "0" + "e-1001", NumberStyles.Float, inv) |> equal 1M
+    Decimal.Parse("0." + String.replicate 1000 "0" + "1e1001", NumberStyles.Float, inv) |> equal 1M
+    Decimal.Parse("\u00A41", NumberStyles.Any, inv) |> equal 1M
+    Decimal.Parse("-\u00A41", NumberStyles.Any, inv) |> equal -1M
+    Decimal.Parse("\u00A4-1", NumberStyles.Any, inv) |> equal -1M
+    Decimal.Parse("1\u00A4-", NumberStyles.Any, inv) |> equal -1M
+    Decimal.Parse("\u00A4 1", NumberStyles.Any, inv) |> equal 1M
+    Decimal.Parse("1 \u00A4", NumberStyles.Any, inv) |> equal 1M
+    Decimal.Parse("(1 )", NumberStyles.Any, inv) |> equal -1M
+    Decimal.Parse("\u00A4 (1)", NumberStyles.Any, inv) |> equal -1M
+    Decimal.Parse("(1)\u00A4", NumberStyles.Any, inv) |> equal -1M
+    Decimal.Parse("\u00A4 ( 1 )", NumberStyles.Any, inv) |> equal -1M
+    Decimal.TryParse("( 1)", NumberStyles.Any, inv) |> fst |> equal false
+    Decimal.TryParse("( \u00A41)", NumberStyles.Any, inv) |> fst |> equal false
+    Decimal.TryParse("(1-)", NumberStyles.Any, inv) |> fst |> equal false
+    Decimal.TryParse("\u00A41\u00A4", NumberStyles.Any, inv) |> fst |> equal false
+    (fun () -> Decimal.Parse("$1", NumberStyles.Any, inv)) |> throwsAnyError
+    (fun () -> Decimal.Parse("1", NumberStyles.AllowHexSpecifier, inv)) |> throwsAnyError
+    (fun () -> Decimal.TryParse("1", enum<NumberStyles> 0x4000, inv) |> ignore) |> throwsAnyError
+
+[<Fact>]
+let ``Decimal parsing preserves zero sign and validates whitespace`` () =
+    let inv = CultureInfo.InvariantCulture
+    for text in [ "-0"; "-0.00"; "-0.00000000000000000000000000001"; "-0e-99"; "(0)"; "0-" ] do
+        let value = Decimal.Parse(text, NumberStyles.Any, inv)
+        Decimal.IsNegative(value) |> equal true
+    Decimal.GetBits(Decimal.Parse("-0.00", inv))[3] |> equal (Int32.MinValue ||| (2 <<< 16))
+    Decimal.TryParse("\u00a01\u00a0", NumberStyles.Number, inv) |> fst |> equal false
+    Decimal.TryParse("\u20031\u2003", NumberStyles.Number, inv) |> fst |> equal false
+    Decimal.Parse("1 \000\000", NumberStyles.Number, inv) |> equal 1M
+    Decimal.TryParse("1\000 ", NumberStyles.Number, inv) |> fst |> equal false
+
+[<Fact>]
+let ``F# decimal on strings follows NumberStyles.Float`` () =
+    decimal "1e3" |> equal 1000M
+    string (decimal "1.50e1") |> equal "15.0"
+    string (decimal "0.0e1") |> equal "0"
+    decimal "+.5" |> equal 0.5M
+    decimal "5." |> equal 5M
+    decimal "5\000" |> equal 5M
+    string (decimal "1.50") |> equal "1.50"
+    (fun () -> decimal "1,000") |> throwsAnyError
+    (fun () -> decimal "5-") |> throwsAnyError
+    (fun () -> decimal "(5)") |> throwsAnyError
+    (fun () -> decimal "1e") |> throwsAnyError
+    (fun () -> decimal (nan: float)) |> throwsAnyError
+    (fun () -> decimal (infinity: float)) |> throwsAnyError
 
 [<Fact>]
 let ``Decimal G format keeps the scale without a precision`` () =
