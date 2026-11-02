@@ -139,6 +139,13 @@ let tests =
             t.Ticks
             |> equal 20000L
 
+        testCase "TimeSpan.Ticks works with big values" <| fun () ->
+            TimeSpan(10675199, 2, 48, 5, 477).Ticks |> equal 9223372036854770000L
+            TimeSpan(-10675199, -2, -48, -5, -477).Ticks |> equal -9223372036854770000L
+            TimeSpan.FromSeconds(922337203685L).Ticks |> equal 9223372036850000000L
+            TimeSpan.FromMinutes(15372286728.).Ticks |> equal 9223372036800000000L
+            TimeSpan.FromDays(10675199.).Ticks |> equal 9223371936000000000L
+
         // NOTE: This test fails because of very small fractions, so I cut the fractional part
         testCase "TimeSpan totals work" <| fun () ->
             let t = TimeSpan.FromMilliseconds(96441615.)
