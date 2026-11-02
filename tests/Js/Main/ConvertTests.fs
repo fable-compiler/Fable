@@ -1466,6 +1466,39 @@ let tests =
         let format = "R"
         (1e-7).ToString(format, CultureInfo.InvariantCulture) |> equal "1E-07"
 
+    testCase "float.ToString() chooses the notation like .NET"
+    <| fun () ->
+        let values = [ negZero; 1e-4; 1.5e-5; 1e-7; 1e16; 1e17; 123456789012345678901.0; 1e21; Double.Epsilon ]
+
+        let expected =
+            [
+                "-0"
+                "0.0001"
+                "1.5E-05"
+                "1E-07"
+                "10000000000000000"
+                "1E+17"
+                "1.2345678901234568E+20"
+                "1E+21"
+                "5E-324"
+            ]
+
+        values |> List.map string |> equal expected
+        values |> List.map (fun x -> x.ToString()) |> equal expected
+        values |> List.map (fun x -> $"{x}") |> equal expected
+        values |> List.map (fun x -> String.Format("{0}", x)) |> equal expected
+        values |> List.map (sprintf "%O") |> equal expected
+        $"%.1f{2.5} {1e17}" |> equal "2.5 1E+17"
+        String.Format("{0,6}", negZero) |> equal "    -0"
+
+    testCase "float32.ToString() chooses the digits and notation like .NET"
+    <| fun () ->
+        let values = [ float32 negZero; 1.5e-5f; 3.14f; 1e8f; 1e15f ]
+        let expected = [ "-0"; "1.5E-05"; "3.14"; "100000000"; "1E+15" ]
+        values |> List.map string |> equal expected
+        values |> List.map (fun x -> x.ToString()) |> equal expected
+        values |> List.map (fun x -> $"{x}") |> equal expected
+
     testCase "byte.ToString 'X' works" <| fun () ->
         (255uy).ToString("X2") |> equal "FF"
         (255uy).ToString("X15") |> equal "0000000000000FF"

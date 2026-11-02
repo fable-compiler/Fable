@@ -259,7 +259,11 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
       case "X":
         rep = toRadix(rep, radix).toUpperCase();
         break;
-      default: // AOid
+      case "":
+      case "O":
+        rep = typeof rep === "number" ? formatGeneral(rep, "R", null) : String(rep);
+        break;
+      default: // Aid
         rep = String(rep);
         break;
     }
@@ -414,6 +418,14 @@ function formatGeneral(x: number, format: string, precision: number | null, isSi
 export function formatSingle(str: string, x: number) {
   const m = /^\{0:([GgRr])(\d{0,2})\}$/.exec(str);
   return m != null ? formatGeneral(Math.fround(x), m[1], m[2] ? parseInt(m[2], 10) : null, true) : format(str, x);
+}
+
+export function float64ToString(x: number) {
+  return formatGeneral(x, "R", null);
+}
+
+export function float32ToString(x: number) {
+  return formatGeneral(Math.fround(x), "R", null, true);
 }
 
 export function format(str: string | object, ...args: any[]) {
@@ -606,6 +618,8 @@ export function format(str: string | object, ...args: any[]) {
               return repDecimal.length > 0 ? repInt + "." + repDecimal : repInt;
             });
             rep = sign + rep;
+          } else if (typeof rep === "number") {
+            rep = formatGeneral(rep, "R", null);
           }
       }
     } else if (rep instanceof Date || isNetDateFormattable(rep)) {
