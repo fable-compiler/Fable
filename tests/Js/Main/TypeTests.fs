@@ -987,6 +987,11 @@ type ValClassSelf =
     new (name: string) as self = { Name = name; Count = 0 } then self.Count <- self.Name.Length
     new () as self = ValClassSelf("ab") then self.Count <- self.Count * 10
 
+type ValClassSelfInherited =
+    inherit ValClassSelf
+    val Tag: string
+    new () = { inherit ValClassSelf("abcd"); Tag = "t" }
+
 type ValClassSelfChild =
     inherit ValClassBase
     val mutable Extra: float
@@ -2012,6 +2017,12 @@ let tests =
         let c = ValClassThen()
         c.Value |> equal 1
         valClassThenCalls - before |> equal 1
+
+    testCase "Explicit constructor inherits a base with a self identifier" <| fun () ->
+        let c = ValClassSelfInherited()
+        c.Name |> equal "abcd"
+        c.Count |> equal 4
+        c.Tag |> equal "t"
 
     testCase "Explicit constructor with a self identifier works" <| fun () -> // See #5166
         let a = ValClassSelf("abc")
