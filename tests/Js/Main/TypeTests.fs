@@ -1019,6 +1019,42 @@ type SelfPrimaryBase(x: int) as this =
 type SelfPrimaryChild() =
     inherit SelfPrimaryBase(2)
 
+type PrimaryCtorBase(x: int) =
+    member _.X = x
+    member val Tag = "base" with get, set
+    member this.Describe() = this.Tag + ":" + string x
+
+type PrimaryCtorValChild =
+    inherit PrimaryCtorBase
+    val Label: string
+    new (x: int, label: string) = { inherit PrimaryCtorBase(x); Label = label }
+    new (label: string) = { inherit PrimaryCtorBase(label.Length); Label = label }
+
+type PrimaryCtorUnitBase() =
+    member val Greeting = "hi"
+
+type PrimaryCtorUnitChild =
+    inherit PrimaryCtorUnitBase
+    val Count: int
+    new (count: int) = { inherit PrimaryCtorUnitBase(); Count = count }
+
+type PrimaryCtorGenericBase<'T>(value: 'T, size: int) =
+    member _.Value = value
+    member _.Size = size
+
+type PrimaryCtorGenericChild<'T> =
+    inherit PrimaryCtorGenericBase<'T list>
+    val Item: 'T
+    new (item: 'T) = { inherit PrimaryCtorGenericBase<'T list>([ item; item ], 2); Item = item }
+
+type PrimaryCtorNamedBase(label: string) =
+    member _.BaseLabel = label
+
+type PrimaryCtorSameNameChild =
+    inherit PrimaryCtorNamedBase
+    val label: string
+    new (a: string, b: string) = { inherit PrimaryCtorNamedBase(a); label = b }
+
 let tests =
   testList "Types" [
 
@@ -2071,4 +2107,32 @@ let tests =
         valClassSelfSaved.Count |> equal 3
         obj.ReferenceEquals(valClassSelfSaved.[1], b) |> equal true
         obj.ReferenceEquals(valClassSelfSaved.[2], b) |> equal true
+
+    testCase "Explicit constructor calls a base primary constructor" <| fun () ->
+        let child = PrimaryCtorValChild(3, "origin")
+        child.X |> equal 3
+        child.Label |> equal "origin"
+        child.Tag |> equal "base"
+        child.Describe() |> equal "base:3"
+        (box child :? PrimaryCtorBase) |> equal true
+        let other = PrimaryCtorValChild("abcd")
+        other.X |> equal 4
+        other.Label |> equal "abcd"
+
+    testCase "Explicit constructor calls a parameterless base primary constructor" <| fun () ->
+        let child = PrimaryCtorUnitChild(4)
+        child.Greeting |> equal "hi"
+        child.Count |> equal 4
+        (box child :? PrimaryCtorUnitBase) |> equal true
+
+    testCase "Explicit constructor resolves the generic arguments of a base primary constructor" <| fun () ->
+        let child = PrimaryCtorGenericChild(7)
+        child.Value |> equal [ 7; 7 ]
+        child.Size |> equal 2
+        child.Item |> equal 7
+
+    testCase "Explicit constructor keeps base primary constructor arguments apart from fields of the same name" <| fun () ->
+        let child = PrimaryCtorSameNameChild("a", "b")
+        child.BaseLabel |> equal "a"
+        child.label |> equal "b"
   ]

@@ -1737,6 +1737,32 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
             return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
 
+        | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, baseGenArgs, baseArgs),
+                                        FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
+            ctx.CaptureBaseConsCall.IsNone
+            && supportsCompilerGeneratedBaseCall com
+            && fsType.HasTypeDefinition
+            && hasCompilerGeneratedConstructor fsType.TypeDefinition
+            && (
+                match baseCons.DeclaringEntity, tryGetPrimaryConstructorBase fsType.TypeDefinition with
+                | Some callee, Some(baseEnt, _, _) -> callee = baseEnt
+                | _ -> false
+            )
+            ->
+            let r = makeRangeFrom fsExpr
+
+            let baseArgs =
+                match transformBaseConsCall com ctx r baseCons.DeclaringEntity.Value baseCons baseGenArgs baseArgs with
+                | Fable.Call(_, info, _, _) -> dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef
+                | _ -> []
+
+            let! ownArgs = transformExprList com ctx ownArgs
+            let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+            let entRef = FsEnt.Ref fsType.TypeDefinition
+            entRef.SourcePath |> Option.iter com.AddSignatureDependency
+
+            return Fable.NewRecord(baseArgs @ ownArgs, entRef, genArgs) |> makeValue r
+
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as first,
                                         FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
             ctx.CaptureBaseConsCall.IsNone

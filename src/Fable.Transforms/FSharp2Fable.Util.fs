@@ -2497,6 +2497,46 @@ module Util =
 
         collect ent genArgs []
 
+    let tryGetPrimaryConstructorBase (ent: FSharpEntity) =
+        match tryGetBaseEntity ent with
+        | Some(baseEnt, baseGenArgs) when
+            baseEnt.IsClass
+            && not (isGlobalOrImportedFSharpEntity baseEnt)
+            && (FsEnt.Ref baseEnt).SourcePath.IsSome
+            ->
+            baseEnt.MembersFunctionsAndValues
+            |> Seq.tryFind _.IsImplicitConstructor
+            |> Option.map (fun cons -> baseEnt, baseGenArgs, cons)
+        | _ -> None
+
+    let getPrimaryConstructorBaseArgs
+        (ent: FSharpEntity)
+        (baseEnt: FSharpEntity)
+        (baseGenArgs: IList<FSharpType>)
+        (cons: FSharpMemberOrFunctionOrValue)
+        =
+        let genArgs =
+            Seq.zip baseEnt.GenericParameters baseGenArgs
+            |> Seq.map (fun (param, typ) -> genParamName param, makeType Map.empty typ)
+            |> Map.ofSeq
+
+        let fieldNames = ent.FSharpFields |> Seq.map _.Name.ToLowerInvariant() |> Set.ofSeq
+
+        let rec uniqueName (name: string) =
+            if fieldNames.Contains(name.ToLowerInvariant()) then
+                uniqueName (name + "_")
+            else
+                name
+
+        match List.ofSeq (Seq.concat cons.CurriedParameterGroups) with
+        | [ param ] when isUnit param.Type && param.Name.IsNone -> []
+        | parameters ->
+            parameters
+            |> List.mapi (fun i param ->
+                let name = param.Name |> Option.defaultValue $"arg%d{i}" |> uniqueName
+                makeTypedIdentExpr (makeType genArgs param.Type) name
+            )
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
         let error msg =
@@ -2532,7 +2572,22 @@ module Util =
                     | None -> FsEnt.Ref baseEnt |> entityIdent com
 
                 Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
-            | _ -> None
+            | Some _ -> None
+            | None ->
+                match tryGetPrimaryConstructorBase ent, tryGetBaseEntity ent with
+                | Some(baseEnt, baseGenArgs, cons), _ ->
+                    let args = getPrimaryConstructorBaseArgs ent baseEnt baseGenArgs cons
+                    let baseExpr = FsEnt.Ref baseEnt |> entityIdent com
+                    Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
+                | None, Some(baseEnt, _) when
+                    hasCompilerGeneratedConstructor baseEnt
+                    && ent.MembersFunctionsAndValues |> Seq.exists _.IsConstructor
+                    ->
+                    $"%s{ent.FullName} has no primary constructor and inherits %s{baseEnt.FullName}, which has no primary constructor either but inherits a class that has one. Fable cannot compile this inheritance chain."
+                    |> addError com [] (makeRange ent.DeclarationLocation |> Some)
+
+                    None
+                | _ -> None
         else
             None
 
