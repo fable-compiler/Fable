@@ -109,6 +109,71 @@ export function toExponential(x: Numeric, dp?: number) {
     }
 }
 
+function isExactTie(x: number, k: number) {
+    if (k >= 0) {
+        const t = x * 2 ** (k + 1);
+        return Number.isInteger(t) && t % 2 !== 0;
+    } else if (Number.isInteger(x)) {
+        const p = 10n ** BigInt(-k);
+        return BigInt(Math.abs(x)) % p === p / 2n;
+    } else {
+        return false;
+    }
+}
+
+function truncateLastDigit(digits: string) {
+    const s = digits.slice(0, -1);
+    return s.endsWith(".") ? s.slice(0, -1) : s;
+}
+
+function isLastDigitEven(digits: string) {
+    return digits.charCodeAt(digits.length - 1) % 2 === 0;
+}
+
+// .NET standard numeric formats give an exact midpoint of a double the even digit
+export function toFixedHalfEven(x: Numeric, dp: number) {
+    if (typeof x === "number" && dp < 100 && isExactTie(x, dp)) {
+        const truncated = truncateLastDigit(x.toFixed(dp + 1));
+        return isLastDigitEven(truncated) ? truncated : x.toFixed(dp);
+    } else {
+        return toFixed(x, dp);
+    }
+}
+
+export function toExponentialHalfEven(x: Numeric, dp: number) {
+    if (typeof x === "number" && Number.isFinite(x) && dp < 100) {
+        const exact = x.toExponential(dp + 1);
+        const eIdx = exact.indexOf("e");
+        const mantissa = exact.slice(0, eIdx);
+        if (mantissa.endsWith("5") && isExactTie(x, dp - Number(exact.slice(eIdx + 1)))) {
+            const truncated = truncateLastDigit(mantissa);
+            return isLastDigitEven(truncated) ? truncated + exact.slice(eIdx) : x.toExponential(dp);
+        }
+    }
+    return toExponential(x, dp);
+}
+
+export function toPrecisionHalfEven(x: Numeric, sd: number) {
+    if (typeof x !== "number" || !(sd > 0)) {
+        return toPrecision(x, sd);
+    }
+    const s = toExponentialHalfEven(x, sd - 1);
+    if (s === x.toExponential(sd - 1)) {
+        return x.toPrecision(sd);
+    }
+    // Same notation as Number.prototype.toPrecision
+    const eIdx = s.indexOf("e");
+    const e = Number(s.slice(eIdx + 1));
+    if (e < -6 || e >= sd) {
+        return s;
+    }
+    const sign = s.startsWith("-") ? "-" : "";
+    const digits = s.slice(sign.length, eIdx).replace(".", "");
+    return e < 0
+        ? sign + "0." + "0".repeat(-e - 1) + digits
+        : sign + digits.slice(0, e + 1) + (sd > e + 1 ? "." + digits.slice(e + 1) : "");
+}
+
 export function toRadix(x: Numeric, radix: number) {
     if (typeof x === "number") {
         return (Number(x) >>> 0).toString(radix);
