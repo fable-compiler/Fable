@@ -409,11 +409,21 @@ module private Transforms =
             | _ -> ValueNone
 
     let tryInlineBinding (com: Compiler) (ident: Ident) value letBody =
+        let readsMutableValue callee =
+            match callee with
+            | IdentExpr id -> id.IsMutable
+            | Import({ Kind = MemberImport memberRef }, _, _) ->
+                com.TryGetMember(memberRef) |> Option.exists (fun memb -> memb.IsMutable)
+            | _ -> false
+
         let canInlineBinding =
             match value with
             | Import(i, _, _) -> i.IsCompilerGenerated
             | Call(callee, info, _, _) when List.isEmpty info.Args && List.contains "value" info.Tags ->
-                canInlineArg com ident.Name callee letBody
+                if readsMutableValue callee then
+                    canInlineArg com ident.Name value letBody
+                else
+                    canInlineArg com ident.Name callee letBody
             // Replace non-recursive lambda bindings
             | NestedLambda(_args, lambdaBody, _name) ->
                 match lambdaBody with

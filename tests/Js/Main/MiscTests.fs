@@ -1314,6 +1314,11 @@ let tests =
         Option.defaultWith (fun () -> invalidOp "This is invalid") (Some 3) |> equal 3
         throwsError "This is invalid" (fun () -> Option.defaultWith (fun () -> invalidOp "This is invalid") None)
 
+    testCase "A read of another file's mutable value is not moved past side effects" <| fun () -> // See #5156
+        let before = MiscTestsHelper.trackedCalls
+        MiscTestsHelper.track 1 |> ignore
+        MiscTestsHelper.trackedCalls - before |> equal 1
+
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""
         let i = 4

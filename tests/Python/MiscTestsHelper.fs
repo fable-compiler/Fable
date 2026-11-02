@@ -42,3 +42,9 @@ type CrossModuleDemo =
 
     static member propDefault = A "prop"
     static member methDefault() = A "meth"
+
+let mutable trackedCalls = 0
+
+let track x =
+    trackedCalls <- trackedCalls + 1
+    x

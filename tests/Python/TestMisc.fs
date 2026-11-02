@@ -1833,3 +1833,9 @@ let ``test lock storage releases idle entries after exceptions`` () =
     with _ -> ()
     equal before storage.count
 #endif
+
+[<Fact>]
+let ``test A read of another file's mutable value is not moved past side effects`` () = // See #5156
+    let before = MiscTestsHelper.trackedCalls
+    MiscTestsHelper.track 1 |> ignore
+    MiscTestsHelper.trackedCalls - before |> equal 1
