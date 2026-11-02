@@ -277,6 +277,17 @@ let tests = testList "Strings" [
 
         equal "/hello/%s" (pathScan "/hello/%s")
 
+    testCase "input of interpolated print format can be retrieved" <| fun () -> // See #3969
+        let f (fmt: Printf.StringFormat<string>) = fmt.Value, sprintf fmt
+        let x, s = 42, "z"
+        f $"wow %d{x}" |> equal ("wow %d%P()", "wow 42")
+        f $"a %d{x} b %s{s} c {x + 1}" |> equal ("a %d%P() b %s%P() c %P()", "a 42 b z c 43")
+
+    testCase "ksprintf and kprintf work with interpolated strings" <| fun () -> // See #3969
+        let x = 3
+        Printf.ksprintf (fun s -> s + "!") $"ks %d{x} {x + 1}" |> equal "ks 3 4!"
+        Printf.kprintf (fun s -> s + "?") $"kp {x}" |> equal "kp 3?"
+
     testCase "sprintf with escaped percent symbols works" <| fun () -> // See #195
         let r, r1, r2 = "Ratio", 0.213849, 0.799898
         sprintf "%s1: %.2f%% %s2: %.2f%%" r (r1*100.) r (r2*100.)

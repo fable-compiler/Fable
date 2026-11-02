@@ -1514,8 +1514,23 @@ let (|PrintfNoFormatSpecifiers|_|) (arg: Expr) =
         | _ -> None
     | _ -> None
 
+let (|InterpolatedPrintf|_|) (arg: Expr) =
+    match arg with
+    | MaybeCasted(Call(Import({ Selector = "interpolatedPrintf" }, _, _), callInfo, _, _)) ->
+        match callInfo.Args with
+        | [ _; text ] -> Some text
+        | _ -> None
+    | _ -> None
+
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let unwrapInterpolated =
+        function
+        | InterpolatedPrintf text -> text
+        | arg -> arg
+
     let consoleCall consoleMember libMember args =
+        let args = List.map unwrapInterpolated args
+
         match args with
         | [ PrintfNoFormatSpecifiers str ] ->
             Helper.GlobalCall("console", t, [ makeStrConst str ], memb = consoleMember, ?loc = r)
@@ -1531,10 +1546,11 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | [ _ ] ->
             Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
+        | [ cont; InterpolatedPrintf text ] -> curriedApply r t cont [ text ] |> Some
         | [ cont; fmt ] -> Helper.InstanceCall(fmt, "cont", t, [ cont ]) |> Some
         | _ -> None
     | "PrintFormatToString", _, _ ->
-        match args with
+        match List.map unwrapInterpolated args with
         | [ template ] when template.Type = String -> Some template
         | _ ->
             Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc = r)
@@ -1547,25 +1563,31 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "PrintFormat", _, _ ->
         // addWarning com ctx.FileName r "Printf will behave as printfn"
         consoleCall "log" "toConsole" args
+    | "PrintFormatThen", _, arg :: InterpolatedPrintf text :: _ -> curriedApply r t arg [ text ] |> Some
     | "PrintFormatThen", _, arg :: callee :: _ -> Helper.InstanceCall(callee, "cont", t, [ arg ]) |> Some
     | "PrintFormatToStringThenFail", _, _ ->
+        let args = List.map unwrapInterpolated args
+
         Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // Printf.kbprintf
       _,
       _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, _), _) as values) :: _ ->
-        match makeStringTemplateFrom com [| "%s"; "%i" |] templateArgs str with
-        | Some v -> makeValue r v |> Some
-        | None ->
-            // Try to build a StringTemplate where formatted values are individually wrapped
-            // in String.interpolate calls. This keeps the AST as a StringTemplate (rather than
-            // a single runtime interpolate call) so that JSX templates can still use it.
-            match makeStringTemplateFromAllowingFormat com [| "%s"; "%i" |] templateArgs str with
-            | Some v -> makeValue r v |> Some
+        let text =
+            match makeStringTemplateFrom com [| "%s"; "%i" |] templateArgs str with
+            | Some v -> makeValue r v
             | None ->
-                Helper.LibCall(com, "String", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
-                |> Some
+                // Try to build a StringTemplate where formatted values are individually wrapped
+                // in String.interpolate calls. This keeps the AST as a StringTemplate (rather than
+                // a single runtime interpolate call) so that JSX templates can still use it.
+                match makeStringTemplateFromAllowingFormat com [| "%s"; "%i" |] templateArgs str with
+                | Some v -> makeValue r v
+                | None ->
+                    Helper.LibCall(com, "String", "interpolate", String, [ str; values ], i.SignatureArgTypes, ?loc = r)
+
+        Helper.LibCall(com, "String", "interpolatedPrintf", t, [ str; text ], ?loc = r)
+        |> Some
     | ".ctor", _, arg :: _ ->
         Helper.LibCall(com, "String", "printf", t, [ arg ], i.SignatureArgTypes, ?loc = r)
         |> Some
