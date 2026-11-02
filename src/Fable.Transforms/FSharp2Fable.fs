@@ -2875,13 +2875,15 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             | None -> transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs
             | Some w ->
                 // As witnesses come from the context, idents may be duplicated, see #2855
+                // The same witness can be inlined several times in one scope, see #3921
                 let info =
                     { info with
+                        ScopeIdents = Set.union info.ScopeIdents (getDeclaredIdentNames w.Expr)
                         ResolvedIdents = Dictionary()
                         FileName = w.FileName
                     }
 
-                let callee = resolveInlineExpr com ctx { info with FileName = w.FileName } w.Expr
+                let callee = resolveInlineExpr com ctx info w.Expr
 
                 let callInfo = makeCallInfo None argExprs argTypes
                 makeCall r t callInfo callee
