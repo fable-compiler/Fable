@@ -863,7 +863,11 @@ let private transformBaseCallAndRecord
 // F# emits `new() = { ... } then body` as sequences nested after the created object, with any base call before it
 let private (|ExplicitConstructorThen|_|) com (ctx: Context) (fsExpr: FSharpExpr) =
     match ctx.EnclosingMember with
-    | Some m when m.IsConstructor && not m.IsImplicitConstructor ->
+    | Some m when
+        m.IsConstructor
+        && not m.IsImplicitConstructor
+        && supportsCompilerGeneratedBaseCall com
+        ->
         let isCreated (e: FSharpExpr) =
             e.Type.HasTypeDefinition
             && m.DeclaringEntity |> Option.exists (fun ent -> ent = e.Type.TypeDefinition)
@@ -876,6 +880,7 @@ let private (|ExplicitConstructorThen|_|) com (ctx: Context) (fsExpr: FSharpExpr
             | _ -> e, []
 
         match fsExpr with
+        | _ when not (isCreated fsExpr) -> None
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as baseCall, second) when
             not (isCreated baseCall)
             ->
