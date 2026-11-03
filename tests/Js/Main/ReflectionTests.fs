@@ -53,6 +53,23 @@ type MyClass<'T1, 'T2>(v1: 'T1, v2: 'T2) =
     member _.Value1 = v1
     member _.Value2 = v2
 
+[<AbstractClass>]
+type SelfBase<'Inheritor when 'Inheritor :> SelfBase<'Inheritor>>() =
+    member _.Dummy() = 1
+
+type SelfInheritor() =
+    inherit SelfBase<SelfInheritor>()
+
+[<AbstractClass>]
+type PairBase<'Other>() =
+    member _.Dummy() = 2
+
+type PairPing() =
+    inherit PairBase<PairPong>()
+
+and PairPong() =
+    inherit PairBase<PairPing>()
+
 let genericTests = [
   testCase "typedefof works" <| fun () ->
     let tdef1 = typedefof<int list>
@@ -704,6 +721,17 @@ let reflectionTests = [
     t3.IsSubclassOf(t1) |> equal false
     t2.IsSubclassOf(t1) |> equal true
     t1.IsSubclassOf(t2) |> equal false
+
+  testCase "GetType works when a generic base takes the class itself" <| fun () -> // See #3607
+    let t = SelfInheritor().GetType()
+    t.Name |> equal "SelfInheritor"
+    t = typeof<SelfInheritor> |> equal true
+    t.IsSubclassOf(typeof<SelfBase<SelfInheritor>>) |> equal true
+    SelfInheritor().Dummy() |> equal 1
+    let ping = PairPing().GetType()
+    ping.Name |> equal "PairPing"
+    ping.IsSubclassOf(typeof<PairBase<PairPong>>) |> equal true
+    PairPong().GetType().IsSubclassOf(typeof<PairBase<PairPing>>) |> equal true
 
   testCase ".GetInterface works when types are know at compile time" <| fun () -> // #2321
     let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")

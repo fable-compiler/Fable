@@ -50,7 +50,8 @@ export class TypeInfo implements IEquatable<TypeInfo> {
   public fullname: string;
   public generics?: TypeInfo[];
   public construct?: Constructor;
-  public parent?: TypeInfo;
+  // A thunk when the base type's generic arguments can refer back to this type, see #3607
+  private lazyParent?: TypeInfo | (() => TypeInfo);
   public fields?: () => FieldInfo[];
   public cases?: () => CaseInfo[];
   public enumCases?: EnumCase[];
@@ -59,7 +60,7 @@ export class TypeInfo implements IEquatable<TypeInfo> {
     fullname: string,
     generics?: TypeInfo[],
     construct?: Constructor,
-    parent?: TypeInfo,
+    parent?: TypeInfo | (() => TypeInfo),
     fields?: () => FieldInfo[],
     cases?: () => CaseInfo[],
     enumCases?: EnumCase[]
@@ -67,10 +68,16 @@ export class TypeInfo implements IEquatable<TypeInfo> {
     this.fullname = fullname;
     this.generics = generics;
     this.construct = construct;
-    this.parent = parent;
+    this.lazyParent = parent;
     this.fields = fields;
     this.cases = cases;
     this.enumCases = enumCases;
+  }
+  public get parent(): TypeInfo | undefined {
+    if (typeof this.lazyParent === "function") {
+      this.lazyParent = this.lazyParent();
+    }
+    return this.lazyParent;
   }
   public toString() {
     return fullName(this);
@@ -115,7 +122,7 @@ export function class_type(
   fullname: string,
   generics?: TypeInfo[],
   construct?: Constructor,
-  parent?: TypeInfo): TypeInfo {
+  parent?: TypeInfo | (() => TypeInfo)): TypeInfo {
   return new TypeInfo(fullname, generics, construct, parent);
 }
 
