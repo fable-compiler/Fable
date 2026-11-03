@@ -517,6 +517,21 @@ let paramName (f: unit -> unit) =
         "no exception"
     with :? System.ArgumentException as e -> e.ParamName
 
+/// `~` and `^` are *active*/superscript characters, see #5252.
+let docCommentWithCommentEnd (c: char) = string c
+
+/// Ends a block comment */ and opens one /* with a trailing *
+type DocCommentRecord =
+    {
+        /// Field doc */
+        Value: int
+    }
+
+/// Class doc */
+type DocCommentClass() =
+    /// Member doc */
+    member _.Get() = 1
+
 let tests =
   testList "Miscellaneous" [
     testCase "Hoisted vars don't conflict with while loop" <| fun () -> // see #4031
@@ -1580,4 +1595,9 @@ let tests =
             sw.IsRunning |> equal true
             sw.ElapsedMilliseconds < 50L |> equal true
         }
+
+    testCase "Doc comments containing */ do not break the output" <| fun () -> // See #5252
+        docCommentWithCommentEnd 'x' |> equal "x"
+        { Value = 2 }.Value |> equal 2
+        DocCommentClass().Get() |> equal 1
   ]
