@@ -1499,6 +1499,19 @@ let tests =
         values |> List.map (fun x -> x.ToString()) |> equal expected
         values |> List.map (fun x -> $"{x}") |> equal expected
 
+    testCase "Negated integer zero is written without a sign"
+    <| fun () ->
+        let x = List.head [ 0 ]
+        String.Format("{0}", -x) |> equal "0"
+        String.Format("{0}", x * -1) |> equal "0"
+        String.Format("{0} {1} {2} {3}", -x, x * -1, -0.0, 1.5) |> equal "0 0 -0 1.5"
+        String.Format("{0} {1}", byte x, -(int16 x)) |> equal "0 0"
+        String.Format("{0:N0} {0:G}", -x) |> equal "0 0"
+        sprintf "%O" (-x) |> equal "0"
+        string (-x) |> equal "0"
+        (-x).ToString() |> equal "0"
+        $"{-x}" |> equal "0"
+
     testCase "byte.ToString 'X' works" <| fun () ->
         (255uy).ToString("X2") |> equal "FF"
         (255uy).ToString("X15") |> equal "0000000000000FF"
