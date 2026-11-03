@@ -1756,7 +1756,21 @@ module Util =
         | Fable.StringTemplate(tag, parts, values) ->
             let tag = tag |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
 
-            let values = values |> List.mapToArray (fun e -> com.TransformAsExpr(ctx, e))
+            let values =
+                values
+                |> List.mapToArray (fun e ->
+                    let uncasted =
+                        match e with
+                        | Fable.TypeCast(e, _) -> e
+                        | e -> e
+
+                    match tag, uncasted.Type with
+                    | None, Fable.Number(Float64, _) ->
+                        libCall com ctx None "String" "float64ToString" [] [ com.TransformAsExpr(ctx, uncasted) ]
+                    | None, Fable.Number(Float32, _) ->
+                        libCall com ctx None "String" "float32ToString" [] [ com.TransformAsExpr(ctx, uncasted) ]
+                    | _ -> com.TransformAsExpr(ctx, e)
+                )
 
             StringTemplate(tag, List.toArray parts, values, r) |> Literal
         | Fable.NumberConstant(v, _) ->

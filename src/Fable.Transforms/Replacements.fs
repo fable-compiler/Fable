@@ -451,6 +451,8 @@ let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
         | Number(NativeInt, _) -> Helper.LibCall(com, "Util", "int64ToString", String, args)
         | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
+        | Number(Float64, _) -> Helper.LibCall(com, "String", "float64ToString", String, [ head ])
+        | Number(Float32, _) -> Helper.LibCall(com, "String", "float32ToString", String, [ head ])
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
         | Array _
         | List _ -> Helper.LibCall(com, "Types", "seqToString", String, [ head ], ?loc = r)
@@ -2962,7 +2964,10 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "ToString", [ ExprTypeAs(String, format) ]
     | "ToString", [ ExprTypeAs(String, format); _ (* Culture info *) ] ->
         numericStringFormat com ctx r t i thisArg format
-    | "ToString", _ -> Helper.GlobalCall("String", String, [ thisArg.Value ], ?loc = r) |> Some
+    | "ToString", _ ->
+        match thisArg.Value.Type with
+        | Number((Float32 | Float64), _) -> toString com ctx r [ thisArg.Value ] |> Some
+        | _ -> Helper.GlobalCall("String", String, [ thisArg.Value ], ?loc = r) |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
