@@ -1727,6 +1727,53 @@ module MultipleInlines =
     let private mapMyList (xs: NonEmptyList<string>) : NonEmptyList<string> =
       map (fun s -> s + "_") xs
 
+    let mutable codecCalls = 0
+
+    type Codec<'a> = Codec of (unit -> int)
+
+    type Codecs =
+        static member inline Codecs(_output: int, _mthd: Codecs) : Codec<int> = Codec(fun () -> 0)
+        static member inline Codecs(_output: bool, _mthd: Codecs) : Codec<bool> = Codec(fun () -> 0)
+
+        static member inline Invoke() =
+            let inline call_2 (a: ^a, b: ^b) =
+                ((^a or ^b): (static member Codecs: _ * _ -> _) b, a)
+
+            let inline call (a: 'a) =
+                call_2 (a, Unchecked.defaultof<'r>): Codec<'r>
+
+            call Unchecked.defaultof<Codecs>
+
+    type Codecs with
+        static member inline Codecs< ^a, ^b
+            when (^a): (static member codecInner: Codec< ^b > -> Codec< ^a >)
+            and (Codecs or ^b): (static member Codecs: ^b * Codecs -> Codec< ^b >)>
+            (_output: ^a, _mthd: Codecs)
+            : Codec< ^a > =
+            codecCalls <- codecCalls + 1
+            let x = codecCalls * 10
+            let (Codec inner) = 'a.codecInner (Codecs.Invoke())
+            Codec(fun () -> x + inner ())
+
+    let inline getCodecs<'a, 'b
+        when (Codecs or ^a): (static member Codecs: ^a * Codecs -> Codec< ^a >)
+        and (Codecs or ^b): (static member Codecs: ^b * Codecs -> Codec< ^b >)>
+        ()
+        : Codec< ^a > * Codec< ^b > =
+        let a: Codec<'a> = Codecs.Invoke()
+        let b: Codec<'b> = Codecs.Invoke()
+        (a, b)
+
+    type CodecContainer<'T> =
+        | CodecContainer
+
+        static member codecInner(Codec f: Codec<'T>) : Codec<CodecContainer<'T>> = Codec(fun () -> f () + 1)
+
+    let getContainerCodecs () =
+        codecCalls <- 0
+        let (Codec a), (Codec b) = (getCodecs () : Codec<CodecContainer<int>> * Codec<CodecContainer<int>>)
+        a (), b ()
+
     let tests = [
         testCase "Trait call works with multiple inlined functions I" <| fun () -> // See #2809
             let account = Some { Details = { Tag = "Test"; InsurancePolicyData = None }}
@@ -1748,6 +1795,9 @@ module MultipleInlines =
 
         testCase "Identifiers from witnesses don't get duplicated when resolving inline expressions" <| fun () -> // See #2855
             NonEmptyList("a", ["b"; "c"]) |> mapMyList |> equal (NonEmptyList("a_", ["b_"; "c_"]))
+
+        testCase "Identifiers from a witness inlined twice in the same scope don't get duplicated" <| fun () -> // See #3921
+            getContainerCodecs () |> equal (11, 21)
     ]
 
 module AccessorFunctionShorthand =
