@@ -180,6 +180,13 @@ export function printf(input: string): IPrintfFormat {
   };
 }
 
+export function interpolatedPrintf(input: string, text: string): IPrintfFormat {
+  return {
+    input,
+    cont: (f: (x: string) => any) => f(text),
+  };
+}
+
 export function interpolate(str: string, values: any[]): string {
   let valIdx = 0;
   let strIdx = 0;
