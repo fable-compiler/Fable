@@ -2555,42 +2555,6 @@ module Util =
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) = entityIdentWithSuffix com ent ""
 
-    /// Compiler-generated constructors of derived classes receive the inherited fields and pass them to the base
-    let tryMakeCompilerGeneratedBaseCall (com: Compiler) (ent: FSharpEntity) =
-        if supportsCompilerGeneratedBaseCall com && hasCompilerGeneratedConstructor ent then
-            match tryGetCompilerGeneratedBases ent with
-            | Some(_ :: _ as bases) ->
-                let baseEnt = List.last bases
-
-                let args =
-                    getInheritedValFields ent Map.empty
-                    |> List.map (fun (field, typ) -> makeTypedIdentExpr typ field.Name)
-
-                let baseExpr =
-                    match tryGlobalOrImportedFSharpEntity com baseEnt with
-                    | Some baseExpr -> baseExpr
-                    | None -> FsEnt.Ref baseEnt |> entityIdent com
-
-                Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
-            | Some _ -> None
-            | None ->
-                match tryGetPrimaryConstructorBase ent, tryGetBaseEntity ent with
-                | Some(baseEnt, baseGenArgs, cons), _ ->
-                    let args = getPrimaryConstructorBaseArgs ent baseEnt baseGenArgs cons
-                    let baseExpr = FsEnt.Ref baseEnt |> entityIdent com
-                    Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
-                | None, Some(baseEnt, _) when
-                    hasCompilerGeneratedConstructor baseEnt
-                    && ent.MembersFunctionsAndValues |> Seq.exists _.IsConstructor
-                    ->
-                    $"%s{ent.FullName} has no primary constructor and inherits %s{baseEnt.FullName}, which has no primary constructor either but inherits a class that has one. Fable cannot compile this inheritance chain."
-                    |> addError com [] (makeRange ent.DeclarationLocation |> Some)
-
-                    None
-                | _ -> None
-        else
-            None
-
     /// In Python a union is emitted as a public type alias (`type Demo = Demo_A | Demo_B`)
     /// plus a private base class (`_Demo`) that holds the runtime members: attached static
     /// members and the `cases()` method used by reflection. The type alias is typing-only,
@@ -2763,6 +2727,45 @@ module Util =
                 isMutable = memb.IsMutable,
                 ?entRef = entRef
             )
+
+    /// Compiler-generated constructors of derived classes receive the inherited fields and pass them to the base
+    let tryMakeCompilerGeneratedBaseCall (com: Compiler) (ent: FSharpEntity) =
+        if supportsCompilerGeneratedBaseCall com && hasCompilerGeneratedConstructor ent then
+            match tryGetCompilerGeneratedBases ent with
+            | Some(_ :: _ as bases) ->
+                let baseEnt = List.last bases
+
+                let args =
+                    getInheritedValFields ent Map.empty
+                    |> List.map (fun (field, typ) -> makeTypedIdentExpr typ field.Name)
+
+                let baseExpr =
+                    match tryGlobalOrImportedFSharpEntity com baseEnt with
+                    | Some baseExpr -> baseExpr
+                    | None -> FsEnt.Ref baseEnt |> entityIdent com
+
+                Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
+            | Some _ -> None
+            | None ->
+                match tryGetPrimaryConstructorBase ent, tryGetBaseEntity ent with
+                | Some(baseEnt, baseGenArgs, cons), _ ->
+                    let args = getPrimaryConstructorBaseArgs ent baseEnt baseGenArgs cons
+                    let baseExpr = FsEnt.Ref baseEnt |> entityIdent com
+
+                    let info = Fable.CallInfo.Create(args = args, memberRef = getFunctionMemberRef cons)
+
+                    Some(Fable.Call(baseExpr, info, Fable.Unit, None))
+                | None, Some(baseEnt, _) when
+                    hasCompilerGeneratedConstructor baseEnt
+                    && ent.MembersFunctionsAndValues |> Seq.exists _.IsConstructor
+                    ->
+                    $"%s{ent.FullName} has no primary constructor and inherits %s{baseEnt.FullName}, which has no primary constructor either but inherits a class that has one. Fable cannot compile this inheritance chain."
+                    |> addError com [] (makeRange ent.DeclarationLocation |> Some)
+
+                    None
+                | _ -> None
+        else
+            None
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then

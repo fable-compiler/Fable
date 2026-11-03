@@ -1756,6 +1756,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 | Fable.Call(_, info, _, _) -> dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef
                 | _ -> []
 
+            let omittedBaseArgs =
+                match tryGetPrimaryConstructorBase fsType.TypeDefinition with
+                | Some(baseEnt, baseGenArgs, cons) ->
+                    let baseParams =
+                        getPrimaryConstructorBaseArgs fsType.TypeDefinition baseEnt baseGenArgs cons
+
+                    baseParams
+                    |> List.skip (min baseArgs.Length baseParams.Length)
+                    |> List.map (fun param ->
+                        match param.Type with
+                        | Fable.Option(genArg, isStruct) -> Fable.Value(Fable.NewOption(None, genArg, isStruct), None)
+                        | t -> Fable.Value(Fable.Null t, None)
+                    )
+                | None -> []
+
+            let baseArgs = baseArgs @ omittedBaseArgs
+
             let! ownArgs = transformExprList com ctx ownArgs
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
             let entRef = FsEnt.Ref fsType.TypeDefinition

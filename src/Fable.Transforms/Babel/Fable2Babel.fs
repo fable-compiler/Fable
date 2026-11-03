@@ -4822,7 +4822,17 @@ but thanks to the optimisation done below we get
         let classMembers = Array.append abstractClassMembers classMembers
 
         let exposedCons =
-            let argExprs = consArgs |> Array.map (fun p -> Expression.identifier (p.Name))
+            let argExprs =
+                consArgs
+                |> Array.mapi (fun i p ->
+                    let arg = Expression.identifier (p.Name)
+
+                    if consInfo.HasSpread && i = consArgs.Length - 1 then
+                        Expression.spreadElement arg
+                    else
+                        arg
+                )
+
             let exposedConsBody = Expression.newExpression (classIdent, argExprs)
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 

@@ -1055,6 +1055,27 @@ type PrimaryCtorSameNameChild =
     val label: string
     new (a: string, b: string) = { inherit PrimaryCtorNamedBase(a); label = b }
 
+type PrimaryCtorOptionalBase(a: int, ?b: string, ?c: int) =
+    member _.Describe = $"""{a}-{defaultArg b "B"}-{defaultArg c 7}"""
+
+type PrimaryCtorOptionalChild =
+    inherit PrimaryCtorOptionalBase
+    val Z: int
+    new () = { inherit PrimaryCtorOptionalBase(1); Z = 9 }
+    new (b: string) = { inherit PrimaryCtorOptionalBase(1, b); Z = 8 }
+    new (c: int) = { inherit PrimaryCtorOptionalBase(1, c = c); Z = 7 }
+
+type PrimaryCtorParamArrayBase(a: int, [<ParamArray>] xs: int[]) =
+    member _.Total = a + Array.sum xs
+    member _.Count = xs.Length
+
+type PrimaryCtorParamArrayChild =
+    inherit PrimaryCtorParamArrayBase
+    val Z: int
+    new () = { inherit PrimaryCtorParamArrayBase(1, 2, 3); Z = 5 }
+    new (xs: int[]) = { inherit PrimaryCtorParamArrayBase(1, xs); Z = 6 }
+    new (_: bool) = { inherit PrimaryCtorParamArrayBase(1); Z = 7 }
+
 let tests =
   testList "Types" [
 
@@ -2135,4 +2156,29 @@ let tests =
         let child = PrimaryCtorSameNameChild("a", "b")
         child.BaseLabel |> equal "a"
         child.label |> equal "b"
+
+    testCase "Explicit constructor passes omitted optional arguments to a base primary constructor" <| fun () ->
+        let child = PrimaryCtorOptionalChild()
+        child.Describe |> equal "1-B-7"
+        child.Z |> equal 9
+        let child = PrimaryCtorOptionalChild("x")
+        child.Describe |> equal "1-x-7"
+        child.Z |> equal 8
+        let child = PrimaryCtorOptionalChild(3)
+        child.Describe |> equal "1-B-3"
+        child.Z |> equal 7
+
+    testCase "Explicit constructor passes ParamArray arguments to a base primary constructor" <| fun () ->
+        let child = PrimaryCtorParamArrayChild()
+        child.Total |> equal 6
+        child.Count |> equal 2
+        child.Z |> equal 5
+        let child = PrimaryCtorParamArrayChild([| 4; 5 |])
+        child.Total |> equal 10
+        child.Count |> equal 2
+        child.Z |> equal 6
+        let child = PrimaryCtorParamArrayChild(true)
+        child.Total |> equal 1
+        child.Count |> equal 0
+        child.Z |> equal 7
   ]
