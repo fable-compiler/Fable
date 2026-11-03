@@ -1901,6 +1901,17 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode") -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
+// JS can hold an int as -0, which runtime number formatting would print with its sign
+let rec private normalizeIntegerFormatArg (arg: Expr) =
+    match arg with
+    | TypeCast(e, t) -> TypeCast(normalizeIntegerFormatArg e, t)
+    | Value(NewArray(ArrayValues values, typ, kind), r) ->
+        Value(NewArray(ArrayValues(List.map normalizeIntegerFormatArg values), typ, kind), r)
+    | e ->
+        match e.Type with
+        | Number(Integers _, _) -> makeBinOp None e.Type e (makeIntConst 0) BinaryPlus
+        | _ -> e
+
 let implementedStringFunctions =
     set
         [|
@@ -2123,6 +2134,11 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
+        let args =
+            match i.CompiledName, args with
+            | "Format", format :: formatArgs -> format :: List.map normalizeIntegerFormatArg formatArgs
+            | _ -> args
+
         Helper.LibCall(
             com,
             "String",
@@ -3491,7 +3507,9 @@ let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         match args with
         | [] -> []
         | [ v ] -> [ v ]
-        | (StringConst _) :: _ -> [ Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes) ]
+        | (StringConst _ as format) :: formatArgs ->
+            let args = format :: List.map normalizeIntegerFormatArg formatArgs
+            [ Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes) ]
         | _ -> [ args.Head ]
 
     Helper.GlobalCall("console", t, args, memb = "log", ?loc = r)
