@@ -96,8 +96,28 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
                     body
 
             None, genTypeParams, args, body
-        | Attached(isStatic = true), _
-        | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
+        | ClassConstructor, _ ->
+            let args, body =
+                match List.tryLast args with
+                | Some varArg when hasSpread ->
+                    let varArgTuple = { varArg with Name = "_" + varArg.Name }
+                    let elementType = getVarArgElementType varArg.Type
+
+                    let array =
+                        Fable.Value(
+                            Fable.NewArray(
+                                Fable.ArrayFrom(Fable.IdentExpr varArgTuple),
+                                elementType,
+                                Fable.MutableArray
+                            ),
+                            None
+                        )
+
+                    List.take (args.Length - 1) args @ [ varArgTuple ], Fable.Let(varArg, array, body)
+                | _ -> args, body
+
+            None, ctx.ScopedTypeParams, args, body
+        | Attached(isStatic = true), _ -> None, ctx.ScopedTypeParams, args, body
         | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
         | _ -> None, Set.empty, args, body
 
@@ -4701,7 +4721,13 @@ let transformClassWithPrimaryConstructor
             // Don't generate exposed constructor for abstract classes since they can't be instantiated
             []
         else
-            let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
+            let argExprs =
+                let args = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
+
+                match consArgs.VarArg with
+                | Some varArg -> args @ [ Expression.starred (Expression.identifier varArg.Arg) ]
+                | None -> args
+
             let exposedConsBody = Expression.call (classIdent, argExprs)
             let name = com.GetIdentifier(ctx, cons.Name)
 
