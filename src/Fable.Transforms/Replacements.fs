@@ -492,6 +492,8 @@ let roundCall (com: ICompiler) r t moduleName (i: CallInfo) (args: Expr list) =
     | [ ExprType(Number(Float32, _)); _; _ ] when isMidpointRounding ->
         Helper.LibCall(com, moduleName, "roundToModeFloat32", t, args, ?loc = r)
     | [ _; _; _ ] when isMidpointRounding -> Helper.LibCall(com, moduleName, "roundToMode", t, args, ?loc = r)
+    | [ ExprType(Number(Float32, _)); _ ] ->
+        Helper.LibCall(com, moduleName, "roundFloat32", t, args, i.SignatureArgTypes, ?loc = r)
     | _ -> Helper.LibCall(com, moduleName, "round", t, args, i.SignatureArgTypes, ?loc = r)
 
 let toList com returnType expr =

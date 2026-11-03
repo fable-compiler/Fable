@@ -903,6 +903,34 @@ let tests =
         Math.Round(-1.426, 2) |> equal -1.43
         Math.Round(-1.426, 1) |> equal -1.4
 
+    testCase "Math.Round rounds the exact value" <| fun () -> // See #5251
+        Math.Round 2.500000001 |> equal 3.
+        Math.Round 3.4999999999 |> equal 3.
+        Math.Round -2.500000001 |> equal -3.
+        Math.Round -3.4999999999 |> equal -3.
+        Math.Round 2.5 |> equal 2.
+        Math.Round 3.5 |> equal 4.
+        Math.Round 0.49999999999999994 |> equal 0.
+        1. / Math.Round(-0.5) |> equal -infinity
+        Math.Round(1.2500000001, 1) |> equal 1.3
+        Math.Round(2.0000000050001, 8) |> equal 2.00000001
+        Math.Round(2.675, 2) |> equal 2.68
+        Math.Round(123456.785, 2) |> equal 123456.78
+        round 2.500000001 |> equal 3.
+        round 3.4999999999 |> equal 3.
+        Convert.ToInt32 2.500000001 |> equal 3
+        Convert.ToInt32 3.4999999999 |> equal 3
+        MathF.Round 2.500001f |> equal 3.f
+        MathF.Round 3.499999f |> equal 3.f
+        MathF.Round 2.5f |> equal 2.f
+
+    testCase "Math.Round validates its digits" <| fun () ->
+        (fun () -> Math.Round(1., 16)) |> throwsAnyError
+        (fun () -> Math.Round(1., -1)) |> throwsAnyError
+        (fun () -> MathF.Round(1.f, 7)) |> throwsAnyError
+        Math.Round(1.2345678901234567, 15) |> equal 1.234567890123457
+        Math.Round(1e16, 2) |> equal 1e16
+
     testCase "Math.Round with MidpointRounding works" <| fun () ->
         let round mode = [ 2.5; -2.5; 3.5; -3.5; 2.4; -2.6; 0.5; -0.5 ] |> List.map (fun x -> Math.Round(x, (mode: MidpointRounding)))
         round MidpointRounding.ToEven |> equal [ 2.; -2.; 4.; -4.; 2.; -3.; 0.; -0. ]
