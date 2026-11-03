@@ -76,6 +76,9 @@ export function milliseconds(ts: TimeSpan) {
 }
 
 export function ticks(ts: TimeSpan) {
+  if (Math.abs(ts) < Number.MAX_SAFE_INTEGER / 10000) {
+    return toInt64(fromFloat64(ts * 10000));
+  }
   const wholeMs = Math.trunc(ts);
   return toInt64(fromFloat64(wholeMs) * 10000n + fromFloat64((ts - wholeMs) * 10000));
 }
