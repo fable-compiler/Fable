@@ -1,5 +1,5 @@
 ---
-last_commit_released: cac5ddd9a99205e0bb5272f1ffd8f0cca937824c
+last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 4.5.0 - 2026-11-03
+
+### 🚀 Features
+
+* *(js/ts/python/dart/rust/beam)* Support Convert.ToHexString, ToHexStringLower and FromHexString (#5204) ([3a3acf4e](https://github.com/fable-compiler/Fable/commit/3a3acf4ee213abb07fc4f7b98af69a6f8e68b571))
+
+### 🐞 Bug Fixes
+
+* *(all)* Keep reads of imported mutable values in place (#5242) ([1190dfa5](https://github.com/fable-compiler/Fable/commit/1190dfa5e5f12793fc2b3b2d15a24afb8253bce3))
+* *(all)* Rename idents of a witness inlined twice (#5249) ([1e41dcc5](https://github.com/fable-compiler/Fable/commit/1e41dcc5ac5a990a81aa15d43921d824b5466740))
+* *(js/ts)* Round float32 results like .NET (#5222) ([7b176e7e](https://github.com/fable-compiler/Fable/commit/7b176e7e13bee118a21b8358e6eed65c19ac9549))
+* *(js/ts)* Support MidpointRounding in Math.Round (#5233) ([5a7ea990](https://github.com/fable-compiler/Fable/commit/5a7ea990b76c928564364f4844fc9a3666b612fc))
+* *(js/ts)* Print null strings as empty ([6c22c162](https://github.com/fable-compiler/Fable/commit/6c22c162674a167e43e49ad0698f426123bc35f4))
+* *(js/ts)* Match Dictionary/HashSet array keys by reference (#5239) ([1d77d628](https://github.com/fable-compiler/Fable/commit/1d77d6282b8dea284bca3cff9a6455e561575e3a))
+* *(js/ts)* Round Math.Round ties on the exact value (#5254) ([8014fb20](https://github.com/fable-compiler/Fable/commit/8014fb20fed77653aa8f119cfb080d86b59ae408))
+* *(js/ts)* Escape */ in JSDoc comments (#5255) ([1072231c](https://github.com/fable-compiler/Fable/commit/1072231c4c64467547d7f69ab741824f2e1a522c))
+* *(js/ts)* Write floats like .NET's ToString (#5246) ([c958156c](https://github.com/fable-compiler/Fable/commit/c958156c9f5eb631d78ac331e93c4cfa85e0962a))
+* *(js/ts)* Keep format of interpolated StringFormat (#5248) ([03712db9](https://github.com/fable-compiler/Fable/commit/03712db9d22e3aa685ec9181aea3ee5c90bb7303))
+* *(js/ts)* Write negated integer zero without a sign (#5256) ([ce7fc717](https://github.com/fable-compiler/Fable/commit/ce7fc717c7597b133dc6f999f88a15b2fb636d65))
+* *(js/ts)* Evaluate reflection parents lazily (#5243) ([7d46c714](https://github.com/fable-compiler/Fable/commit/7d46c71405542c6d6e4a0204251f4b704efac847))
+* *(js/ts/python)* Call base ctor from explicit constructors (#5226) ([508026e7](https://github.com/fable-compiler/Fable/commit/508026e73511f2636245515b8ec9476176e34b5c))
+* *(js/ts/python)* Clamp negative slice bounds like .NET (#5232) ([7319a994](https://github.com/fable-compiler/Fable/commit/7319a994a9c3be7d31348d29d2c464482b5f21f9))
+* *(js/ts/python/dart/rust/beam)* Use FSharp.Core's algorithms for random collection functions (#5197) ([dd860cc1](https://github.com/fable-compiler/Fable/commit/dd860cc179e0802d46eebb4110580e1edbf64cb8))
+* *(rust)* Inline hashing, more Decimal tests (#5236) ([705b6b70](https://github.com/fable-compiler/Fable/commit/705b6b70bf0b732811bd6e69cfc8fc0614b831c7))
+* *(ts)* Declare Mangle(false) interface members unmangled (#5234) ([86c00004](https://github.com/fable-compiler/Fable/commit/86c000041f286668353615003692b07e9082ff01))
+* *(ts)* Extend library classes for BCL collection bases (#5240) ([d82ef893](https://github.com/fable-compiler/Fable/commit/d82ef8932c58ddc73ff5aa6ca669be86aedbe9db))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/cac5ddd9a99205e0bb5272f1ffd8f0cca937824c..7d46c71405542c6d6e4a0204251f4b704efac847)</small></strong>
 
 ## 4.4.0 - 2026-10-29
 

@@ -1,5 +1,5 @@
 ---
-last_commit_released: cac5ddd9a99205e0bb5272f1ffd8f0cca937824c
+last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.13.0 - 2026-11-03
+
+### 🚀 Features
+
+* *(js/ts/python/dart/rust/beam)* Support Convert.ToHexString, ToHexStringLower and FromHexString (#5204) ([3a3acf4e](https://github.com/fable-compiler/Fable/commit/3a3acf4ee213abb07fc4f7b98af69a6f8e68b571))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Round float32 results like .NET (#5222) ([7b176e7e](https://github.com/fable-compiler/Fable/commit/7b176e7e13bee118a21b8358e6eed65c19ac9549))
+* *(js/ts)* Unescape doubled braces in String.Format (#5231) ([24e01fd3](https://github.com/fable-compiler/Fable/commit/24e01fd30e3eec7571816b4d6cc9f6281cce0de4))
+* *(js/ts)* Treat null as empty in String.Join and Concat (#5230) ([a7dcab8d](https://github.com/fable-compiler/Fable/commit/a7dcab8d770ac56f825e15361df7b2e05f618e5e))
+* *(js/ts)* Support MidpointRounding in Math.Round (#5233) ([5a7ea990](https://github.com/fable-compiler/Fable/commit/5a7ea990b76c928564364f4844fc9a3666b612fc))
+* *(js/ts)* Print null strings as empty ([6c22c162](https://github.com/fable-compiler/Fable/commit/6c22c162674a167e43e49ad0698f426123bc35f4))
+* *(js/ts)* Round exact midpoints to even in numeric formats (#5245) ([350a3900](https://github.com/fable-compiler/Fable/commit/350a390071473bb4e93fb055a3876d7b3215ada1))
+* *(js/ts)* Round Math.Round ties on the exact value (#5254) ([8014fb20](https://github.com/fable-compiler/Fable/commit/8014fb20fed77653aa8f119cfb080d86b59ae408))
+* *(js/ts)* Write floats like .NET's ToString (#5246) ([c958156c](https://github.com/fable-compiler/Fable/commit/c958156c9f5eb631d78ac331e93c4cfa85e0962a))
+* *(js/ts)* Keep format of interpolated StringFormat (#5248) ([03712db9](https://github.com/fable-compiler/Fable/commit/03712db9d22e3aa685ec9181aea3ee5c90bb7303))
+* *(js/ts)* Evaluate reflection parents lazily (#5243) ([7d46c714](https://github.com/fable-compiler/Fable/commit/7d46c71405542c6d6e4a0204251f4b704efac847))
+* *(js/ts/python/dart/rust/beam)* Use FSharp.Core's algorithms for random collection functions (#5197) ([dd860cc1](https://github.com/fable-compiler/Fable/commit/dd860cc179e0802d46eebb4110580e1edbf64cb8))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/cac5ddd9a99205e0bb5272f1ffd8f0cca937824c..7d46c71405542c6d6e4a0204251f4b704efac847)</small></strong>
 
 ## 2.12.0 - 2026-10-29
 
