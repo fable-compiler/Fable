@@ -1,5 +1,5 @@
 import { toString as dateToString } from "./Date.ts";
-import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision, toRadix } from "./Numeric.ts";
+import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toExponentialHalfEven, toFixed, toFixedHalfEven, toHex, toPrecision, toPrecisionHalfEven, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
 import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 import { toString } from "./Types.ts";
@@ -245,13 +245,13 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     switch (format) {
       case "f": case "F":
         precision = precision != null ? precision : 6;
-        rep = toFixed(rep, precision);
+        rep = toFixedHalfEven(rep, precision);
         break;
       case "g": case "G":
-        rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+        rep = precision != null ? toPrecisionHalfEven(rep, precision) : toPrecision(rep);
         break;
       case "e": case "E":
-        rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+        rep = precision != null ? toExponentialHalfEven(rep, precision) : toExponential(rep);
         break;
       case "x": case "o":
         rep = toRadix(rep, radix);
@@ -362,6 +362,14 @@ function splitIntAndDecimalPart(value: string) {
   }
 }
 
+// .NET rounds a percentage on the unscaled value, at precision + 2 decimals
+function shiftPercent(value: string) {
+  const sign = value.startsWith("-") ? "-" : "";
+  const [integral, decimal = ""] = value.slice(sign.length).split(".");
+  const shifted = (integral + decimal.slice(0, 2)).replace(/^0+(?=\d)/, "");
+  return sign + shifted + (decimal.length > 2 ? "." + decimal.slice(2) : "");
+}
+
 function thousandSeparate(value: string) {
   return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
@@ -397,7 +405,7 @@ function formatGeneral(x: number, format: string, precision: number | null, isSi
   // R ignores the precision and G0 is G
   const p = format === "r" || format === "R" ? 0 : precision ?? 0;
   const [significand, exponent] =
-    p > 0 ? splitExponential(x.toExponential(p - 1)) : isSingle ? shortestSingle(x) : splitExponential(x.toExponential());
+    p > 0 ? splitExponential(toExponentialHalfEven(x, p - 1)) : isSingle ? shortestSingle(x) : splitExponential(x.toExponential());
   const digits = trimEnd(significand, "0") || "0";
   if (exponent < -4 || exponent >= (p > 0 ? p : isSingle ? 9 : 17)) {
     const mantissa = digits.length > 1 ? digits[0] + "." + digits.slice(1) : digits;
@@ -450,7 +458,7 @@ export function format(str: string | object, ...args: any[]) {
             rep = multiply(rep, -1);
           }
           precision = precision == null ? 2 : precision;
-          rep = toFixed(rep, precision);
+          rep = toFixedHalfEven(rep, precision);
           parts = splitIntAndDecimalPart(rep);
           if (precision > 0) {
             rep = "¤" + thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
@@ -476,7 +484,7 @@ export function format(str: string | object, ...args: any[]) {
           break;
         case "e": case "E": {
           precision = precision != null ? precision : 6;
-          rep = String(toExponential(rep, precision));
+          rep = toExponentialHalfEven(rep, precision);
           // .NET always signs the exponent and pads it to at least three digits
           const eIdx = rep.indexOf("e");
           rep = rep.slice(0, eIdx) + format + rep[eIdx + 1] + padLeft(rep.slice(eIdx + 2), 3, "0");
@@ -484,7 +492,7 @@ export function format(str: string | object, ...args: any[]) {
         }
         case "f": case "F":
           precision = precision != null ? precision : 2;
-          rep = toFixed(rep, precision);
+          rep = toFixedHalfEven(rep, precision);
           if (precision > 0) {
             parts = splitIntAndDecimalPart(rep);
             rep = parts.integral + "." + padRight(parts.decimal, precision, "0");
@@ -518,7 +526,7 @@ export function format(str: string | object, ...args: any[]) {
         }
         case "n": case "N":
           precision = precision != null ? precision : 2;
-          rep = toFixed(rep, precision);
+          rep = toFixedHalfEven(rep, precision);
           parts = splitIntAndDecimalPart(rep);
           if (precision > 0) {
             rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
@@ -528,7 +536,7 @@ export function format(str: string | object, ...args: any[]) {
           break;
         case "p": case "P":
           precision = precision != null ? precision : 2;
-          rep = toFixed(multiply(rep, 100), precision)
+          rep = typeof rep === "number" ? shiftPercent(toFixedHalfEven(rep, precision + 2)) : toFixed(multiply(rep, 100), precision);
           parts = splitIntAndDecimalPart(rep);
           if (precision > 0) {
             rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
