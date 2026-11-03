@@ -153,6 +153,9 @@ let tests =
             TimeSpan.FromMilliseconds(-1.0001).Ticks |> equal -10001L
             TimeSpan.FromSeconds(0.0010001).Ticks |> equal 10001L
             (TimeSpan.FromMilliseconds(1.0) * 1.0001).Ticks |> equal 10001L
+            TimeSpan.FromMilliseconds(900719925474.1).Ticks |> equal 9007199254741000L
+            TimeSpan.FromMilliseconds(-900719925474.1).Ticks |> equal -9007199254741000L
+            TimeSpan.FromMilliseconds(1e12 + 0.3).Ticks |> equal 10000000000003000L
 
         // NOTE: This test fails because of very small fractions, so I cut the fractional part
         testCase "TimeSpan totals work" <| fun () ->
