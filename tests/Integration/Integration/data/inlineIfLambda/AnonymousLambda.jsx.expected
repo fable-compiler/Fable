@@ -11,11 +11,11 @@ export let sum = createAtom(0);
 (function () {
     const array_1 = arr;
     for (let i = 0; i <= (array_1.length - 1); i++) {
-        const x = item(i, array_1) | 0;
+        const x = (array_1[i] ?? item(i, array_1)) | 0;
         sum(sum() + x);
     }
     for (let i_1 = 0; i_1 <= (array_1.length - 1); i_1++) {
-        const x = item(i_1, array_1) | 0;
+        const x = (array_1[i_1] ?? item(i_1, array_1)) | 0;
         sum(sum() + x);
     }
 })();
