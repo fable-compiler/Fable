@@ -2298,6 +2298,20 @@ let binarySearch (com: ICompiler) ctx r t rangeMeth (ar: Expr) args =
     | [ index; length; value; comparer ] -> call rangeMeth [ index; length; value ] (Some comparer)
     | _ -> None
 
+let arrayGetItem (com: ICompiler) r (t: Type) (args: Expr list) (signatureArgTypes: Type list) =
+    let item =
+        Helper.LibCall(com, "Array", "item", t, args, signatureArgTypes, ?loc = r)
+
+    let canRepeat e =
+        match e with
+        | IdentExpr _ -> true
+        | e -> not (canHaveSideEffects com e)
+
+    match args with
+    // V8 cannot specialise the read inside the shared `item` once it sees many array kinds, and only a nullish read can be out of bounds
+    | [ idx; ar ] when canRepeat idx && canRepeat ar -> emitExpr r t [ getExpr None t ar idx; item ] "$0 ?? $1" |> Some
+    | _ -> Some item
+
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
@@ -2309,7 +2323,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.GlobalCall("Array", t, args, memb = "from", ?loc = r)
         |> withTag "array"
         |> Some
-    | "get_Item", Some ar, [ idx ] -> Helper.LibCall(com, "Array", "item", t, [ idx; ar ], ?loc = r) |> Some
+    | "get_Item", Some ar, [ idx ] -> arrayGetItem com r t [ idx; ar ] []
     | "set_Item", Some ar, [ idx; value ] ->
         Helper.LibCall(com, "Array", "setItem", t, [ ar; idx; value ], ?loc = r) |> Some
     | "CopyTo", Some ar, [ target ] ->
@@ -2493,10 +2507,6 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "Array", "resize", Unit, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | _ -> None
-
-let arrayGetItem (com: ICompiler) r (t: Type) (args: Expr list) (signatureArgTypes: Type list) =
-    Helper.LibCall(com, "Array", "item", t, args, signatureArgTypes, ?loc = r)
-    |> Some
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let newArrayAlloc size t =
