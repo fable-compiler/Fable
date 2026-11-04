@@ -2510,6 +2510,7 @@ module Util =
         | _ -> None
 
     let getPrimaryConstructorBaseArgs
+        (com: Compiler)
         (ent: FSharpEntity)
         (baseEnt: FSharpEntity)
         (baseGenArgs: IList<FSharpType>)
@@ -2520,20 +2521,28 @@ module Util =
             |> Seq.map (fun (param, typ) -> genParamName param, makeType Map.empty typ)
             |> Map.ofSeq
 
-        let fieldNames = ent.FSharpFields |> Seq.map _.Name.ToLowerInvariant() |> Set.ofSeq
+        let sanitize conflicts name =
+            match com.Options.Language with
+            | Python ->
+                (Fable.Py.Naming.toPythonNaming name, Naming.NoMemberPart)
+                ||> Fable.Py.Naming.sanitizeIdent conflicts
+            | _ -> (name, Naming.NoMemberPart) ||> Naming.sanitizeJsIdent conflicts
 
-        let rec uniqueName (name: string) =
-            if fieldNames.Contains(name.ToLowerInvariant()) then
-                uniqueName (name + "_")
-            else
-                name
+        let usedNames =
+            ent.FSharpFields
+            |> Seq.filter (fun field -> not field.IsStatic)
+            |> Seq.map (FsField.FSharpFieldName >> sanitize (fun _ -> false))
+            |> HashSet
 
         match List.ofSeq (Seq.concat cons.CurriedParameterGroups) with
         | [ param ] when isUnit param.Type && param.Name.IsNone -> []
         | parameters ->
             parameters
             |> List.mapi (fun i param ->
-                let name = param.Name |> Option.defaultValue $"arg%d{i}" |> uniqueName
+                let name =
+                    param.Name |> Option.defaultValue $"arg%d{i}" |> sanitize usedNames.Contains
+
+                usedNames.Add(name) |> ignore
                 makeTypedIdentExpr (makeType genArgs param.Type) name
             )
 
@@ -2749,7 +2758,7 @@ module Util =
             | None ->
                 match tryGetPrimaryConstructorBase ent, tryGetBaseEntity ent with
                 | Some(baseEnt, baseGenArgs, cons), _ ->
-                    let args = getPrimaryConstructorBaseArgs ent baseEnt baseGenArgs cons
+                    let args = getPrimaryConstructorBaseArgs com ent baseEnt baseGenArgs cons
                     let baseExpr = FsEnt.Ref baseEnt |> entityIdent com
 
                     let info = Fable.CallInfo.Create(args = args, memberRef = getFunctionMemberRef cons)

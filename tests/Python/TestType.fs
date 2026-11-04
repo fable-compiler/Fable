@@ -2175,6 +2175,49 @@ type PrimaryCtorParamArrayChild =
     new (xs: int[]) = { inherit PrimaryCtorParamArrayBase(1, xs); Z = 6 }
     new (_: bool) = { inherit PrimaryCtorParamArrayBase(1); Z = 7 }
 
+type PrimaryCtorSuffixBase(x: int, x_: int) =
+    member _.Sum = x * 10 + x_
+
+type PrimaryCtorSuffixChild =
+    inherit PrimaryCtorSuffixBase
+    val x: int
+    new (a: int, b: int, c: int) = { inherit PrimaryCtorSuffixBase(a, b); x = c }
+
+type PrimaryCtorKeywordBase(``switch``: int, pass: int) =
+    member _.Value = ``switch`` * 10 + pass
+
+type PrimaryCtorKeywordChild =
+    inherit PrimaryCtorKeywordBase
+    val Z: int
+    new (a: int) = { inherit PrimaryCtorKeywordBase(a, 2); Z = 1 }
+
+type PrimaryCtorFunctionBase(f: int -> int -> int) =
+    member _.Apply a b = f a b
+
+type PrimaryCtorFunctionChild =
+    inherit PrimaryCtorFunctionBase
+    val G: int -> int -> int
+    new (n: int, g: int -> int -> int) = { inherit PrimaryCtorFunctionBase(fun a b -> a + b + n); G = g }
+
+type ValClassFunctionBase =
+    val F: int -> int -> int
+    new (f) = { F = f }
+
+type ValClassFunctionChild =
+    inherit ValClassFunctionBase
+    val G: int -> int -> int
+    new (f, g) = { inherit ValClassFunctionBase(f); G = g }
+
+type PrimaryCtorArrayBase(xs: int[]) =
+    member _.Items = xs
+
+type PrimaryCtorParamArrayForwardingChild([<ParamArray>] xs: int[]) =
+    inherit PrimaryCtorArrayBase(xs)
+    member _.First = xs.[0]
+
+type PrimaryCtorParamArrayPrefixed(_xs: int, [<ParamArray>] xs: int[]) =
+    member _.Value = _xs + xs.Length
+
 [<Fact>]
 let ``test explicit constructor calls a base primary constructor`` () =
     let child = PrimaryCtorValChild(3, "origin")
@@ -2233,3 +2276,37 @@ let ``test explicit constructor passes ParamArray arguments to a base primary co
     child.Total |> equal 1
     child.Count |> equal 0
     child.Z |> equal 7
+
+[<Fact>]
+let ``test explicit constructor gives distinct names to base primary constructor arguments`` () =
+    let child = PrimaryCtorSuffixChild(1, 2, 3)
+    child.Sum |> equal 12
+    child.x |> equal 3
+
+[<Fact>]
+let ``test explicit constructor accepts base primary constructor arguments named after keywords`` () =
+    let child = PrimaryCtorKeywordChild(4)
+    child.Value |> equal 42
+    child.Z |> equal 1
+
+[<Fact>]
+let ``test explicit constructor passes functions to a base primary constructor and its own fields`` () =
+    let child = PrimaryCtorFunctionChild(1, (fun a b -> a * b))
+    child.Apply 2 3 |> equal 6
+    child.G 2 3 |> equal 6
+
+[<Fact>]
+let ``test explicit constructor copies inherited function fields`` () =
+    let child = ValClassFunctionChild((fun a b -> a - b), (fun a b -> a * b))
+    child.F 5 2 |> equal 3
+    child.G 5 2 |> equal 10
+
+[<Fact>]
+let ``test primary constructor forwards its ParamArray to the base constructor`` () =
+    let child = PrimaryCtorParamArrayForwardingChild(9, 8)
+    child.Items |> equal [| 9; 8 |]
+    child.First |> equal 9
+
+[<Fact>]
+let ``test primary constructor ParamArray does not clash with other arguments`` () =
+    PrimaryCtorParamArrayPrefixed(1, 2, 3).Value |> equal 3

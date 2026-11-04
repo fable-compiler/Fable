@@ -1760,7 +1760,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 match tryGetPrimaryConstructorBase fsType.TypeDefinition with
                 | Some(baseEnt, baseGenArgs, cons) ->
                     let baseParams =
-                        getPrimaryConstructorBaseArgs fsType.TypeDefinition baseEnt baseGenArgs cons
+                        getPrimaryConstructorBaseArgs com fsType.TypeDefinition baseEnt baseGenArgs cons
 
                     baseParams
                     |> List.skip (min baseArgs.Length baseParams.Length)
@@ -1802,7 +1802,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
             let inheritedArgs =
                 getInheritedValFields fsType.TypeDefinition ctx.GenericArgs
-                |> List.map (fun (field, typ) -> getFieldWith None typ (Fable.IdentExpr baseIdent) field.Name)
+                |> List.map (fun (field, typ) ->
+                    let info =
+                        Fable.FieldInfo.Create(field.Name, fieldType = typ, maybeCalculated = true)
+
+                    Fable.Get(Fable.IdentExpr baseIdent, info, typ, None)
+                )
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
             let entRef = FsEnt.Ref fsType.TypeDefinition

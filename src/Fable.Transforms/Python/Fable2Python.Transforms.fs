@@ -96,28 +96,8 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
                     body
 
             None, genTypeParams, args, body
-        | ClassConstructor, _ ->
-            let args, body =
-                match List.tryLast args with
-                | Some varArg when hasSpread ->
-                    let varArgTuple = { varArg with Name = "_" + varArg.Name }
-                    let elementType = getVarArgElementType varArg.Type
-
-                    let array =
-                        Fable.Value(
-                            Fable.NewArray(
-                                Fable.ArrayFrom(Fable.IdentExpr varArgTuple),
-                                elementType,
-                                Fable.MutableArray
-                            ),
-                            None
-                        )
-
-                    List.take (args.Length - 1) args @ [ varArgTuple ], Fable.Let(varArg, array, body)
-                | _ -> args, body
-
-            None, ctx.ScopedTypeParams, args, body
-        | Attached(isStatic = true), _ -> None, ctx.ScopedTypeParams, args, body
+        | Attached(isStatic = true), _
+        | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
         | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
         | _ -> None, Set.empty, args, body
 
@@ -4657,7 +4637,7 @@ let transformClassWithPrimaryConstructor
         else
             [], []
 
-    let consArgs, consBody, _returnType =
+    let consArgs, consBody, _returnType, varArgInit =
         if classAttributes.Style = ClassStyle.Attributes then
             if classAttributes.Init then
                 // For attributes style with init=true, generate new constructor with property names
@@ -4693,13 +4673,24 @@ let transformClassWithPrimaryConstructor
                         assign None left right |> exprAsStatement ctx
                     )
 
-                propertyArgs, propertyBody, Expression.none
+                propertyArgs, propertyBody, Expression.none, []
             else
                 // For attributes style with init=false, no constructor arguments or body
-                Arguments.empty, [], Expression.none
+                Arguments.empty, [], Expression.none, []
         else
             let info = com.GetMember(cons.MemberRef)
-            getMemberArgsAndBody com ctx ClassConstructor info.HasSpread cons.Args cons.Body
+
+            let usedIn = cons.Body :: Option.toList classDecl.BaseCall
+
+            let args, varArgInit =
+                match tryMakeConstructorVarArgTuple ctx info.HasSpread cons.Args usedIn with
+                | Some(args, (varArg, array)) -> args, transformBindingAsStatements com ctx varArg array
+                | None -> cons.Args, []
+
+            let consArgs, consBody, returnType =
+                getMemberArgsAndBody com ctx ClassConstructor info.HasSpread args cons.Body
+
+            consArgs, consBody, returnType, varArgInit
 
     let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
 
@@ -4771,6 +4762,8 @@ let transformClassWithPrimaryConstructor
             Some baseExpr, consBody
         )
         |> Option.defaultValue (None, consBody)
+
+    let consBody = varArgInit @ consBody
 
     [
         yield! stmts
