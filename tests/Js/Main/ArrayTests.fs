@@ -295,6 +295,23 @@ let tests =
         xs[2] |> equal (Some 3)
         throwsAnyError (fun () -> xs[3])
 
+    testCase "Array getter evaluates the array and the index once" <| fun () ->
+        let mutable calls = 0
+        let xs = [| 10; 20; 30 |]
+        let next () =
+            calls <- calls + 1
+            calls
+        xs.[next ()] |> equal 20
+        calls |> equal 1
+        let ys = ResizeArray [ "a"; "b" ]
+        let pick () =
+            calls <- calls + 1
+            ys
+        (pick ()).[1] |> equal "b"
+        calls |> equal 2
+        throwsAnyError (fun () -> xs.[next ()])
+        calls |> equal 3
+
     testCase "Array setter works" <| fun () ->
         let x = [| 1.; 2.; 3.; 4.; 5. |]
         Array.set x 3 10.
