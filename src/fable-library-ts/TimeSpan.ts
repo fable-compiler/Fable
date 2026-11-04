@@ -76,7 +76,7 @@ export function milliseconds(ts: TimeSpan) {
 }
 
 export function ticks(ts: TimeSpan) {
-  return toInt64(fromFloat64(ts * 10000));
+  return toInt64(Number.isInteger(ts) ? BigInt(ts) * 10000n : fromFloat64(ts * 10000));
 }
 
 export function totalDays(ts: TimeSpan) {

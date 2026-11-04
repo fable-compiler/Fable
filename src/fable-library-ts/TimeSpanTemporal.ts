@@ -117,7 +117,7 @@ export function fromSeconds(s: number | bigint, ms: bigint = 0n): TimeSpan {
 }
 
 export function fromMilliseconds(ms: number | bigint): TimeSpan {
-  return fromNanoseconds(unitToNanoseconds(Number(ms), nsPerMillisecond));
+  return fromTicks(typeof ms === "bigint" || Number.isInteger(ms) ? BigInt(ms) * 10000n : BigInt(Math.trunc(ms * 10000)));
 }
 
 export function ticks(ts: TimeSpan): int64 {
