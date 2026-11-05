@@ -2199,6 +2199,12 @@ type PrimaryCtorFunctionChild =
     val G: int -> int -> int
     new (n: int, g: int -> int -> int) = { inherit PrimaryCtorFunctionBase(fun a b -> a + b + n); G = g }
 
+type PrimaryCtorDefaultValueChild =
+    inherit PrimaryCtorFunctionBase
+    val G: int -> int -> int
+    [<DefaultValue>] val mutable D: int
+    new (g: int -> int -> int) = { inherit PrimaryCtorFunctionBase(fun a b -> a + b); G = g }
+
 type ValClassFunctionBase =
     val F: int -> int -> int
     new (f) = { F = f }
@@ -2321,6 +2327,14 @@ let ``test explicit constructor passes functions to a base primary constructor a
     let child = PrimaryCtorFunctionChild(1, (fun a b -> a * b))
     child.Apply 2 3 |> equal 6
     child.G 2 3 |> equal 6
+
+[<Fact>]
+let ``test explicit constructor passes base arguments next to a DefaultValue field`` () =
+    let child = PrimaryCtorDefaultValueChild(fun a b -> a * b)
+    child.D <- 7
+    child.Apply 2 3 |> equal 5
+    child.G 5 2 |> equal 10
+    child.D |> equal 7
 
 [<Fact>]
 let ``test explicit constructor copies inherited function fields`` () =
