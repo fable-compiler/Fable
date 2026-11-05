@@ -22,3 +22,13 @@ module Extensions =
     type String with
         member inline x.StartsWithIgnoreCase(value) =
             x.StartsWith(value, StringComparison.OrdinalIgnoreCase)
+
+module DynamicImports =
+    let single (a: int) = a + 1
+    let tupled (a: int, b: string) = string a + b
+    let curried (a: int) (b: string) = string a + b
+    let tupledThenCurried (a: int, b: string) (c: int) = string a + b + string c
+    let namedLikeModule (m: int) (n: int) = m * n
+    let takesFunction (f: int -> int -> int) (x: int) = f x x
+    let takesUnit () = "unit"
+    let value = 42

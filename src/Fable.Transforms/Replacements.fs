@@ -1348,25 +1348,44 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | StringConst "*" -> import
                 | selector ->
                     let selector =
-                        let m = makeIdent "m"
+                        let m = makeIdent "m$"
 
                         Delegate([ m ], Get(IdentExpr m, ExprGet selector, Any, None) |> apply, None, Tags.empty)
 
                     Helper.InstanceCall(import, "then", t, [ selector ])
 
+            let rec tryImportCallInLambda expr =
+                match expr with
+                | Call(Import(importInfo, _, _), callInfo, t, r) -> Some(importInfo, makeCall r t callInfo)
+                | Lambda(arg, body, name) ->
+                    tryImportCallInLambda body
+                    |> Option.map (fun (importInfo, rebuild) ->
+                        importInfo, (fun imported -> Lambda(arg, rebuild imported, name))
+                    )
+                | Let(ident, value, body) when not (canHaveSideEffects com value) ->
+                    tryImportCallInLambda body
+                    |> Option.map (fun (importInfo, rebuild) ->
+                        importInfo, (fun imported -> Let(ident, value, rebuild imported))
+                    )
+                | _ -> None
+
             match arg with
             // TODO: Check this is not a fable-library import?
             | Import(info, _, _) -> dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) id |> Some
-            | NestedLambda(args, Call(Import(importInfo, _, _), callInfo, _, _), None) when argEquals args callInfo.Args ->
+            | NestedLambda([ _ ] as args, Call(Import(importInfo, _, _), callInfo, _, _), None) when
+                argEquals args callInfo.Args
+                ->
                 dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) id
                 |> Some
-            | Call(Import(importInfo, _, _), callInfo, t, r) ->
-                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) (makeCall r t callInfo)
-                |> Some
-            | _ ->
-                "The imported value is not coming from a different file"
-                |> addErrorAndReturnNull com ctx.InlinePath r
-                |> Some
+            | arg ->
+                match tryImportCallInLambda arg with
+                | Some(importInfo, rebuild) ->
+                    dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) rebuild
+                    |> Some
+                | None ->
+                    "The imported value is not coming from a different file"
+                    |> addErrorAndReturnNull com ctx.InlinePath r
+                    |> Some
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
             | "Member", [ RequireStringConst com ctx r path ] ->
