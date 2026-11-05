@@ -1782,6 +1782,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let baseArgs = baseArgs @ omittedBaseArgs
 
             let! ownArgs = transformExprList com ctx ownArgs
+            let ownArgs = withDefaultValueFields com ctx fsType ownArgs
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
             let entRef = FsEnt.Ref fsType.TypeDefinition
             entRef.SourcePath |> Option.iter com.AddSignatureDependency
