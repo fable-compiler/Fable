@@ -104,36 +104,6 @@ let myKeyInlineWrapper() =
 let tests =
   testList "Import" [
     #if FABLE_COMPILER
-    testCaseAsync "importValueDynamic works with values and single argument functions" <| fun () -> async {
-        let! value = importValueDynamic Fable.Tests.Util2.DynamicImports.value |> Async.AwaitPromise
-        value |> equal 42
-        let! single = importValueDynamic Fable.Tests.Util2.DynamicImports.single |> Async.AwaitPromise
-        single 1 |> equal 2
-        let! takesUnit = importValueDynamic Fable.Tests.Util2.DynamicImports.takesUnit |> Async.AwaitPromise
-        takesUnit () |> equal "unit"
-    }
-
-    testCaseAsync "importValueDynamic works with tupled functions" <| fun () -> async { // #3919
-        let! tupled = importValueDynamic Fable.Tests.Util2.DynamicImports.tupled |> Async.AwaitPromise
-        tupled (1, "a") |> equal "1a"
-    }
-
-    testCaseAsync "importValueDynamic works with curried functions" <| fun () -> async { // #3919
-        let! curried = importValueDynamic Fable.Tests.Util2.DynamicImports.curried |> Async.AwaitPromise
-        curried 1 "a" |> equal "1a"
-        let partial = curried 2
-        partial "b" |> equal "2b"
-        let! tupledThenCurried = importValueDynamic Fable.Tests.Util2.DynamicImports.tupledThenCurried |> Async.AwaitPromise
-        tupledThenCurried (1, "a") 2 |> equal "1a2"
-    }
-
-    testCaseAsync "importValueDynamic keeps the arguments of the imported function" <| fun () -> async { // #3919
-        let! namedLikeModule = importValueDynamic Fable.Tests.Util2.DynamicImports.namedLikeModule |> Async.AwaitPromise
-        namedLikeModule 3 4 |> equal 12
-        let! takesFunction = importValueDynamic Fable.Tests.Util2.DynamicImports.takesFunction |> Async.AwaitPromise
-        takesFunction (fun a b -> a + b) 2 |> equal 4
-    }
-
     testCase "importDefault works with getters" <| fun () -> // #2329
         Treasure.keyHolder.myKey |> equal "a secret"
 

@@ -1339,52 +1339,145 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "emitJsTopDirectivePrologue", [ StringConst arg ] ->
             "\"" + arg + "\"" |> emit r t [] false |> withTag "topDirectiveProloge" |> Some
         | "emitJsDirectivePrologue", [ StringConst arg ] -> "\"" + arg + "\"" |> emit r t [] false |> Some
-        | "importValueDynamic", [ MaybeInScope ctx arg ] ->
-            let dynamicImport selector path apply =
-                let path = fixDynamicImportPath path
+        | "importValueDynamic", [ rawArg ] ->
+            let dynamicImport (info: ImportInfo) apply =
+                let path = fixDynamicImportPath (makeStrConst info.Path)
                 let import = Helper.GlobalCall("import", t, [ path ], ?loc = r)
+                let m = makeUniqueIdent com ctx Any "m"
 
-                match selector with
-                | StringConst "*" -> import
-                | selector ->
-                    let selector =
-                        let m = makeIdent "m$"
+                let imported =
+                    match info.Selector with
+                    | "*" -> IdentExpr m
+                    | selector -> Get(IdentExpr m, ExprGet(makeStrConst selector), Any, None)
 
-                        Delegate([ m ], Get(IdentExpr m, ExprGet selector, Any, None) |> apply, None, Tags.empty)
-
-                    Helper.InstanceCall(import, "then", t, [ selector ])
+                let selector = Delegate([ m ], apply imported, None, Tags.empty)
+                Helper.InstanceCall(import, "then", t, [ selector ])
 
             let rec tryImportCallInLambda expr =
                 match expr with
-                | Call(Import(importInfo, _, _), callInfo, t, r) -> Some(importInfo, makeCall r t callInfo)
+                // The callee is `any` inside `.then` and tsc rejects type arguments on an untyped call
+                | Call(Import(info, _, _), callInfo, t, r) ->
+                    Some(info, makeCall r t { callInfo with GenericArgs = [] })
+                | CurriedApply(Import(info, _, _), args, t, r) ->
+                    Some(info, (fun imported -> CurriedApply(imported, args, t, r)))
                 | Lambda(arg, body, name) ->
                     tryImportCallInLambda body
-                    |> Option.map (fun (importInfo, rebuild) ->
-                        importInfo, (fun imported -> Lambda(arg, rebuild imported, name))
-                    )
-                | Let(ident, value, body) when not (canHaveSideEffects com value) ->
+                    |> Option.map (fun (info, rebuild) -> info, (fun imported -> Lambda(arg, rebuild imported, name)))
+                | Let(ident, value, body) ->
                     tryImportCallInLambda body
-                    |> Option.map (fun (importInfo, rebuild) ->
-                        importInfo, (fun imported -> Let(ident, value, rebuild imported))
-                    )
+                    |> Option.map (fun (info, rebuild) -> info, (fun imported -> Let(ident, value, rebuild imported)))
                 | _ -> None
+
+            // FCS eta-expands a partial application into compiler-generated lambdas whose parameters are the last call arguments
+            let rec isApplication pending expr =
+                match expr with
+                | Lambda(arg, body, _) when arg.IsCompilerGenerated -> isApplication (arg.Name :: pending) body
+                | Let(ident, Get(IdentExpr tupled, TupleIndex _, _, _), body) when
+                    ident.IsCompilerGenerated && tupled.IsCompilerGenerated
+                    ->
+                    isApplication (ident.Name :: List.except [ tupled.Name ] pending) body
+                | Call(Import _, { Args = args }, _, _)
+                | CurriedApply(Import _, args, _, _) ->
+                    let trailing = args |> List.rev |> List.truncate pending.Length
+
+                    trailing.Length = pending.Length
+                    && trailing
+                       |> List.forall (
+                           function
+                           | MaybeCasted(IdentExpr ident) -> List.contains ident.Name pending
+                           | _ -> false
+                       )
+                | _ -> false
+
+            let captureArg bindings arg =
+                let isStable =
+                    match arg with
+                    | Lambda _
+                    | Delegate _ -> true
+                    | arg ->
+                        not (canHaveSideEffects com arg)
+                        && not (
+                            arg
+                            |> deepExists (
+                                function
+                                | Import _ -> true
+                                | _ -> false
+                            )
+                        )
+
+                if isStable then
+                    arg, bindings
+                else
+                    let ident = makeUniqueIdent com ctx arg.Type "arg"
+                    IdentExpr ident, (ident, arg) :: bindings
+
+            let rec captureApplicationArgs bindings expr =
+                match expr with
+                | Lambda(arg, body, name) ->
+                    let body, bindings = captureApplicationArgs bindings body
+                    Lambda(arg, body, name), bindings
+                | Let(ident, value, body) ->
+                    let body, bindings = captureApplicationArgs bindings body
+                    Let(ident, value, body), bindings
+                | Call(callee, callInfo, t, r) ->
+                    let thisArg, bindings =
+                        match callInfo.ThisArg with
+                        | Some thisArg ->
+                            let thisArg, bindings = captureArg bindings thisArg
+                            Some thisArg, bindings
+                        | None -> None, bindings
+
+                    let args, bindings = List.mapFold captureArg bindings callInfo.Args
+
+                    Call(
+                        callee,
+                        { callInfo with
+                            ThisArg = thisArg
+                            Args = args
+                        },
+                        t,
+                        r
+                    ),
+                    bindings
+                | CurriedApply(callee, args, t, r) ->
+                    let args, bindings = List.mapFold captureArg bindings args
+                    CurriedApply(callee, args, t, r), bindings
+                | expr -> expr, bindings
+
+            let rec captureBeforeImport bindings expr =
+                match expr with
+                | Let(ident, value, body) -> captureBeforeImport ((ident, value) :: bindings) body
+                | CurriedApply(Lambda(arg, body, _), [ value ], _, _) ->
+                    captureBeforeImport ((arg, value) :: bindings) body
+                | expr when isApplication [] expr -> captureApplicationArgs bindings expr
+                | expr -> expr, bindings
+
+            let (MaybeInScope ctx arg) = rawArg
 
             match arg with
             // TODO: Check this is not a fable-library import?
-            | Import(info, _, _) -> dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) id |> Some
-            | NestedLambda([ _ ] as args, Call(Import(importInfo, _, _), callInfo, _, _), None) when
-                argEquals args callInfo.Args
-                ->
-                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) id
+            | Import(info, _, _) when info.Selector = "*" ->
+                Helper.GlobalCall("import", t, [ fixDynamicImportPath (makeStrConst info.Path) ], ?loc = r)
                 |> Some
+            | Import(info, _, _) -> dynamicImport info id |> Some
             | arg ->
-                match tryImportCallInLambda arg with
-                | Some(importInfo, rebuild) ->
-                    dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) rebuild
-                    |> Some
+                let body, bindings = captureBeforeImport [] arg
+
+                match tryImportCallInLambda body with
                 | None ->
-                    "The imported value is not coming from a different file"
+                    "importValueDynamic expects a value or function from a different file, or a single call of one"
                     |> addErrorAndReturnNull com ctx.InlinePath r
+                    |> Some
+                | Some _ when
+                    not (obj.ReferenceEquals(arg, rawArg))
+                    && bindings |> List.exists (snd >> canHaveSideEffects com)
+                    ->
+                    "importValueDynamic cannot capture the arguments of a call bound to a local value, pass the call directly"
+                    |> addErrorAndReturnNull com ctx.InlinePath r
+                    |> Some
+                | Some(info, rebuild) ->
+                    (dynamicImport info rebuild, bindings)
+                    ||> List.fold (fun body (ident, value) -> Let(ident, value, body))
                     |> Some
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
