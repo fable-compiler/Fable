@@ -167,6 +167,16 @@ let tests =
         xs |> equal [| 1uy; 0uy |]
 #endif
 
+    testCase "Array.zeroCreate and Array.create evaluate the count once" <| fun () ->
+        let mutable calls = 0
+        let size () =
+            calls <- calls + 1
+            2
+        Array.zeroCreate<decimal> (size ()) |> equal [| 0M; 0M |]
+        calls |> equal 1
+        Array.create (size ()) "a" |> equal [| "a"; "a" |]
+        calls |> equal 2
+
     testCase "Mapping from values to functions works" <| fun () ->
         let a = [| "a"; "b"; "c" |]
         let b = [| 1; 2; 3 |]

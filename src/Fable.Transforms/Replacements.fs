@@ -2529,7 +2529,15 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         | Array(t2, _), value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
-            Helper.LibCall(com, "Array", "fill", t, [ newArrayAlloc size t2; makeIntConst 0; size; value ])
+            let fill size =
+                Helper.LibCall(com, "Array", "fill", t, [ newArrayAlloc size t2; makeIntConst 0; size; value ])
+
+            match size with
+            | IdentExpr _
+            | Value(NumberConstant _, _) -> fill size
+            | _ ->
+                let n = makeUniqueIdent com ctx size.Type "n"
+                Let(n, size, fill (IdentExpr n))
         | _ ->
             $"Expecting an array type but got %A{t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
