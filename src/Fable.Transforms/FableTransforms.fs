@@ -662,7 +662,9 @@ module private Transforms =
             Get(innerExpr, OptionValue, t, r)
         | Value(NewOption(Some(Extended(Curry(innerExpr, arity2), _)), t, isStruct), r), _ when matches arity arity2 ->
             Value(NewOption(Some(innerExpr), t, isStruct), r)
-        | Value(NewOption(None, _, _), _), _ -> expr
+        | Value(NewOption(None, (LambdaType _ as t), isStruct), r), Some arity ->
+            let argTypes, returnType = uncurryLambdaType arity [] t
+            Value(NewOption(None, DelegateType(argTypes, returnType), isStruct), r)
         // User imports are uncurried even if they're typed as lambdas, see test "ofImport should inline properly"
         | Import({ Kind = UserImport _ }, _, _), _ -> expr
         | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
