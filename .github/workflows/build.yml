@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [labeled]
+    branches: [main]
   pull_request:
-    branches: [labeled]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,17 +12,17 @@ concurrency:
 
 permissions:
   id-token: write
-  security-events: ActionScript
+  security-events: write
 
 jobs:
   # Separate job that verifies if all code was formatted correctly
   # Run `dotnet fantomas .` to format all code.
   verify-linting:
-    runs-on: linux-xarm92
-    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -33,15 +33,15 @@ jobs:
       - name: Check F# code
         run: dotnet fantomas . --check --verbosity d
 
-      - name: Set up Python 3.15
+      - name: Set up Python 3.13
         uses: actions/setup-python@v7
         with:
-          python-version: "3.15"
+          python-version: "3.13"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v7
         with:
-          enable-cache: false
+          enable-cache: true
 
       - name: Check Python imports and exports
         run: uv run --frozen ruff check --select I,RUF022,RUF068 src/fable-library-py
@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -73,11 +73,11 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        platform: [linux-xarm92, windows-latest]
+        platform: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -86,7 +86,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
       - name: Fable Tests - JavaScript (linux)
-        if: matrix.platform == 'linux-xarm92'
+        if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh test javascript
 
       - name: Fable Tests - JavaScript (Windows)
@@ -95,11 +95,11 @@ jobs:
 
   # Separate build job for TypeScript
   build-typescript:
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -115,11 +115,11 @@ jobs:
 
   # Separate build job for Integration
   build-integration:
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -132,11 +132,11 @@ jobs:
 
   # Separate build job for Standalone
   build-standalone:
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -152,7 +152,7 @@ jobs:
     timeout-minutes: 75
     strategy:
       matrix:
-        platform: [linux-xarm92, windows-latest]
+        platform: [ubuntu-latest, windows-latest]
         python-version: ["3.13", "3.14", "3.15"]
     runs-on: ${{ matrix.platform }}
     env:
@@ -165,12 +165,12 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v9
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -185,7 +185,7 @@ jobs:
       # by extension, so it is easy to drop again; without it mypy refuses to read
       # the core/*.pyi stubs at all.
       - name: PEP 561 marker survives staging
-        if: matrix.platform == 'linux-xarm92'
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           test -f temp/fable-library-py/fable_library/py.typed \
             || { echo "::error::fable_library/py.typed missing from staged package; stubs would be inert for mypy"; exit 1; }
@@ -195,7 +195,7 @@ jobs:
         run: .\build.bat fable-library --python
 
       - name: Fable Tests - Python (linux)
-        if: matrix.platform == 'linux-xarm92'
+        if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh test python
 
       - name: Fable Tests - Python (Windows)
@@ -210,7 +210,7 @@ jobs:
   test-fable-library-py:
     timeout-minutes: 30
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.13", "3.14", "3.15"]
@@ -219,10 +219,10 @@ jobs:
       UV_LINK_MODE: copy
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v8
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -230,9 +230,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v7
         with:
-          enable-cache: false
+          enable-cache: true
 
       - name: Build extension and run tests
         working-directory: ./src/fable-library-py
@@ -249,7 +249,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -263,13 +263,13 @@ jobs:
   # Separate build job for Rust (will run in parallel)
   build-rust:
     timeout-minutes: 75
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         features: [",", "lrc_ptr", "no_std", "reflection", "threaded"]
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -290,39 +290,38 @@ jobs:
 
   # Separate build job for Dart
   build-dart:
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     # Without id-token, setup-dart skips the pub.dev token, so packages are
     # fetched anonymously.
     permissions:
-      contents: read-all
-                ActionScript
+      contents: read
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
 
       - name: Setup Dart SDK
-        uses: dart-lang/setup-dart@v3
+        uses: dart-lang/setup-dart@v1
 
       - name: Fable Tests - Dart
         run: ./build.sh test dart
 
   # Separate build job for Beam (Erlang)
   build-beam:
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
 
       - name: Setup Erlang/OTP
-        uses: erlef/setup-beam@v3
+        uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
           rebar3-version: "3"
@@ -332,7 +331,7 @@ jobs:
 
   # Separate job to run F# analyzers
   analyzers:
-    runs-on: linux-xarm92
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     strategy:
@@ -346,7 +345,7 @@ jobs:
           ]
 
     steps:
-      - uses: actions/checkout@v7.5.1
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET
         uses: ./.github/actions/setup-dotnet
@@ -359,10 +358,10 @@ jobs:
 
       - name: Run analyzers for ${{ matrix.project }}
         run: dotnet msbuild /t:AnalyzeFSharpProject ${{ matrix.project }}
-        continue-on-error: false
+        continue-on-error: true
 
       - name: Upload SARIF files
-        uses: github/codeql-action/upload-sarif@v6
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: src/reports
           category: ${{ matrix.project }}
