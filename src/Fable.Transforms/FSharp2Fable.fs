@@ -528,7 +528,39 @@ let private transformObjExpr
                         checkSelfConstructorBase com ctx r baseEnt
                         let genArgs = genArgs1 @ genArgs2
 
-                        return transformBaseConsCall com ctx r baseEnt baseCall genArgs baseArgs |> Some
+                        let baseCallExpr = transformBaseConsCall com ctx r baseEnt baseCall genArgs baseArgs
+
+                        match baseCallExpr, tryGetPrimaryConstructorBase baseEnt with
+                        | Fable.Call(callee, info, t, r), Some(primaryBaseEnt, primaryBaseGenArgs, primaryCons) when
+                            not baseCall.IsImplicitConstructor
+                            && supportsCompilerGeneratedBaseCall com
+                            && hasCompilerGeneratedConstructor baseEnt
+                            ->
+                            let primaryBaseParams =
+                                getPrimaryConstructorBaseArgs com baseEnt primaryBaseEnt primaryBaseGenArgs primaryCons
+
+                            let primaryBaseArgs =
+                                primaryBaseParams
+                                |> List.map (fun param ->
+                                    match param.Type with
+                                    | Fable.Option(genArg, isStruct) ->
+                                        Fable.Value(Fable.NewOption(None, genArg, isStruct), None)
+                                    | t -> Replacements.Api.defaultof com ctx None t
+                                )
+
+                            let sigArgTypes =
+                                match info.SignatureArgTypes with
+                                | [] -> []
+                                | argTypes -> (primaryBaseParams |> List.map _.Type) @ argTypes
+
+                            let info =
+                                { info with
+                                    Args = primaryBaseArgs @ info.Args
+                                    SignatureArgTypes = sigArgTypes
+                                }
+
+                            return Fable.Call(callee, info, t, r) |> Some
+                        | _ -> return Some baseCallExpr
                     | _ -> return None
                 | _ -> return None
             }

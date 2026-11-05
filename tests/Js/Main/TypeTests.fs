@@ -1106,6 +1106,20 @@ type PrimaryCtorDefaultValueChild =
     [<DefaultValue>] val mutable D: int
     new (g: int -> int -> int) = { inherit PrimaryCtorFunctionBase(fun a b -> a + b); G = g }
 
+type PrimaryCtorVirtualBase(name: string) =
+    abstract Calc: int -> int
+    default _.Calc a = a
+    member _.Name = name
+
+type PrimaryCtorVirtualChild =
+    inherit PrimaryCtorVirtualBase
+    val K: int
+    val F: int -> int -> int
+    new (k, f) = { inherit PrimaryCtorVirtualBase("base"); K = k; F = f }
+    override this.Calc a = a * this.K
+
+let multiplyInts (a: int) (b: int) = a * b
+
 type ValClassFunctionBase =
     val F: int -> int -> int
     new (f) = { F = f }
@@ -2279,6 +2293,11 @@ let tests =
         child.Apply 2 3 |> equal 5
         child.G 5 2 |> equal 10
         child.D |> equal 7
+
+    testCase "Object expression over an explicit constructor passes its own fields" <| fun () ->
+        let o = { new PrimaryCtorVirtualChild(3, multiplyInts) with override this.Calc a = a + this.K * 100 }
+        o.Calc 1 |> equal 301
+        o.F 2 3 |> equal 6
 
     testCase "Explicit constructor copies inherited function fields" <| fun () ->
         let child = ValClassFunctionChild((fun a b -> a - b), (fun a b -> a * b))
