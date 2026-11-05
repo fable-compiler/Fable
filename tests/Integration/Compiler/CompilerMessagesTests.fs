@@ -866,4 +866,56 @@ let one = AuthState.One "a"
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "Explicit constructor calling a base constructor that passes self on after then results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val Name: string
+    new (name: string) as self = { Name = name } then printfn "%O" (box self)
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base("d"); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "Derived calls a constructor of"
+      |> ignore
+
+    testCase "Explicit constructor calling a base constructor that chains to one passing self on results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val Name: string
+    new (name: string) as self = { Name = name } then printfn "%O" (box self)
+    new () = Base("x")
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses its self identifier"
+      |> ignore
+
+    testCase "Explicit constructor calling a base constructor that only sets fields on self compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val Name: string
+    val mutable Count: int
+    new (name: string) as self = { Name = name; Count = 0 } then self.Count <- self.Name.Length
+    new () = { Name = "plain"; Count = 0 } then printfn "plain"
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base("d"); X = 1 }
+    new (x: int) = { inherit Base(); X = x }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
   ]

@@ -828,6 +828,57 @@ let private isBaseCallOfRecord com (ctx: Context) (baseCons: FSharpMemberOrFunct
     && (tryGetCompilerGeneratedBases fsType.TypeDefinition
         |> Option.exists (List.isEmpty >> not))
 
+let rec private constructorLeaksSelf (com: IFableCompiler) (cons: FSharpMemberOrFunctionOrValue) =
+    let isSelfCell (e: FSharpExpr) =
+        match e with
+        | FSharpExprPatterns.FSharpFieldGet(Some(FSharpExprPatterns.ThisValue _), _, field) -> field.Name = "contents"
+        | _ -> false
+
+    // F# reads the `x` of `new() as x` as `CheckThis(x.contents)`
+    let isSelf (e: FSharpExpr) =
+        match e with
+        | FSharpExprPatterns.Call(None, memb, _, _, [ arg ]) when memb.CompiledName = "CheckThis" -> isSelfCell arg
+        | e -> isSelfCell e
+
+    // The base fields are copied to the derived instance after `then`, so field reads and writes on self stay correct
+    let rec leaksSelf (e: FSharpExpr) =
+        match e with
+        | FSharpExprPatterns.FSharpFieldSet(Some(FSharpExprPatterns.ThisValue _), _, field, FSharpExprPatterns.ILAsm _) when
+            field.Name = "contents"
+            ->
+            false
+        | FSharpExprPatterns.FSharpFieldSet(Some(FSharpExprPatterns.ILAsm _), _, _, value) -> leaksSelf value
+        | FSharpExprPatterns.FSharpFieldGet(Some target, _, _) when isSelf target -> false
+        | FSharpExprPatterns.FSharpFieldSet(Some target, _, _, value) when isSelf target -> leaksSelf value
+        | e when isSelf e -> true
+        | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> true
+        | ConstructorCall(other, _, _) when
+            other.DeclaringEntity = cons.DeclaringEntity
+            && other.DeclarationLocation <> cons.DeclarationLocation
+            ->
+            constructorLeaksSelf com other
+        | e -> e.ImmediateSubExpressions |> List.exists leaksSelf
+
+    let rec tryFindBody decls =
+        decls
+        |> List.tryPick (
+            function
+            | FSharpImplementationFileDeclaration.Entity(_, decls) -> tryFindBody decls
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, body) when
+                memb.DeclarationLocation = cons.DeclarationLocation
+                ->
+                Some body
+            | _ -> None
+        )
+
+    let decls =
+        try
+            com.GetImplementationFile(cons.DeclarationLocation.FileName)
+        with _ ->
+            []
+
+    tryFindBody decls |> Option.exists leaksSelf
+
 let private transformBaseCallAndRecord
     (com: IFableCompiler)
     (ctx: Context)
@@ -836,6 +887,12 @@ let private transformBaseCallAndRecord
     (fsType: FSharpType)
     (ownArgs: FSharpExpr list)
     =
+    match baseCall with
+    | ConstructorCall(baseCons, _, _) when not baseCons.IsImplicitConstructor && constructorLeaksSelf com baseCons ->
+        $"%s{fsType.TypeDefinition.FullName} calls a constructor of %s{baseCons.DeclaringEntity.Value.FullName} whose `then` block uses its self identifier for more than reading or setting fields. Fable cannot run that block on the derived instance."
+        |> addError com ctx.InlinePath r
+    | _ -> ()
+
     trampoline {
         let! baseValue = transformExpr com ctx [] baseCall
         let! ownArgs = transformExprList com ctx ownArgs
