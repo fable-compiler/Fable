@@ -434,7 +434,11 @@ and private emitQuotedValue (com: Compiler) (bound: Set<string>) (kind: ValueKin
     | NewRecord(values, entRef, _genArgs) ->
         let fieldNames =
             match com.TryGetEntity(entRef) with
-            | Some ent -> ent.FSharpFields |> List.map (fun f -> makeStrConst f.Name) |> makeArray Any
+            | Some ent ->
+                ent.FSharpFields
+                |> List.filter (fun f -> not f.IsStatic && not f.HasDefaultValueAttribute)
+                |> List.map (fun f -> makeStrConst f.Name)
+                |> makeArray Any
             | None -> makeArray Any []
 
         let emittedValues =

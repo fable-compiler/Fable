@@ -750,7 +750,7 @@ let private withDefaultValueFields (com: IFableCompiler) (ctx: Context) (fsType:
     let fields =
         ent.FSharpFields |> Seq.filter (fun field -> not field.IsStatic) |> List.ofSeq
 
-    if fields |> List.exists isDefaultValueField then
+    if not ctx.CapturingQuotation && fields |> List.exists isDefaultValueField then
         let genArgs =
             Seq.zip ent.GenericParameters (getGenericArguments fsType)
             |> Seq.map (fun (param, typ) -> genParamName param, makeType ctx.GenericArgs typ)
