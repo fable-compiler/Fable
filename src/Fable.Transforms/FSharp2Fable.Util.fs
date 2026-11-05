@@ -2534,13 +2534,16 @@ module Util =
             |> Seq.map (FsField.FSharpFieldName >> sanitize (fun _ -> false))
             |> HashSet
 
+        let isUsed name =
+            usedNames.Contains name
+            || com.Options.Language = Python && Fable.Py.Naming.pyBuiltins.Contains name
+
         match List.ofSeq (Seq.concat cons.CurriedParameterGroups) with
         | [ param ] when isUnit param.Type && param.Name.IsNone -> []
         | parameters ->
             parameters
             |> List.mapi (fun i param ->
-                let name =
-                    param.Name |> Option.defaultValue $"arg%d{i}" |> sanitize usedNames.Contains
+                let name = param.Name |> Option.defaultValue $"arg%d{i}" |> sanitize isUsed
 
                 usedNames.Add(name) |> ignore
                 makeTypedIdentExpr (makeType genArgs param.Type) name

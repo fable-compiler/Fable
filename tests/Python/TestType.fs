@@ -2218,6 +2218,14 @@ type PrimaryCtorParamArrayForwardingChild([<ParamArray>] xs: int[]) =
 type PrimaryCtorParamArrayPrefixed(_xs: int, [<ParamArray>] xs: int[]) =
     member _.Value = _xs + xs.Length
 
+type PrimaryCtorSelfBase(self: int, this: int) =
+    member _.Sum = self * 10 + this
+
+type PrimaryCtorSelfChild =
+    inherit PrimaryCtorSelfBase
+    val Z: int
+    new (a: int) = { inherit PrimaryCtorSelfBase(a, 2); Z = 4 }
+
 [<Fact>]
 let ``test explicit constructor calls a base primary constructor`` () =
     let child = PrimaryCtorValChild(3, "origin")
@@ -2310,3 +2318,9 @@ let ``test primary constructor forwards its ParamArray to the base constructor``
 [<Fact>]
 let ``test primary constructor ParamArray does not clash with other arguments`` () =
     PrimaryCtorParamArrayPrefixed(1, 2, 3).Value |> equal 3
+
+[<Fact>]
+let ``test explicit constructor accepts base primary constructor arguments named self or this`` () =
+    let child = PrimaryCtorSelfChild(3)
+    child.Sum |> equal 32
+    child.Z |> equal 4

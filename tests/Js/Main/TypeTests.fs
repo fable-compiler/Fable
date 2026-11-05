@@ -1119,6 +1119,14 @@ type PrimaryCtorParamArrayForwardingChild([<ParamArray>] xs: int[]) =
 type PrimaryCtorParamArrayPrefixed(_xs: int, [<ParamArray>] xs: int[]) =
     member _.Value = _xs + xs.Length
 
+type PrimaryCtorSelfBase(self: int, this: int) =
+    member _.Sum = self * 10 + this
+
+type PrimaryCtorSelfChild =
+    inherit PrimaryCtorSelfBase
+    val Z: int
+    new (a: int) = { inherit PrimaryCtorSelfBase(a, 2); Z = 4 }
+
 let tests =
   testList "Types" [
 
@@ -2252,4 +2260,9 @@ let tests =
 
     testCase "Primary constructor ParamArray does not clash with other arguments" <| fun () ->
         PrimaryCtorParamArrayPrefixed(1, 2, 3).Value |> equal 3
+
+    testCase "Explicit constructor accepts base primary constructor arguments named self or this" <| fun () ->
+        let child = PrimaryCtorSelfChild(3)
+        child.Sum |> equal 32
+        child.Z |> equal 4
   ]
