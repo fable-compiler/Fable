@@ -4579,7 +4579,12 @@ let transformClassWithCompilerGeneratedConstructor
         ]
 
     let args =
-        baseFieldIds @ Array.toList fieldIds
+        let fieldIds =
+            fieldIds
+            |> Array.toList
+            |> List.map (fun id -> { id with Type = FableTransforms.uncurryType id.Type })
+
+        baseFieldIds @ fieldIds
         |> List.map (fun id ->
             let ta, _ = Annotation.typeAnnotation com ctx None id.Type
             Arg.arg (ident com ctx id, annotation = ta)
