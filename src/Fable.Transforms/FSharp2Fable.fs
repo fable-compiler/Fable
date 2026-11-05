@@ -828,7 +828,12 @@ let private isBaseCallOfRecord com (ctx: Context) (baseCons: FSharpMemberOrFunct
     && (tryGetCompilerGeneratedBases fsType.TypeDefinition
         |> Option.exists (List.isEmpty >> not))
 
+let private implementationLocation (memb: FSharpMemberOrFunctionOrValue) =
+    memb.ImplementationLocation |> Option.defaultValue memb.DeclarationLocation
+
 let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharpMemberOrFunctionOrValue) =
+    let consLocation = implementationLocation cons
+
     let isSelfCell (e: FSharpExpr) =
         match e with
         | FSharpExprPatterns.FSharpFieldGet(Some(FSharpExprPatterns.ThisValue _), _, field) -> field.Name = "contents"
@@ -857,10 +862,13 @@ let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharp
         | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> true
         | ConstructorCall(other, _, _) when
             other.DeclaringEntity = cons.DeclaringEntity
-            && other.DeclarationLocation <> cons.DeclarationLocation
-            && not (List.contains other.DeclarationLocation visited)
+            && implementationLocation other <> consLocation
+            && not (List.contains (implementationLocation other) visited)
             ->
-            constructorLeaksSelf com (cons.DeclarationLocation :: visited) other
+            constructorLeaksSelf com (consLocation :: visited) other
+        // FCS gives the body of an integer `for` loop as a lambda over the loop variable
+        | FSharpExprPatterns.FastIntegerForLoop(start, limit, FSharpExprPatterns.Lambda(_, body), _, _, _) ->
+            [ start; limit; body ] |> List.exists (leaksSelf inClosure)
         | FSharpExprPatterns.Lambda _
         | FSharpExprPatterns.NewDelegate _
         | FSharpExprPatterns.ObjectExpr _ -> e.ImmediateSubExpressions |> List.exists (leaksSelf true)
@@ -872,7 +880,7 @@ let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharp
             function
             | FSharpImplementationFileDeclaration.Entity(_, decls) -> tryFindBody decls
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, body) when
-                memb.DeclarationLocation = cons.DeclarationLocation
+                implementationLocation memb = consLocation
                 ->
                 Some body
             | _ -> None
@@ -880,7 +888,7 @@ let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharp
 
     let decls =
         try
-            com.GetImplementationFile(cons.DeclarationLocation.FileName)
+            com.GetImplementationFile(consLocation.FileName)
         with _ ->
             []
 

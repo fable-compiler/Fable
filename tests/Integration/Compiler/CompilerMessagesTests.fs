@@ -939,6 +939,23 @@ type Derived =
       |> Assert.Is.strictSuccess
       |> ignore
 
+    testCase "Explicit constructor calling a base constructor that sets fields on self in a for loop compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (c: int) as self = { Count = c } then
+        for i = 1 to 3 do self.Count <- self.Count + i
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(5); X = 1 }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
     testCase "Explicit constructor calling mutually recursive base constructors compiles" <| fun _ ->
       let source =
         """
