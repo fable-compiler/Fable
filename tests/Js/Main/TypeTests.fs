@@ -461,6 +461,11 @@ type ClassWithDefaultValueStaticAndInstanceFields =
     new (x, y) = { X = x; Y = y }
     static member Count with get () = ClassWithDefaultValueStaticAndInstanceFields.count and set v = ClassWithDefaultValueStaticAndInstanceFields.count <- v
 
+type ClassWithDefaultValueFunctionField =
+    val F: int -> int -> int
+    [<DefaultValue>] val mutable G: int -> int -> int
+    new (f) = { F = f }
+
 [<Struct>]
 type NestedStruct =
 
@@ -1895,6 +1900,13 @@ let tests =
         c.D |> equal 0
         c.Y |> equal 2
         ClassWithDefaultValueStaticAndInstanceFields.Count |> equal 4
+
+    testCase "Function-typed DefaultValue fields are null" <| fun () ->
+        let c = ClassWithDefaultValueFunctionField(fun a b -> a + b)
+        isNull (box c.G) |> equal true
+        c.F 2 3 |> equal 5
+        c.G <- fun a b -> a * b
+        c.G 2 3 |> equal 6
 
     testCase "Unchecked.defaultof works for fields on structs" <| fun () ->
         let top = TopLevelStruct()
