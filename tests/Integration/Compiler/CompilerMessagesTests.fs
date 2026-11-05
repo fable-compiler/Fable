@@ -956,6 +956,45 @@ type Derived =
       |> Assert.Is.strictSuccess
       |> ignore
 
+    testCase "Explicit constructor calling a base constructor that passes self to another constructor results in error" <| fun _ ->
+      let source =
+        """
+let registry = ResizeArray<obj>()
+
+type Base =
+    val V: int
+    val Parent: obj
+    new (o: obj) = { V = 1; Parent = o }
+    new () as self = { V = 0; Parent = null } then registry.Add(Base(box self))
+
+type Derived =
+    inherit Base
+    val W: int
+    new () = { inherit Base(); W = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "Derived calls a constructor of"
+      |> ignore
+
+    testCase "Explicit constructor calling a base constructor that builds another instance of its type compiles" <| fun _ ->
+      let source =
+        """
+let registry = ResizeArray<obj>()
+
+type Base =
+    val V: int
+    new (x: int) as self = { V = x } then registry.Add(box self)
+    new () = { V = 0 } then Base(1) |> ignore
+
+type Derived =
+    inherit Base
+    val W: int
+    new () = { inherit Base(); W = 1 }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
     testCase "Explicit constructor calling mutually recursive base constructors compiles" <| fun _ ->
       let source =
         """

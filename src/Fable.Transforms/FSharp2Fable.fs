@@ -860,12 +860,6 @@ let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharp
             inClosure || leaksSelf inClosure value
         | e when isSelf e -> true
         | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> true
-        | ConstructorCall(other, _, _) when
-            other.DeclaringEntity = cons.DeclaringEntity
-            && implementationLocation other <> consLocation
-            && not (List.contains (implementationLocation other) visited)
-            ->
-            constructorLeaksSelf com (consLocation :: visited) other
         // FCS gives the body of an integer `for` loop as a lambda over the loop variable
         | FSharpExprPatterns.FastIntegerForLoop(start, limit, FSharpExprPatterns.Lambda(_, body), _, _, _) ->
             [ start; limit; body ] |> List.exists (leaksSelf inClosure)
@@ -892,7 +886,25 @@ let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharp
         with _ ->
             []
 
-    tryFindBody decls |> Option.exists (leaksSelf false)
+    // The constructor this one chains to (`new() = C(1) then ...`) runs first, on the same object
+    let rec tryChainedConstructor (e: FSharpExpr) =
+        match e with
+        | FSharpExprPatterns.Let(_, body) -> tryChainedConstructor body
+        | FSharpExprPatterns.Sequential(first, _) -> tryChainedConstructor first
+        | ConstructorCall(other, _, _) when other.DeclaringEntity = cons.DeclaringEntity -> Some other
+        | _ -> None
+
+    let chainedLeaksSelf body =
+        match tryChainedConstructor body with
+        | Some other when
+            implementationLocation other <> consLocation
+            && not (List.contains (implementationLocation other) visited)
+            ->
+            constructorLeaksSelf com (consLocation :: visited) other
+        | _ -> false
+
+    tryFindBody decls
+    |> Option.exists (fun body -> leaksSelf false body || chainedLeaksSelf body)
 
 let private transformBaseCallAndRecord
     (com: IFableCompiler)
