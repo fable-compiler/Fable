@@ -1646,7 +1646,12 @@ and transformValue
         match com.TryGetEntity(ref) with
         | Some entity ->
             let fieldEntries =
-                List.zip (entity.FSharpFields |> List.map (fun f -> f.Name)) values
+                let fieldNames =
+                    entity.FSharpFields
+                    |> List.filter (fun f -> not f.IsStatic)
+                    |> List.map (fun f -> f.Name)
+
+                List.zip fieldNames values
                 |> List.map (fun (name, value) ->
                     let fieldKey =
                         if ctx.ClassFieldPrefix then

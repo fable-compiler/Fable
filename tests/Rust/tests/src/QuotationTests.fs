@@ -211,6 +211,8 @@ let ``Evaluate list quotation`` () =
 
 type private MyRec = { X: int; Y: int }
 
+type private MyDefaultValueRec = { A: int; [<DefaultValue>] mutable B: int; C: int }
+
 let private newUnionCaseName (e: Expr) =
     match e with
     | NewUnionCase(uci, _args) -> uci.Name
@@ -246,6 +248,10 @@ let ``NewUnionCase exposes the tag`` () =
 [<Fact>]
 let ``NewRecord exposes the argument count`` () =
     newRecordArgCount <@ ({ X = 1; Y = 2 }: MyRec) @> |> equal 2
+
+[<Fact>]
+let ``NewRecord leaves out DefaultValue fields`` () =
+    newRecordArgCount <@ ({ A = 1; C = 2 }: MyDefaultValueRec) @> |> equal 2
 
 // --- TupleGet evaluation (B3) ---
 // A tuple-deconstructing let lowers to a NewTuple bound to a var, then TupleGet nodes

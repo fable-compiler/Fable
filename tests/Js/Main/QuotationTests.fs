@@ -16,6 +16,8 @@ type QuotationTestUnion =
 
 let inline quotTestDouble x = x * 2
 
+type QuotationDefaultValueRecord = { A: int; [<DefaultValue>] mutable B: int; C: string }
+
 type QuotationIndexerTest(values: int[]) =
     member _.Item
         with get (i: int) = values.[i]
@@ -321,4 +323,10 @@ let tests =
          | Lambda(_, Var _) -> "Var"
          | _ -> "?")
         |> equal "Var"
+
+    testCase "NewRecord leaves out DefaultValue fields" <| fun () ->
+        (match <@ { A = 1; C = "c" }: QuotationDefaultValueRecord @> with
+         | NewRecord(_, args) -> args |> Seq.map (function Value(v, _) -> string v | _ -> "?") |> String.concat ","
+         | _ -> "other")
+        |> equal "1,c"
   ]

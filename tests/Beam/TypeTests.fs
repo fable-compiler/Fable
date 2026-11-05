@@ -60,6 +60,32 @@ type Point2D =
         new(xy: float) = { X = xy; Y = xy }
     end
 
+type ClassWithDefaultValueInstanceFields =
+    val X: int
+    [<DefaultValue>]
+    val mutable D: int
+    [<DefaultValue>]
+    val mutable S: string
+    val Y: string
+    new(x, y) = { X = x; Y = y }
+
+[<Struct>]
+type StructWithDefaultValueInstanceField =
+    val X: int
+    [<DefaultValue(false)>]
+    val mutable D: int
+    val Y: string
+    new(x, y) = { X = x; Y = y }
+
+type ClassWithDefaultValueStaticAndInstanceFields =
+    [<DefaultValue>]
+    static val mutable private count: int
+    val X: int
+    [<DefaultValue>]
+    val mutable D: int
+    val Y: int
+    new(x, y) = { X = x; Y = y }
+
 exception MyEx of int * string
 
 type MyEx2(f: float) =
@@ -651,6 +677,32 @@ let ``test Other Value Types work`` () =
     test2.Value |> equal 7
     let p = Point2D(2.)
     p.Y |> equal 2.
+
+[<Fact>]
+let ``test Instance DefaultValue fields are skipped by explicit constructors`` () =
+    let c = ClassWithDefaultValueInstanceFields(1, "y")
+    c.X |> equal 1
+    c.D |> equal 0
+    c.S |> equal null
+    c.Y |> equal "y"
+    c.D <- 5
+    c.S <- "s"
+    c.D |> equal 5
+    c.S |> equal "s"
+
+    let mutable s = StructWithDefaultValueInstanceField(2, "z")
+    s.X |> equal 2
+    s.D |> equal 0
+    s.Y |> equal "z"
+    s.D <- 6
+    s.D |> equal 6
+
+[<Fact>]
+let ``test Explicit constructors skip static fields next to DefaultValue fields`` () =
+    let c = ClassWithDefaultValueStaticAndInstanceFields(1, 2)
+    c.X |> equal 1
+    c.D |> equal 0
+    c.Y |> equal 2
 
 [<Fact>]
 let ``test Struct with mutable fields works`` () =

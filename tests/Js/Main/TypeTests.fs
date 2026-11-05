@@ -439,6 +439,33 @@ type ClassWithDefaultValueStaticFields() =
     static member Decimal = ClassWithDefaultValueStaticFields.decimal
     static member StructTuple2 = ClassWithDefaultValueStaticFields.structTuple2
 
+type ClassWithDefaultValueInstanceFields =
+    val X: int
+    [<DefaultValue>] val mutable D: int
+    [<DefaultValue>] val mutable S: string
+    val Y: string
+    new (x, y) = { X = x; Y = y }
+
+[<Struct>]
+type StructWithDefaultValueInstanceField =
+    val X: int
+    [<DefaultValue(false)>] val mutable D: int
+    val Y: string
+    new (x, y) = { X = x; Y = y }
+
+type ClassWithDefaultValueStaticAndInstanceFields =
+    [<DefaultValue>] static val mutable private count: int
+    val X: int
+    [<DefaultValue>] val mutable D: int
+    val Y: int
+    new (x, y) = { X = x; Y = y }
+    static member Count with get () = ClassWithDefaultValueStaticAndInstanceFields.count and set v = ClassWithDefaultValueStaticAndInstanceFields.count <- v
+
+type ClassWithDefaultValueFunctionField =
+    val F: int -> int -> int
+    [<DefaultValue>] val mutable G: int -> int -> int
+    new (f) = { F = f }
+
 [<Struct>]
 type NestedStruct =
 
@@ -1847,6 +1874,39 @@ let tests =
         ClassWithDefaultValueStaticFields.Decimal |> equal 0M
 
         ClassWithDefaultValueStaticFields.IncrCount() |> equal 1
+
+    testCase "Instance [<DefaultValue>] fields are skipped by explicit constructors" <| fun () ->
+        let c = ClassWithDefaultValueInstanceFields(1, "y")
+        c.X |> equal 1
+        c.D |> equal 0
+        c.S |> equal null
+        c.Y |> equal "y"
+        c.D <- 5
+        c.S <- "s"
+        c.D |> equal 5
+        c.S |> equal "s"
+
+        let mutable s = StructWithDefaultValueInstanceField(2, "z")
+        s.X |> equal 2
+        s.D |> equal 0
+        s.Y |> equal "z"
+        s.D <- 6
+        s.D |> equal 6
+
+    testCase "Explicit constructors skip static fields next to DefaultValue fields" <| fun () ->
+        let c = ClassWithDefaultValueStaticAndInstanceFields(1, 2)
+        ClassWithDefaultValueStaticAndInstanceFields.Count <- 4
+        c.X |> equal 1
+        c.D |> equal 0
+        c.Y |> equal 2
+        ClassWithDefaultValueStaticAndInstanceFields.Count |> equal 4
+
+    testCase "Function-typed DefaultValue fields are null" <| fun () ->
+        let c = ClassWithDefaultValueFunctionField(fun a b -> a + b)
+        isNull (box c.G) |> equal true
+        c.F 2 3 |> equal 5
+        c.G <- fun a b -> a * b
+        c.G 2 3 |> equal 6
 
     testCase "Unchecked.defaultof works for fields on structs" <| fun () ->
         let top = TopLevelStruct()

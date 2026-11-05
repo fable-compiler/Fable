@@ -741,6 +741,35 @@ let private transformUnionCaseTest
             return Fable.Test(unionExpr, Fable.UnionCaseTest(tag), r)
     }
 
+let private withDefaultValueFields (com: IFableCompiler) (ctx: Context) (fsType: FSharpType) (args: Fable.Expr list) =
+    let ent = fsType.TypeDefinition
+
+    let isDefaultValueField (field: FSharpField) =
+        not field.IsStatic && hasAttrib Atts.defaultValue field.FieldAttributes
+
+    let fields =
+        ent.FSharpFields |> Seq.filter (fun field -> not field.IsStatic) |> List.ofSeq
+
+    if not ctx.CapturingQuotation && fields |> List.exists isDefaultValueField then
+        let genArgs =
+            Seq.zip ent.GenericParameters (getGenericArguments fsType)
+            |> Seq.map (fun (param, typ) -> genParamName param, makeType ctx.GenericArgs typ)
+            |> Map.ofSeq
+
+        let rec fill (fields: FSharpField list) args =
+            match fields, args with
+            | field :: fields, _ when isDefaultValueField field ->
+                let value =
+                    makeType genArgs field.FieldType |> Replacements.Api.defaultof com ctx None
+
+                value :: fill fields args
+            | _ :: fields, arg :: args -> arg :: fill fields args
+            | _, args -> args
+
+        fill fields args
+    else
+        args
+
 let rec private transformDecisionTargets
     (com: IFableCompiler)
     (ctx: Context)
@@ -1594,6 +1623,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let r = makeRangeFrom fsExpr
             let! baseValue = transformExpr com ctx [] first
             let! ownArgs = transformExprList com ctx ownArgs
+            let ownArgs = withDefaultValueFields com ctx fsType ownArgs
 
             let baseIdent = getIdentUniqueName com ctx "base" |> makeTypedIdent baseValue.Type
 
@@ -1636,6 +1666,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         | FSharpExprPatterns.NewRecord(fsType, argExprs) ->
             let r = makeRangeFrom fsExpr
             let! argExprs = transformExprList com ctx argExprs
+            let argExprs = withDefaultValueFields com ctx fsType argExprs
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
             let entRef = FsEnt.Ref fsType.TypeDefinition
