@@ -981,6 +981,14 @@ type ValClassThen =
     val mutable Value: int
     new () = { Value = 1 } then valClassThenCalls <- valClassThenCalls + 1
 
+[<AllowNullLiteral>]
+type ValClassSequenceInit =
+    val Next: ValClassSequenceInit
+    val Id: int
+    val Boxed: obj
+    new (id: int) = { Next = null; Id = id; Boxed = null }
+    new (a: int, b: int) = { Next = (ValClassSequenceInit(a); ValClassSequenceInit(b)); Id = 0; Boxed = box (do ValClassSequenceInit(a)) }
+
 type ValClassSelf =
     val mutable Name: string
     val mutable Count: int
@@ -2017,6 +2025,11 @@ let tests =
         let c = ValClassThen()
         c.Value |> equal 1
         valClassThenCalls - before |> equal 1
+
+    testCase "Explicit constructor keeps sequences of its own constructor calls in field values" <| fun () ->
+        let c = ValClassSequenceInit(5, 6)
+        c.Next.Id |> equal 6
+        isNull c.Boxed |> equal true
 
     testCase "Explicit constructor inherits a base with a self identifier" <| fun () ->
         let c = ValClassSelfInherited()
