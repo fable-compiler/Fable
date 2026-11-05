@@ -900,6 +900,63 @@ type Derived =
       |> Assert.Exists.errorWith "uses its self identifier"
       |> ignore
 
+    testCase "Explicit constructor calling a base constructor that captures self in a closure results in error" <| fun _ ->
+      let source =
+        """
+let getters = ResizeArray<unit -> int>()
+
+type Base =
+    val mutable Count: int
+    new (c: int) as self = { Count = c } then getters.Add(fun () -> self.Count)
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(5); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "Derived calls a constructor of"
+      |> ignore
+
+    testCase "Explicit constructor calling a base constructor that sets an inherited field on self compiles" <| fun _ ->
+      let source =
+        """
+type Root =
+    val mutable Id: int
+    new (id: int) = { Id = id }
+
+type Base =
+    inherit Root
+    val mutable Extra: int
+    new (id: int) as self = { inherit Root(id); Extra = 0 } then self.Id <- self.Id * 10
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(3); X = 1 }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Explicit constructor calling mutually recursive base constructors compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val V: int
+    new (x: int) = Base()
+    new () = Base(1)
+    new (x: string) = { V = 0 }
+
+type Derived =
+    inherit Base
+    val W: int
+    new () = { inherit Base(); W = 1 }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
     testCase "Explicit constructor calling a base constructor that only sets fields on self compiles" <| fun _ ->
       let source =
         """
