@@ -2251,6 +2251,47 @@ type PrimaryCtorGenericFunctionChild =
     val Z: int
     new () = { inherit PrimaryCtorGenericFunctionBase<int -> int -> int>((fun a b -> a * 10 + b), (fun a b c d -> a + b + c * d)); Z = 1 }
 
+type PrimaryCtorNamedUnitBase(u: unit) =
+    member _.Unit = u
+    member val Value = 42
+
+type PrimaryCtorNamedUnitChild =
+    inherit PrimaryCtorNamedUnitBase
+    val Count: int
+    new (count: int) = { inherit PrimaryCtorNamedUnitBase(()); Count = count }
+
+let primaryCtorOrderLog = ResizeArray<string>()
+let mutable primaryCtorOrderCounter = 0
+
+let logPrimaryCtorOrder step value =
+    primaryCtorOrderLog.Add step
+    value
+
+let primaryCtorThrowingLog = ResizeArray<string>()
+
+type PrimaryCtorOrderBase(n: int) =
+    do primaryCtorOrderLog.Add $"base body %d{n}"
+    do primaryCtorOrderCounter <- primaryCtorOrderCounter + 1
+
+type PrimaryCtorOrderChild =
+    inherit PrimaryCtorOrderBase
+    val Snapshot: int
+    val Label: string
+    val Combine: int -> int -> int
+    new () =
+        { inherit PrimaryCtorOrderBase(logPrimaryCtorOrder "base arg" 7)
+          Snapshot = logPrimaryCtorOrder "Snapshot" primaryCtorOrderCounter
+          Label = logPrimaryCtorOrder "Label" "l"
+          Combine = logPrimaryCtorOrder "Combine" (fun a b -> a * 10 + b) }
+
+type PrimaryCtorThrowingBase(n: int) =
+    do failwith $"base failed %d{n}"
+
+type PrimaryCtorThrowingChild =
+    inherit PrimaryCtorThrowingBase
+    val X: int
+    new () = { inherit PrimaryCtorThrowingBase(1); X = (primaryCtorThrowingLog.Add "X"; 1) }
+
 [<Fact>]
 let ``test explicit constructor calls a base primary constructor`` () =
     let child = PrimaryCtorValChild(3, "origin")
@@ -2372,3 +2413,32 @@ let ``test explicit constructor keeps functions passed to a generic base primary
     child.V 1 2 |> equal 12
     child.F 1 2 3 4 |> equal 15
     child.Z |> equal 1
+
+[<Fact>]
+let ``test explicit constructor passes a named unit argument to a base primary constructor`` () =
+    let child = PrimaryCtorNamedUnitChild(3)
+    child.Count |> equal 3
+    child.Value |> equal 42
+    child.Unit |> equal ()
+
+[<Fact>]
+let ``test explicit constructor evaluates its field values after the base primary constructor`` () =
+    primaryCtorOrderLog.Clear()
+    let counter = primaryCtorOrderCounter
+    let child = PrimaryCtorOrderChild()
+    List.ofSeq primaryCtorOrderLog |> equal [ "base arg"; "base body 7"; "Snapshot"; "Label"; "Combine" ]
+    child.Snapshot |> equal (counter + 1)
+    child.Label |> equal "l"
+    child.Combine 1 2 |> equal 12
+
+[<Fact>]
+let ``test explicit constructor skips its field values when the base primary constructor throws`` () =
+    primaryCtorThrowingLog.Clear()
+    let failed =
+        try
+            PrimaryCtorThrowingChild() |> ignore
+            false
+        with _ ->
+            true
+    failed |> equal true
+    List.ofSeq primaryCtorThrowingLog |> equal []

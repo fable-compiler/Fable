@@ -1819,7 +1819,51 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let entRef = FsEnt.Ref fsType.TypeDefinition
             entRef.SourcePath |> Option.iter com.AddSignatureDependency
 
-            return Fable.NewRecord(baseArgs @ ownArgs, entRef, genArgs) |> makeValue r
+            if ownArgs |> List.exists (canHaveSideEffects com) then
+                let fields =
+                    fsType.TypeDefinition.FSharpFields
+                    |> Seq.filter (fun field -> not field.IsStatic)
+                    |> List.ofSeq
+
+                let placeholders =
+                    ownArgs
+                    |> List.map (fun arg ->
+                        let typ =
+                            match arg.Type with
+                            | NestedLambdaType(argTypes, returnType) when argTypes.Length > 1 ->
+                                Fable.DelegateType(argTypes, returnType)
+                            | t -> t
+
+                        Replacements.Api.defaultof com ctx None typ
+                    )
+
+                let instance = makeTypedIdent Fable.Any (getIdentUniqueName com ctx "instance")
+
+                let fieldSets =
+                    List.zip fields ownArgs
+                    |> List.map (fun (field, arg) ->
+                        Fable.Set(
+                            Fable.IdentExpr instance,
+                            Fable.FieldSet(FsField.FSharpFieldName field),
+                            makeType Map.empty field.FieldType,
+                            arg,
+                            None
+                        )
+                    )
+
+                let record =
+                    Fable.NewRecord(baseArgs @ placeholders, entRef, genArgs) |> makeValue r
+
+                let typ = makeType ctx.GenericArgs fsType
+
+                return
+                    Fable.Let(
+                        instance,
+                        record,
+                        Fable.Sequential(fieldSets @ [ Fable.TypeCast(Fable.IdentExpr instance, typ) ])
+                    )
+            else
+                return Fable.NewRecord(baseArgs @ ownArgs, entRef, genArgs) |> makeValue r
 
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as first,
                                         FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
