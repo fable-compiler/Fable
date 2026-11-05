@@ -2292,6 +2292,60 @@ type PrimaryCtorThrowingChild =
     val X: int
     new () = { inherit PrimaryCtorThrowingBase(1); X = (primaryCtorThrowingLog.Add "X"; 1) }
 
+type PrimaryCtorVirtualBase(name: string) =
+    abstract Calc: int -> int
+    default _.Calc a = a
+    member _.Name = name
+
+type PrimaryCtorVirtualChild =
+    inherit PrimaryCtorVirtualBase
+    val K: int
+    val F: int -> int -> int
+    new (k, f) = { inherit PrimaryCtorVirtualBase("base"); K = k; F = f }
+    override this.Calc a = a * this.K
+
+let multiplyInts (a: int) (b: int) = a * b
+
+let primaryCtorOutOfOrderLog = ResizeArray<string>()
+
+let logPrimaryCtorOutOfOrder step value =
+    primaryCtorOutOfOrderLog.Add step
+    value
+
+type PrimaryCtorOutOfOrderChild =
+    inherit PrimaryCtorBase
+    val P: int
+    val Q: int
+    new (a: int, b: int) = { inherit PrimaryCtorBase(a); Q = b + 1; P = a }
+
+type PrimaryCtorOutOfOrderLoggedBase(n: int) =
+    do primaryCtorOutOfOrderLog.Add $"base body %d{n}"
+
+type PrimaryCtorOutOfOrderLoggedChild =
+    inherit PrimaryCtorOutOfOrderLoggedBase
+    val X: int
+    val Y: int
+    new (a: int) =
+        { inherit PrimaryCtorOutOfOrderLoggedBase(logPrimaryCtorOutOfOrder "base arg" a)
+          Y = logPrimaryCtorOutOfOrder "Y" (a + 1)
+          X = logPrimaryCtorOutOfOrder "X" a }
+
+let passPrimaryCtorValue value = value
+
+type PrimaryCtorOptionFunctionChild =
+    inherit PrimaryCtorBase
+    val H: (int -> int -> int) option
+    new () = { inherit PrimaryCtorBase(1); H = passPrimaryCtorValue (Some(fun a b -> a * 10 + b)) }
+
+type PrimaryCtorExplicitMid =
+    inherit PrimaryCtorBase
+    val B: int
+    new (b) = { inherit PrimaryCtorBase(1); B = b }
+
+type PrimaryCtorOverExplicitLeaf(c: int) =
+    inherit PrimaryCtorExplicitMid(c)
+    member _.C = c
+
 [<Fact>]
 let ``test explicit constructor calls a base primary constructor`` () =
     let child = PrimaryCtorValChild(3, "origin")
@@ -2442,3 +2496,36 @@ let ``test explicit constructor skips its field values when the base primary con
             true
     failed |> equal true
     List.ofSeq primaryCtorThrowingLog |> equal []
+
+[<Fact>]
+let ``test explicit constructor sets fields listed out of declaration order`` () =
+    let child = PrimaryCtorOutOfOrderChild(1, 2)
+    child.P |> equal 1
+    child.Q |> equal 3
+    child.Describe() |> equal "base:1"
+
+[<Fact>]
+let ``test explicit constructor evaluates fields listed out of declaration order after the base primary constructor`` () =
+    primaryCtorOutOfOrderLog.Clear()
+    let child = PrimaryCtorOutOfOrderLoggedChild(5)
+    List.ofSeq primaryCtorOutOfOrderLog |> equal [ "base arg"; "base body 5"; "Y"; "X" ]
+    child.X |> equal 5
+    child.Y |> equal 6
+
+[<Fact>]
+let ``test explicit constructor sets an option of a curried function computed after the base primary constructor`` () =
+    let child = PrimaryCtorOptionFunctionChild()
+    child.H.Value 1 2 |> equal 12
+
+[<Fact>]
+let ``test primary constructor passes its arguments to an explicit base constructor over a primary constructor`` () =
+    let leaf = PrimaryCtorOverExplicitLeaf(4)
+    leaf.B |> equal 4
+    leaf.C |> equal 4
+
+[<Fact>]
+let ``test object expression over an explicit constructor passes its own fields`` () =
+    let o = { new PrimaryCtorVirtualChild(3, multiplyInts) with override _.ToString() = "o" }
+    o.Calc 1 |> equal 3
+    o.F 2 3 |> equal 6
+    string o |> equal "o"

@@ -1207,6 +1207,46 @@ type PrimaryCtorThrowingChild =
     val X: int
     new () = { inherit PrimaryCtorThrowingBase(1); X = (primaryCtorThrowingLog.Add "X"; 1) }
 
+let primaryCtorOutOfOrderLog = ResizeArray<string>()
+
+let logPrimaryCtorOutOfOrder step value =
+    primaryCtorOutOfOrderLog.Add step
+    value
+
+type PrimaryCtorOutOfOrderChild =
+    inherit PrimaryCtorBase
+    val P: int
+    val Q: int
+    new (a: int, b: int) = { inherit PrimaryCtorBase(a); Q = b + 1; P = a }
+
+type PrimaryCtorOutOfOrderLoggedBase(n: int) =
+    do primaryCtorOutOfOrderLog.Add $"base body %d{n}"
+
+type PrimaryCtorOutOfOrderLoggedChild =
+    inherit PrimaryCtorOutOfOrderLoggedBase
+    val X: int
+    val Y: int
+    new (a: int) =
+        { inherit PrimaryCtorOutOfOrderLoggedBase(logPrimaryCtorOutOfOrder "base arg" a)
+          Y = logPrimaryCtorOutOfOrder "Y" (a + 1)
+          X = logPrimaryCtorOutOfOrder "X" a }
+
+let passPrimaryCtorValue value = value
+
+type PrimaryCtorOptionFunctionChild =
+    inherit PrimaryCtorBase
+    val H: (int -> int -> int) option
+    new () = { inherit PrimaryCtorBase(1); H = passPrimaryCtorValue (Some(fun a b -> a * 10 + b)) }
+
+type PrimaryCtorExplicitMid =
+    inherit PrimaryCtorBase
+    val B: int
+    new (b) = { inherit PrimaryCtorBase(1); B = b }
+
+type PrimaryCtorOverExplicitLeaf(c: int) =
+    inherit PrimaryCtorExplicitMid(c)
+    member _.C = c
+
 let tests =
   testList "Types" [
 
@@ -2396,4 +2436,26 @@ let tests =
                 true
         failed |> equal true
         List.ofSeq primaryCtorThrowingLog |> equal []
+
+    testCase "Explicit constructor sets fields listed out of declaration order" <| fun () ->
+        let child = PrimaryCtorOutOfOrderChild(1, 2)
+        child.P |> equal 1
+        child.Q |> equal 3
+        child.Describe() |> equal "base:1"
+
+    testCase "Explicit constructor evaluates fields listed out of declaration order after the base primary constructor" <| fun () ->
+        primaryCtorOutOfOrderLog.Clear()
+        let child = PrimaryCtorOutOfOrderLoggedChild(5)
+        List.ofSeq primaryCtorOutOfOrderLog |> equal [ "base arg"; "base body 5"; "Y"; "X" ]
+        child.X |> equal 5
+        child.Y |> equal 6
+
+    testCase "Explicit constructor sets an option of a curried function computed after the base primary constructor" <| fun () ->
+        let child = PrimaryCtorOptionFunctionChild()
+        child.H.Value 1 2 |> equal 12
+
+    testCase "Primary constructor passes its arguments to an explicit base constructor over a primary constructor" <| fun () ->
+        let leaf = PrimaryCtorOverExplicitLeaf(4)
+        leaf.B |> equal 4
+        leaf.C |> equal 4
   ]
