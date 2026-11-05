@@ -296,6 +296,16 @@ let tests =
         let b = [| |]
         throwsAnyError (fun () -> b.[0])
 
+    testCase "Array indexer evaluates the array once" <| fun () ->
+        let mutable calls = 0
+        let size () =
+            calls <- calls + 1
+            3
+        (Array.zeroCreate<int> (size ())).[1] |> equal 0
+        calls |> equal 1
+        throwsAnyError (fun () -> (Array.zeroCreate<int> (size ())).[5])
+        calls |> equal 2
+
     testCase "Array getter returns None for an in-bounds option element" <| fun () ->
         let xs = [| Some 1; None; Some 3 |]
         Array.get xs 1 |> equal None
