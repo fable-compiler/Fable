@@ -77,6 +77,15 @@ type StructWithDefaultValueInstanceField =
     val Y: string
     new(x, y) = { X = x; Y = y }
 
+type ClassWithDefaultValueStaticAndInstanceFields =
+    [<DefaultValue>]
+    static val mutable private count: int
+    val X: int
+    [<DefaultValue>]
+    val mutable D: int
+    val Y: int
+    new(x, y) = { X = x; Y = y }
+
 exception MyEx of int * string
 
 type MyEx2(f: float) =
@@ -687,6 +696,13 @@ let ``test Instance DefaultValue fields are skipped by explicit constructors`` (
     s.Y |> equal "z"
     s.D <- 6
     s.D |> equal 6
+
+[<Fact>]
+let ``test Explicit constructors skip static fields next to DefaultValue fields`` () =
+    let c = ClassWithDefaultValueStaticAndInstanceFields(1, 2)
+    c.X |> equal 1
+    c.D |> equal 0
+    c.Y |> equal 2
 
 [<Fact>]
 let ``test Struct with mutable fields works`` () =

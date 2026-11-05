@@ -453,6 +453,14 @@ type StructWithDefaultValueInstanceField =
     val Y: string
     new (x, y) = { X = x; Y = y }
 
+type ClassWithDefaultValueStaticAndInstanceFields =
+    [<DefaultValue>] static val mutable private count: int
+    val X: int
+    [<DefaultValue>] val mutable D: int
+    val Y: int
+    new (x, y) = { X = x; Y = y }
+    static member Count with get () = ClassWithDefaultValueStaticAndInstanceFields.count and set v = ClassWithDefaultValueStaticAndInstanceFields.count <- v
+
 [<Struct>]
 type NestedStruct =
 
@@ -1879,6 +1887,14 @@ let tests =
         s.Y |> equal "z"
         s.D <- 6
         s.D |> equal 6
+
+    testCase "Explicit constructors skip static fields next to DefaultValue fields" <| fun () ->
+        let c = ClassWithDefaultValueStaticAndInstanceFields(1, 2)
+        ClassWithDefaultValueStaticAndInstanceFields.Count <- 4
+        c.X |> equal 1
+        c.D |> equal 0
+        c.Y |> equal 2
+        ClassWithDefaultValueStaticAndInstanceFields.Count |> equal 4
 
     testCase "Unchecked.defaultof works for fields on structs" <| fun () ->
         let top = TopLevelStruct()

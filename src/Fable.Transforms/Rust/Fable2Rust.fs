@@ -4364,6 +4364,7 @@ module Util =
     let getEntityFieldsAsIdents com (ent: Fable.Entity) : Fable.Ident list =
         let fieldIdents =
             ent.FSharpFields
+            |> List.filter (fun field -> not field.IsStatic)
             |> List.map (fun field ->
                 let name = field.Name
                 let typ = FableTransforms.uncurryType field.FieldType
