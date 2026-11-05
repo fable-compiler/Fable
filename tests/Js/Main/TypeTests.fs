@@ -1137,6 +1137,15 @@ type PrimaryCtorTypedFunctionChild =
     val Z: int
     new (f: int -> int -> int) = { inherit PrimaryCtorTypedFunctionBase(f, (fun (a, b) -> a * b), Some(fun a b -> a + b)); Z = 5 }
 
+type PrimaryCtorGenericFunctionBase<'T>(v: 'T, f: int -> int -> 'T) =
+    member _.V = v
+    member _.F a b = f a b
+
+type PrimaryCtorGenericFunctionChild =
+    inherit PrimaryCtorGenericFunctionBase<int -> int -> int>
+    val Z: int
+    new () = { inherit PrimaryCtorGenericFunctionBase<int -> int -> int>((fun a b -> a * 10 + b), (fun a b c d -> a + b + c * d)); Z = 1 }
+
 let tests =
   testList "Types" [
 
@@ -2282,4 +2291,10 @@ let tests =
         child.G 3 4 |> equal 12
         child.H 3 4 |> equal 7
         child.Z |> equal 5
+
+    testCase "Explicit constructor keeps functions passed to a generic base primary constructor parameter curried" <| fun () ->
+        let child = PrimaryCtorGenericFunctionChild()
+        child.V 1 2 |> equal 12
+        child.F 1 2 3 4 |> equal 15
+        child.Z |> equal 1
   ]

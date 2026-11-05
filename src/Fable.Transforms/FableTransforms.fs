@@ -877,15 +877,20 @@ module private Transforms =
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
+            let entity = com.GetEntity(ent)
+
             let fieldTypes =
-                com.GetEntity(ent).FSharpFields
+                entity.FSharpFields
                 |> List.filter (fun f -> not f.IsStatic)
                 |> List.map (fun f -> f.FieldType)
 
             let baseArgTypes =
-                args
-                |> List.take (max 0 (args.Length - fieldTypes.Length))
-                |> List.map (fun a -> a.Type)
+                match args.Length - fieldTypes.Length with
+                | baseArgCount when baseArgCount > 0 ->
+                    match FSharp2Fable.Util.tryGetPrimaryConstructorBaseArgTypes entity with
+                    | Some argTypes -> argTypes @ List.replicate baseArgCount Any |> List.take baseArgCount
+                    | None -> args |> List.take baseArgCount |> List.map (fun a -> a.Type)
+                | _ -> []
 
             let args = uncurryArgs com false (baseArgTypes @ fieldTypes) args
 

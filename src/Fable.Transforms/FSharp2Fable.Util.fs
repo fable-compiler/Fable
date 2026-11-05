@@ -2570,6 +2570,13 @@ module Util =
                 makeTypedIdentExpr typ name
             )
 
+    let tryGetPrimaryConstructorBaseArgTypes (ent: Fable.Entity) =
+        match ent with
+        | :? FsEnt as ent ->
+            tryGetPrimaryConstructorBase ent.FSharpEntity
+            |> Option.map (fun (_, _, cons) -> getArgTypes () cons)
+        | _ -> None
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
         let error msg =
