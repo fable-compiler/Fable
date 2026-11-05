@@ -1114,4 +1114,36 @@ let one = AuthState.One "a"
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "Explicit constructor calling a secondary constructor of a base with a primary constructor results in error" <| fun _ ->
+      let source =
+        """
+type Base(x: int) =
+    new (s: string) = Base(s.Length)
+    member _.X = x
+
+type Derived =
+    inherit Base
+    val Y: int
+    new (s: string) = { inherit Base(s); Y = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "Derived calls a secondary constructor of"
+      |> ignore
+
+    testCase "Explicit constructor calling a parameterless secondary constructor of a base results in error" <| fun _ ->
+      let source =
+        """
+type Base(x: int) =
+    new () = Base(42)
+    member _.X = x
+
+type Derived =
+    inherit Base
+    val Y: int
+    new () = { inherit Base(); Y = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "calls a secondary constructor"
+      |> ignore
   ]

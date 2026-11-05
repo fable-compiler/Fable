@@ -1752,9 +1752,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let r = makeRangeFrom fsExpr
 
             let baseArgs =
-                match transformBaseConsCall com ctx r baseCons.DeclaringEntity.Value baseCons baseGenArgs baseArgs with
-                | Fable.Call(_, info, _, _) -> dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef
-                | _ -> []
+                if not baseCons.IsImplicitConstructor then
+                    $"%s{fsType.TypeDefinition.FullName} calls a secondary constructor of %s{baseCons.DeclaringEntity.Value.FullName}. Fable only supports calling the primary constructor of the base class here."
+                    |> addError com ctx.InlinePath r
+
+                    []
+                else
+                    match
+                        transformBaseConsCall com ctx r baseCons.DeclaringEntity.Value baseCons baseGenArgs baseArgs
+                    with
+                    | Fable.Call(_, info, _, _) -> dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef
+                    | _ -> []
 
             let omittedBaseArgs =
                 match tryGetPrimaryConstructorBase fsType.TypeDefinition with
