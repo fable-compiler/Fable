@@ -48,6 +48,12 @@ type IntegrityRecord =
 
     override this.ToString() = this.Level
 
+[<Struct>]
+type StructRecordCopied = { T: float; S: string }
+
+[<Struct>]
+type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
+
 [<Fact>]
 let ``test simple record creation works`` () =
     let p = { Name = "Alice"; Age = 30 }
@@ -311,3 +317,22 @@ let ``test Records with ref-type interior mutability`` () =
     x.MutRefValue |> equal "ab"
     x.MutRefValue <- x.MutRefValue + "c"
     x.MutRefValue |> equal "abc"
+
+[<Fact>]
+let ``test copy-and-update of a let mutable struct record keeps the unchanged fields`` () =
+    let mutable mark = { T = 1.0; S = "a" }
+    let copies = ResizeArray()
+    for i in 1..2 do
+        mark <- { T = float i; S = "b" }
+        copies.Add { mark with S = "c" }
+    copies |> Seq.map (fun m -> m.T) |> List.ofSeq |> equal [ 1.0; 2.0 ]
+    copies |> Seq.map (fun m -> m.S) |> List.ofSeq |> equal [ "c"; "c" ]
+
+[<Fact>]
+let ``test copy-and-update of a let mutable struct record with mutable fields keeps the unchanged fields`` () =
+    let mutable p = { MutableN = 1; FixedN = 2 }
+    p.MutableN <- 5
+    let q = { p with FixedN = 9 }
+    q.MutableN |> equal 5
+    q.FixedN |> equal 9
+    p.FixedN |> equal 2

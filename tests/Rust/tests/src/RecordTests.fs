@@ -11,6 +11,19 @@ type Scene = {
 let getCamera (scene: Scene) =
     scene.Camera
 
+[<Struct>]
+type StructRecordCopied = { T: float; S: string }
+
+[<Fact>]
+let ``Copy-and-update of a let mutable struct record keeps the unchanged fields`` () =
+    let mutable mark = { T = 1.0; S = "a" }
+    let copies = ResizeArray()
+    for i in 1..2 do
+        mark <- { T = float i; S = "b" }
+        copies.Add { mark with S = "c" }
+    copies |> Seq.map (fun m -> m.T) |> List.ofSeq |> equal [ 1.0; 2.0 ]
+    copies |> Seq.map (fun m -> m.S) |> List.ofSeq |> equal [ "c"; "c" ]
+
 [<Fact>]
 let ``Class-valued record fields compile`` () =
     let scene = { Camera = Camera() }

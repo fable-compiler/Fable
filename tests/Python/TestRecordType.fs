@@ -61,6 +61,14 @@ type StructRecord = { Size: int; Seed: int; Path: int list }
 
 type StructRecordHolder = { Tag: int; Data: StructRecord }
 
+[<Struct>]
+type StructRecordCopied = { T: float; S: string }
+
+[<Struct>]
+type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
+
+let mutable moduleStructRecord = { T = 1.0; S = "a" }
+
 [<Fact>]
 let ``test sprintf formats record fields with their F# names`` () =
     sprintf "%A" { Size = 1; Seed = 2; Path = [] }
@@ -258,3 +266,30 @@ let ``test Copy-and-update of a struct record argument works`` () =
     equal 1 held.Data.Size
     equal 2 held.Data.Seed
     equal [ 8; 7 ] held.Data.Path
+
+[<Fact>]
+let ``test copy-and-update of a let mutable struct record keeps the unchanged fields`` () =
+    let mutable mark = { T = 1.0; S = "a" }
+    let copies = ResizeArray()
+    for i in 1..2 do
+        mark <- { T = float i; S = "b" }
+        copies.Add { mark with S = "c" }
+    copies |> Seq.map (fun m -> m.T) |> List.ofSeq |> equal [ 1.0; 2.0 ]
+    copies |> Seq.map (fun m -> m.S) |> List.ofSeq |> equal [ "c"; "c" ]
+
+[<Fact>]
+let ``test copy-and-update of a let mutable struct record with mutable fields keeps the unchanged fields`` () =
+    let mutable p = { MutableN = 1; FixedN = 2 }
+    p.MutableN <- 5
+    let q = { p with FixedN = 9 }
+    q.MutableN |> equal 5
+    q.FixedN |> equal 9
+    p.FixedN |> equal 2
+
+[<Fact>]
+let ``test copy-and-update of a module-level mutable struct record keeps the unchanged fields`` () =
+    moduleStructRecord <- { moduleStructRecord with T = 7.0 }
+    let copy = { moduleStructRecord with S = "b" }
+    copy.T |> equal 7.0
+    copy.S |> equal "b"
+    moduleStructRecord.S |> equal "a"

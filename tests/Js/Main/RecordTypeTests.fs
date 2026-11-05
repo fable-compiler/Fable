@@ -70,6 +70,14 @@ let holdStructRecord (data: StructRecord) (path: int list) =
             Data = { data with Path = List.rev path }
         }
 
+[<Struct>]
+type StructRecordCopied = { T: float; S: string }
+
+[<Struct>]
+type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
+
+let mutable moduleStructRecord = { T = 1.0; S = "a" }
+
 let tests =
   testList "RecordTypes" [
 
@@ -209,5 +217,29 @@ let tests =
         a.xs.Add 1
         equal 1 a.xs.Count
         equal 1 b.xs.Count
+
+    testCase "Copy-and-update of a let mutable struct record keeps the unchanged fields" <| fun () ->
+        let mutable mark = { T = 1.0; S = "a" }
+        let copies = ResizeArray()
+        for i in 1..2 do
+            mark <- { T = float i; S = "b" }
+            copies.Add { mark with S = "c" }
+        copies |> Seq.map (fun m -> m.T) |> List.ofSeq |> equal [ 1.0; 2.0 ]
+        copies |> Seq.map (fun m -> m.S) |> List.ofSeq |> equal [ "c"; "c" ]
+
+    testCase "Copy-and-update of a let mutable struct record with mutable fields keeps the unchanged fields" <| fun () ->
+        let mutable p = { MutableN = 1; FixedN = 2 }
+        p.MutableN <- 5
+        let q = { p with FixedN = 9 }
+        q.MutableN |> equal 5
+        q.FixedN |> equal 9
+        p.FixedN |> equal 2
+
+    testCase "Copy-and-update of a module-level mutable struct record keeps the unchanged fields" <| fun () ->
+        moduleStructRecord <- { moduleStructRecord with T = 7.0 }
+        let copy = { moduleStructRecord with S = "b" }
+        copy.T |> equal 7.0
+        copy.S |> equal "b"
+        moduleStructRecord.S |> equal "a"
 
   ]
