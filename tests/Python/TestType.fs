@@ -2226,6 +2226,16 @@ type PrimaryCtorSelfChild =
     val Z: int
     new (a: int) = { inherit PrimaryCtorSelfBase(a, 2); Z = 4 }
 
+type PrimaryCtorTypedFunctionBase(f: int -> int -> int, g: int * int -> int, h: (int -> int -> int) option) =
+    member _.F a b = f a b
+    member _.G a b = g (a, b)
+    member _.H a b = match h with Some h -> h a b | None -> -1
+
+type PrimaryCtorTypedFunctionChild =
+    inherit PrimaryCtorTypedFunctionBase
+    val Z: int
+    new (f: int -> int -> int) = { inherit PrimaryCtorTypedFunctionBase(f, (fun (a, b) -> a * b), Some(fun a b -> a + b)); Z = 5 }
+
 [<Fact>]
 let ``test explicit constructor calls a base primary constructor`` () =
     let child = PrimaryCtorValChild(3, "origin")
@@ -2324,3 +2334,11 @@ let ``test explicit constructor accepts base primary constructor arguments named
     let child = PrimaryCtorSelfChild(3)
     child.Sum |> equal 32
     child.Z |> equal 4
+
+[<Fact>]
+let ``test explicit constructor passes curried, tupled and optional functions to a base primary constructor`` () =
+    let child = PrimaryCtorTypedFunctionChild(fun a b -> a - b)
+    child.F 5 2 |> equal 3
+    child.G 3 4 |> equal 12
+    child.H 3 4 |> equal 7
+    child.Z |> equal 5

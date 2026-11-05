@@ -2497,6 +2497,23 @@ module Util =
 
         collect ent genArgs []
 
+    let uncurryLikeDeclaredType (declaredType: Fable.Type) (actualType: Fable.Type) =
+        let rec arity =
+            function
+            | Fable.LambdaType(_, returnType) -> 1 + arity returnType
+            | _ -> 0
+
+        let rec uncurry n argTypes =
+            function
+            | Fable.LambdaType(argType, returnType) when n > 0 -> uncurry (n - 1) (argType :: argTypes) returnType
+            | returnType -> Fable.DelegateType(List.rev argTypes, returnType)
+
+        match declaredType, actualType with
+        | Fable.Option(declaredType, _), Fable.Option(actualType, isStruct) when arity declaredType > 1 ->
+            Fable.Option(uncurry (arity declaredType) [] actualType, isStruct)
+        | _ when arity declaredType > 1 -> uncurry (arity declaredType) [] actualType
+        | _ -> actualType
+
     let tryGetPrimaryConstructorBase (ent: FSharpEntity) =
         match tryGetBaseEntity ent with
         | Some(baseEnt, baseGenArgs) when
@@ -2546,7 +2563,11 @@ module Util =
                 let name = param.Name |> Option.defaultValue $"arg%d{i}" |> sanitize isUsed
 
                 usedNames.Add(name) |> ignore
-                makeTypedIdentExpr (makeType genArgs param.Type) name
+
+                let typ =
+                    uncurryLikeDeclaredType (makeType Map.empty param.Type) (makeType genArgs param.Type)
+
+                makeTypedIdentExpr typ name
             )
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
@@ -2749,7 +2770,10 @@ module Util =
 
                 let args =
                     getInheritedValFields ent Map.empty
-                    |> List.map (fun (field, typ) -> makeTypedIdentExpr typ field.Name)
+                    |> List.map (fun (field, typ) ->
+                        let typ = uncurryLikeDeclaredType (makeType Map.empty field.FieldType) typ
+                        makeTypedIdentExpr typ field.Name
+                    )
 
                 let baseExpr =
                     match tryGlobalOrImportedFSharpEntity com baseEnt with

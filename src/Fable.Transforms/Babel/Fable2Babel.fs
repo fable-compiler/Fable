@@ -4535,10 +4535,21 @@ but thanks to the optimisation done below we get
             )
 
         let args =
-            Array.append baseFieldIds fieldIds
-            |> Array.map (fun fi ->
-                Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
-            )
+            Array.append
+                (baseFieldIds
+                 |> Array.map (fun fi ->
+                     let typeAnnotation =
+                         if com.IsTypeScript then
+                             makeTypeAnnotation com ctx fi.Type |> Some
+                         else
+                             None
+
+                     Parameter.parameter (fi.Name, ?typeAnnotation = typeAnnotation)
+                 ))
+                (fieldIds
+                 |> Array.map (fun fi ->
+                     Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
+                 ))
 
         declareType com ctx ent decl.Name decl.XmlDoc args body baseExpr classMembers
 
