@@ -1258,6 +1258,21 @@ let tests = testList "Strings" [
         throwsAnyError <| fun () ->
             input.Chars(3) |> ignore
 
+    testCase "String indexer evaluates the string and the index once" <| fun () ->
+        let mutable calls = 0
+        let next () =
+            calls <- calls + 1
+            calls
+        let pick () =
+            calls <- calls + 1
+            "abc"
+        "abc".[next ()] |> equal 'b'
+        calls |> equal 1
+        (pick ()).[2] |> equal 'c'
+        calls |> equal 2
+        throwsAnyError (fun () -> "abc".[next () + 2])
+        calls |> equal 3
+
     testCase "String indexer works" <| fun () ->
         let input = "hello"
         input.[1] |> equal 'e'

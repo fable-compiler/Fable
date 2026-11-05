@@ -1518,6 +1518,21 @@ let (|PrintfNoFormatSpecifiers|_|) (arg: Expr) =
         | _ -> None
     | _ -> None
 
+// The fallback only runs for a nullish read, and every out-of-bounds read is nullish
+let readAtCallSite (com: ICompiler) r t container idx (fallback: Expr) =
+    let rec canRepeat e =
+        match e with
+        | IdentExpr _
+        | Value((StringConstant _ | NumberConstant _ | CharConstant _ | BoolConstant _), _) -> true
+        | TypeCast(e, _) -> canRepeat e
+        | Get(e, FieldGet info, _, _) -> not info.CanHaveSideEffects && canRepeat e
+        | _ -> false
+
+    if canRepeat container && canRepeat idx then
+        emitExpr r t [ getExpr None t container idx; fallback ] "$0 ?? $1"
+    else
+        fallback
+
 let (|InterpolatedPrintf|_|) (arg: Expr) =
     match arg with
     | MaybeCasted(Call(Import({ Selector = "interpolatedPrintf" }, _, _), callInfo, _, _)) ->
@@ -1953,8 +1968,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 |> Some
         | _ -> fsFormat com ctx r t i thisArg args
     | "get_Length", Some c, _ -> getFieldWith r t c "length" |> Some
-    | "get_Chars", Some c, _ ->
+    | "get_Chars", Some c, [ idx ] ->
         Helper.LibCall(com, "String", "getCharAtIndex", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> readAtCallSite com r t c idx
         |> Some
     | "Equals", Some x, [ y ]
     | "Equals", None, [ x; y ] -> makeEqOp r x y BinaryEqual |> Some
@@ -2302,14 +2318,9 @@ let arrayGetItem (com: ICompiler) r (t: Type) (args: Expr list) (signatureArgTyp
     let item =
         Helper.LibCall(com, "Array", "item", t, args, signatureArgTypes, ?loc = r)
 
-    let canRepeat e =
-        match e with
-        | IdentExpr _ -> true
-        | e -> not (canHaveSideEffects com e)
-
     match args with
-    // V8 cannot specialise the read inside the shared `item` once it sees many array kinds, and only a nullish read can be out of bounds
-    | [ idx; ar ] when canRepeat idx && canRepeat ar -> emitExpr r t [ getExpr None t ar idx; item ] "$0 ?? $1" |> Some
+    // V8 cannot specialise the read inside the shared `item` once it sees many array kinds
+    | [ idx; ar ] -> readAtCallSite com r t ar idx item |> Some
     | _ -> Some item
 
 let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3197,6 +3208,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ str; idx ] ->
         Helper.LibCall(com, "String", "getCharAtIndex", t, [ str; idx ], i.SignatureArgTypes, ?loc = r)
+        |> readAtCallSite com r t str idx
         |> Some
     | "GetArray", _, [ ar; idx ] -> arrayGetItem com r t [ idx; ar ] (i.SignatureArgTypes |> List.rev)
     | "SetArray", _, [ ar; idx; value ] -> setExpr r ar idx value |> Some
