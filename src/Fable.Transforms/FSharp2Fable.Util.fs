@@ -3873,24 +3873,6 @@ module Util =
             Some(format, isRecordOrUnion && not (overridesToString ()))
         | _ -> None
 
-    let private structuredFormatTypeName (fsEnt: FSharpEntity) (unionCase: FSharpUnionCase option) =
-        let typeName = fsEnt.QualifiedName.Split(',')[0]
-        let cases = fsEnt.UnionCases
-
-        match unionCase with
-        | Some case when
-            cases.Count > 1
-            && not fsEnt.IsValueType
-            && cases |> Seq.exists (fun c -> c.Fields.Count > 0)
-            ->
-            if case.Fields.Count > 0 then
-                $"{typeName}+{case.CompiledName}"
-            elif cases.Count < 4 then
-                $"{typeName}+_{case.CompiledName}"
-            else
-                typeName
-        | _ -> typeName
-
     let private makeStructuredFormatCaseSwitch
         (com: IFableCompiler)
         (fsEnt: FSharpEntity)
@@ -3908,14 +3890,6 @@ module Util =
                 Fable.IfThenElse(test, makeCaseExpr case, elseExpr, None)
             )
             (makeCaseExpr cases.Head)
-
-    let private structuredFormatPropertyName (prop: FSharpMemberOrFunctionOrValue) =
-        match prop.Attributes |> tryFindAttrib Atts.compiledName with
-        | Some att ->
-            match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? string as compiledName)) -> compiledName
-            | _ -> prop.DisplayName
-        | None -> prop.DisplayName
 
     let rec private tryGetStructuredFormatMember
         (com: IFableCompiler)
@@ -3942,7 +3916,7 @@ module Util =
                     m.IsProperty
                     && m.IsInstanceMember
                     && m.HasGetterMethod
-                    && structuredFormatPropertyName m = name
+                    && m.DisplayName = name
                     && m.GetterMethod.CurriedParameterGroups
                        |> Seq.forall (fun group -> group.Count = 0)
                 )
@@ -3992,14 +3966,8 @@ module Util =
         (makeNotFoundCall: string -> Fable.Expr)
         (name: string)
         =
-        let makeNotFound unionCase =
-            let memberName =
-                if name = "" then
-                    "ToString"
-                else
-                    name
-
-            makeNotFoundCall $"{structuredFormatTypeName fsEnt unionCase}.{memberName}"
+        let makeNotFound () =
+            makeNotFoundCall $"""{fsEnt.QualifiedName.Split(',')[0]}.{name}"""
 
         let makeUnionField (case: FSharpUnionCase) =
             match case.Fields |> Seq.tryFindIndex (fun f -> f.Name = name) with
@@ -4018,7 +3986,7 @@ module Util =
                     )
 
                 Fable.Get(thisExpr, kind, Fable.Any, None)
-            | None -> makeNotFound (Some case)
+            | None -> makeNotFound ()
 
         match tryGetStructuredFormatMember com ctx fsEnt thisExpr name with
         | Some value -> value, true
@@ -4029,4 +3997,4 @@ module Util =
                 |> Seq.exists (fun case -> case.Fields |> Seq.exists (fun f -> f.Name = name))
 
             makeStructuredFormatCaseSwitch com fsEnt thisExpr makeUnionField, isDeclared
-        | None -> makeNotFound None, false
+        | None -> makeNotFound (), false

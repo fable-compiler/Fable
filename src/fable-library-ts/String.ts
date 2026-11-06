@@ -6,8 +6,6 @@ import {
   Record,
   Union,
   runStructuredFormatUserCode,
-  setStructuredFormatLast,
-  structuredFormatEndsWithWord,
   structuredFormatPath,
   toString,
   toStructuredString,
@@ -62,29 +60,20 @@ export function structuredFormatDisplay(self: any, texts: string[], getValues: (
     return "...";
   }
   structuredFormatPath.push(self);
-  let resultEndsWithWord = true;
   try {
     let str = texts[0];
-    let endsWithWord = false;
+    let previous: any;
     for (let i = 0; i < getValues.length; i++) {
       const value = runStructuredFormatUserCode(getValues[i]);
       if (value == null) {
         return structuredFormatFallback(self);
       }
-      setStructuredFormatLast(undefined, true);
-      const text = structuredFormatValue(value);
-      if (texts[i] !== "" || (typeof value === "string" && value !== "")) {
-        endsWithWord = false;
+      if (i > 0 && texts[i] === "" && typeof value !== "string" && typeof previous !== "string") {
+        str += " ";
       }
-      if (typeof value !== "string") {
-        if (endsWithWord) {
-          str += " ";
-        }
-        endsWithWord = structuredFormatEndsWithWord(value);
-      }
-      str += text + texts[i + 1];
+      str += structuredFormatValue(value) + texts[i + 1];
+      previous = value;
     }
-    resultEndsWithWord = endsWithWord && texts[getValues.length] === "";
     return str;
   } catch (e) {
     const message = e instanceof StructuredFormatNotFound
@@ -93,7 +82,6 @@ export function structuredFormatDisplay(self: any, texts: string[], getValues: (
     return `<StructuredFormatDisplay exception: ${message}>`;
   } finally {
     structuredFormatPath.pop();
-    setStructuredFormatLast(self, resultEndsWithWord);
   }
 }
 

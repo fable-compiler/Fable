@@ -38,9 +38,6 @@ function withStructuredFormat<T>(active: boolean, f: () => T): T {
     return f();
   } finally {
     structuredFormatActive = previous;
-    if (!previous && structuredFormatPath.length === 0) {
-      structuredFormatLastSelf = undefined;
-    }
   }
 }
 
@@ -87,18 +84,6 @@ export function toStringOrEmpty(x: any): string {
   return x == null ? "" : toString(x);
 }
 
-let structuredFormatLastSelf: any;
-let structuredFormatLastEndsWithWord = true;
-
-export function setStructuredFormatLast(self: any, endsWithWord: boolean) {
-  structuredFormatLastSelf = structuredFormatActive || structuredFormatPath.length > 0 ? self : undefined;
-  structuredFormatLastEndsWithWord = endsWithWord;
-}
-
-export function structuredFormatEndsWithWord(value: any): boolean {
-  return value === structuredFormatLastSelf ? structuredFormatLastEndsWithWord : true;
-}
-
 export function unionToString(name: string, fields: any[]) {
   return withStructuredFormat(true, () => {
     if (fields.length === 0) {
@@ -108,7 +93,7 @@ export function unionToString(name: string, fields: any[]) {
       let withParens = true;
       if (fields.length === 1) {
         fieldStr = toStringQuoted(fields[0]);
-        withParens = fieldStr.indexOf(" ") >= 0 && fields[0] !== structuredFormatLastSelf;
+        withParens = fieldStr.indexOf(" ") >= 0 && typeof fields[0]?.$toStructuredFormat !== "function";
       } else {
         fieldStr = fields.map((x: any) => toStringQuoted(x)).join(", ");
       }
