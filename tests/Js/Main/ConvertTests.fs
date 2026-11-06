@@ -357,6 +357,34 @@ let tests =
         // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
         (fun () -> Int32.Parse("–", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
+    testCase "NumberStyles.HexNumber accepts only hex digits and white space" <| fun () ->
+        let hex = System.Globalization.NumberStyles.HexNumber
+        for s in [ "-1F"; "+1F"; "0x1F"; "0X1f"; "1_F" ] do
+            (fun () -> Int32.Parse(s, hex)) |> throwsError ""
+            (fun () -> Int64.Parse(s, hex)) |> throwsError ""
+            (fun () -> Byte.Parse(s, hex)) |> throwsError ""
+        Int32.TryParse("-1F", hex, CultureInfo.InvariantCulture) |> equal (false, 0)
+        Int32.TryParse("0x1F", hex, CultureInfo.InvariantCulture) |> equal (false, 0)
+        Int32.Parse(" 1F ", hex) |> equal 31
+        Int32.Parse("0b1", hex) |> equal 177
+        Int64.Parse("0b1", hex) |> equal 177L
+        Byte.Parse("0b1", hex) |> equal 177uy
+        Int32.Parse("80000000", hex) |> equal -2147483648
+        Int64.Parse("FFFFFFFF", hex) |> equal 4294967295L
+
+    testCase "A plus sign before a radix specifier is rejected" <| fun () ->
+        for s in [ "+0x11"; "+0X11"; "+0o7"; "+0b1"; " +0x11 " ] do
+            (fun () -> int s) |> throwsError ""
+            (fun () -> int64 s) |> throwsError ""
+            (fun () -> byte s) |> throwsError ""
+        int "+11" |> equal 11
+        int64 "+11" |> equal 11L
+        int " 0x11" |> equal 17
+        int "-0x11" |> equal -17
+        int64 "-0x11" |> equal -17L
+        Convert.ToInt32("+0x1F", 16) |> equal 31
+        Convert.ToInt64("+0x1F", 16) |> equal 31L
+
     testCase "System.Int64.Parse works" <| fun () ->
         Int64.Parse("5") |> equal 5L
         Int64.Parse("-5") |> equal -5L

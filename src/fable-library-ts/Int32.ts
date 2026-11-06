@@ -94,10 +94,18 @@ export function getRadix(prefix: string, style: number) {
 }
 
 export function isValid(str: string, style: number, radix?: number) {
+  if (style & NumberStyles.AllowHexSpecifier) {
+    const hexRes = /^\s*([0-9a-fA-F]+)\s*$/.exec(str);
+    return hexRes != null ? { sign: "", prefix: "", digits: hexRes[1], radix: 16 } : null;
+  }
   const integerRegex = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;
   const res = integerRegex.exec(str.replace(/_/g, ""));
   if (res != null) {
-    const [/*all*/, /*sign*/, prefix, digits] = res;
+    const [/*all*/, sign, prefix, digits] = res;
+    // FSharp.Core reads only '-' before a radix specifier, but Convert.ToInt32(s, 16) also accepts "+0x".
+    if (radix == null && sign === "+" && prefix != null) {
+      return null;
+    }
     radix = radix || getRadix(prefix, style);
     const invalidDigits = getInvalidDigits(radix);
     if (!invalidDigits.test(digits)) {
