@@ -918,6 +918,145 @@ type Derived =
       |> Assert.Exists.errorWith "Derived calls a constructor of"
       |> ignore
 
+    testCase "Explicit constructor calling a base constructor that chains to self after a statement results in error" <| fun _ ->
+      let source =
+        """
+let reg = ResizeArray<obj>()
+
+type Base =
+    val N: int
+    new (n: int) as self = { N = n } then reg.Add(box self)
+    new () = reg.Add(null); Base(1)
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses its self identifier"
+      |> ignore
+
+    testCase "Explicit constructor calling a base constructor that chains to self behind if results in error" <| fun _ ->
+      let source =
+        """
+let reg = ResizeArray<obj>()
+
+type Base =
+    val N: int
+    new (n: int) as self = { N = n } then reg.Add(box self)
+    new (flag: bool) = if flag then Base(1) else Base(2)
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(true); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses its self identifier"
+      |> ignore
+
+    testCase "Explicit constructor with out of order fields passing self on from its base results in error" <| fun _ ->
+      let source =
+        """
+let reg = ResizeArray<obj>()
+
+type Base =
+    val N: int
+    new (n: int) as self = { N = n } then reg.Add(box self)
+
+type Derived =
+    inherit Base
+    val Z: int
+    val W: int
+    new () = { inherit Base(1); W = 2; Z = 3 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses its self identifier"
+      |> ignore
+
+    testCase "Explicit constructor with a self identifier over a primary constructor base results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member _.A = a
+
+type Derived =
+    inherit Base
+    val mutable Y: int
+    new (a: int) as self = { inherit Base(a); Y = 0 } then self.Y <- self.A + 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Explicit constructor with a self identifier over a BCL base results in error" <| fun _ ->
+      let source =
+        """
+type Derived =
+    inherit System.Exception
+    val Code: int
+    new (m: string) as self = { inherit System.Exception(m); Code = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Explicit constructor with a self identifier and AttachMembers results in error" <| fun _ ->
+      let source =
+        """
+[<Fable.Core.AttachMembers>]
+type C =
+    val mutable V: int
+    new (v: int) as self = { V = v } then self.V <- self.V + 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Primary constructor calling a base constructor with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+type Derived() =
+    inherit Base(5)
+"""
+      compile source
+      |> Assert.Exists.errorWith "cannot run on a derived instance"
+      |> ignore
+
+    testCase "Object expression calling a base constructor with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+let o = { new Base(5) with member _.ToString() = "o" }
+"""
+      compile source
+      |> Assert.Exists.errorWith "cannot run on a derived instance"
+      |> ignore
+
+    testCase "Explicit constructor calling a secondary self constructor of a primary constructor base results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member val V = a with get, set
+    new () as self = Base(1) then self.V <- self.V + 10
+
+type Derived =
+    inherit Base
+    val E: int
+    new () = { inherit Base(); E = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "cannot run on a derived instance"
+      |> ignore
+
     testCase "Explicit constructor calling a base constructor that sets an inherited field on self compiles" <| fun _ ->
       let source =
         """

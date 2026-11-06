@@ -21,6 +21,13 @@ let private transformExprList com ctx xs =
 let private transformExprOpt com ctx opt =
     trampolineOptionMap (transformExpr com ctx []) opt
 
+let private unsupportedSelfConstructorMessage =
+    "This explicit constructor uses a self identifier (`new() as x`), which Fable only supports on JavaScript, TypeScript and Python, in a class without [<AttachMembers>] whose base class, if any, is an F# class without a primary constructor."
+
+let private addSelfBaseConstructorError (com: IFableCompiler) (ctx: Context) r (baseEnt: FSharpEntity) =
+    $"%s{baseEnt.FullName} has a constructor with a self identifier (`new() as x`), which Fable cannot run on a derived instance here."
+    |> addError com ctx.InlinePath r
+
 let private transformBaseConsCall
     com
     ctx
@@ -43,7 +50,10 @@ let private transformBaseConsCall
         makeCall r Fable.Unit callInfo baseRef
     | None ->
         if not baseCons.IsImplicitConstructor then
-            WarningCodes.nonPrimaryBaseConstructor |> addWarningWithCode com [] r
+            if constructorBindsSelf com baseCons then
+                addSelfBaseConstructorError com ctx r baseEnt
+            else
+                WarningCodes.nonPrimaryBaseConstructor |> addWarningWithCode com [] r
 
         match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
         | Fable.Call(_baseExpr, info, t, r) when not (com.Options.Language = Rust) ->
@@ -792,6 +802,14 @@ let rec private transformDecisionTargets
             return! transformDecisionTargets com ctx ((idents, expr) :: acc) tail
     }
 
+// F# binds record fields written out of declaration order before creating the record
+let rec private (|BoundNewRecord|_|) (e: FSharpExpr) =
+    match e with
+    | FSharpExprPatterns.NewRecord(fsType, args) -> Some([], fsType, args)
+    | FSharpExprPatterns.Let((var, value, _), BoundNewRecord(bindings, fsType, args)) ->
+        Some((var, value) :: bindings, fsType, args)
+    | _ -> None
+
 // F# omits the `init@` field it adds for `new() as x` from the record expression of the constructor
 let private withOmittedFieldDefaults (com: IFableCompiler) (ctx: Context) (fsType: FSharpType) (args: Fable.Expr list) =
     let ent = fsType.TypeDefinition
@@ -831,9 +849,69 @@ let private isBaseCallOfRecord com (ctx: Context) (baseCons: FSharpMemberOrFunct
 let private implementationLocation (memb: FSharpMemberOrFunctionOrValue) =
     memb.ImplementationLocation |> Option.defaultValue memb.DeclarationLocation
 
-let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharpMemberOrFunctionOrValue) =
+let private tryFindConstructorBody (com: IFableCompiler) (cons: FSharpMemberOrFunctionOrValue) =
     let consLocation = implementationLocation cons
 
+    let rec tryFindBody decls =
+        decls
+        |> List.tryPick (
+            function
+            | FSharpImplementationFileDeclaration.Entity(_, decls) -> tryFindBody decls
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, body) when
+                implementationLocation memb = consLocation
+                ->
+                Some body
+            | _ -> None
+        )
+
+    let decls =
+        try
+            com.GetImplementationFile(consLocation.FileName)
+        with _ ->
+            []
+
+    tryFindBody decls
+
+// The constructors this one chains to (`new() = C(1) then ...`) run first, on the same object
+let rec private chainedConstructors (cons: FSharpMemberOrFunctionOrValue) (e: FSharpExpr) =
+    let isCreated (e: FSharpExpr) =
+        e.Type.HasTypeDefinition
+        && cons.DeclaringEntity |> Option.exists (fun ent -> ent = e.Type.TypeDefinition)
+
+    match e with
+    | FSharpExprPatterns.Let(_, body) -> chainedConstructors cons body
+    | FSharpExprPatterns.Sequential(first, _) when isCreated first -> chainedConstructors cons first
+    | FSharpExprPatterns.Sequential(_, second) -> chainedConstructors cons second
+    | FSharpExprPatterns.IfThenElse(_, thenExpr, elseExpr) ->
+        chainedConstructors cons thenExpr @ chainedConstructors cons elseExpr
+    | FSharpExprPatterns.DecisionTree(_, targets) ->
+        targets |> List.collect (fun (_, target) -> chainedConstructors cons target)
+    | ConstructorCall(other, _, _) when other.DeclaringEntity = cons.DeclaringEntity -> [ other ]
+    | _ -> []
+
+let rec private existsInConstructorChain com visited test (cons: FSharpMemberOrFunctionOrValue) =
+    let hasSource =
+        cons.DeclaringEntity
+        |> Option.exists (fun ent -> (FsEnt.Ref ent).SourcePath.IsSome)
+
+    hasSource
+    && not (List.contains (implementationLocation cons) visited)
+    && tryFindConstructorBody com cons
+       |> Option.exists (fun body ->
+           test body
+           || chainedConstructors cons body
+              |> List.exists (existsInConstructorChain com (implementationLocation cons :: visited) test)
+       )
+
+let rec private loadsSelf (e: FSharpExpr) =
+    match e with
+    | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> true
+    | e -> e.ImmediateSubExpressions |> List.exists loadsSelf
+
+let private constructorBindsSelf (com: IFableCompiler) (cons: FSharpMemberOrFunctionOrValue) =
+    existsInConstructorChain com [] loadsSelf cons
+
+let private constructorLeaksSelf (com: IFableCompiler) (cons: FSharpMemberOrFunctionOrValue) =
     let isSelfCell (e: FSharpExpr) =
         match e with
         | FSharpExprPatterns.FSharpFieldGet(Some(FSharpExprPatterns.ThisValue _), _, field) -> field.Name = "contents"
@@ -868,60 +946,55 @@ let rec private constructorLeaksSelf (com: IFableCompiler) visited (cons: FSharp
         | FSharpExprPatterns.ObjectExpr _ -> e.ImmediateSubExpressions |> List.exists (leaksSelf true)
         | e -> e.ImmediateSubExpressions |> List.exists (leaksSelf inClosure)
 
-    let rec tryFindBody decls =
-        decls
-        |> List.tryPick (
-            function
-            | FSharpImplementationFileDeclaration.Entity(_, decls) -> tryFindBody decls
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, body) when
-                implementationLocation memb = consLocation
-                ->
-                Some body
-            | _ -> None
+    existsInConstructorChain com [] (leaksSelf false) cons
+
+// A base call that reaches the general sequence case is dropped, so neither side can use self
+let private checkDroppedBaseCall (com: IFableCompiler) (ctx: Context) (first: FSharpExpr) (second: FSharpExpr) =
+    match first, ctx.CaptureBaseConsCall, ctx.EnclosingMember with
+    | ConstructorCall(baseCons, _, _), None, Some m when
+        m.IsConstructor
+        && not m.IsImplicitConstructor
+        && supportsCompilerGeneratedBaseCall com
+        && (
+            match m.DeclaringEntity |> Option.bind tryGetBaseEntity, baseCons.DeclaringEntity with
+            | Some(baseEnt, _), Some callee -> callee = baseEnt
+            | _ -> false
         )
+        ->
+        let r = makeRangeFrom first
 
-    let decls =
-        try
-            com.GetImplementationFile(consLocation.FileName)
-        with _ ->
-            []
-
-    // The constructor this one chains to (`new() = C(1) then ...`) runs first, on the same object
-    let rec tryChainedConstructor (e: FSharpExpr) =
-        match e with
-        | FSharpExprPatterns.Let(_, body) -> tryChainedConstructor body
-        | FSharpExprPatterns.Sequential(first, _) -> tryChainedConstructor first
-        | ConstructorCall(other, _, _) when other.DeclaringEntity = cons.DeclaringEntity -> Some other
-        | _ -> None
-
-    let chainedLeaksSelf body =
-        match tryChainedConstructor body with
-        | Some other when
-            implementationLocation other <> consLocation
-            && not (List.contains (implementationLocation other) visited)
-            ->
-            constructorLeaksSelf com (consLocation :: visited) other
-        | _ -> false
-
-    tryFindBody decls
-    |> Option.exists (fun body -> leaksSelf false body || chainedLeaksSelf body)
+        if not baseCons.IsImplicitConstructor && constructorBindsSelf com baseCons then
+            addSelfBaseConstructorError com ctx r baseCons.DeclaringEntity.Value
+        elif loadsSelf second then
+            unsupportedSelfConstructorMessage |> addError com ctx.InlinePath r
+    | _ -> ()
 
 let private transformBaseCallAndRecord
     (com: IFableCompiler)
     (ctx: Context)
     r
     (baseCall: FSharpExpr)
+    (bindings: (FSharpMemberOrFunctionOrValue * FSharpExpr) list)
     (fsType: FSharpType)
     (ownArgs: FSharpExpr list)
     =
     match baseCall with
-    | ConstructorCall(baseCons, _, _) when not baseCons.IsImplicitConstructor && constructorLeaksSelf com [] baseCons ->
+    | ConstructorCall(baseCons, _, _) when not baseCons.IsImplicitConstructor && constructorLeaksSelf com baseCons ->
         $"%s{fsType.TypeDefinition.FullName} calls a constructor of %s{baseCons.DeclaringEntity.Value.FullName} whose `then` block uses its self identifier for more than reading or setting fields. Fable cannot run that block on the derived instance."
         |> addError com ctx.InlinePath r
     | _ -> ()
 
     trampoline {
         let! baseValue = transformExpr com ctx [] baseCall
+
+        let ctx, bindings =
+            ((ctx, []), bindings)
+            ||> List.fold (fun (ctx, bindings) (var, value) ->
+                let value = transformExpr com ctx [] value |> run
+                let ctx, ident = putIdentInScope com ctx var (Some value)
+                ctx, (ident, value) :: bindings
+            )
+
         let! ownArgs = transformExprList com ctx ownArgs
 
         let ownArgs =
@@ -941,7 +1014,11 @@ let private transformBaseCallAndRecord
         let newRecord =
             Fable.NewRecord(inheritedArgs @ ownArgs, entRef, genArgs) |> makeValue r
 
-        return Fable.Let(baseIdent, baseValue, newRecord)
+        let body =
+            (newRecord, bindings)
+            ||> List.fold (fun body (ident, value) -> Fable.Let(ident, value, body))
+
+        return Fable.Let(baseIdent, baseValue, body)
     }
 
 // F# emits `new() = { ... } then body` as sequences nested after the created object, with any base call before it
@@ -951,6 +1028,7 @@ let private (|ExplicitConstructorThen|_|) com (ctx: Context) (fsExpr: FSharpExpr
         m.IsConstructor
         && not m.IsImplicitConstructor
         && supportsCompilerGeneratedBaseCall com
+        && m.DeclaringEntity |> Option.exists (isAttachMembersEntity com >> not)
         ->
         let isCreated (e: FSharpExpr) =
             e.Type.HasTypeDefinition
@@ -963,16 +1041,25 @@ let private (|ExplicitConstructorThen|_|) com (ctx: Context) (fsExpr: FSharpExpr
                 created, rest @ [ second ]
             | _ -> e, []
 
+        let rec splitBound (e: FSharpExpr) =
+            match e with
+            | FSharpExprPatterns.Let((var, value, _), body) ->
+                let bindings, created, rest = splitBound body
+                (var, value) :: bindings, created, rest
+            | _ ->
+                let created, rest = split e
+                [], created, rest
+
         match fsExpr with
         | _ when not (isCreated fsExpr) -> None
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as baseCall, second) when
             not (isCreated baseCall)
             ->
-            match split second with
-            | FSharpExprPatterns.NewRecord(fsType, ownArgs), (_ :: _ as rest) when
+            match splitBound second with
+            | bindings, FSharpExprPatterns.NewRecord(fsType, ownArgs), (_ :: _ as rest) when
                 isBaseCallOfRecord com ctx baseCons fsType
                 ->
-                Some(Choice2Of2(baseCall, fsType, ownArgs), rest)
+                Some(Choice2Of2(baseCall, bindings, fsType, ownArgs), rest)
             | _ -> None
         | FSharpExprPatterns.Sequential(first, _) when isCreated first ->
             let created, rest = split fsExpr
@@ -1181,7 +1268,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             return
                 match ctx.BoundConstructorThis with
                 | Some i -> identWithRange r i |> Fable.IdentExpr
-                | None -> Fable.Value(makeType ctx.GenericArgs fsExpr.Type |> Fable.ThisValue, r)
+                | None -> unsupportedSelfConstructorMessage |> addErrorAndReturnNull com ctx.InlinePath r
 
         | FSharpExprPatterns.Value var ->
             let r = makeRangeFrom fsExpr
@@ -1804,17 +1891,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
 
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as first,
-                                        FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
+                                        BoundNewRecord(bindings, fsType, ownArgs)) when
             isBaseCallOfRecord com ctx baseCons fsType
             ->
-            return! transformBaseCallAndRecord com ctx (makeRangeFrom fsExpr) first fsType ownArgs
+            return! transformBaseCallAndRecord com ctx (makeRangeFrom fsExpr) first bindings fsType ownArgs
 
         | ExplicitConstructorThen com ctx (created, rest) when ctx.BoundConstructorThis.IsNone ->
             let! created =
                 match created with
                 | Choice1Of2 created -> transformExpr com ctx [] created
-                | Choice2Of2(baseCall, fsType, ownArgs) ->
-                    transformBaseCallAndRecord com ctx (makeRangeFrom fsExpr) baseCall fsType ownArgs
+                | Choice2Of2(baseCall, bindings, fsType, ownArgs) ->
+                    transformBaseCallAndRecord com ctx (makeRangeFrom fsExpr) baseCall bindings fsType ownArgs
 
             let thisIdent = getIdentUniqueName com ctx "this" |> makeTypedIdent created.Type
 
@@ -1824,6 +1911,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             return Fable.Let(thisIdent, created, Fable.Sequential(rest @ [ Fable.IdentExpr thisIdent ]))
 
         | FSharpExprPatterns.Sequential(first, second) ->
+            checkDroppedBaseCall com ctx first second
+
             let exprs =
                 match ctx.CaptureBaseConsCall with
                 | Some(baseEnt, captureBaseCall) ->

@@ -2061,6 +2061,25 @@ type ValClassSelfChild =
     val mutable Extra: float
     new (id: int, extra: float) as this = { inherit ValClassBase(id); Extra = extra } then this.Extra <- this.Extra + float this.Id
 
+type ValClassOutOfOrder =
+    inherit ValClassBase
+    val Z: int
+    val W: int
+    new (id: int) = { inherit ValClassBase(id); W = 2; Z = 3 }
+
+type ValClassOutOfOrderSelf =
+    inherit ValClassBase
+    val Z: int
+    val mutable W: int
+    new (id: int) as self = { inherit ValClassBase(id); W = 2; Z = 3 } then self.W <- self.W + self.Z + self.Id
+
+[<Fact>]
+let ``test explicit constructor with a base keeps out of order fields`` () =
+    let c = ValClassOutOfOrder(1)
+    (c.Id, c.Z, c.W) |> equal (10, 3, 2)
+    let s = ValClassOutOfOrderSelf(1)
+    (s.Id, s.Z, s.W) |> equal (10, 3, 15)
+
 [<Fact>]
 let ``test explicit constructor returns the object after its then block`` () =
     let before = valClassThenCalls
