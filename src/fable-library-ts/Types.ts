@@ -49,6 +49,9 @@ export function toStringOrEmpty(x: any): string {
   return x == null ? "" : toString(x);
 }
 
+let structuredFormatLastSelf: any;
+let structuredFormatLastEndsWithWord = true;
+
 export function unionToString(name: string, fields: any[]) {
   if (fields.length === 0) {
     return name;
@@ -57,7 +60,7 @@ export function unionToString(name: string, fields: any[]) {
     let withParens = true;
     if (fields.length === 1) {
       fieldStr = toStringQuoted(fields[0]);
-      withParens = fieldStr.indexOf(" ") >= 0;
+      withParens = fieldStr.indexOf(" ") >= 0 && fields[0] !== structuredFormatLastSelf;
     } else {
       fieldStr = fields.map((x: any) => toStringQuoted(x)).join(", ");
     }
@@ -126,6 +129,63 @@ function recordToJSON<T>(self: T) {
 
 function recordToString<T>(self: T) {
   return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }";
+}
+
+const structuredFormatPath: any[] = [];
+
+class StructuredFormatNotFound extends Error {}
+
+export function structuredFormatNotFound(member: string): never {
+  throw new StructuredFormatNotFound(`Method '${member}' not found.`);
+}
+
+// FSharp.Core's sformat prints "..." for an object already being formatted and for non-string values at depth 3
+function structuredFormatValue(value: any): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  return structuredFormatPath.length >= 3 ? "..." : toString(value);
+}
+
+export function structuredFormatDisplay(self: any, texts: string[], getValues: (() => any)[]): string {
+  if (structuredFormatPath.includes(self)) {
+    return "...";
+  }
+  structuredFormatPath.push(self);
+  let resultEndsWithWord = true;
+  try {
+    let str = texts[0];
+    let endsWithWord = false;
+    for (let i = 0; i < getValues.length; i++) {
+      const value = getValues[i]();
+      if (value == null) {
+        return Object.getPrototypeOf(Object.getPrototypeOf(self)).toString.call(self);
+      }
+      structuredFormatLastSelf = undefined;
+      const text = structuredFormatValue(value);
+      if (texts[i] !== "" || (typeof value === "string" && value !== "")) {
+        endsWithWord = false;
+      }
+      if (typeof value !== "string") {
+        if (endsWithWord && text !== "") {
+          str += " ";
+        }
+        endsWithWord = value === structuredFormatLastSelf ? structuredFormatLastEndsWithWord : true;
+      }
+      str += text + texts[i + 1];
+    }
+    resultEndsWithWord = endsWithWord && texts[getValues.length] === "";
+    return str;
+  } catch (e) {
+    const message = e instanceof StructuredFormatNotFound
+      ? e.message
+      : "Exception has been thrown by the target of an invocation.";
+    return `<StructuredFormatDisplay exception: ${message}>`;
+  } finally {
+    structuredFormatPath.pop();
+    structuredFormatLastSelf = self;
+    structuredFormatLastEndsWithWord = resultEndsWithWord;
+  }
 }
 
 function recordGetHashCode<T>(self: T) {

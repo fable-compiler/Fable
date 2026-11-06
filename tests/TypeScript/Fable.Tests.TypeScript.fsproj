@@ -73,6 +73,7 @@
     <Compile Include="../Js/Main/SetTests.fs" />
     <Compile Include="../Js/Main/StackTests.fs" />
     <Compile Include="../Js/Main/StringTests.fs" />
+    <Compile Include="../Js/Main/StructuredFormatDisplayTests.fs" />
     <Compile Include="../Js/Main/SudokuTest.fs" />
     <Compile Include="../Js/Main/TailCallTests.fs" />
     <Compile Include="../Js/Main/TimeOnlyTests.fs" />
