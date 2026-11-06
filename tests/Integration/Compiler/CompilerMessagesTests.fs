@@ -21,6 +21,194 @@ let tests =
       |> Assert.Is.success
       |> ignore
 
+    testCase "Explicit constructor with a self identifier and no base compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Explicit child of a class with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(1); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Primary constructor child of a class with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+type Derived() =
+    inherit Base(5)
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Object expression over a class with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+let o = { new Base(5) with member _.ToString() = "o" }
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Child of a primary constructor class with a secondary self constructor results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member val V = a with get, set
+    new () as self = Base(1) then self.V <- self.V + 10
+
+type Derived =
+    inherit Base
+    val E: int
+    new () = { inherit Base(); E = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Self identifier with an explicit constructor base results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val N: int
+    new (n: int) = { N = n }
+
+type Derived =
+    inherit Base
+    val mutable Y: int
+    new () as self = { inherit Base(1); Y = 0 } then self.Y <- self.N
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Self identifier with a primary constructor base results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member _.A = a
+
+type Derived =
+    inherit Base
+    val mutable Y: int
+    new (a: int) as self = { inherit Base(a); Y = 0 } then self.Y <- self.A + 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Self identifier with a BCL base results in error" <| fun _ ->
+      let source =
+        """
+type Derived =
+    inherit System.Exception
+    val Code: int
+    new (m: string) as self = { inherit System.Exception(m); Code = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Self identifier with AttachMembers results in error" <| fun _ ->
+      let source =
+        """
+[<Fable.Core.AttachMembers>]
+type C =
+    val mutable V: int
+    new (v: int) as self = { V = v } then self.V <- self.V + 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Child of a primary constructor class with a self identifier compiles" <| fun _ ->
+      let source =
+        """
+type Base() as this =
+    let mutable n = 0
+    do this.Set(1)
+    member _.Set(v: int) = n <- v
+    member _.N = n
+
+type Derived() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Explicit child of a class without a self identifier compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val N: int
+    new (n: int) = { N = n }
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(1); X = 1 }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Child of a self identifier class behind a signature file results in error" <| fun _ ->
+      let signature =
+        """
+module Library
+
+type Base =
+    val mutable N: int
+    new: n: int -> Base
+"""
+
+      let library =
+        """
+module Library
+
+type Base =
+    val mutable N: int
+    new (n: int) as self = { N = n } then self.N <- self.N + 1
+"""
+
+      let source =
+        """
+type Derived =
+    inherit Library.Base
+    val X: int
+    new () = { inherit Library.Base(1); X = 1 }
+"""
+
+      compileWithSignedLibrary signature library source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
     testCase "Compile printfn" <| fun _ ->
       let source = "printfn \"Hello %s\" \"World\""
       compile source
@@ -862,331 +1050,6 @@ type AuthState =
     | One of string
 
 let one = AuthState.One "a"
-"""
-      compile source
-      |> Assert.Is.strictSuccess
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that passes self on after then results in error" <| fun _ ->
-      let source =
-        """
-type Base =
-    val Name: string
-    new (name: string) as self = { Name = name } then printfn "%O" (box self)
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base("d"); X = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "Derived calls a constructor of"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that chains to one passing self on results in error" <| fun _ ->
-      let source =
-        """
-type Base =
-    val Name: string
-    new (name: string) as self = { Name = name } then printfn "%O" (box self)
-    new () = Base("x")
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(); X = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses its self identifier"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that captures self in a closure results in error" <| fun _ ->
-      let source =
-        """
-let getters = ResizeArray<unit -> int>()
-
-type Base =
-    val mutable Count: int
-    new (c: int) as self = { Count = c } then getters.Add(fun () -> self.Count)
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(5); X = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "Derived calls a constructor of"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that chains to self after a statement results in error" <| fun _ ->
-      let source =
-        """
-let reg = ResizeArray<obj>()
-
-type Base =
-    val N: int
-    new (n: int) as self = { N = n } then reg.Add(box self)
-    new () = reg.Add(null); Base(1)
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(); X = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses its self identifier"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that chains to self behind if results in error" <| fun _ ->
-      let source =
-        """
-let reg = ResizeArray<obj>()
-
-type Base =
-    val N: int
-    new (n: int) as self = { N = n } then reg.Add(box self)
-    new (flag: bool) = if flag then Base(1) else Base(2)
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(true); X = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses its self identifier"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that chains to self behind let rec results in error" <| fun _ ->
-      let source =
-        """
-let reg = ResizeArray<obj>()
-
-type Base =
-    val N: int
-    new (n: int) as self = { N = n } then reg.Add(box self)
-    new () =
-        let rec f x = if x > 0 then f (x - 1) else 1
-        Base(f 1)
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(); X = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses its self identifier"
-      |> ignore
-
-    testCase "Explicit constructor with out of order fields passing self on from its base results in error" <| fun _ ->
-      let source =
-        """
-let reg = ResizeArray<obj>()
-
-type Base =
-    val N: int
-    new (n: int) as self = { N = n } then reg.Add(box self)
-
-type Derived =
-    inherit Base
-    val Z: int
-    val W: int
-    new () = { inherit Base(1); W = 2; Z = 3 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses its self identifier"
-      |> ignore
-
-    testCase "Explicit constructor with a self identifier over a primary constructor base results in error" <| fun _ ->
-      let source =
-        """
-type Base(a: int) =
-    member _.A = a
-
-type Derived =
-    inherit Base
-    val mutable Y: int
-    new (a: int) as self = { inherit Base(a); Y = 0 } then self.Y <- self.A + 1
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses a self identifier"
-      |> ignore
-
-    testCase "Explicit constructor with a self identifier over a BCL base results in error" <| fun _ ->
-      let source =
-        """
-type Derived =
-    inherit System.Exception
-    val Code: int
-    new (m: string) as self = { inherit System.Exception(m); Code = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses a self identifier"
-      |> ignore
-
-    testCase "Explicit constructor with a self identifier and AttachMembers results in error" <| fun _ ->
-      let source =
-        """
-[<Fable.Core.AttachMembers>]
-type C =
-    val mutable V: int
-    new (v: int) as self = { V = v } then self.V <- self.V + 1
-"""
-      compile source
-      |> Assert.Exists.errorWith "uses a self identifier"
-      |> ignore
-
-    testCase "Primary constructor calling a base constructor with a self identifier results in error" <| fun _ ->
-      let source =
-        """
-type Base =
-    val mutable Count: int
-    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
-
-type Derived() =
-    inherit Base(5)
-"""
-      compile source
-      |> Assert.Exists.errorWith "cannot run on a derived instance"
-      |> ignore
-
-    testCase "Object expression calling a base constructor with a self identifier results in error" <| fun _ ->
-      let source =
-        """
-type Base =
-    val mutable Count: int
-    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
-
-let o = { new Base(5) with member _.ToString() = "o" }
-"""
-      compile source
-      |> Assert.Exists.errorWith "cannot run on a derived instance"
-      |> ignore
-
-    testCase "Explicit constructor calling a secondary self constructor of a primary constructor base results in error" <| fun _ ->
-      let source =
-        """
-type Base(a: int) =
-    member val V = a with get, set
-    new () as self = Base(1) then self.V <- self.V + 10
-
-type Derived =
-    inherit Base
-    val E: int
-    new () = { inherit Base(); E = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "cannot run on a derived instance"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that sets an inherited field on self compiles" <| fun _ ->
-      let source =
-        """
-type Root =
-    val mutable Id: int
-    new (id: int) = { Id = id }
-
-type Base =
-    inherit Root
-    val mutable Extra: int
-    new (id: int) as self = { inherit Root(id); Extra = 0 } then self.Id <- self.Id * 10
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(3); X = 1 }
-"""
-      compile source
-      |> Assert.Is.strictSuccess
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that sets fields on self in a for loop compiles" <| fun _ ->
-      let source =
-        """
-type Base =
-    val mutable Count: int
-    new (c: int) as self = { Count = c } then
-        for i = 1 to 3 do self.Count <- self.Count + i
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base(5); X = 1 }
-"""
-      compile source
-      |> Assert.Is.strictSuccess
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that passes self to another constructor results in error" <| fun _ ->
-      let source =
-        """
-let registry = ResizeArray<obj>()
-
-type Base =
-    val V: int
-    val Parent: obj
-    new (o: obj) = { V = 1; Parent = o }
-    new () as self = { V = 0; Parent = null } then registry.Add(Base(box self))
-
-type Derived =
-    inherit Base
-    val W: int
-    new () = { inherit Base(); W = 1 }
-"""
-      compile source
-      |> Assert.Exists.errorWith "Derived calls a constructor of"
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that builds another instance of its type compiles" <| fun _ ->
-      let source =
-        """
-let registry = ResizeArray<obj>()
-
-type Base =
-    val V: int
-    new (x: int) as self = { V = x } then registry.Add(box self)
-    new () = { V = 0 } then Base(1) |> ignore
-
-type Derived =
-    inherit Base
-    val W: int
-    new () = { inherit Base(); W = 1 }
-"""
-      compile source
-      |> Assert.Is.strictSuccess
-      |> ignore
-
-    testCase "Explicit constructor calling mutually recursive base constructors compiles" <| fun _ ->
-      let source =
-        """
-type Base =
-    val V: int
-    new (x: int) = Base()
-    new () = Base(1)
-    new (x: string) = { V = 0 }
-
-type Derived =
-    inherit Base
-    val W: int
-    new () = { inherit Base(); W = 1 }
-"""
-      compile source
-      |> Assert.Is.strictSuccess
-      |> ignore
-
-    testCase "Explicit constructor calling a base constructor that only sets fields on self compiles" <| fun _ ->
-      let source =
-        """
-type Base =
-    val Name: string
-    val mutable Count: int
-    new (name: string) as self = { Name = name; Count = 0 } then self.Count <- self.Name.Length
-    new () = { Name = "plain"; Count = 0 } then printfn "plain"
-
-type Derived =
-    inherit Base
-    val X: int
-    new () = { inherit Base("d"); X = 1 }
-    new (x: int) = { inherit Base(); X = x }
 """
       compile source
       |> Assert.Is.strictSuccess

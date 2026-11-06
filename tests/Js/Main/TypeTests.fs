@@ -988,6 +988,7 @@ type ValClassSequenceInit =
     val Boxed: obj
     new (id: int) = { Next = null; Id = id; Boxed = null }
     new (a: int, b: int) = { Next = (ValClassSequenceInit(a); ValClassSequenceInit(b)); Id = 0; Boxed = box (do ValClassSequenceInit(a)) }
+    new (a: int, b: int, c: int) as self = { Next = (ValClassSequenceInit(a); ValClassSequenceInit(b)); Id = c; Boxed = box (do ValClassSequenceInit(a)) } then self.Next.Id |> ignore
 
 type ValClassSelf =
     val mutable Name: string
@@ -995,40 +996,10 @@ type ValClassSelf =
     new (name: string) as self = { Name = name; Count = 0 } then self.Count <- self.Name.Length
     new () as self = ValClassSelf("ab") then self.Count <- self.Count * 10
 
-type ValClassSelfInherited =
-    inherit ValClassSelf
-    val Tag: string
-    new () = { inherit ValClassSelf("abcd"); Tag = "t" }
-
-type ValClassSelfChild =
-    inherit ValClassBase
-    val mutable Extra: float
-    new (id: int, extra: float) as this = { inherit ValClassBase(id); Extra = extra } then this.Extra <- this.Extra + float this.Id
-
-[<AllowNullLiteral>]
-type ValClassSequenceSelf =
-    val Next: ValClassSequenceSelf
-    val Id: int
-    new (id: int) = { Next = null; Id = id }
-    new (a: int, b: int, c: int) as self = { Next = (ValClassSequenceSelf(a); ValClassSequenceSelf(b)); Id = c } then self.Next.Id |> ignore
-
-type ValClassSequenceSelfChild =
-    inherit ValClassSequenceSelf
-    val Tail: ValClassSequenceSelf
-    val mutable Count: int
-    new (a: int, b: int) as self = { inherit ValClassSequenceSelf(1); Tail = (ValClassSequenceSelf(a); ValClassSequenceSelf(b)); Count = 0 } then self.Count <- self.Tail.Id
-
-type ValClassOutOfOrder =
-    inherit ValClassBase
-    val Z: int
-    val W: int
-    new (id: int) = { inherit ValClassBase(id); W = 2; Z = 3 }
-
-type ValClassOutOfOrderSelf =
-    inherit ValClassBase
+type ValClassSelfOutOfOrder =
     val Z: int
     val mutable W: int
-    new (id: int) as self = { inherit ValClassBase(id); W = 2; Z = 3 } then self.W <- self.W + self.Z + self.Id
+    new () as self = { W = 2; Z = 3 } then self.W <- self.W + self.Z
 
 let tests =
   testList "Types" [
@@ -2055,24 +2026,8 @@ let tests =
         let c = ValClassSequenceInit(5, 6)
         c.Next.Id |> equal 6
         isNull c.Boxed |> equal true
-
-    testCase "Explicit constructor inherits a base with a self identifier" <| fun () ->
-        let c = ValClassSelfInherited()
-        c.Name |> equal "abcd"
-        c.Count |> equal 4
-        c.Tag |> equal "t"
-
-    testCase "Explicit constructor keeps sequences of base constructor calls in field values" <| fun () ->
-        let c = ValClassSequenceSelf(5, 6, 7)
-        (c.Next.Id, c.Id) |> equal (6, 7)
-        let d = ValClassSequenceSelfChild(5, 6)
-        (d.Tail.Id, d.Count, d.Id) |> equal (6, 6, 1)
-
-    testCase "Explicit constructor with a base keeps out of order fields" <| fun () ->
-        let c = ValClassOutOfOrder(1)
-        (c.Id, c.Z, c.W) |> equal (10, 3, 2)
-        let s = ValClassOutOfOrderSelf(1)
-        (s.Id, s.Z, s.W) |> equal (10, 3, 15)
+        let d = ValClassSequenceInit(5, 6, 7)
+        (d.Next.Id, d.Id, isNull d.Boxed) |> equal (6, 7, true)
 
     testCase "Explicit constructor with a self identifier works" <| fun () -> // See #5166
         let a = ValClassSelf("abc")
@@ -2081,8 +2036,6 @@ let tests =
         let b = ValClassSelf()
         b.Name |> equal "ab"
         b.Count |> equal 20
-        let c = ValClassSelfChild(3, 1.5)
-        c.Id |> equal 30
-        c.Extra |> equal 31.5
-        c.Describe() |> equal "base:30"
+        let c = ValClassSelfOutOfOrder()
+        (c.Z, c.W) |> equal (3, 5)
   ]

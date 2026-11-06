@@ -1,7 +1,6 @@
 
-import { PlainVal_$ctor_Z524259A4, PlainVal_$reflection, PlainVal, Shape, circles as circles_1, plain as plain_1 } from "./precompiled/Library.js";
+import { Shape, circles as circles_1, plain as plain_1 } from "./precompiled/Library.js";
 import { ofArray } from "./precompiled/fable_modules/fable-library-js.5.21.0/List.js";
-import { class_type } from "./precompiled/fable_modules/fable-library-js.5.21.0/Reflection.js";
 
 export const greeting = {
     Greet(helpers) {
@@ -15,18 +14,3 @@ export const plain = plain_1(1);
 
 export const circles = circles_1(ofArray([new Shape(/* Circle */ 0, [1]), new Shape(/* Square */ 1, [2])]));
 
-export class PlainValChild extends PlainVal {
-    constructor(N, M) {
-        super(N);
-        this.M = (M | 0);
-    }
-}
-
-export function PlainValChild_$reflection() {
-    return class_type("App.PlainValChild", undefined, PlainValChild, PlainVal_$reflection());
-}
-
-export function PlainValChild_$ctor() {
-    const base = PlainVal_$ctor_Z524259A4(1);
-    return new PlainValChild(base.N, 2);
-}

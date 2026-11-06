@@ -4511,26 +4511,8 @@ but thanks to the optimisation done below we get
                     ent.BaseType
                     |> Option.map (fun d -> Fable.DeclaredType(d.Entity, d.GenericArgs))
 
-                // Inherited fields are passed by their F# names, which can be compiler-generated like `init@5`
-                let baseCall =
-                    decl.BaseCall
-                    |> Option.map (
-                        function
-                        | Fable.Call(callee, info, t, r) ->
-                            let args =
-                                info.Args
-                                |> List.map (
-                                    function
-                                    | Fable.IdentExpr id -> Fable.IdentExpr { id with Name = sanitizeName id.Name }
-                                    | arg -> arg
-                                )
-
-                            Fable.Call(callee, { info with Args = args }, t, r)
-                        | baseCall -> baseCall
-                    )
-
-                match extractSuperClassFromBaseCall com ctx baseType baseCall with
-                | Some(baseExpr, superArgs) -> Some baseExpr, superArgs, baseCallIdents baseCall
+                match extractSuperClassFromBaseCall com ctx baseType decl.BaseCall with
+                | Some(baseExpr, superArgs) -> Some baseExpr, superArgs, baseCallIdents decl.BaseCall
                 | None -> None, [], [||]
 
         let body =

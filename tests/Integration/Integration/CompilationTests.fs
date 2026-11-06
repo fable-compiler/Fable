@@ -58,7 +58,7 @@ let private checkBrowserInlineExprs (precompiledDir: string) =
 
 let private precompiledSelfBaseTest =
     testCaseAsync
-        "Inheriting a precompiled constructor with a self identifier is an error"
+        "Inheriting a precompiled class with a self identifier is an error"
         (async {
             let testCaseDir = Path.Combine(__SOURCE_DIRECTORY__, "precompiledErrors", "selfBase")
             let libraryProject = Path.Combine(testCaseDir, "library", "library.fsproj")
