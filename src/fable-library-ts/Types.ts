@@ -30,7 +30,7 @@ function toStringQuoted(x: any, callStack = 0): string {
 
 let structuredFormatActive = false;
 
-function withStructuredFormat<T>(active: boolean, f: () => T): T {
+export function withStructuredFormat<T>(active: boolean, f: () => T): T {
   const previous = structuredFormatActive;
   structuredFormatActive = active;
   try {
@@ -69,6 +69,15 @@ export function toStringOrEmpty(x: any): string {
 
 let structuredFormatLastSelf: any;
 let structuredFormatLastEndsWithWord = true;
+
+export function setStructuredFormatLast(self: any, endsWithWord: boolean) {
+  structuredFormatLastSelf = self;
+  structuredFormatLastEndsWithWord = endsWithWord;
+}
+
+export function structuredFormatEndsWithWord(value: any): boolean {
+  return value === structuredFormatLastSelf ? structuredFormatLastEndsWithWord : true;
+}
 
 export function unionToString(name: string, fields: any[]) {
   return withStructuredFormat(true, () => {
@@ -149,73 +158,6 @@ function recordToJSON<T>(self: T) {
 
 function recordToString<T>(self: T) {
   return withStructuredFormat(true, () => "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }");
-}
-
-const structuredFormatPath: any[] = [];
-
-class StructuredFormatNotFound extends Error {}
-
-export function structuredFormatNotFound(member: string): never {
-  throw new StructuredFormatNotFound(`Method '${member}' not found.`);
-}
-
-// FSharp.Core's sformat prints "..." for an object already being formatted and for non-string values at depth 3
-function structuredFormatValue(value: any): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  return structuredFormatPath.length >= 3 ? "..." : toStructuredString(value);
-}
-
-function structuredFormatFallback(self: any): string {
-  if (self instanceof Record) {
-    return Record.prototype.toString.call(self);
-  }
-  if (self instanceof Union) {
-    return Union.prototype.toString.call(self);
-  }
-  return withStructuredFormat(false, () => toString(self));
-}
-
-export function structuredFormatDisplay(self: any, texts: string[], getValues: (() => any)[]): string {
-  if (structuredFormatPath.includes(self)) {
-    return "...";
-  }
-  structuredFormatPath.push(self);
-  let resultEndsWithWord = true;
-  try {
-    let str = texts[0];
-    let endsWithWord = false;
-    for (let i = 0; i < getValues.length; i++) {
-      const value = withStructuredFormat(false, getValues[i]);
-      if (value == null) {
-        return structuredFormatFallback(self);
-      }
-      structuredFormatLastSelf = undefined;
-      const text = structuredFormatValue(value);
-      if (texts[i] !== "" || (typeof value === "string" && value !== "")) {
-        endsWithWord = false;
-      }
-      if (typeof value !== "string") {
-        if (endsWithWord && text !== "") {
-          str += " ";
-        }
-        endsWithWord = value === structuredFormatLastSelf ? structuredFormatLastEndsWithWord : true;
-      }
-      str += text + texts[i + 1];
-    }
-    resultEndsWithWord = endsWithWord && texts[getValues.length] === "";
-    return str;
-  } catch (e) {
-    const message = e instanceof StructuredFormatNotFound
-      ? e.message
-      : "Exception has been thrown by the target of an invocation.";
-    return `<StructuredFormatDisplay exception: ${message}>`;
-  } finally {
-    structuredFormatPath.pop();
-    structuredFormatLastSelf = self;
-    structuredFormatLastEndsWithWord = resultEndsWithWord;
-  }
 }
 
 function recordGetHashCode<T>(self: T) {

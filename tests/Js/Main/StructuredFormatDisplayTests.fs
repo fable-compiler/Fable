@@ -218,6 +218,9 @@ type DisplayHolder =
     | DisplayHolderOne of DisplayWithSpace
     | DisplayHolderTwo of DisplayFixedText * int
 
+[<StructuredFormatDisplay("{V}")>]
+type DisplayGeneric<'T> = { V: 'T }
+
 [<StructuredFormatDisplay("over {X}")>]
 type DisplayOverride =
     { X: int }
@@ -441,6 +444,19 @@ let tests = testList "StructuredFormatDisplay" [
         string (DisplayHolderOne { A = 1 }) |> equal "DisplayHolderOne 1 1"
         sprintf "%A" [ DisplayHolderOne { A = 1 } ] |> equal "[DisplayHolderOne 1 1]"
         sprintf "%A" (DisplayHolderTwo(DisplayFixedText, 1)) |> equal "DisplayHolderTwo (disp u, 1)"
+
+    testCase "StructuredFormatDisplay prints dates like %A" <| fun () ->
+        let date = System.DateTime(2020, 1, 2, 3, 4, 5)
+        let time = System.TimeSpan.FromSeconds 1.0
+        let offset = System.DateTimeOffset(date, System.TimeSpan.Zero)
+        let dateOnly = System.DateOnly(2020, 1, 2)
+        let timeOnly = System.TimeOnly(1, 2, 3)
+        sprintf "%A" { V = date } |> equal (sprintf "%A" date)
+        sprintf "%A" { V = time } |> equal (sprintf "%A" time)
+        sprintf "%A" { V = offset } |> equal (sprintf "%A" offset)
+        sprintf "%A" { V = dateOnly } |> equal (sprintf "%A" dateOnly)
+        sprintf "%A" { V = timeOnly } |> equal (sprintf "%A" timeOnly)
+        string { V = date } |> equal (sprintf "%A" date)
 
     testCase "StructuredFormatDisplay is used by %A when ToString is overridden" <| fun () ->
         let r: DisplayOverride = { X = 1 }

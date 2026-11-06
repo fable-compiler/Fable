@@ -2437,7 +2437,7 @@ let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (f
         let makeNotFoundCall (memberName: string) =
             Replacements.Util.Helper.LibCall(
                 com,
-                "Types",
+                "String",
                 "structuredFormatNotFound",
                 Fable.Any,
                 [ makeStrConst memberName ]
@@ -2459,7 +2459,7 @@ let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (f
         let body =
             Replacements.Util.Helper.LibCall(
                 com,
-                "Types",
+                "String",
                 "structuredFormatDisplay",
                 Fable.String,
                 [

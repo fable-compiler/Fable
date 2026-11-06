@@ -2,7 +2,15 @@ import { toString as dateToString } from "./Date.ts";
 import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
 import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
-import { toString, toStructuredString } from "./Types.ts";
+import {
+  Record,
+  Union,
+  setStructuredFormatLast,
+  structuredFormatEndsWithWord,
+  toString,
+  toStructuredString,
+  withStructuredFormat,
+} from "./Types.ts";
 import { Exception } from "./Util.ts";
 
 // Temporal date/time values (only present under --test:js-temporal) are not JS Dates. To avoid
@@ -17,6 +25,77 @@ function isNetDateFormattable(rep: any): boolean {
 
 function formatDateLike(rep: any, format: string | undefined): string {
   return rep instanceof Date ? dateToString(rep, format) : rep[dateTimeFormattableSymbol](format);
+}
+
+const structuredFormatPath: any[] = [];
+
+class StructuredFormatNotFound extends Error {}
+
+export function structuredFormatNotFound(member: string): never {
+  throw new StructuredFormatNotFound(`Method '${member}' not found.`);
+}
+
+// FSharp.Core's sformat prints "..." for an object already being formatted and for non-string values at depth 3
+function structuredFormatValue(value: any): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (structuredFormatPath.length >= 3) {
+    return "...";
+  }
+  return value instanceof Date || isNetDateFormattable(value)
+    ? formatDateLike(value, undefined)
+    : toStructuredString(value);
+}
+
+function structuredFormatFallback(self: any): string {
+  if (self instanceof Record) {
+    return Record.prototype.toString.call(self);
+  }
+  if (self instanceof Union) {
+    return Union.prototype.toString.call(self);
+  }
+  return withStructuredFormat(false, () => toString(self));
+}
+
+export function structuredFormatDisplay(self: any, texts: string[], getValues: (() => any)[]): string {
+  if (structuredFormatPath.includes(self)) {
+    return "...";
+  }
+  structuredFormatPath.push(self);
+  let resultEndsWithWord = true;
+  try {
+    let str = texts[0];
+    let endsWithWord = false;
+    for (let i = 0; i < getValues.length; i++) {
+      const value = withStructuredFormat(false, getValues[i]);
+      if (value == null) {
+        return structuredFormatFallback(self);
+      }
+      setStructuredFormatLast(undefined, true);
+      const text = structuredFormatValue(value);
+      if (texts[i] !== "" || (typeof value === "string" && value !== "")) {
+        endsWithWord = false;
+      }
+      if (typeof value !== "string") {
+        if (endsWithWord && text !== "") {
+          str += " ";
+        }
+        endsWithWord = structuredFormatEndsWithWord(value);
+      }
+      str += text + texts[i + 1];
+    }
+    resultEndsWithWord = endsWithWord && texts[getValues.length] === "";
+    return str;
+  } catch (e) {
+    const message = e instanceof StructuredFormatNotFound
+      ? e.message
+      : "Exception has been thrown by the target of an invocation.";
+    return `<StructuredFormatDisplay exception: ${message}>`;
+  } finally {
+    structuredFormatPath.pop();
+    setStructuredFormatLast(self, resultEndsWithWord);
+  }
 }
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/g;
