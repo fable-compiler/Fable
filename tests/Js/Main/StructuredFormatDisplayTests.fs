@@ -218,6 +218,108 @@ type DisplayHolder =
     | DisplayHolderOne of DisplayWithSpace
     | DisplayHolderTwo of DisplayFixedText * int
 
+[<StructuredFormatDisplay("over {X}")>]
+type DisplayOverride =
+    { X: int }
+    override _.ToString() = "custom"
+
+type DisplayOverrideHolder = { F: DisplayOverride }
+
+type DisplayOverrideUnionHolder = DisplayOverrideHeld of DisplayOverride
+
+[<StructuredFormatDisplay("uo {D}")>]
+type DisplayUnionOverride =
+    | DisplayUnionOverride of int
+    member _.D = 1
+    override _.ToString() = "uo-ts"
+
+type IDisplayToString =
+    abstract ToString: unit -> string
+
+[<StructuredFormatDisplay("i {A}")>]
+type DisplayInterfaceToString =
+    { A: int }
+    interface IDisplayToString with
+        member _.ToString() = "iface"
+
+[<StructuredFormatDisplay("s {Show}")>]
+type DisplayGetterCallsString =
+    { I: DisplayOverride }
+    member this.Show = string this.I
+
+[<StructuredFormatDisplay("{N}")>]
+type DisplayNullOverride =
+    { N: string }
+    override _.ToString() = "null-ts"
+
+[<StructuredFormatDisplay("class {A}")>]
+type DisplayClass(a: int) =
+    member _.A = a
+
+[<StructuredFormatDisplay("cover {A}")>]
+type DisplayClassOverride(a: int) =
+    member _.A = a
+    override _.ToString() = "cover-ts"
+
+type DisplayClassDerived(a: int) =
+    inherit DisplayClass(a)
+
+type DisplayClassDerivedOverride(a: int) =
+    inherit DisplayClass(a)
+    override _.ToString() = "derived-ts"
+
+[<StructuredFormatDisplay("own {A} {B}")>]
+type DisplayClassDerivedOwn(a: int) =
+    inherit DisplayClass(a)
+    member _.B = 2
+
+[<StructuredFormatDisplay("{N}")>]
+type DisplayClassNullOverride() =
+    member _.N: string = null
+    override _.ToString() = "nullover-ts"
+
+[<StructuredFormatDisplay("{secret}")>]
+type DisplayClassLet(a: int) =
+    let secret = a
+    member _.S = secret
+
+[<StructuredFormatDisplay("{X}")>]
+type DisplayClassVal =
+    val X: int
+    new(x) = { X = x }
+
+[<StructuredFormatDisplay("{P}")>]
+type DisplayClassMemberVal() =
+    member val P = 5 with get, set
+
+[<Struct; StructuredFormatDisplay("cs {X}")>]
+type DisplayStructVal =
+    val X: int
+    new(x) = { X = x }
+
+[<StructuredFormatDisplay("{Boom}")>]
+type DisplayClassThrow() =
+    member _.Boom: string = failwith "boom"
+
+[<StructuredFormatDisplay("{Self}")>]
+type DisplayClassSelf() =
+    member this.Self = this
+
+[<AbstractClass; StructuredFormatDisplay("abs {V}")>]
+type DisplayClassAbstract() =
+    abstract V: int
+
+type DisplayClassImpl() =
+    inherit DisplayClassAbstract()
+    override _.V = 9
+
+[<StructuredFormatDisplay("{Missing}")>]
+type DisplayClassMissing() = class end
+
+[<StructuredFormatDisplay("g {V}")>]
+type DisplayClassGeneric<'T>(v: 'T) =
+    member _.V = v
+
 let tests = testList "StructuredFormatDisplay" [
     testCase "StructuredFormatDisplay is used by formatted strings" <| fun () -> // See #4880
         let r: DisplayRecord = { a = 1337 }
@@ -339,4 +441,51 @@ let tests = testList "StructuredFormatDisplay" [
         string (DisplayHolderOne { A = 1 }) |> equal "DisplayHolderOne 1 1"
         sprintf "%A" [ DisplayHolderOne { A = 1 } ] |> equal "[DisplayHolderOne 1 1]"
         sprintf "%A" (DisplayHolderTwo(DisplayFixedText, 1)) |> equal "DisplayHolderTwo (disp u, 1)"
+
+    testCase "StructuredFormatDisplay is used by %A when ToString is overridden" <| fun () ->
+        let r: DisplayOverride = { X = 1 }
+        sprintf "%A" r |> equal "over 1"
+        sprintf "%+A" r |> equal "over 1"
+        $"%A{r}" |> equal "over 1"
+        string r |> equal "custom"
+        r.ToString() |> equal "custom"
+        sprintf "%O" r |> equal "custom"
+        $"{r}" |> equal "custom"
+        sprintf "%A" [ r ] |> equal "[over 1]"
+        sprintf "%A" (Seq.singleton r) |> equal "seq [over 1]"
+        sprintf "%A" (Map.ofList [ 1, r ]) |> equal "map [(1, over 1)]"
+        string [ r ] |> equal "[custom]"
+        sprintf "%O" [ r ] |> equal "[custom]"
+        sprintf "%A" { F = r } |> equal "{ F = over 1 }"
+        string { F = r } |> equal "{ F = over 1 }"
+        sprintf "%A" (DisplayOverrideHeld r) |> equal "DisplayOverrideHeld over 1"
+        string (DisplayOverrideHeld r) |> equal "DisplayOverrideHeld over 1"
+        sprintf "%A" (DisplayUnionOverride 1) |> equal "uo 1"
+        string (DisplayUnionOverride 1) |> equal "uo-ts"
+        sprintf "%A" ({ A = 1 }: DisplayInterfaceToString) |> equal "i 1"
+        sprintf "%A" { I = r } |> equal "s custom"
+        sprintf "%A" ({ N = null }: DisplayNullOverride) |> equal "{ N = null }"
+
+    testCase "StructuredFormatDisplay is used by %A on classes" <| fun () ->
+        let notFound name = $"<StructuredFormatDisplay exception: Method 'Fable.Tests.StructuredFormatDisplay+{name}' not found.>"
+        sprintf "%A" (DisplayClass 1) |> equal "class 1"
+        sprintf "%A" [ DisplayClass 1 ] |> equal "[class 1]"
+        sprintf "%A" (DisplayClassOverride 1) |> equal "cover 1"
+        string (DisplayClassOverride 1) |> equal "cover-ts"
+        $"{DisplayClassOverride 1}" |> equal "cover-ts"
+        sprintf "%A" (DisplayClassDerived 1) |> equal "class 1"
+        sprintf "%A" (DisplayClassDerivedOverride 1) |> equal "class 1"
+        string (DisplayClassDerivedOverride 1) |> equal "derived-ts"
+        sprintf "%A" (DisplayClassDerivedOwn 1) |> equal "own 1 2"
+        sprintf "%A" (DisplayClassNullOverride()) |> equal "nullover-ts"
+        sprintf "%A" (DisplayClassLet 1) |> equal (notFound "DisplayClassLet.secret")
+        sprintf "%A" (DisplayClassVal 1) |> equal "1"
+        sprintf "%A" (DisplayClassMemberVal()) |> equal "5"
+        sprintf "%A" (DisplayStructVal 1) |> equal "cs 1"
+        sprintf "%A" (DisplayClassThrow())
+        |> equal "<StructuredFormatDisplay exception: Exception has been thrown by the target of an invocation.>"
+        sprintf "%A" (DisplayClassSelf()) |> equal "..."
+        sprintf "%A" (DisplayClassImpl()) |> equal "abs 9"
+        sprintf "%A" (DisplayClassMissing()) |> equal (notFound "DisplayClassMissing.Missing")
+        sprintf "%A" (DisplayClassGeneric 1) |> equal "g 1"
 ]

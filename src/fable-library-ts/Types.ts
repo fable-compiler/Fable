@@ -28,9 +28,27 @@ function toStringQuoted(x: any, callStack = 0): string {
   return typeof x === "string" ? "\"" + x + "\"" : toString(x, callStack);
 }
 
+let structuredFormatActive = false;
+
+function withStructuredFormat<T>(active: boolean, f: () => T): T {
+  const previous = structuredFormatActive;
+  structuredFormatActive = active;
+  try {
+    return f();
+  } finally {
+    structuredFormatActive = previous;
+  }
+}
+
+export function toStructuredString(x: any): string {
+  return withStructuredFormat(true, () => toString(x));
+}
+
 export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
-    if (typeof x.toString === "function" && x.toString !== Object.prototype.toString) {
+    if (structuredFormatActive && typeof x.toStructuredFormat === "function") {
+      return x.toStructuredFormat();
+    } else if (typeof x.toString === "function" && x.toString !== Object.prototype.toString) {
       return x.toString();
     } else if (Symbol.iterator in x) {
       return seqToString(x);
@@ -53,19 +71,21 @@ let structuredFormatLastSelf: any;
 let structuredFormatLastEndsWithWord = true;
 
 export function unionToString(name: string, fields: any[]) {
-  if (fields.length === 0) {
-    return name;
-  } else {
-    let fieldStr;
-    let withParens = true;
-    if (fields.length === 1) {
-      fieldStr = toStringQuoted(fields[0]);
-      withParens = fieldStr.indexOf(" ") >= 0 && fields[0] !== structuredFormatLastSelf;
+  return withStructuredFormat(true, () => {
+    if (fields.length === 0) {
+      return name;
     } else {
-      fieldStr = fields.map((x: any) => toStringQuoted(x)).join(", ");
+      let fieldStr;
+      let withParens = true;
+      if (fields.length === 1) {
+        fieldStr = toStringQuoted(fields[0]);
+        withParens = fieldStr.indexOf(" ") >= 0 && fields[0] !== structuredFormatLastSelf;
+      } else {
+        fieldStr = fields.map((x: any) => toStringQuoted(x)).join(", ");
+      }
+      return name + (withParens ? " (" : " ") + fieldStr + (withParens ? ")" : "");
     }
-    return name + (withParens ? " (" : " ") + fieldStr + (withParens ? ")" : "");
-  }
+  });
 }
 
 export abstract class Union<Tag extends number, Name extends string> implements IEquatable<Union<Tag, Name>>, IComparable<Union<Tag, Name>> {
@@ -128,7 +148,7 @@ function recordToJSON<T>(self: T) {
 }
 
 function recordToString<T>(self: T) {
-  return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }";
+  return withStructuredFormat(true, () => "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }");
 }
 
 const structuredFormatPath: any[] = [];
@@ -144,7 +164,17 @@ function structuredFormatValue(value: any): string {
   if (typeof value === "string") {
     return value;
   }
-  return structuredFormatPath.length >= 3 ? "..." : toString(value);
+  return structuredFormatPath.length >= 3 ? "..." : toStructuredString(value);
+}
+
+function structuredFormatFallback(self: any): string {
+  if (self instanceof Record) {
+    return Record.prototype.toString.call(self);
+  }
+  if (self instanceof Union) {
+    return Union.prototype.toString.call(self);
+  }
+  return withStructuredFormat(false, () => toString(self));
 }
 
 export function structuredFormatDisplay(self: any, texts: string[], getValues: (() => any)[]): string {
@@ -157,9 +187,9 @@ export function structuredFormatDisplay(self: any, texts: string[], getValues: (
     let str = texts[0];
     let endsWithWord = false;
     for (let i = 0; i < getValues.length; i++) {
-      const value = getValues[i]();
+      const value = withStructuredFormat(false, getValues[i]);
       if (value == null) {
-        return Object.getPrototypeOf(Object.getPrototypeOf(self)).toString.call(self);
+        return structuredFormatFallback(self);
       }
       structuredFormatLastSelf = undefined;
       const text = structuredFormatValue(value);

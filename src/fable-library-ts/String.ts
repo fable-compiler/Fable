@@ -2,7 +2,7 @@ import { toString as dateToString } from "./Date.ts";
 import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
 import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
-import { toString } from "./Types.ts";
+import { toString, toStructuredString } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
 // Temporal date/time values (only present under --test:js-temporal) are not JS Dates. To avoid
@@ -267,6 +267,8 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     rep = formatDateLike(rep, undefined);
   } else if (format === "A" && typeof rep === "string") {
     rep = "\"" + rep + "\"";
+  } else if (format === "A") {
+    rep = toStructuredString(rep);
   } else if (format === "s" && rep == null) {
     rep = "";
   } else {

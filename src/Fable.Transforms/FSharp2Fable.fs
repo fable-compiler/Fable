@@ -2418,8 +2418,11 @@ let private warnDuplicateCompiledNames (com: FableCompiler) ctx (ent: FSharpEnti
 
 let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (fsEnt: FSharpEntity) =
     tryGetStructuredFormatDisplay com fsEnt
-    |> Option.bind tryParseStructuredFormat
-    |> Option.iter (fun (texts, props) ->
+    |> Option.bind (fun (format, memberName) ->
+        tryParseStructuredFormat format
+        |> Option.map (fun (texts, props) -> memberName, texts, props)
+    )
+    |> Option.iter (fun (memberName, texts, props) ->
         let entRef = FsEnt.Ref fsEnt
 
         let genArgs =
@@ -2471,11 +2474,11 @@ let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (f
             isMangled = false,
             memb =
                 {
-                    Name = "toString"
+                    Name = memberName
                     Args = [ thisArg ]
                     Body = body
                     IsMangled = false
-                    MemberRef = Fable.GeneratedMember.Function("toString", [], Fable.String, entRef = entRef)
+                    MemberRef = Fable.GeneratedMember.Function(memberName, [], Fable.String, entRef = entRef)
                     ImplementedSignatureRef = None
                     UsedNames = set ctx.UsedNamesInDeclarationScope
                     Tags = Fable.Tags.empty

@@ -3844,7 +3844,7 @@ module Util =
 
         let overridesToString () =
             fsEnt.MembersFunctionsAndValues
-            |> Seq.exists (fun m -> m.IsOverrideOrExplicitInterfaceImplementation && m.CompiledName = "ToString")
+            |> Seq.exists (fun m -> m.IsOverrideOrExplicitInterfaceImplementation && m.DisplayName = "ToString")
 
         let format =
             match
@@ -3857,13 +3857,18 @@ module Util =
                 | _ -> None
             | None -> None
 
+        let isRecordOrUnion = fsEnt.IsFSharpRecord || fsEnt.IsFSharpUnion
+
+        let isClassOrStruct =
+            (fsEnt.IsClass || fsEnt.IsValueType)
+            && not (fsEnt.IsEnum || fsEnt.IsMeasure || fsEnt.IsFSharpExceptionDeclaration)
+
         match com.Options.Language, format with
-        | (JavaScript | TypeScript), Some format when
-            (fsEnt.IsFSharpRecord || fsEnt.IsFSharpUnion)
-            && isClassBacked ()
-            && not (overridesToString ())
-            ->
-            Some format
+        | (JavaScript | TypeScript), Some format when (isRecordOrUnion || isClassOrStruct) && isClassBacked () ->
+            if isRecordOrUnion && not (overridesToString ()) then
+                Some(format, "toString")
+            else
+                Some(format, "toStructuredFormat")
         | _ -> None
 
     let private structuredFormatTypeName (fsEnt: FSharpEntity) (unionCase: FSharpUnionCase option) =
@@ -3910,14 +3915,17 @@ module Util =
             | _ -> prop.DisplayName
         | None -> prop.DisplayName
 
-    let private tryGetStructuredFormatMember
+    let rec private tryGetStructuredFormatMember
         (com: IFableCompiler)
         (ctx: Context)
         (fsEnt: FSharpEntity)
         thisExpr
         (name: string)
         =
-        match fsEnt.FSharpFields |> Seq.tryFind (fun f -> f.Name = name) with
+        match
+            fsEnt.FSharpFields
+            |> Seq.tryFind (fun f -> f.Name = name && (fsEnt.IsFSharpRecord || f.Accessibility.IsPublic))
+        with
         | Some field ->
             let fieldType = makeType ctx.GenericArgs field.FieldType
 
@@ -3926,23 +3934,30 @@ module Util =
 
             Fable.Get(thisExpr, kind, fieldType, None) |> Some
         | None ->
-            fsEnt.MembersFunctionsAndValues
-            |> Seq.tryFind (fun m ->
-                m.IsProperty
-                && m.IsInstanceMember
-                && m.HasGetterMethod
-                && structuredFormatPropertyName m = name
-                && m.GetterMethod.CurriedParameterGroups
-                   |> Seq.forall (fun group -> group.Count = 0)
-            )
-            |> Option.map (fun prop ->
+            let prop =
+                fsEnt.MembersFunctionsAndValues
+                |> Seq.tryFind (fun m ->
+                    m.IsProperty
+                    && m.IsInstanceMember
+                    && m.HasGetterMethod
+                    && structuredFormatPropertyName m = name
+                    && m.GetterMethod.CurriedParameterGroups
+                       |> Seq.forall (fun group -> group.Count = 0)
+                )
+
+            match prop with
+            | Some prop ->
                 match prop.GetterMethod with
                 | UnionCaseTesterFor unionCase ->
                     Fable.Test(thisExpr, Fable.UnionCaseTest(unionCaseTag com fsEnt unionCase), None)
+                    |> Some
                 | getter ->
                     let typ = makeType ctx.GenericArgs getter.ReturnParameter.Type
-                    makeCallFrom com ctx None typ [] (Some thisExpr) [] getter
-            )
+                    makeCallFrom com ctx None typ [] (Some thisExpr) [] getter |> Some
+            | None ->
+                fsEnt.BaseType
+                |> Option.bind tryDefinition
+                |> Option.bind (fun (baseEnt, _) -> tryGetStructuredFormatMember com ctx baseEnt thisExpr name)
 
     let getStructuredFormatValue
         (com: IFableCompiler)
