@@ -423,6 +423,18 @@ type Distinct1 =
     static member OfList(_elements: list<'K * 'V>) = ()
     static member OfList(_elements: list<struct ('K * 'V)>) = ()
 
+type DelegateOverloads =
+    static member Apply(f: int -> int, x: int) = f x
+    static member Apply(f: System.Func<int, int>, x: int) = f.Invoke x + 100
+    static member Apply(f: int -> int -> int, x: int) = f x x
+    static member Apply(f: System.Func<int, int, int>, x: int) = f.Invoke(x, x) + 100
+    static member Apply(f: System.Action<int>, x: int) =
+        f.Invoke x
+        x + 200
+
+let inline applyDelegateOverload< ^T, ^F when ^T: (static member Apply: ^F * int -> int)> (f: ^F) (x: int) =
+    (^T: (static member Apply: ^F * int -> int) (f, x))
+
 type InfoA = { Foo: string }
 
 type InfoB = { InfoA: InfoA; Bar: string }
@@ -1016,6 +1028,16 @@ let ``test Overloads work`` () =
     let t = Type5Test("")
     t.Overload(2) |> equal 4
     t.Overload(2, 3) |> equal 5
+
+[<Fact>]
+let ``test Overloads distinguished by function or delegate work`` () =
+    let inc: int -> int = fun x -> x + 1
+    let add: int -> int -> int = fun x y -> x + y
+    applyDelegateOverload<DelegateOverloads, int -> int> inc 1 |> equal 2
+    DelegateOverloads.Apply(System.Func<int, int>(fun x -> x + 1), 1) |> equal 102
+    applyDelegateOverload<DelegateOverloads, int -> int -> int> add 1 |> equal 2
+    DelegateOverloads.Apply(System.Func<int, int, int>(fun x y -> x + y), 1) |> equal 102
+    DelegateOverloads.Apply(System.Action<int>(ignore), 1) |> equal 201
 
 [<Fact>]
 let ``test Type abbreviation works`` () =

@@ -606,7 +606,28 @@ type IdHolder(id: Id) =
         member _.Id = id
         member _.GetId() = id
 
+type DelegateOverloads =
+    static member Apply(f: int -> int, x: int) = f x
+    static member Apply(f: System.Func<int, int>, x: int) = f.Invoke x + 100
+    static member Apply(f: int -> int -> int, x: int) = f x x
+    static member Apply(f: System.Func<int, int, int>, x: int) = f.Invoke(x, x) + 100
+    static member Apply(f: System.Action<int>, x: int) =
+        f.Invoke x
+        x + 200
+
+let inline applyDelegateOverload< ^T, ^F when ^T: (static member Apply: ^F * int -> int)> (f: ^F) (x: int) =
+    (^T: (static member Apply: ^F * int -> int) (f, x))
+
 let tests() =
+
+    testCase "Overloads distinguished by function or delegate work" <| fun () ->
+        let inc: int -> int = fun x -> x + 1
+        let add: int -> int -> int = fun x y -> x + y
+        applyDelegateOverload<DelegateOverloads, int -> int> inc 1 |> equal 2
+        DelegateOverloads.Apply(System.Func<int, int>(fun x -> x + 1), 1) |> equal 102
+        applyDelegateOverload<DelegateOverloads, int -> int -> int> add 1 |> equal 2
+        DelegateOverloads.Apply(System.Func<int, int, int>(fun x y -> x + y), 1) |> equal 102
+        DelegateOverloads.Apply(System.Action<int>(ignore), 1) |> equal 201
 
     testCase "Unit arguments work" <| fun () ->
         update () |> equal ((), ())

@@ -11,7 +11,9 @@ type Comparer<'T>(comparison: 'T -> 'T -> int) =
     static member get_Default<'V when 'V: comparison>() =
         Comparer<'V>(LanguagePrimitives.GenericComparison)
 
-    static member Create(comparison) = Comparer<'T>(comparison)
+    // Same overload suffix as System.Comparison<'T>, which is what callers of Comparer.Create pass
+    static member Create(comparison: System.Func<'T, 'T, int>) =
+        Comparer<'T>(fun x y -> comparison.Invoke(x, y))
 
     member _.Compare(x, y) = comparison x y
 
@@ -23,8 +25,8 @@ type EqualityComparer<'T>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
     static member get_Default<'V when 'V: equality>() =
         EqualityComparer<'V>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
 
-    static member Create(equals, getHashCode) =
-        EqualityComparer<'T>(equals, getHashCode)
+    static member Create(equals: System.Func<'T, 'T, bool>, getHashCode: System.Func<'T, int>) =
+        EqualityComparer<'T>((fun x y -> equals.Invoke(x, y)), (fun x -> getHashCode.Invoke x))
 
     member _.Equals(x, y) = equals x y
     member _.GetHashCode(x) = getHashCode x

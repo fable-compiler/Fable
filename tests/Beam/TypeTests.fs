@@ -9,6 +9,18 @@ type Type5Test(greeting: string) =
     member _.Overload(x: int) = x + x
     member _.Overload(x: int, y: int) = x + y
 
+type DelegateOverloads =
+    static member Apply(f: int -> int, x: int) = f x
+    static member Apply(f: System.Func<int, int>, x: int) = f.Invoke x + 100
+    static member Apply(f: int -> int -> int, x: int) = f x x
+    static member Apply(f: System.Func<int, int, int>, x: int) = f.Invoke(x, x) + 100
+    static member Apply(f: System.Action<int>, x: int) =
+        f.Invoke x
+        x + 200
+
+let inline applyDelegateOverload< ^T, ^F when ^T: (static member Apply: ^F * int -> int)> (f: ^F) (x: int) =
+    (^T: (static member Apply: ^F * int -> int) (f, x))
+
 type Type6Test(x: int) =
     let mutable i = x
     member _.Value2 = i + i
@@ -149,6 +161,16 @@ type ST4 = SimpleType4
 let ``test class constructor and property getter work`` () =
     let t = Type5Test("hello")
     equal "hello" t.Value
+
+[<Fact>]
+let ``test overloads distinguished by function or delegate work`` () =
+    let inc: int -> int = fun x -> x + 1
+    let add: int -> int -> int = fun x y -> x + y
+    applyDelegateOverload<DelegateOverloads, int -> int> inc 1 |> equal 2
+    DelegateOverloads.Apply(System.Func<int, int>(fun x -> x + 1), 1) |> equal 102
+    applyDelegateOverload<DelegateOverloads, int -> int -> int> add 1 |> equal 2
+    DelegateOverloads.Apply(System.Func<int, int, int>(fun x y -> x + y), 1) |> equal 102
+    DelegateOverloads.Apply(System.Action<int>(ignore), 1) |> equal 201
 
 [<Fact>]
 let ``test class method overload with one arg works`` () =
