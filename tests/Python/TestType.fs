@@ -2061,6 +2061,19 @@ type ValClassSelfChild =
     val mutable Extra: float
     new (id: int, extra: float) as this = { inherit ValClassBase(id); Extra = extra } then this.Extra <- this.Extra + float this.Id
 
+[<AllowNullLiteral>]
+type ValClassSequenceSelf =
+    val Next: ValClassSequenceSelf
+    val Id: int
+    new (id: int) = { Next = null; Id = id }
+    new (a: int, b: int, c: int) as self = { Next = (ValClassSequenceSelf(a); ValClassSequenceSelf(b)); Id = c } then self.Next.Id |> ignore
+
+type ValClassSequenceSelfChild =
+    inherit ValClassSequenceSelf
+    val Tail: ValClassSequenceSelf
+    val mutable Count: int
+    new (a: int, b: int) as self = { inherit ValClassSequenceSelf(1); Tail = (ValClassSequenceSelf(a); ValClassSequenceSelf(b)); Count = 0 } then self.Count <- self.Tail.Id
+
 type ValClassOutOfOrder =
     inherit ValClassBase
     val Z: int
@@ -2072,6 +2085,13 @@ type ValClassOutOfOrderSelf =
     val Z: int
     val mutable W: int
     new (id: int) as self = { inherit ValClassBase(id); W = 2; Z = 3 } then self.W <- self.W + self.Z + self.Id
+
+[<Fact>]
+let ``test explicit constructor keeps sequences of base constructor calls in field values`` () =
+    let c = ValClassSequenceSelf(5, 6, 7)
+    (c.Next.Id, c.Id) |> equal (6, 7)
+    let d = ValClassSequenceSelfChild(5, 6)
+    (d.Tail.Id, d.Count, d.Id) |> equal (6, 6, 1)
 
 [<Fact>]
 let ``test explicit constructor with a base keeps out of order fields`` () =

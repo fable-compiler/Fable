@@ -948,6 +948,13 @@ let private constructorLeaksSelf (com: IFableCompiler) (cons: FSharpMemberOrFunc
 
     existsInConstructorChain com [] (leaksSelf false) cons
 
+let rec private createsRecord (e: FSharpExpr) =
+    match e with
+    | FSharpExprPatterns.NewRecord _ -> true
+    | FSharpExprPatterns.Let(_, body) -> createsRecord body
+    | FSharpExprPatterns.Sequential(first, _) -> createsRecord first
+    | _ -> false
+
 // A base call that reaches the general sequence case is dropped, so neither side can use self
 let private checkDroppedBaseCall (com: IFableCompiler) (ctx: Context) (first: FSharpExpr) (second: FSharpExpr) =
     match first, ctx.CaptureBaseConsCall, ctx.EnclosingMember with
@@ -960,6 +967,7 @@ let private checkDroppedBaseCall (com: IFableCompiler) (ctx: Context) (first: FS
             | Some(baseEnt, _), Some callee -> callee = baseEnt
             | _ -> false
         )
+        && createsRecord second
         ->
         let r = makeRangeFrom first
 
