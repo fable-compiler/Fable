@@ -221,6 +221,65 @@ type DisplayHolder =
 [<StructuredFormatDisplay("{V}")>]
 type DisplayGeneric<'T> = { V: 'T }
 
+type DisplayBaseGeneric<'T>(v: 'T) =
+    member _.V = v
+    member inline this.Inl = [ this.V ]
+
+[<StructuredFormatDisplay("{V}/{Inl}")>]
+type DisplayDerivedClosed() =
+    inherit DisplayBaseGeneric<int>(1)
+
+[<StructuredFormatDisplay("Disp")>]
+type DisplayMoney() =
+    override _.ToString() = "tostr"
+
+type DisplayInvoice() =
+    override _.ToString() = "Invoice " + string (DisplayMoney())
+
+type DisplayInvoiceFormat() =
+    override _.ToString() = sprintf "%O" (DisplayMoney())
+
+type DisplayInvoiceToString() =
+    override _.ToString() = (DisplayMoney()).ToString()
+
+type DisplayInvoiceHolder = { H: DisplayInvoice }
+
+type DisplayInvoiceUnion = DisplayInvoiceHeld of DisplayInvoiceFormat
+
+[<StructuredFormatDisplay("{IV}")>]
+type DisplayInvoiceValue = { IV: DisplayInvoice }
+
+[<StructuredFormatDisplay("{S}")>]
+type DisplayGetterSprintf(deep: obj) =
+    member _.S = sprintf "%A" deep
+
+type DisplayToStringSprintf(deep: obj) =
+    override _.ToString() = sprintf "%A" deep
+
+[<StructuredFormatDisplay("{K}>{N}")>]
+type DisplayRevisit =
+    { K: string; mutable Next: DisplayRevisit option }
+    member this.N =
+        match this.Next with
+        | Some next -> sprintf "%A" next
+        | None -> "end"
+
+type DisplayBackHolder = { mutable Back: obj }
+
+[<StructuredFormatDisplay("{TH}")>]
+type DisplayThroughRecord = { TH: DisplayBackHolder }
+
+[<StructuredFormatDisplay("{R}")>]
+type DisplayFormattable =
+    { R: int }
+    interface System.IFormattable with
+        member _.ToString(_, _) = "fmt"
+
+[<StructuredFormatDisplay("{Self}{Self}z")>]
+type DisplaySelfTrailing =
+    { A: int }
+    member this.Self = this
+
 [<StructuredFormatDisplay("over {X}")>]
 type DisplayOverride =
     { X: int }
@@ -445,6 +504,50 @@ let tests = testList "StructuredFormatDisplay" [
         sprintf "%A" [ DisplayHolderOne { A = 1 } ] |> equal "[DisplayHolderOne 1 1]"
         sprintf "%A" (DisplayHolderTwo(DisplayFixedText, 1)) |> equal "DisplayHolderTwo (disp u, 1)"
 
+    testCase "StructuredFormatDisplay leaves user ToString bodies in normal mode" <| fun () ->
+        sprintf "%A" (DisplayInvoice()) |> equal "Invoice tostr"
+        sprintf "%A" [ DisplayInvoice() ] |> equal "[Invoice tostr]"
+        sprintf "%A" (DisplayInvoiceFormat()) |> equal "tostr"
+        sprintf "%A" (DisplayInvoiceToString()) |> equal "tostr"
+        string (DisplayInvoice()) |> equal "Invoice tostr"
+        string { H = DisplayInvoice() } |> equal "{ H = Invoice tostr }"
+        sprintf "%A" { H = DisplayInvoice() } |> equal "{ H = Invoice tostr }"
+        string (DisplayInvoiceHeld(DisplayInvoiceFormat())) |> equal "DisplayInvoiceHeld tostr"
+        sprintf "%A" (DisplayMoney()) |> equal "Disp"
+        string (DisplayMoney()) |> equal "tostr"
+        sprintf "%A" { IV = DisplayInvoice() } |> equal "Invoice tostr"
+
+    testCase "StructuredFormatDisplay starts fresh for nested formatting" <| fun () ->
+        let deep: DisplayDepth2 = { C = { D = { S = "s" } } }
+        sprintf "%A" (DisplayGetterSprintf(box deep)) |> equal "BCDs"
+        sprintf "%A" { V = DisplayToStringSprintf(box deep) } |> equal "BCDs"
+        let a = { K = "a"; Next = None }
+        let b = { K = "b"; Next = Some a }
+        a.Next <- Some b
+        b.Next <- None
+        sprintf "%A" a |> equal "a>b>end"
+
+    testCase "StructuredFormatDisplay keeps the cycle check through library printers" <| fun () ->
+        let holder = { Back = null }
+        let value: DisplayThroughRecord = { TH = holder }
+        holder.Back <- box value
+        sprintf "%A" value |> equal "{ Back = ... }"
+        sprintf "%A" value |> equal "{ Back = ... }"
+
+    testCase "StructuredFormatDisplay treats IFormattable as not overriding ToString" <| fun () ->
+        let v: DisplayFormattable = { R = 1 }
+        sprintf "%A" v |> equal "1"
+        v.ToString() |> equal "1"
+        sprintf "%O" v |> equal "1"
+
+    testCase "StructuredFormatDisplay keeps the separator state between calls" <| fun () ->
+        let v: DisplaySelfTrailing = { A = 1 }
+        sprintf "%A" v |> equal "... ...z"
+        sprintf "%A" v |> equal "... ...z"
+
+    testCase "StructuredFormatDisplay spaces around an empty nested string" <| fun () ->
+        sprintf "%A" { L = 1; R = ({ S = "" }: DisplayEndsWithString) } |> equal "1 "
+
     testCase "StructuredFormatDisplay prints dates like %A" <| fun () ->
         let date = System.DateTime(2020, 1, 2, 3, 4, 5)
         let time = System.TimeSpan.FromSeconds 1.0
@@ -504,4 +607,5 @@ let tests = testList "StructuredFormatDisplay" [
         sprintf "%A" (DisplayClassImpl()) |> equal "abs 9"
         sprintf "%A" (DisplayClassMissing()) |> equal (notFound "DisplayClassMissing.Missing")
         sprintf "%A" (DisplayClassGeneric 1) |> equal "g 1"
+        sprintf "%A" (DisplayDerivedClosed()) |> equal "1/[1]"
 ]

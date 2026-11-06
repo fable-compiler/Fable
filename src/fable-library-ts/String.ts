@@ -5,11 +5,12 @@ import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$cto
 import {
   Record,
   Union,
+  runStructuredFormatUserCode,
   setStructuredFormatLast,
   structuredFormatEndsWithWord,
+  structuredFormatPath,
   toString,
   toStructuredString,
-  withStructuredFormat,
 } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
@@ -26,8 +27,6 @@ function isNetDateFormattable(rep: any): boolean {
 function formatDateLike(rep: any, format: string | undefined): string {
   return rep instanceof Date ? dateToString(rep, format) : rep[dateTimeFormattableSymbol](format);
 }
-
-const structuredFormatPath: any[] = [];
 
 class StructuredFormatNotFound extends Error {}
 
@@ -55,7 +54,7 @@ function structuredFormatFallback(self: any): string {
   if (self instanceof Union) {
     return Union.prototype.toString.call(self);
   }
-  return withStructuredFormat(false, () => toString(self));
+  return runStructuredFormatUserCode(() => toString(self));
 }
 
 export function structuredFormatDisplay(self: any, texts: string[], getValues: (() => any)[]): string {
@@ -68,7 +67,7 @@ export function structuredFormatDisplay(self: any, texts: string[], getValues: (
     let str = texts[0];
     let endsWithWord = false;
     for (let i = 0; i < getValues.length; i++) {
-      const value = withStructuredFormat(false, getValues[i]);
+      const value = runStructuredFormatUserCode(getValues[i]);
       if (value == null) {
         return structuredFormatFallback(self);
       }
@@ -78,7 +77,7 @@ export function structuredFormatDisplay(self: any, texts: string[], getValues: (
         endsWithWord = false;
       }
       if (typeof value !== "string") {
-        if (endsWithWord && text !== "") {
+        if (endsWithWord) {
           str += " ";
         }
         endsWithWord = structuredFormatEndsWithWord(value);

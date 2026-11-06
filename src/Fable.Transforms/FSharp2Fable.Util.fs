@@ -3844,7 +3844,12 @@ module Util =
 
         let overridesToString () =
             fsEnt.MembersFunctionsAndValues
-            |> Seq.exists (fun m -> m.IsOverrideOrExplicitInterfaceImplementation && m.DisplayName = "ToString")
+            |> Seq.exists (fun m ->
+                m.IsOverrideOrExplicitInterfaceImplementation
+                && m.DisplayName = "ToString"
+                && m.ImplementedAbstractSignatures
+                   |> Seq.exists (fun s -> getFsTypeFullName s.DeclaringType <> "System.IFormattable")
+            )
 
         let format =
             match
@@ -3865,10 +3870,7 @@ module Util =
 
         match com.Options.Language, format with
         | (JavaScript | TypeScript), Some format when (isRecordOrUnion || isClassOrStruct) && isClassBacked () ->
-            if isRecordOrUnion && not (overridesToString ()) then
-                Some(format, "toString")
-            else
-                Some(format, "toStructuredFormat")
+            Some(format, isRecordOrUnion && not (overridesToString ()))
         | _ -> None
 
     let private structuredFormatTypeName (fsEnt: FSharpEntity) (unionCase: FSharpUnionCase option) =
@@ -3953,11 +3955,34 @@ module Util =
                     |> Some
                 | getter ->
                     let typ = makeType ctx.GenericArgs getter.ReturnParameter.Type
-                    makeCallFrom com ctx None typ [] (Some thisExpr) [] getter |> Some
+
+                    let genArgs =
+                        fsEnt.GenericParameters
+                        |> Seq.map (fun p ->
+                            let paramName = genParamName p
+
+                            match Map.tryFind paramName ctx.GenericArgs with
+                            | Some genArg -> genArg
+                            | None -> Fable.GenericParam(paramName, p.IsMeasure, [])
+                        )
+                        |> List.ofSeq
+
+                    makeCallFrom com ctx None typ genArgs (Some thisExpr) [] getter |> Some
             | None ->
                 fsEnt.BaseType
-                |> Option.bind tryDefinition
-                |> Option.bind (fun (baseEnt, _) -> tryGetStructuredFormatMember com ctx baseEnt thisExpr name)
+                |> Option.map nonAbbreviatedType
+                |> Option.filter (fun baseType -> baseType.HasTypeDefinition)
+                |> Option.bind (fun baseType ->
+                    let baseEnt = baseType.TypeDefinition
+
+                    let baseGenArgs =
+                        Seq.zip baseEnt.GenericParameters baseType.GenericArguments
+                        |> Seq.map (fun (p, genArg) -> genParamName p, makeType ctx.GenericArgs genArg)
+                        |> Map.ofSeq
+
+                    let baseCtx = { ctx with GenericArgs = baseGenArgs }
+                    tryGetStructuredFormatMember com baseCtx baseEnt thisExpr name
+                )
 
     let getStructuredFormatValue
         (com: IFableCompiler)

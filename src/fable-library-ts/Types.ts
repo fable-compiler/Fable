@@ -29,15 +29,33 @@ function toStringQuoted(x: any, callStack = 0): string {
 }
 
 let structuredFormatActive = false;
+export let structuredFormatPath: any[] = [];
 
-export function withStructuredFormat<T>(active: boolean, f: () => T): T {
+function withStructuredFormat<T>(active: boolean, f: () => T): T {
   const previous = structuredFormatActive;
   structuredFormatActive = active;
   try {
     return f();
   } finally {
     structuredFormatActive = previous;
+    if (!previous && structuredFormatPath.length === 0) {
+      structuredFormatLastSelf = undefined;
+    }
   }
+}
+
+export function runStructuredFormatUserCode<T>(f: () => T): T {
+  const previousPath = structuredFormatPath;
+  structuredFormatPath = [];
+  try {
+    return withStructuredFormat(false, f);
+  } finally {
+    structuredFormatPath = previousPath;
+  }
+}
+
+function hasLibraryToString(x: any) {
+  return Symbol.iterator in x || x.toString === Record.prototype.toString || x.toString === Union.prototype.toString;
 }
 
 export function toStructuredString(x: any): string {
@@ -46,10 +64,12 @@ export function toStructuredString(x: any): string {
 
 export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
-    if (structuredFormatActive && typeof x.toStructuredFormat === "function") {
-      return x.toStructuredFormat();
+    if (structuredFormatActive && typeof x.$toStructuredFormat === "function") {
+      return x.$toStructuredFormat();
     } else if (typeof x.toString === "function" && x.toString !== Object.prototype.toString) {
-      return x.toString();
+      return structuredFormatActive && !hasLibraryToString(x)
+        ? runStructuredFormatUserCode(() => x.toString())
+        : x.toString();
     } else if (Symbol.iterator in x) {
       return seqToString(x);
     } else { // TODO: Date?
@@ -71,7 +91,7 @@ let structuredFormatLastSelf: any;
 let structuredFormatLastEndsWithWord = true;
 
 export function setStructuredFormatLast(self: any, endsWithWord: boolean) {
-  structuredFormatLastSelf = self;
+  structuredFormatLastSelf = structuredFormatActive || structuredFormatPath.length > 0 ? self : undefined;
   structuredFormatLastEndsWithWord = endsWithWord;
 }
 

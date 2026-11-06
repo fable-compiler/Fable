@@ -2418,11 +2418,11 @@ let private warnDuplicateCompiledNames (com: FableCompiler) ctx (ent: FSharpEnti
 
 let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (fsEnt: FSharpEntity) =
     tryGetStructuredFormatDisplay com fsEnt
-    |> Option.bind (fun (format, memberName) ->
+    |> Option.bind (fun (format, attachToString) ->
         tryParseStructuredFormat format
-        |> Option.map (fun (texts, props) -> memberName, texts, props)
+        |> Option.map (fun (texts, props) -> attachToString, texts, props)
     )
-    |> Option.iter (fun (memberName, texts, props) ->
+    |> Option.iter (fun (attachToString, texts, props) ->
         let entRef = FsEnt.Ref fsEnt
 
         let genArgs =
@@ -2469,22 +2469,28 @@ let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (f
                 ]
             )
 
-        com.AddAttachedMember(
-            fsEnt.FullName,
-            isMangled = false,
-            memb =
-                {
-                    Name = memberName
-                    Args = [ thisArg ]
-                    Body = body
-                    IsMangled = false
-                    MemberRef = Fable.GeneratedMember.Function(memberName, [], Fable.String, entRef = entRef)
-                    ImplementedSignatureRef = None
-                    UsedNames = set ctx.UsedNamesInDeclarationScope
-                    Tags = Fable.Tags.empty
-                    XmlDoc = None
-                }
-        )
+        let attachMember memberName =
+            com.AddAttachedMember(
+                fsEnt.FullName,
+                isMangled = false,
+                memb =
+                    {
+                        Name = memberName
+                        Args = [ thisArg ]
+                        Body = body
+                        IsMangled = false
+                        MemberRef = Fable.GeneratedMember.Function(memberName, [], Fable.String, entRef = entRef)
+                        ImplementedSignatureRef = None
+                        UsedNames = set ctx.UsedNamesInDeclarationScope
+                        Tags = Fable.Tags.empty
+                        XmlDoc = None
+                    }
+            )
+
+        attachMember "$toStructuredFormat"
+
+        if attachToString then
+            attachMember "toString"
     )
 
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
