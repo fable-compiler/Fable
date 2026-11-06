@@ -956,6 +956,27 @@ type Derived =
       |> Assert.Exists.errorWith "uses its self identifier"
       |> ignore
 
+    testCase "Explicit constructor calling a base constructor that chains to self behind let rec results in error" <| fun _ ->
+      let source =
+        """
+let reg = ResizeArray<obj>()
+
+type Base =
+    val N: int
+    new (n: int) as self = { N = n } then reg.Add(box self)
+    new () =
+        let rec f x = if x > 0 then f (x - 1) else 1
+        Base(f 1)
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses its self identifier"
+      |> ignore
+
     testCase "Explicit constructor with out of order fields passing self on from its base results in error" <| fun _ ->
       let source =
         """

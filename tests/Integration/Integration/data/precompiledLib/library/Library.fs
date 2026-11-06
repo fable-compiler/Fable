@@ -22,3 +22,8 @@ type Shape =
 
 /// Regression shape: F# 9 union case testers, which the F# compiler emits as IL helpers
 let circles (shapes: Shape list) = shapes |> List.filter (fun shape -> shape.IsCircle)
+
+/// Regression shape: a class without a self identifier stays inheritable when its constructor body is precompiled
+type PlainVal =
+    val N: int
+    new (n: int) = { N = n }

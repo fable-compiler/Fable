@@ -870,7 +870,12 @@ let private tryFindConstructorBody (com: IFableCompiler) (cons: FSharpMemberOrFu
         with _ ->
             []
 
-    tryFindBody decls
+    let body = tryFindBody decls
+
+    if body.IsSome then
+        com.AddWatchDependency(Path.normalizePathAndEnsureFsExtension consLocation.FileName)
+
+    body
 
 // The constructors this one chains to (`new() = C(1) then ...`) run first, on the same object
 let rec private chainedConstructors (cons: FSharpMemberOrFunctionOrValue) (e: FSharpExpr) =
@@ -879,7 +884,8 @@ let rec private chainedConstructors (cons: FSharpMemberOrFunctionOrValue) (e: FS
         && cons.DeclaringEntity |> Option.exists (fun ent -> ent = e.Type.TypeDefinition)
 
     match e with
-    | FSharpExprPatterns.Let(_, body) -> chainedConstructors cons body
+    | FSharpExprPatterns.Let(_, body)
+    | FSharpExprPatterns.LetRec(_, body) -> chainedConstructors cons body
     | FSharpExprPatterns.Sequential(first, _) when isCreated first -> chainedConstructors cons first
     | FSharpExprPatterns.Sequential(_, second) -> chainedConstructors cons second
     | FSharpExprPatterns.IfThenElse(_, thenExpr, elseExpr) ->
@@ -894,14 +900,19 @@ let rec private existsInConstructorChain com visited test (cons: FSharpMemberOrF
         cons.DeclaringEntity
         |> Option.exists (fun ent -> (FsEnt.Ref ent).SourcePath.IsSome)
 
+    // Precompiled libraries keep the `init@` field of a class with a self identifier, but not the constructor body
+    let mayUseSelf () =
+        cons.DeclaringEntity
+        |> Option.exists (fun ent -> ent.FSharpFields |> Seq.exists (fun field -> field.Name.StartsWith("init@")))
+
     hasSource
     && not (List.contains (implementationLocation cons) visited)
-    && tryFindConstructorBody com cons
-       |> Option.exists (fun body ->
+    && match tryFindConstructorBody com cons with
+       | Some body ->
            test body
            || chainedConstructors cons body
               |> List.exists (existsInConstructorChain com (implementationLocation cons :: visited) test)
-       )
+       | None -> mayUseSelf ()
 
 let rec private loadsSelf (e: FSharpExpr) =
     match e with

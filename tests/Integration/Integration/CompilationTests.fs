@@ -56,6 +56,43 @@ let private checkBrowserInlineExprs (precompiledDir: string) =
                         (Fable.BrowserInlineExprs.toString [| name, fromCompact |])
                         $"%s{name} differs between the two copies"
 
+let private precompiledSelfBaseTest =
+    testCaseAsync
+        "Inheriting a precompiled constructor with a self identifier is an error"
+        (async {
+            let testCaseDir = Path.Combine(__SOURCE_DIRECTORY__, "precompiledErrors", "selfBase")
+            let libraryProject = Path.Combine(testCaseDir, "library", "library.fsproj")
+            let project = Path.Combine(testCaseDir, "selfBase.fsproj")
+            let tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+            let precompiledDir = Path.Combine(tempDir, "precompiled")
+
+            try
+                let precompileExitCode =
+                    Fable.Cli.Entry.main [| "precompile"; libraryProject; "--outDir"; precompiledDir; "--noCache" |]
+
+                Expect.equal precompileExitCode 0 "Expected precompile exit code to be 0"
+
+                let exitCode =
+                    Fable.Cli.Entry.main
+                        [|
+                            project
+                            "--cwd"
+                            testCaseDir
+                            "--outDir"
+                            Path.Combine(tempDir, "out")
+                            "--exclude"
+                            "Fable.Core"
+                            "--noCache"
+                            "--precompiledLib"
+                            precompiledDir
+                        |]
+
+                Expect.notEqual exitCode 0 "Expected the compilation to fail"
+            finally
+                if Directory.Exists tempDir then
+                    Directory.Delete(tempDir, true)
+        })
+
 let tests =
     Directory.EnumerateDirectories(data)
     |> Seq.map (fun testCaseDir -> //
@@ -129,4 +166,5 @@ let tests =
             }))
 
     |> Seq.toList
+    |> List.append [ precompiledSelfBaseTest ]
     |> testList "Compilation"
