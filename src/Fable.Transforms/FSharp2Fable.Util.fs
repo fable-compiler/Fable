@@ -2395,6 +2395,24 @@ module Util =
             | _ -> false
         )
 
+    let tryUnboundErasedConstructorEntity (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
+        let isCalledFromOwnConstructor (ent: FSharpEntity) =
+            match ctx.EnclosingMember with
+            | Some enclosing -> enclosing.IsConstructor && enclosing.DeclaringEntity = Some ent
+            | None -> false
+
+        memb.DeclaringEntity
+        |> Option.filter (fun ent ->
+            memb.IsConstructor
+            && isErasedOrStringEnumFSharpEntity ent
+            && not (
+                isEmittedOrImportedMember memb
+                || isGlobalOrImportedFSharpEntity ent
+                || isInline memb
+                || isCalledFromOwnConstructor ent
+            )
+        )
+
     let private isFromDllNotPrecompiled (ent: Fable.EntityRef) =
         match ent.Path with
         | Fable.AssemblyPath _

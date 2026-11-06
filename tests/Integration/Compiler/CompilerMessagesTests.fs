@@ -866,4 +866,184 @@ let one = AuthState.One "a"
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "Calling the constructor of an erased class emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased(a: int) =
+    member _.A = a
+
+let value = Erased(1)
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cannot call the constructor of erased type Erased"
+      |> ignore
+
+    testCase "Calling an additional constructor of an erased class emits error" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased(a: int) =
+    new() = Erased(1)
+    member _.A = a
+
+let value = Erased()
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cannot call the constructor of erased type Erased"
+      |> ignore
+
+    testCase "Erased class with an unused additional constructor compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased(a: int) =
+    new() = Erased(1)
+    member _.A = a
+
+let read (e: Erased) = e.A
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Class inheriting an erased class compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased(a: int) =
+    member _.A = a
+
+type Derived() =
+    inherit Erased(1)
+
+let value = Derived()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Object expression over an erased class compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased(a: int) =
+    member _.A = a
+
+let value = { new Erased(1) with member _.ToString() = "value" }
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Erased class with an Emit constructor compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased [<Emit("new Foo($0)")>] (a: int) =
+    member _.A = a
+
+let value = Erased(1)
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased class with an imported constructor compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased [<ImportMember("./foo.js")>] (a: int) =
+    member _.A = a
+
+let value = Erased(1)
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased class with Global attribute compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase; Global("Foo")>]
+type Erased(a: int) =
+    member _.A = a
+
+let value = Erased(1)
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased class with only static members compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Erased =
+    static member Value = 1
+
+let value = Erased.Value
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased attribute class used as an attribute compiles" <| fun _ ->
+      let source =
+        """
+open System
+open Fable.Core
+
+[<Erase>]
+type MarkerAttribute(name: string) =
+    inherit Attribute()
+
+[<Marker("a")>]
+type Marked() =
+    member _.A = 1
+
+let value = Marked().A
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased union with a member compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type ErasedUnion =
+    | ErasedInt of int
+    | ErasedString of string
+    member this.IsInt =
+        match this with
+        | ErasedInt _ -> true
+        | ErasedString _ -> false
+
+let value = (ErasedInt 1).IsInt
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
   ]
