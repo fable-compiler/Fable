@@ -2057,6 +2057,13 @@ type ValClassSelfOutOfOrder =
     val mutable W: int
     new () as self = { W = 2; Z = 3 } then self.W <- self.W + self.Z
 
+let valClassSelfSaved = ResizeArray<obj>()
+
+type ValClassSelfSaved =
+    val Id: int
+    new (id: int) as self = { Id = id } then valClassSelfSaved.Add(box self)
+    new () as self = ValClassSelfSaved(1) then valClassSelfSaved.Add(box self)
+
 type SelfPrimaryBase(x: int) as this =
     let mutable touched = 0
     do this.Touch()
@@ -2100,3 +2107,13 @@ let ``test primary constructor with a self identifier works with a secondary con
     (a.X, a.Touched) |> equal (1, 1)
     let b = SelfPrimaryChild()
     (b.X, b.Touched) |> equal (2, 1)
+
+[<Fact>]
+let ``test explicit constructor self identifier is the created object`` () =
+    valClassSelfSaved.Clear()
+    let a = ValClassSelfSaved(5)
+    obj.ReferenceEquals(valClassSelfSaved.[0], a) |> equal true
+    let b = ValClassSelfSaved()
+    valClassSelfSaved.Count |> equal 3
+    obj.ReferenceEquals(valClassSelfSaved.[1], b) |> equal true
+    obj.ReferenceEquals(valClassSelfSaved.[2], b) |> equal true
