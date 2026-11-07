@@ -510,6 +510,10 @@ type GenericNestedDelegateOverloads<'T> =
     static member C(f: System.Func<'T, 'T> -> 'T, x: 'T) = f (System.Func<'T, 'T>(id))
     static member C(f: System.Func<'T, 'T, 'T>, x: 'T) = f.Invoke(x, x)
 
+type ConstrainedDelegateOverloads =
+    static member N<'U when 'U: comparison and 'U: null>(f: System.Func<'U, int>) = "one"
+    static member N<'A, 'B when 'A: comparison and 'B: null>(f: System.Func<'A, 'B, int>) = "two"
+
 let inline applyDelegateOverload< ^T, ^F when ^T: (static member Apply: ^F * int -> int)> (f: ^F) (x: int) =
     (^T: (static member Apply: ^F * int -> int) (f, x))
 
@@ -1254,6 +1258,10 @@ let tests =
         let fnG: System.Func<int, int> -> int = fun g -> g.Invoke 5
         GenericNestedDelegateOverloads<int>.C(fnG, 1) |> equal 5
         GenericNestedDelegateOverloads<int>.C(System.Func<int, int, int>(fun x y -> x + y), 4) |> equal 8
+
+    testCase "Overloads distinguished by constrained delegate generics work" <| fun () ->
+        ConstrainedDelegateOverloads.N(System.Func<string, int>(fun _ -> 1)) |> equal "one"
+        ConstrainedDelegateOverloads.N(System.Func<int, string, int>(fun x _ -> x)) |> equal "two"
 
     testCase "Type abbreviation works" <| fun () ->
         let t = T4()
