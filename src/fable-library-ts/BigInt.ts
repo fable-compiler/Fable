@@ -2,7 +2,8 @@ import { FSharpRef } from "./Types.ts";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
 import { decimal, fromParts, truncate } from "./Decimal.ts";
 import { Exception, bigintHash } from "./Util.ts";
-import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentException_$ctor_Z721C83C5, ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
+import { NumberStyles, splitNumber, trimEndChars } from "./NumberStyles.ts";
 
 const isBigEndian = false;
 
@@ -21,6 +22,11 @@ const zero: bigint = 0n;
 const one: bigint = 1n;
 const two: bigint = 2n;
 const minusOne: bigint = -1n;
+
+const allNumberStyles = 0x7ff;
+
+// V8 caps a BigInt at 2^30 bits and 10^323228497 is the first power of ten above that
+const maxDecimalScale = 323228496;
 
 export function isBigInt(x: any): boolean {
     return typeof x === "bigint";
@@ -196,27 +202,89 @@ export function toChar(x: bigint): string {
 
 export function toString(x: bigint): string { return x.toString(); }
 
-// .NET's Integer style: white space, a sign and decimal digits, then NULs
-const integerRegex = /^[\t-\r ]*([+-]?\d+)[\t-\r ]*\0*$/;
-
-export function tryParse(s: string, res: FSharpRef<bigint>): boolean {
-    const m = s == null ? null : integerRegex.exec(s);
-    if (m != null) {
-        res.contents = BigInt(m[1]);
-        return true;
+function checkStyle(style: int32): void {
+    if (style & ~allNumberStyles) {
+        throw ArgumentException_$ctor_Z721C83C5("An undefined NumberStyles value is being used.");
     }
-    return false;
+    if (style & NumberStyles.AllowHexSpecifier && style & ~NumberStyles.HexNumber) {
+        throw ArgumentException_$ctor_Z721C83C5("With the AllowHexSpecifier bit set in the enum bit field, the only other valid bits that can be combined into the enum value must be a subset of those in HexNumber.");
+    }
 }
 
-export function parse(s: string): bigint {
-    const res = new FSharpRef(zero);
-    if (tryParse(s, res)) {
-        return res.contents;
-    } else if (s == null) {
+function matchDigits(s: string, style: int32, digit: string): string | undefined {
+    const leadingWhite = style & NumberStyles.AllowLeadingWhite ? "[\\t-\\r ]*" : "";
+    const trailingWhite = style & NumberStyles.AllowTrailingWhite ? "[\\t-\\r ]*" : "";
+    return new RegExp(`^${leadingWhite}(${digit}+)\\0*${trailingWhite}$`).exec(s)?.[1];
+}
+
+// .NET reads hex digits as two's complement at their written width, so a leading 8-F is negative
+function parseHex(s: string, style: int32): bigint | undefined {
+    const digits = matchDigits(s, style, "[0-9a-fA-F]");
+    return digits === undefined ? undefined : BigInt.asIntN(digits.length * 4, BigInt(`0x${digits}`));
+}
+
+// .NET reads binary digits as two's complement at their written width, so a leading 1 is negative
+function parseBinary(s: string, style: int32): bigint | undefined {
+    const digits = matchDigits(s, style, "[01]");
+    return digits === undefined ? undefined : BigInt.asIntN(digits.length, BigInt(`0b${digits}`));
+}
+
+function parseDecimal(s: string, style: int32): bigint | undefined {
+    const parts = splitNumber(s, style);
+    const match = parts && /^(\d*)\.?(\d*)(?:[eE]([+-]?\d+))?$/.exec(parts.digits);
+    if (!parts || !match) {
+        return undefined;
+    }
+    const [, integral, fraction, exponent] = match;
+    const significant = trimEndChars(integral + fraction, "0");
+    if (significant === "") {
+        return zero;
+    }
+    const scale = Number(exponent ?? 0) + integral.length - significant.length;
+    if (scale < 0) {
+        return undefined;
+    }
+    if (scale > maxDecimalScale) {
+        throw OverflowException_$ctor_Z721C83C5("The value could not be parsed.");
+    }
+    let magnitude: bigint;
+    try {
+        magnitude = BigInt(significant) * 10n ** BigInt(scale);
+    } catch {
+        throw OverflowException_$ctor_Z721C83C5("The value could not be parsed.");
+    }
+    return parts.negative ? -magnitude : magnitude;
+}
+
+function parseWithStyle(s: string, style: int32): bigint | undefined {
+    if (style & NumberStyles.AllowHexSpecifier) {
+        return parseHex(s, style);
+    }
+    return style & NumberStyles.AllowBinarySpecifier ? parseBinary(s, style) : parseDecimal(s, style);
+}
+
+export function tryParse(s: string, style: int32, _provider: unknown, res: FSharpRef<bigint>): boolean {
+    checkStyle(style);
+    let value: bigint | undefined;
+    try {
+        value = s == null ? undefined : parseWithStyle(s, style);
+    } catch {
+        value = undefined;
+    }
+    res.contents = value ?? zero;
+    return value !== undefined;
+}
+
+export function parse(s: string, style: int32 = NumberStyles.Integer, _provider?: unknown): bigint {
+    if (s == null) {
         throw ArgumentNullException_$ctor_Z721C83C5("value");
-    } else {
+    }
+    checkStyle(style);
+    const value = parseWithStyle(s, style);
+    if (value === undefined) {
         throw FormatException_$ctor_Z721C83C5("The value could not be parsed.");
     }
+    return value;
 }
 
 export function pow(x: bigint, n: int32): bigint {

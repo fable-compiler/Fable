@@ -58,6 +58,9 @@ let formatProviderIgnored = "FABLE0102", "Format provider argument is ignored"
 let numberStylesIgnored (style: int) =
     "FABLE0103", $"NumberStyles argument %d{style} is ignored"
 
+let currencySymbolNotSupported =
+    "FABLE0103", "The currency symbol is not supported when parsing a BigInteger"
+
 /// A `DateTimeStyles` value passed to a date/time `Parse`.
 let dateTimeStylesIgnored = "FABLE0104", "DateTimeStyles argument is ignored"
 
@@ -146,6 +149,7 @@ let knownCodes =
         stringComparisonIgnored
         formatProviderIgnored
         numberStylesIgnored 0
+        currencySymbolNotSupported
         dateTimeStylesIgnored
         timeSpanPrecisionIgnored
         privateRepresentationFlagIgnored
