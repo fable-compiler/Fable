@@ -12,6 +12,9 @@ type Comparer<'T when 'T: comparison and 'T: null>(comparison: 'T -> 'T -> int) 
     static member Create(comparison: System.Func<'T, 'T, int>) =
         Comparer<'T>(fun x y -> comparison.Invoke(x, y))
 
+    // Exported for Python output compiled by older Fable versions
+    static member Create(comparison: 'T -> 'T -> int) = Comparer<'T>(comparison)
+
     member _.Compare(x, y) = comparison x y
 
     interface IComparer<'T> with
@@ -29,6 +32,10 @@ type EqualityComparer<'T when 'T: equality and 'T: null>(equals: 'T -> 'T -> boo
 
     static member Create(equals: System.Func<'T, 'T, bool>, getHashCode: System.Func<'T, int>) =
         EqualityComparer<'T>((fun x y -> equals.Invoke(x, y)), (fun x -> getHashCode.Invoke x))
+
+    // Exported for Python output compiled by older Fable versions
+    static member Create(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
+        EqualityComparer<'T>(equals, getHashCode)
 
     member _.Equals(x, y) = equals x y
 

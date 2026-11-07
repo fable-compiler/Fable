@@ -102,10 +102,12 @@ let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Typ
         |> List.map (getTypeFastFullName genParams)
         |> String.concat " -> "
     | Fable.DelegateType(argTypes, returnType) ->
-        "delegate "
-        + (argTypes @ [ returnType ]
-           |> List.map (getTypeFastFullName genParams)
-           |> String.concat " -> ")
+        let types =
+            argTypes @ [ returnType ]
+            |> List.map (getTypeFastFullName genParams)
+            |> String.concat ","
+
+        "delegate(" + types + ")"
     | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
         let fields =
             Seq.zip fieldNames genArgs

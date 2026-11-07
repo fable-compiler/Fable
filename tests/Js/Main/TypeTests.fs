@@ -502,6 +502,14 @@ type DelegateOverloads =
         f.Invoke x
         x + 200
 
+type NestedDelegateOverloads =
+    static member C(f: System.Func<int, int> -> int) = "fn:" + string (f (System.Func<int, int>(fun x -> x + 1)))
+    static member C(f: System.Func<int, int, int>) = "del:" + string (f.Invoke(1, 2))
+
+type GenericNestedDelegateOverloads<'T> =
+    static member C(f: System.Func<'T, 'T> -> 'T, x: 'T) = f (System.Func<'T, 'T>(id))
+    static member C(f: System.Func<'T, 'T, 'T>, x: 'T) = f.Invoke(x, x)
+
 let inline applyDelegateOverload< ^T, ^F when ^T: (static member Apply: ^F * int -> int)> (f: ^F) (x: int) =
     (^T: (static member Apply: ^F * int -> int) (f, x))
 
@@ -1238,6 +1246,14 @@ let tests =
         applyDelegateOverload<DelegateOverloads, int -> int -> int> add 1 |> equal 2
         DelegateOverloads.Apply(System.Func<int, int, int>(fun x y -> x + y), 1) |> equal 102
         DelegateOverloads.Apply(System.Action<int>(ignore), 1) |> equal 201
+
+    testCase "Overloads distinguished by nested delegate work" <| fun () ->
+        let fn: System.Func<int, int> -> int = fun g -> g.Invoke 1
+        NestedDelegateOverloads.C(fn) |> equal "fn:2"
+        NestedDelegateOverloads.C(System.Func<int, int, int>(fun x y -> x + y)) |> equal "del:3"
+        let fnG: System.Func<int, int> -> int = fun g -> g.Invoke 5
+        GenericNestedDelegateOverloads<int>.C(fnG, 1) |> equal 5
+        GenericNestedDelegateOverloads<int>.C(System.Func<int, int, int>(fun x y -> x + y), 4) |> equal 8
 
     testCase "Type abbreviation works" <| fun () ->
         let t = T4()
