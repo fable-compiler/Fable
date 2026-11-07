@@ -565,6 +565,9 @@ let rec private forLoopBoundTailCall (n: int) acc =
             c <- c + 1
         forLoopBoundTailCall (n - 1) (acc + c)
 
+let mutable forLoopPublicArray = [| 1; 2; 3 |]
+let mutable private forLoopPrivateArray = [| 1; 2; 3 |]
+
 let tests =
   testList "Miscellaneous" [
     testCase "Hoisted vars don't conflict with while loop" <| fun () -> // see #4031
@@ -970,6 +973,64 @@ let tests =
             }
             |> Seq.head
         equal 4 count
+
+    testCase "for bound reading the length of a mutable array minus one is evaluated each iteration" <| fun () ->
+        let mutable a = [| 1; 2; 3 |]
+        let mutable n = 0
+        for _ = 0 to a.Length - 1 do
+            a <- [| 1; 2; 3; 4; 5; 6 |]
+            n <- n + 1
+        equal 6 n
+        forLoopPublicArray <- [| 1; 2; 3 |]
+        let mutable m = 0
+        for _ = 0 to forLoopPublicArray.Length - 1 do
+            forLoopPublicArray <- [| 1; 2; 3; 4; 5; 6 |]
+            m <- m + 1
+        equal 6 m
+        forLoopPrivateArray <- [| 1; 2; 3 |]
+        let mutable p = 0
+        for _ = 0 to forLoopPrivateArray.Length - 1 do
+            forLoopPrivateArray <- [| 1; 2; 3; 4; 5; 6 |]
+            p <- p + 1
+        equal 6 p
+        MiscTestsHelper.forLoopCrossFileArray <- [| 1; 2; 3 |]
+        let mutable q = 0
+        for _ = 0 to MiscTestsHelper.forLoopCrossFileArray.Length - 1 do
+            MiscTestsHelper.forLoopCrossFileArray <- [| 1; 2; 3; 4; 5; 6 |]
+            q <- q + 1
+        equal 6 q
+        MiscTestsHelper.forLoopCrossFileCalls <- 0
+        let mutable r = 0
+        for _ = 0 to (MiscTestsHelper.forLoopCrossFileMakeArray ()).Length - 1 do
+            r <- r + 1
+        equal 3 r
+        equal 1 MiscTestsHelper.forLoopCrossFileCalls
+
+    testCase "for bound reading the length of a mutable array in other shapes is evaluated once" <| fun () ->
+        let mutable a = [| 1; 2; 3 |]
+        let mutable n = 0
+        for _ = 3 downto a.Length - 1 do
+            a <- [| 1 |]
+            n <- n + 1
+        equal 2 n
+        a <- [| 1; 2; 3 |]
+        let mutable m = 0
+        for _ = 0 to a.Length do
+            a <- [| 1 |]
+            m <- m + 1
+        equal 4 m
+        a <- [| 1; 2; 3 |]
+        let mutable p = 0
+        for _ = 0 to a.Length - 2 do
+            a <- [| 1 |]
+            p <- p + 1
+        equal 2 p
+        a <- [| 1; 2; 3 |]
+        let mutable q = 0
+        for _ = 0 to a.Length do
+            if q < 10 then a <- Array.append a [| 0 |]
+            q <- q + 1
+        equal 4 q
 
     testCase "Self references in constructors work" <| fun () -> // See #124
         let t = Test(5)

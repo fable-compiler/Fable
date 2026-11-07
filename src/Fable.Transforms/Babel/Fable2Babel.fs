@@ -1138,16 +1138,20 @@ module Util =
         ctx.UsedNames.RootScope.Add(name) |> ignore
         name
 
-    let getUniqueNameInDeclarationScope (ctx: Context) name =
+    let getUniqueNameInDeclarationScopeWith (ctx: Context) (isUsed: string -> bool) name =
         let name =
             (name, Naming.NoMemberPart)
             ||> Naming.sanitizeJsIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.CurrentDeclarationScope.Contains(name)
+                || isUsed name
             )
 
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
+
+    let getUniqueNameInDeclarationScope (ctx: Context) name =
+        getUniqueNameInDeclarationScopeWith ctx (fun _ -> false) name
 
     let rec isStableForLoopLimit (limit: Fable.Expr) =
         match limit with
@@ -1161,6 +1165,41 @@ module Util =
         | Fable.Operation(Fable.Unary(_, operand), _, _, _) -> isStableForLoopLimit operand
         | Fable.Operation(Fable.Binary(_, left, right), _, _, _) ->
             isStableForLoopLimit left && isStableForLoopLimit right
+        | _ -> false
+
+    let private isMutableArrayLength (com: Compiler) (expr: Fable.Expr) =
+        let isArray =
+            function
+            | Fable.Array(_, (Fable.MutableArray | Fable.ImmutableArray)) -> true
+            | _ -> false
+
+        let isGetterCall (callInfo: Fable.CallInfo) =
+            Option.isNone callInfo.ThisArg && List.isEmpty callInfo.Args
+
+        match expr with
+        | Fable.Get(Fable.IdentExpr ident, Fable.FieldGet info, _, _) when info.Name = "length" ->
+            ident.IsMutable && isArray ident.Type
+        | Fable.Get(Fable.Call(Fable.IdentExpr ident, callInfo, _, _), Fable.FieldGet info, _, _) when
+            info.Name = "length" && isGetterCall callInfo
+            ->
+            ident.IsMutable && isArray ident.Type
+        | Fable.Get(Fable.Call(Fable.Import({ Kind = Fable.MemberImport memberRef }, _, _), callInfo, typ, _),
+                    Fable.FieldGet info,
+                    _,
+                    _) when info.Name = "length" && isGetterCall callInfo && isArray typ ->
+            match com.TryGetMember(memberRef) with
+            | Some memb -> memb.IsValue && memb.IsMutable
+            | None -> false
+        | _ -> false
+
+    let isReReadForLoopLimit (com: Compiler) isUp (limit: Fable.Expr) =
+        match limit with
+        | Fable.Operation(Fable.Binary(BinaryMinus,
+                                       length,
+                                       Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 1, _), _)),
+                          _,
+                          _,
+                          _) when isUp -> isMutableArrayLength com length
         | _ -> false
 
     type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
@@ -3558,8 +3597,12 @@ but thanks to the optimisation done below we get
             let body = transformBlockWithVarHoisting com ctx None body
             [| Statement.whileStatement (guard, body, ?loc = range) |]
 
-        | Fable.ForLoop(var, TransformExpr com ctx start, fableLimit, body, isUp, range) ->
+        | Fable.ForLoop(var, fableStart, fableLimit, fableBody, isUp, range) ->
+            let start = transformAsExpr com ctx fableStart
             let limit = transformAsExpr com ctx fableLimit
+            // Hoist vars within the loop so if a closure captures the variable
+            // it doesn't change in the next iteration, see #4031
+            let body = transformBlockWithVarHoisting com ctx None fableBody
 
             let op1, op2 =
                 if isUp then
@@ -3575,17 +3618,19 @@ but thanks to the optimisation done below we get
                 )
 
             let limitDeclarators, limitExpr =
-                if isStableForLoopLimit fableLimit then
+                if isStableForLoopLimit fableLimit || isReReadForLoopLimit com isUp fableLimit then
                     [||], limit
                 else
-                    let limitName = getUniqueNameInDeclarationScope ctx "limit"
+                    let isUsed name =
+                        [ fableStart; fableLimit; fableBody ] |> List.exists (isIdentUsed name)
+
+                    let limitName = getUniqueNameInDeclarationScopeWith ctx isUsed "limit"
+
                     [| makeDeclarator limitName limit |], Expression.identifier limitName
 
             [|
                 Statement.forStatement (
-                    // Hoist vars within the loop so if a closure captures the variable
-                    // it doesn't change in the next iteration, see #4031
-                    transformBlockWithVarHoisting com ctx None body,
+                    body,
                     VariableDeclaration.variableDeclaration (
                         Let,
                         Array.append [| makeDeclarator var.Name start |] limitDeclarators

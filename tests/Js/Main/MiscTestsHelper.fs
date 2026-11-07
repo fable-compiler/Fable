@@ -37,3 +37,11 @@ let mutable trackedCalls = 0
 let track x =
     trackedCalls <- trackedCalls + 1
     x
+
+let mutable forLoopCrossFileArray = [| 1; 2; 3 |]
+
+let mutable forLoopCrossFileCalls = 0
+
+let forLoopCrossFileMakeArray () =
+    forLoopCrossFileCalls <- forLoopCrossFileCalls + 1
+    [| 1; 2; 3 |]
