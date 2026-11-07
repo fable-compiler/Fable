@@ -525,6 +525,7 @@ let private transformObjExpr
                     match baseCall.DeclaringEntity with
                     | Some baseEnt when baseEnt.TryFullName <> Some Types.object ->
                         let r = makeRangeFrom baseCallExpr
+                        checkSelfConstructorBase com ctx r baseEnt
                         let genArgs = genArgs1 @ genArgs2
 
                         return transformBaseConsCall com ctx r baseEnt baseCall genArgs baseArgs |> Some
@@ -793,6 +794,124 @@ let rec private transformDecisionTargets
     }
 
 
+// F# omits the `init@` field it adds for `new() as x` from the record expression of the constructor
+let private withOmittedFieldDefaults (com: IFableCompiler) (ctx: Context) (fsType: FSharpType) (args: Fable.Expr list) =
+    let ent = fsType.TypeDefinition
+
+    if hasCompilerGeneratedConstructor ent then
+        let genArgs =
+            getGenericArguments fsType |> Seq.map (makeType ctx.GenericArgs) |> List.ofSeq
+
+        let genArgs =
+            Seq.zip ent.GenericParameters genArgs
+            |> Seq.map (fun (param, typ) -> genParamName param, typ)
+            |> Map.ofSeq
+
+        let fields =
+            ent.FSharpFields |> Seq.filter (fun field -> not field.IsStatic) |> List.ofSeq
+
+        let omitted =
+            List.skip (min args.Length fields.Length) fields
+            |> List.map (fun field -> makeType genArgs field.FieldType |> Replacements.Api.defaultof com ctx None)
+
+        args @ omitted
+    else
+        args
+
+let private (|LoadSelf|_|) (e: FSharpExpr) =
+    match e with
+    | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> Some()
+    | _ -> None
+
+// FCS writes `init@` on self in every constructor of a class with a self identifier
+let rec private loadsSelf skipInitWrite (e: FSharpExpr) =
+    match e with
+    | LoadSelf -> true
+    | FSharpExprPatterns.FSharpFieldSet(Some LoadSelf, _, field, value) when
+        skipInitWrite && field.Name.StartsWith("init@")
+        ->
+        loadsSelf skipInitWrite value
+    | e -> e.ImmediateSubExpressions |> List.exists (loadsSelf skipInitWrite)
+
+let private hasSelfConstructor (com: IFableCompiler) (ent: FSharpEntity) =
+    let constructors =
+        ent.MembersFunctionsAndValues |> Seq.filter (fun memb -> memb.IsConstructor)
+
+    let hasPrimaryConstructor =
+        constructors |> Seq.exists (fun memb -> memb.IsImplicitConstructor)
+
+    let hasExplicitConstructor =
+        constructors |> Seq.exists (fun memb -> not memb.IsImplicitConstructor)
+
+    if
+        (FsEnt.Ref ent).SourcePath.IsNone
+        || isGlobalOrImportedFSharpEntity ent
+        || not hasExplicitConstructor
+    then
+        false
+    else
+        let file = Path.normalizePathAndEnsureFsExtension ent.DeclarationLocation.FileName
+
+        let rec exists decls =
+            decls
+            |> List.exists (
+                function
+                | FSharpImplementationFileDeclaration.Entity(_, sub) -> exists sub
+                | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, body) ->
+                    memb.IsConstructor
+                    && not memb.IsImplicitConstructor
+                    && memb.DeclaringEntity
+                       |> Option.exists (fun declaring -> declaring.TryFullName = ent.TryFullName)
+                    && loadsSelf hasPrimaryConstructor body
+                | FSharpImplementationFileDeclaration.InitAction _ -> false
+            )
+
+        let decls =
+            try
+                Some(com.GetImplementationFile(file))
+            with _ ->
+                None
+
+        match decls with
+        | Some decls ->
+            com.AddWatchDependency(file)
+            exists decls
+        // Precompiled libraries keep the `init@` field of such a class, but not the constructor bodies
+        | None ->
+            ent.FSharpFields
+            |> Seq.exists (fun field -> not field.IsStatic && field.Name.StartsWith("init@"))
+
+let private checkSelfConstructorBase (com: IFableCompiler) (ctx: Context) r (baseEnt: FSharpEntity) =
+    if hasSelfConstructor com baseEnt then
+        $"%s{baseEnt.FullName} has a constructor with a self identifier (`new() as x`), which Fable does not support inheriting from."
+        |> addError com ctx.InlinePath r
+
+// F# emits `new() = { ... } then body` as sequences nested after the created object
+let private (|ExplicitConstructorThen|_|) com (ctx: Context) (fsExpr: FSharpExpr) =
+    match ctx.EnclosingMember with
+    | Some m when
+        m.IsConstructor
+        && not m.IsImplicitConstructor
+        && supportsCompilerGeneratedBaseCall com
+        && m.DeclaringEntity
+           |> Option.exists (fun ent -> (tryGetBaseEntity ent).IsNone && not (isAttachMembersEntity com ent))
+        ->
+        let isCreated (e: FSharpExpr) =
+            e.Type.HasTypeDefinition
+            && m.DeclaringEntity |> Option.exists (fun ent -> ent = e.Type.TypeDefinition)
+
+        let rec split (e: FSharpExpr) =
+            match e with
+            | FSharpExprPatterns.Sequential(first, second) when isCreated first ->
+                let created, rest = split first
+                created, rest @ [ second ]
+            | _ -> e, []
+
+        match fsExpr with
+        | FSharpExprPatterns.Sequential(first, _) when isCreated fsExpr && isCreated first -> Some(split fsExpr)
+        | _ -> None
+    | _ -> None
+
 let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fsExpr =
     trampoline {
         match fsExpr with
@@ -986,6 +1105,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 // Check if `this` has been bound previously to avoid conflicts with an object expression
                 | _, Some i -> identWithRange r i |> Fable.IdentExpr
                 | _, None -> Fable.Value(makeType Map.empty typ |> Fable.ThisValue, r)
+
+        // The `x` of `new() as x` is read through an IL `this` load, printed `0us` by FCS on .NET and `0` by FCS on JS
+        | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) ->
+            let r = makeRangeFrom fsExpr
+
+            return
+                match ctx.BoundConstructorThis with
+                | Some i -> identWithRange r i |> Fable.IdentExpr
+                | None ->
+                    "This explicit constructor uses a self identifier (`new() as x`), which Fable only supports on JavaScript, TypeScript and Python, in a class with no base class and without [<AttachMembers>]."
+                    |> addErrorAndReturnNull com ctx.InlinePath r
 
         | FSharpExprPatterns.Value var ->
             let r = makeRangeFrom fsExpr
@@ -1640,6 +1770,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
             return Fable.Let(baseIdent, baseValue, newRecord)
 
+        | ExplicitConstructorThen com ctx (created, rest) when ctx.BoundConstructorThis.IsNone ->
+            let! created = transformExpr com ctx [] created
+            let thisIdent = getIdentUniqueName com ctx "this" |> makeTypedIdent created.Type
+
+            let! rest =
+                transformExprList com { ctx with BoundConstructorThis = Some thisIdent } rest
+
+            return Fable.Let(thisIdent, created, Fable.Sequential(rest @ [ Fable.IdentExpr thisIdent ]))
+
         | FSharpExprPatterns.Sequential(first, second) ->
             let exprs =
                 match ctx.CaptureBaseConsCall with
@@ -1666,7 +1805,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         | FSharpExprPatterns.NewRecord(fsType, argExprs) ->
             let r = makeRangeFrom fsExpr
             let! argExprs = transformExprList com ctx argExprs
-            let argExprs = withDefaultValueFields com ctx fsType argExprs
+
+            let argExprs =
+                withDefaultValueFields com ctx fsType argExprs
+                |> withOmittedFieldDefaults com ctx fsType
 
             let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
             let entRef = FsEnt.Ref fsType.TypeDefinition
@@ -2455,6 +2597,12 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             warnIgnoredCaseTests com ctx fsEnt
             checkInlinedTaggedUnionCases com ctx fsEnt
             warnDuplicateCompiledNames com ctx fsEnt
+
+            if not (isGlobalOrImportedFSharpEntity fsEnt) then
+                tryGetBaseEntity fsEnt
+                |> Option.iter (fun (baseEnt, _) ->
+                    checkSelfConstructorBase com ctx (Some(makeRange fsEnt.DeclarationLocation)) baseEnt
+                )
 
             match sub with
             | [] when isIgnoredLeafEntity fsEnt -> []

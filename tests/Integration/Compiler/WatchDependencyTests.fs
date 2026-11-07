@@ -47,6 +47,38 @@ let tests =
       logs |> Assert.Is.strictSuccess |> ignore
       deps |> Map.tryFind "Program.fs" |> Option.defaultValue [] |> equal [ "Library.fs" ]
 
+    testCase "A file that inherits a parameterless explicit constructor depends on the file of its body" <| fun _ ->
+      let signature =
+        """
+module Library
+
+type Base =
+    val N: int
+    new: unit -> Base
+"""
+
+      let library =
+        """
+module Library
+
+type Base =
+    val N: int
+    new () = { N = 1 }
+"""
+
+      let source =
+        """
+type Derived =
+    inherit Library.Base
+    val M: int
+    new () = { inherit Library.Base(); M = 2 }
+"""
+
+      let logs, deps = watchDependencies signature library source
+
+      logs |> Assert.Is.strictSuccess |> ignore
+      deps |> Map.tryFind "Program.fs" |> Option.defaultValue [] |> equal [ "Library.fs" ]
+
     testCase "Editing an inline function in a file with a signature recompiles the files that inlined it" <| fun _ ->
       Compiler.Cached.startWatchingSignedLibrary Compiler.Settings.standard signature (library 3) source
       waitForOutput "Program.fs" "2 * 3"

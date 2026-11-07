@@ -21,6 +21,254 @@ let tests =
       |> Assert.Is.success
       |> ignore
 
+    testCase "Explicit constructor with a self identifier and no base compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Explicit child of a class with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(1); X = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Primary constructor child of a class with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+type Derived() =
+    inherit Base(5)
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Object expression over a class with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable Count: int
+    new (a: int) as self = { Count = a } then self.Count <- self.Count + 1
+
+let o = { new Base(5) with member _.ToString() = "o" }
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Child of a primary constructor class with a secondary self constructor results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member val V = a with get, set
+    new () as self = Base(1) then self.V <- self.V + 10
+
+type Derived =
+    inherit Base
+    val E: int
+    new () = { inherit Base(); E = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Self identifier with an explicit constructor base results in error" <| fun _ ->
+      let source =
+        """
+type Base =
+    val N: int
+    new (n: int) = { N = n }
+
+type Derived =
+    inherit Base
+    val mutable Y: int
+    new () as self = { inherit Base(1); Y = 0 } then self.Y <- self.N
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Self identifier with a primary constructor base results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member _.A = a
+
+type Derived =
+    inherit Base
+    val mutable Y: int
+    new (a: int) as self = { inherit Base(a); Y = 0 } then self.Y <- self.A + 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Self identifier with a BCL base results in error" <| fun _ ->
+      let source =
+        """
+type Derived =
+    inherit System.Exception
+    val Code: int
+    new (m: string) as self = { inherit System.Exception(m); Code = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Self identifier with AttachMembers results in error" <| fun _ ->
+      let source =
+        """
+[<Fable.Core.AttachMembers>]
+type C =
+    val mutable V: int
+    new (v: int) as self = { V = v } then self.V <- self.V + 1
+"""
+      compile source
+      |> Assert.Exists.errorWith "uses a self identifier"
+      |> ignore
+
+    testCase "Child of a primary constructor class with a self identifier compiles" <| fun _ ->
+      let source =
+        """
+type Base() as this =
+    let mutable n = 0
+    do this.Set(1)
+    member _.Set(v: int) = n <- v
+    member _.N = n
+
+type Derived() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Child of a primary constructor class with a self identifier and a secondary constructor compiles" <| fun _ ->
+      let source =
+        """
+type Base(x: int) as this =
+    do this.Touch()
+    new () = Base(1)
+    member _.X = x
+    member _.Touch() = ()
+
+type Derived() =
+    inherit Base(2)
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Primary constructor child of a secondary constructor with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member val V = a with get, set
+    new () as self = Base(1) then self.V <- self.V + 10
+
+type Derived() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Child of an imported class with a self identifier compiles" <| fun _ ->
+      let source =
+        """
+[<Fable.Core.Import("Base", "./base.js")>]
+type Base =
+    val mutable X: int
+    new () as self = { X = 1 } then self.X <- 2
+
+type Derived() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Imported child of a class with a self identifier compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable X: int
+    new () as self = { X = 1 } then self.X <- 2
+
+[<Fable.Core.Import("Child", "./child.js")>]
+type Child() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Explicit child of a class without a self identifier compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val N: int
+    new (n: int) = { N = n }
+
+type Derived =
+    inherit Base
+    val X: int
+    new () = { inherit Base(1); X = 1 }
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Child of a self identifier class behind a signature file results in error" <| fun _ ->
+      let signature =
+        """
+module Library
+
+type Base =
+    val mutable N: int
+    new: n: int -> Base
+"""
+
+      let library =
+        """
+module Library
+
+type Base =
+    val mutable N: int
+    new (n: int) as self = { N = n } then self.N <- self.N + 1
+"""
+
+      let source =
+        """
+type Derived =
+    inherit Library.Base
+    val X: int
+    new () = { inherit Library.Base(1); X = 1 }
+"""
+
+      compileWithSignedLibrary signature library source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
     testCase "Compile printfn" <| fun _ ->
       let source = "printfn \"Hello %s\" \"World\""
       compile source
