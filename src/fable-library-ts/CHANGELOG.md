@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
+last_commit_released: 62378c8bd5bfdaed907df11619a3362b86dd522b
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.13.1 - 2026-11-07
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass defaults for DefaultValue fields to ctors (#5267) ([cc94c9cc](https://github.com/fable-compiler/Fable/commit/cc94c9ccba1100c39f9764e8511040bbb34be249))
+* *(js/ts)* Keep TimeSpan.Ticks exact for big values (#5250) ([3c1cea99](https://github.com/fable-compiler/Fable/commit/3c1cea99d30edc2cf3fa5dbeb3a3e6a00e97235a))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7d46c71405542c6d6e4a0204251f4b704efac847..62378c8bd5bfdaed907df11619a3362b86dd522b)</small></strong>
 
 ## 2.13.0 - 2026-11-03
 

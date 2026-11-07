@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
+last_commit_released: 62378c8bd5bfdaed907df11619a3362b86dd522b
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 4.6.0 - 2026-11-07
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass defaults for DefaultValue fields to ctors (#5267) ([cc94c9cc](https://github.com/fable-compiler/Fable/commit/cc94c9ccba1100c39f9764e8511040bbb34be249))
+* *(js/ts)* Evaluate the Array.create count once ([66ace468](https://github.com/fable-compiler/Fable/commit/66ace46864b628dd4a5b8b71f121c282892f2e0e))
+* *(js/ts)* Evaluate for loop bound once (#5282) ([62378c8b](https://github.com/fable-compiler/Fable/commit/62378c8bd5bfdaed907df11619a3362b86dd522b))
+* *(js/ts/python)* Support explicit constructors with as and then (#5235) ([f8bfce33](https://github.com/fable-compiler/Fable/commit/f8bfce3393da131243c3e3daebad015ec18cf42f))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Read arrays at the call site (#5264) ([dd668b28](https://github.com/fable-compiler/Fable/commit/dd668b28234708ef2bc04b9056d1548f92552dcb))
+* *(js/ts)* Read string chars at the call site ([07a38e76](https://github.com/fable-compiler/Fable/commit/07a38e764b1dd8fb79b4374df2aa22c18e0b7fce))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7d46c71405542c6d6e4a0204251f4b704efac847..62378c8bd5bfdaed907df11619a3362b86dd522b)</small></strong>
 
 ## 4.5.0 - 2026-11-03
 
