@@ -12,6 +12,7 @@ export const NumberStyles = {
   AllowExponent: 128,
   AllowHexSpecifier: 512,
   Integer: 7,
+  HexNumber: 515,
   Number: 111,
   Float: 167,
 } as const;
@@ -31,30 +32,30 @@ function digitsPattern(style: number): RegExp {
   return new RegExp(`^(?:${integral}${point}${leadingPoint})${exponent}$`);
 }
 
+function trimTrailingWhite(s: string, style: number): string {
+  return style & NumberStyles.AllowTrailingWhite ? s.replace(/[\t-\r ]+$/, "") : s;
+}
+
 // Returns undefined when the string does not have the format allowed by the style
 export function splitNumber(str: string, style: number): NumberParts | undefined {
   if (style & NumberStyles.AllowHexSpecifier) {
     throw new Exception("The number style AllowHexSpecifier is not supported on floating point data types.");
   }
   // .NET ignores trailing NULs and its white space is only [\t\n\v\f\r ]
-  let s = str.replace(/\0+$/, "");
+  let s = trimTrailingWhite(str.replace(/\0+$/, ""), style);
   if (style & NumberStyles.AllowLeadingWhite) {
     s = s.replace(/^[\t-\r ]+/, "");
   }
-  if (style & NumberStyles.AllowTrailingWhite) {
-    s = s.replace(/[\t-\r ]+$/, "");
-  }
   let negative = false;
   if (style & NumberStyles.AllowParentheses && s.startsWith("(") && s.endsWith(")")) {
-    s = s.slice(1, -1);
+    s = trimTrailingWhite(s.slice(1, -1), style);
     negative = true;
-  }
-  if (style & NumberStyles.AllowLeadingSign && /^[+-]/.test(s)) {
-    negative = s[0] === "-" ? !negative : negative;
+  } else if (style & NumberStyles.AllowLeadingSign && /^[+-]/.test(s)) {
+    negative = s[0] === "-";
     s = s.slice(1);
   } else if (style & NumberStyles.AllowTrailingSign && /[+-]$/.test(s)) {
-    negative = s[s.length - 1] === "-" ? !negative : negative;
-    s = s.slice(0, -1);
+    negative = s[s.length - 1] === "-";
+    s = trimTrailingWhite(s.slice(0, -1), style);
   }
   if (!digitsPattern(style).test(s)) {
     return undefined;

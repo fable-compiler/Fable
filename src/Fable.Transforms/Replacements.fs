@@ -3129,6 +3129,39 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | "Log2", None ->
         Helper.LibCall(com, "BigInt", "ilog2", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
+    | ("Parse" | "TryParse") as meth, None ->
+        let inputs, outValue =
+            if meth = "TryParse" then
+                List.splitAt (args.Length - 1) args
+            else
+                args, []
+
+        let str, style, provider =
+            match inputs with
+            | str :: (ExprType(Number(Int32, _)) as style) :: rest -> str, style, List.tryHead rest
+            | str :: rest -> str, makeIntConst (int System.Globalization.NumberStyles.Integer), List.tryHead rest
+            | [] -> failwith "Unexpected BigInteger parse call without arguments"
+
+        let supportedStyles =
+            int (
+                (System.Globalization.NumberStyles.Any
+                 &&& ~~~System.Globalization.NumberStyles.AllowCurrencySymbol)
+                ||| System.Globalization.NumberStyles.AllowHexSpecifier
+            )
+
+        match style with
+        | NumberConst(NumberValue.Int32 style, _) when style &&& ~~~supportedStyles <> 0 ->
+            WarningCodes.numberStylesIgnored style
+            |> addWarningWithCode com ctx.InlinePath r
+        | _ -> ()
+
+        match provider with
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+
+        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, [ str; style ] @ outValue, ?loc = r)
+        |> Some
     | meth, callee ->
         let args =
             match callee, meth with
