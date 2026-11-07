@@ -23,8 +23,9 @@ type File(normalizedFullPath: string) =
         let text =
             try
                 Some(readAllTextNonBlocking path)
-            with :? IOException when retriesLeft > 0 ->
-                None
+            with
+            | :? IOException
+            | :? System.UnauthorizedAccessException when retriesLeft > 0 -> None
 
         match text with
         | Some text -> text
