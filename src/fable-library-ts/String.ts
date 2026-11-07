@@ -788,20 +788,21 @@ export function remove(str: string, startIndex: number, count?: number) {
   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
 }
 
-export function replace(str: string, search: string, replacement: string, comparison: boolean | StringComparison = StringComparison.Ordinal) {
+export function replace(str: string, search: string, replacement: string, comparison: boolean | number = StringComparison.Ordinal, _culture?: unknown) {
   if (search == null) {
     throw ArgumentNullException_$ctor_Z721C83C5("oldValue");
   }
   if (search.length === 0) {
-    throw ArgumentException_$ctor_Z384F8060("String cannot be of zero length.", "oldValue");
+    throw ArgumentException_$ctor_Z384F8060("The value cannot be an empty string.", "oldValue");
   }
+  const comp = comparison as boolean | StringComparison;
   let result = "";
   let start = 0;
-  let match = indexOf(str, search, comparison);
+  let match = indexOf(str, search, comp);
   while (match >= 0) {
     result += str.slice(start, match) + (replacement ?? "");
     start = match + search.length;
-    match = indexOf(str, search, comparison, start);
+    match = indexOf(str, search, comp, start);
   }
   return result + str.slice(start);
 }

@@ -2149,9 +2149,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             "Normalization expects an optional System.Text.NormalizationForm"
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
-    | "Replace", Some c, [ oldValue; newValue; ignoreCase; _culture ] ->
+    | "Replace", Some c, [ _oldValue; _newValue; _ignoreCase; _culture ] ->
         WarningCodes.cultureInfoIgnored |> addWarningWithCode com ctx.InlinePath r
-        let args = [ oldValue; newValue; ignoreCase ]
 
         Helper.LibCall(com, "String", "replace", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
