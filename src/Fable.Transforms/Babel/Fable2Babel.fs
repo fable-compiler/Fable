@@ -1153,55 +1153,6 @@ module Util =
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         getUniqueNameInDeclarationScopeWith ctx (fun _ -> false) name
 
-    let rec isStableForLoopLimit (limit: Fable.Expr) =
-        match limit with
-        | Fable.Value(Fable.NumberConstant _, _) -> true
-        | Fable.IdentExpr ident -> not ident.IsMutable
-        | Fable.Get(Fable.IdentExpr ident, Fable.FieldGet info, _, _) when info.Name = "length" ->
-            match ident.Type with
-            | Fable.String
-            | Fable.Array(_, (Fable.MutableArray | Fable.ImmutableArray)) -> not ident.IsMutable
-            | _ -> false
-        | Fable.Operation(Fable.Unary(_, operand), _, _, _) -> isStableForLoopLimit operand
-        | Fable.Operation(Fable.Binary(_, left, right), _, _, _) ->
-            isStableForLoopLimit left && isStableForLoopLimit right
-        | _ -> false
-
-    let private isMutableArrayLength (com: Compiler) (expr: Fable.Expr) =
-        let isArray =
-            function
-            | Fable.Array(_, (Fable.MutableArray | Fable.ImmutableArray)) -> true
-            | _ -> false
-
-        let isGetterCall (callInfo: Fable.CallInfo) =
-            Option.isNone callInfo.ThisArg && List.isEmpty callInfo.Args
-
-        match expr with
-        | Fable.Get(Fable.IdentExpr ident, Fable.FieldGet info, _, _) when info.Name = "length" ->
-            ident.IsMutable && isArray ident.Type
-        | Fable.Get(Fable.Call(Fable.IdentExpr ident, callInfo, _, _), Fable.FieldGet info, _, _) when
-            info.Name = "length" && isGetterCall callInfo
-            ->
-            ident.IsMutable && isArray ident.Type
-        | Fable.Get(Fable.Call(Fable.Import({ Kind = Fable.MemberImport memberRef }, _, _), callInfo, typ, _),
-                    Fable.FieldGet info,
-                    _,
-                    _) when info.Name = "length" && isGetterCall callInfo && isArray typ ->
-            match com.TryGetMember(memberRef) with
-            | Some memb -> memb.IsValue && memb.IsMutable
-            | None -> false
-        | _ -> false
-
-    let isReReadForLoopLimit (com: Compiler) isUp (limit: Fable.Expr) =
-        match limit with
-        | Fable.Operation(Fable.Binary(BinaryMinus,
-                                       length,
-                                       Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 1, _), _)),
-                          _,
-                          _,
-                          _) when isUp -> isMutableArrayLength com length
-        | _ -> false
-
     type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859

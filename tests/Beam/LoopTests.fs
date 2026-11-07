@@ -142,3 +142,82 @@ let ``test for-in loop with negative step range works inside async`` () =
             count <- count + 1
         equal 5 count
     } |> Async.StartImmediate
+
+[<Fact>]
+let ``test for bound over a collection is evaluated once`` () =
+    let xs = ResizeArray [ 1; 2; 3; 4 ]
+    let mutable n = 0
+    for _ in 0 .. xs.Count - 1 do
+        xs.RemoveAt 0
+        n <- n + 1
+    equal 4 n
+    let ys = ResizeArray [ 1; 2; 3; 4 ]
+    let mutable m = 0
+    for _ = ys.Count - 1 downto ys.Count - 2 do
+        ys.RemoveAt 0
+        m <- m + 1
+    equal 2 m
+
+[<Fact>]
+let ``test for bound with side effects is evaluated once`` () =
+    let calls = ref 0
+    let f x =
+        calls.Value <- calls.Value + 1
+        x
+    let mutable n = 0
+    for _ in 0 .. (let x = f 1 in x + f 1) do
+        n <- n + 1
+    equal 3 n
+    equal 2 calls.Value
+    let log = ResizeArray<string>()
+    let tick name value =
+        log.Add name
+        value
+    for _ = tick "start" 0 to tick "limit" 1 do
+        log.Add "body"
+    String.concat "," log |> equal "start,limit,body,body"
+
+[<Fact>]
+let ``test for bound reading the length of a mutable array minus one is evaluated each iteration`` () =
+    let mutable a = [| 1; 2; 3 |]
+    let mutable n = 0
+    for _ = 0 to a.Length - 1 do
+        a <- [| 1; 2; 3; 4; 5; 6 |]
+        n <- n + 1
+    equal 6 n
+
+[<Fact>]
+let ``test for bound reading the length of a mutable array is evaluated once in other shapes`` () =
+    let mutable a = [| 1; 2; 3 |]
+    let mutable n = 0
+    for _ = 0 to Array.length a - 1 do
+        a <- [| 1 |]
+        n <- n + 1
+    equal 3 n
+    a <- [| 1; 2; 3 |]
+    let mutable m = 0
+    for _ in 0 .. 1 .. a.Length - 1 do
+        a <- [| 1 |]
+        m <- m + 1
+    equal 3 m
+    a <- [| 1; 2; 3 |]
+    let mutable p = 0
+    for _ = (a <- [| 1; 2; 3; 4 |]; 0) to Array.length a - 1 do
+        a <- [| 1 |]
+        p <- p + 1
+    equal 4 p
+
+[<Fact>]
+let ``test for in over a mutable array reassigned in the body iterates the array held at loop start`` () =
+    let mutable a = [| 1; 2; 3 |]
+    let mutable sum = 0
+    for x in a do
+        a <- [| 100 |]
+        sum <- sum + x
+    equal 6 sum
+    let mutable pairs = [| (1, 2); (3, 4) |]
+    let mutable total = 0
+    for (x, y) in pairs do
+        pairs <- [| (100, 100) |]
+        total <- total + x + y
+    equal 10 total

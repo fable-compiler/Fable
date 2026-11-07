@@ -1055,15 +1055,34 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! lambda = transformExpr com ctx [] lambda
             return lambda
 
-        | FSharpExprPatterns.FastIntegerForLoop(start, limit, body, isUp, _, _) ->
+        | ForInMutableArray(start, limit, arrExpr, idxVar, elemVar, elemExpr, rest) ->
+            let r = makeRangeFrom fsExpr
+            let! arr = transformExpr com ctx [] arrExpr
+            let arrIdent = getIdentUniqueName com ctx "arr" |> makeTypedIdent arr.Type
+            let! start = transformExpr com ctx [] start
+            let! limit = transformExpr com ctx [] limit
+            let limit = replaceValueRead arr (Fable.IdentExpr arrIdent) limit
+            let loopCtx, ident = putIdentInScope com ctx idxVar None
+            let! elem = transformExpr com loopCtx [] elemExpr
+            let elem = replaceValueRead arr (Fable.IdentExpr arrIdent) elem
+            let bodyCtx, elemIdent = putIdentInScope com loopCtx elemVar (Some elem)
+            let! rest = transformExpr com bodyCtx [] rest
+            let body = Fable.Let(elemIdent, elem, rest)
+            return Fable.Let(arrIdent, arr, makeForLoop r true ident start limit body)
+
+        | FSharpExprPatterns.FastIntegerForLoop(start, fsLimit, body, isUp, _, _) ->
             let r = makeRangeFrom fsExpr
 
             match body with
             | FSharpExprPatterns.Lambda(PutIdentInScope com ctx (newContext, ident), body) ->
                 let! start = transformExpr com ctx [] start
-                let! limit = transformExpr com ctx [] limit
+                let! limit = transformExpr com ctx [] fsLimit
                 let! body = transformExpr com newContext [] body
-                return makeForLoop r isUp ident start limit body
+
+                match fsLimit with
+                | MutableArrayLengthMinusOne(_, _, false) when isUp ->
+                    return makeForLoopWithBoundLimit (getIdentUniqueName com ctx) r isUp ident start limit body
+                | _ -> return makeForLoop r isUp ident start limit body
             | _ -> return failwithf $"Unexpected loop %O{r}: %A{fsExpr}"
 
         | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr, _) ->
@@ -1167,7 +1186,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! limit = transformExpr com ctx [] stopExpr
             let ctx, ident = putIdentInScope com ctx var None
             let! body = transformExpr com ctx [] bodyExpr
-            return makeForLoop r (step = 1) ident start limit body
+
+            match stopExpr with
+            | MutableArrayLengthMinusOne _ when step = 1 ->
+                return makeForLoopWithBoundLimit (getIdentUniqueName com ctx) r true ident start limit body
+            | _ -> return makeForLoop r (step = 1) ident start limit body
 
         | FSharpExprPatterns.Let((var, value, _), body) ->
             match value with
