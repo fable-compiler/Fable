@@ -1,6 +1,7 @@
 ﻿namespace Fable.Compiler
 
 open System.IO
+open System.Threading
 
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
@@ -17,13 +18,30 @@ type File(normalizedFullPath: string) =
             // Log.always("File does not exist: " + path)
             ""
 
+    // Editors can hold a source file exclusively for a moment while saving it.
+    let rec readAllTextWithRetry (retriesLeft: int) (path: string) =
+        let text =
+            try
+                Some(readAllTextNonBlocking path)
+            with
+            | :? IOException
+            | :? System.UnauthorizedAccessException when retriesLeft > 0 -> None
+
+        match text with
+        | Some text -> text
+        | None ->
+            Thread.Sleep 100
+            readAllTextWithRetry (retriesLeft - 1) path
+
+    let readSource (path: string) = readAllTextWithRetry 20 path
+
     member _.NormalizedFullPath = normalizedFullPath
 
     member _.ReadSource() =
         match sourceHash with
-        | Some h -> h, lazy readAllTextNonBlocking normalizedFullPath
+        | Some h -> h, lazy readSource normalizedFullPath
         | _ ->
-            let source = readAllTextNonBlocking normalizedFullPath
+            let source = readSource normalizedFullPath
             let h = hash source
             sourceHash <- Some h
             h, lazy source

@@ -416,23 +416,35 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
     /// suppress nothing). Only valid once every file has been compiled, since a directive in one
     /// file can be what suppresses a warning raised while compiling another.
     member _.DirectiveDiagnostics(files: string seq) =
-        warningSuppression.Value.GetDiagnostics(files)
-        |> List.map (fun (file, d) ->
-            let pos: Position =
-                {
-                    line = d.Line
-                    column = 0
-                }
+        files
+        |> Seq.collect (fun file ->
+            try
+                warningSuppression.Value.GetDiagnostics([ file ])
+                |> List.map (fun (file, d) ->
+                    let pos: Position =
+                        {
+                            line = d.Line
+                            column = 0
+                        }
 
-            LogEntry.Make(
-                Severity.Warning,
-                d.Message,
-                fileName = file,
-                range = SourceLocation.Create(pos, pos, file),
-                code = d.Code
-            )
+                    LogEntry.Make(
+                        Severity.Warning,
+                        d.Message,
+                        fileName = file,
+                        range = SourceLocation.Create(pos, pos, file),
+                        code = d.Code
+                    )
+                )
+            with (:? IO.IOException | :? UnauthorizedAccessException) as ex ->
+                [
+                    LogEntry.Make(
+                        Severity.Warning,
+                        $"Could not check the fable-disable directives of this file: {ex.Message}",
+                        fileName = file
+                    )
+                ]
         )
-        |> Array.ofList
+        |> Array.ofSeq
 
     member _.MapSourceFiles(f) =
         ProjectCracked(cliArgs, crackerResponse, Array.map f sourceFiles)
