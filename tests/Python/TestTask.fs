@@ -168,6 +168,42 @@ let ``test TaskCompletionSource is executed correctly`` () =
 
     equal 42 result
 
+[<Fact>]
+let ``test Task.Delay supports milliseconds and TimeSpan`` () =
+    let task = task {
+        do! Task.Delay 10
+        do! Task.Delay(TimeSpan.FromMilliseconds 10.0)
+        return 42
+    }
+    task.GetAwaiter().GetResult() |> equal 42
+
+[<Fact>]
+let ``test Task.Delay observes cancellation`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let delayed = Task.Delay(1_000, source.Token)
+    source.Cancel()
+    let task = task {
+        try
+            do! delayed
+            return false
+        with :? System.Threading.Tasks.TaskCanceledException -> return true
+    }
+    task.GetAwaiter().GetResult() |> equal true
+
+[<Fact>]
+let ``test task can bind and return an Async`` () =
+    let work = async {
+        do! Async.Sleep 10
+        return 41
+    }
+    let bound = task {
+        let! value = work
+        return value + 1
+    }
+    bound.GetAwaiter().GetResult() |> equal 42
+    let returned = task { return! async { return 42 } }
+    returned.GetAwaiter().GetResult() |> equal 42
+
 // Regression: async functions returning Task from if/else branches must await both branches
 let skipPipeline () : Task<int option> = Task.FromResult None
 
