@@ -107,7 +107,7 @@ type Derived =
       |> Assert.Exists.errorWith "uses a self identifier"
       |> ignore
 
-    testCase "Self identifier with a primary constructor base results in error" <| fun _ ->
+    testCase "Self identifier with a primary constructor base compiles" <| fun _ ->
       let source =
         """
 type Base(a: int) =
@@ -119,7 +119,7 @@ type Derived =
     new (a: int) as self = { inherit Base(a); Y = 0 } then self.Y <- self.A + 1
 """
       compile source
-      |> Assert.Exists.errorWith "uses a self identifier"
+      |> Assert.Is.strictSuccess
       |> ignore
 
     testCase "Self identifier with a BCL base results in error" <| fun _ ->

@@ -2529,3 +2529,70 @@ let ``test object expression over an explicit constructor passes its own fields`
     o.Calc 1 |> equal 3
     o.F 2 3 |> equal 6
     string o |> equal "o"
+
+let primaryCtorThenLog = ResizeArray<string>()
+let primaryCtorThenSaved = ResizeArray<obj>()
+
+type PrimaryCtorThenBase(a: int) =
+    do primaryCtorThenLog.Add "base"
+    member _.A = a
+
+type PrimaryCtorThenChild =
+    inherit PrimaryCtorThenBase
+    val X: int
+    val Y: string
+    new (n: int) =
+        let v = n + 1
+        { inherit PrimaryCtorThenBase((primaryCtorThenLog.Add "arg"; v)); Y = (primaryCtorThenLog.Add "y"; "y"); X = (primaryCtorThenLog.Add "x"; v * 2) }
+        then primaryCtorThenLog.Add "then"
+
+type PrimaryCtorThenSelfChild =
+    inherit PrimaryCtorThenBase
+    val mutable X: int
+    new (x: int) as self = { inherit PrimaryCtorThenBase(x); X = x } then primaryCtorThenSaved.Add(box self); self.X <- self.X + self.A
+    new () as self = PrimaryCtorThenSelfChild(7) then self.X <- self.X * 2; primaryCtorThenSaved.Add(box self)
+
+type PrimaryCtorThenGenericBase<'T>(a: 'T) =
+    member _.A = a
+
+type PrimaryCtorThenGenericChild<'T> =
+    inherit PrimaryCtorThenGenericBase<'T>
+    val mutable Items: 'T list
+    new (a: 'T) as self = { inherit PrimaryCtorThenGenericBase<'T>(a); Items = [] } then self.Items <- [ self.A; a ]
+
+type PrimaryCtorThenSelfBase(a: int) as this =
+    let mutable touched = 0
+    do this.Touch()
+    member _.A = a
+    member _.Touched = touched
+    member _.Touch() = touched <- touched + 1
+
+type PrimaryCtorThenSelfBaseChild =
+    inherit PrimaryCtorThenSelfBase
+    val X: int
+    new () = { inherit PrimaryCtorThenSelfBase(1); X = 2 }
+
+[<Fact>]
+let ``test explicit constructor runs its then block after a base primary constructor`` () =
+    primaryCtorThenLog.Clear()
+    let c = PrimaryCtorThenChild(1)
+    (c.A, c.X, c.Y) |> equal (2, 4, "y")
+    List.ofSeq primaryCtorThenLog |> equal [ "arg"; "base"; "y"; "x"; "then" ]
+
+[<Fact>]
+let ``test explicit constructor with a self identifier works with a base primary constructor`` () =
+    primaryCtorThenSaved.Clear()
+    let a = PrimaryCtorThenSelfChild(3)
+    (a.A, a.X) |> equal (3, 6)
+    obj.ReferenceEquals(primaryCtorThenSaved.[0], a) |> equal true
+    let b = PrimaryCtorThenSelfChild()
+    (b.A, b.X) |> equal (7, 28)
+    obj.ReferenceEquals(primaryCtorThenSaved.[1], b) |> equal true
+    obj.ReferenceEquals(primaryCtorThenSaved.[2], b) |> equal true
+    let g = PrimaryCtorThenGenericChild("q")
+    g.Items |> equal [ "q"; "q" ]
+
+[<Fact>]
+let ``test explicit constructor works with a base primary constructor that has a self identifier`` () =
+    let c = PrimaryCtorThenSelfBaseChild()
+    (c.A, c.Touched, c.X) |> equal (1, 1, 2)
