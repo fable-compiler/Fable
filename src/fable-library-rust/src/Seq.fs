@@ -1233,42 +1233,60 @@ let inline sumBy (projection: 'T -> 'U) (xs: 'T seq) : 'U =
     fold (fun acc x -> acc + (projection x)) zero xs
 
 let maxBy (projection: 'T -> 'U) (xs: 'T seq) : 'T =
-    reduce
-        (fun x y ->
-            if (projection x) > (projection y) then
-                x
-            else
-                y
-        )
-        xs
+    use e = ofSeq xs
+
+    if e.MoveNext() then
+        let mutable acc = e.Current
+        let mutable accv = projection acc
+
+        while e.MoveNext() do
+            let x = e.Current
+            let v = projection x
+
+            if v > accv then
+                acc <- x
+                accv <- v
+
+        acc
+    else
+        invalidOp SR.inputSequenceEmpty
 
 let max (xs: 'T seq) : 'T =
     reduce
         (fun x y ->
-            if x > y then
-                x
-            else
+            if y > x then
                 y
+            else
+                x
         )
         xs
 
 let minBy (projection: 'T -> 'U) (xs: 'T seq) : 'T =
-    reduce
-        (fun x y ->
-            if (projection x) < (projection y) then
-                x
-            else
-                y
-        )
-        xs
+    use e = ofSeq xs
+
+    if e.MoveNext() then
+        let mutable acc = e.Current
+        let mutable accv = projection acc
+
+        while e.MoveNext() do
+            let x = e.Current
+            let v = projection x
+
+            if v < accv then
+                acc <- x
+                accv <- v
+
+        acc
+    else
+        invalidOp SR.inputSequenceEmpty
 
 let min (xs: 'T seq) : 'T =
     reduce
         (fun x y ->
-            if x < y then
-                x
-            else
+            if y < x then
                 y
+            else
+                x
         )
         xs
 

@@ -101,6 +101,23 @@ type CustomValue(value: int, label: string) =
 
     override _.GetHashCode() = value
 
+type RankedValue(rank: int, label: string) =
+    member _.Rank = rank
+    member _.Label = label
+
+    override _.Equals(other) =
+        match other with
+        | :? RankedValue as other -> rank = other.Rank
+        | _ -> false
+
+    override _.GetHashCode() = rank
+
+    interface System.IComparable with
+        member _.CompareTo(other) =
+            match other with
+            | :? RankedValue as other -> compare rank other.Rank
+            | _ -> invalidArg "other" "cannot compare values of different types"
+
 type WrappedUnion = WrappedUnion of CustomValue
 
 type WrappedRecord = { Value: CustomValue }
@@ -514,6 +531,16 @@ let tests =
         let c1 = Test(5)
         let c2 = Test(5)
         Object.ReferenceEquals(min c1 c2, c2) |> equal true
+
+    testCase "max and min of equal values return the same argument as .NET" <| fun () ->
+        let x = RankedValue(0, "x")
+        let y = RankedValue(0, "y")
+        (max x y).Label |> equal "x"
+        (min x y).Label |> equal "y"
+        (max (0, x) (0, y) |> snd).Label |> equal "x"
+        (min (0, x) (0, y) |> snd).Label |> equal "y"
+        max 1.0m 1.00m |> string |> equal "1.0"
+        min 1.0m 1.00m |> string |> equal "1.00"
 
     testCase "nullArg works" <| fun () ->
         try

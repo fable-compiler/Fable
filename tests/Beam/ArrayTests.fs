@@ -409,6 +409,22 @@ let ``test Array.minBy works`` () =
     |> equal 2.
 
 [<Fact>]
+let ``test Array.minBy and Array.maxBy keep the first of tied elements`` () =
+    let xs = [| "y", 1; "c", 0; "a", 0; "z", 1; "b", 0; "x", 1 |]
+    xs |> Array.minBy snd |> equal ("c", 0)
+    xs |> Array.maxBy snd |> equal ("y", 1)
+    xs |> Array.minBy (fun _ -> 0) |> equal ("y", 1)
+    xs |> Array.maxBy (fun _ -> 0) |> equal ("y", 1)
+
+[<Fact>]
+let ``test Array.minBy and Array.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f (x: int) = calls <- calls + 1; x
+    [| 5; 3; 8; 1; 9 |] |> Array.minBy f |> equal 1
+    [| 5; 3; 8; 1; 9 |] |> Array.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
 let ``test Array.max works`` () =
     let xs = [| 1.; 2. |]
     xs |> Array.max

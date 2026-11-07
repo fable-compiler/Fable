@@ -1267,6 +1267,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Clamp", _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | ("Min" | "Max") as meth, _ ->
         match args.Head.Type with
+        | Number(Decimal, _) -> libCall com r t "Decimal" (Naming.lowerFirst meth) args |> Some
         | Boolean
         | Char
         | String -> math r t args i.SignatureArgTypes i.CompiledName |> Some
