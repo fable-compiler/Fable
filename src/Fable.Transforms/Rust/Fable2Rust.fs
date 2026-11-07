@@ -2179,7 +2179,7 @@ module Util =
 
         let fields =
             if List.length idents <> List.length values then
-                $"Cannot construct %s{ent.FullName}: expected %d{List.length idents} field values but found %d{List.length values}. Explicit constructors with a self identifier (`new (...) as x`) are not supported on Rust."
+                $"Cannot construct %s{ent.FullName}: expected %d{List.length idents} field values but found %d{List.length values}. This constructor form is not supported on Rust."
                 |> addError com [] r
 
                 []
@@ -5057,19 +5057,28 @@ module Util =
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
-    let maybeConstructorBaseCall (com: IRustCompiler) ctx (body: Fable.Expr) =
+    let maybeConstructorBaseCall (com: IRustCompiler) ctx (memb: Fable.MemberFunctionOrValue) (body: Fable.Expr) =
+        let ownEnt = memb.DeclaringEntity |> Option.map com.GetEntity
+
+        let baseEntRef =
+            ownEnt
+            |> Option.bind (fun ent -> ent.BaseType)
+            |> Option.map (fun baseType -> baseType.Entity)
+            |> Option.filter (isValidBaseType com)
+
         let isBaseCall expr =
-            match expr with
-            | Fable.Call(_, info, Fable.DeclaredType(baseEntRef, _), _) ->
-                match info.MemberRef |> Option.bind com.TryGetMember with
-                | Some memb -> memb.IsConstructor && isValidBaseType com baseEntRef
-                | None -> false
+            match expr, baseEntRef with
+            | Fable.Call(_, _, Fable.DeclaredType(callEntRef, _), _), Some baseEntRef ->
+                callEntRef.FullName = baseEntRef.FullName
             | _ -> false
+
+        let isOwnEntity (entRef: Fable.EntityRef) =
+            ownEnt |> Option.exists (fun ent -> ent.FullName = entRef.FullName)
 
         let rec buildsRecord expr =
             match expr with
-            | Fable.Value(Fable.NewRecord _, _) -> true
-            | Fable.Sequential exprs -> exprs |> List.last |> buildsRecord
+            | Fable.Value(Fable.NewRecord(_, entRef, _), _) -> isOwnEntity entRef
+            | Fable.Sequential exprs -> exprs |> List.tryLast |> Option.exists buildsRecord
             | Fable.Let(_, _, body) -> buildsRecord body
             | _ -> false
 
@@ -5082,7 +5091,9 @@ module Util =
 
         let rec transform expr =
             match expr with
-            | Fable.Sequential [ baseCall; Fable.Value(Fable.NewRecord _, _) as record ] when isBaseCall baseCall ->
+            | Fable.Sequential [ baseCall; Fable.Value(Fable.NewRecord _, _) as record ] when
+                isBaseCall baseCall && buildsRecord record
+                ->
                 addBaseField baseCall record
             // F# binds fields written out of declaration order in lets around the record, after the base call
             | Fable.Sequential [ baseCall; Fable.Let _ as lets ] when isBaseCall baseCall && buildsRecord lets ->
@@ -5098,7 +5109,23 @@ module Util =
                     getUniqueNameInDeclarationScope ctx "instance" |> makeTypedIdent init.Type
 
                 Fable.Let(ident, init, Fable.Sequential(thenExprs @ [ Fable.IdentExpr ident ]))
+            | Fable.Sequential exprs ->
+                let lastIndex = List.length exprs - 1
+
+                exprs
+                |> List.mapi (fun i expr ->
+                    if i = lastIndex then
+                        transform expr
+                    else
+                        expr
+                )
+                |> Fable.Sequential
             | Fable.Let(ident, value, body) -> Fable.Let(ident, value, transform body)
+            | Fable.IfThenElse(guard, thenExpr, elseExpr, r) ->
+                Fable.IfThenElse(guard, transform thenExpr, transform elseExpr, r)
+            | Fable.DecisionTree(tree, targets) ->
+                let targets = targets |> List.map (fun (idents, target) -> idents, transform target)
+                Fable.DecisionTree(transform tree, targets)
             | _ -> expr
 
         transform body
@@ -5130,7 +5157,7 @@ module Util =
                 let thisArg = makeIdentExpr (rawIdent "self")
                 Fable.Let(ident, thisArg, body)
             elif memb.IsConstructor then
-                body |> maybeConstructorBaseCall com ctx
+                body |> maybeConstructorBaseCall com ctx memb
             else
                 body
 

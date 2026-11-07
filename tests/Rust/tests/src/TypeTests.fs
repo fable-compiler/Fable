@@ -369,6 +369,121 @@ type ExplicitCtorThenGeneric<'T> =
     new(id: int, value: 'T, log: ResizeArray<string>) =
         { inherit ExplicitCtorBase(id, log); Value = value } then log.Add("then")
 
+type ExplicitCtorStatementThen =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        log.Add("pre")
+        { inherit ExplicitCtorBase(id, log); Extra = logCtorStep log "extra" 1 } then log.Add("then")
+
+type ExplicitCtorStatement =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        log.Add("pre")
+        { inherit ExplicitCtorBase(id, log); Extra = logCtorStep log "extra" 1 }
+
+type ExplicitCtorGuardThen =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        if id < 0 then failwith "neg"
+        { inherit ExplicitCtorBase(id, log); Extra = 1 } then log.Add("then")
+
+type ExplicitCtorLetStatementThen =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        let y = id + 1
+        log.Add(string y)
+        { inherit ExplicitCtorBase(y, log); Extra = 1 } then log.Add("then")
+
+type ExplicitCtorBaseTypeStatement =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        ExplicitCtorBase(100, log) |> ignore
+        { inherit ExplicitCtorBase(id, log); Extra = 1 } then log.Add("then")
+
+type ExplicitCtorRecordArg = { CtorArg: int }
+
+type ExplicitCtorRecordStatement =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        let r = { CtorArg = id }
+        log.Add(string r.CtorArg)
+        { inherit ExplicitCtorBase(r.CtorArg, log); Extra = r.CtorArg + 1 } then log.Add("then")
+
+type ExplicitCtorIfThen =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        if id > 1 then
+            { inherit ExplicitCtorBase(id, log); Extra = 1 } then log.Add("a")
+        else
+            { inherit ExplicitCtorBase(id + 1, log); Extra = 2 } then log.Add("b")
+
+type ExplicitCtorIf =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        if id > 1 then
+            { inherit ExplicitCtorBase(id, log); Extra = 1 }
+        else
+            { inherit ExplicitCtorBase(id + 1, log); Extra = 2 }
+
+type ExplicitCtorIfMixed =
+    inherit ExplicitCtorBase
+    val A: int
+    val B: int
+    new(id: int, log: ResizeArray<string>) =
+        log.Add("pre")
+        let y = id + 1
+        if y > 2 then
+            { inherit ExplicitCtorBase(y, log); B = logCtorStep log "b" 2; A = logCtorStep log "a" 1 } then log.Add("then")
+        else
+            let z = y * 2
+            { inherit ExplicitCtorBase(z, log); B = z; A = 3 }
+
+type ExplicitCtorMatchThen =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        match id with
+        | 2 -> { inherit ExplicitCtorBase(id, log); Extra = 1 } then log.Add("a")
+        | 3 -> { inherit ExplicitCtorBase(id, log); Extra = 3 } then log.Add("c")
+        | _ -> { inherit ExplicitCtorBase(id + 1, log); Extra = 2 } then log.Add("b")
+
+type ExplicitCtorExceptionThen =
+    inherit System.Exception
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        { inherit System.Exception("msg"); Extra = logCtorStep log "extra" id } then log.Add("then")
+
+type ExplicitCtorException =
+    inherit System.Exception
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        { inherit System.Exception("msg"); Extra = logCtorStep log "extra" id }
+
+type ExplicitCtorExceptionUnordered =
+    inherit System.Exception
+    val A: int
+    val B: int
+    new(id: int, log: ResizeArray<string>) =
+        { inherit System.Exception("msg"); B = logCtorStep log "b" id; A = logCtorStep log "a" 1 }
+
+type ExplicitCtorExceptionIf =
+    inherit System.Exception
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        log.Add("pre")
+        if id > 1 then
+            { inherit System.Exception("big"); Extra = id } then log.Add("then")
+        else
+            { inherit System.Exception("small"); Extra = id }
+
 exception MyEx of int * string
 
 // type MyEx2(f: float) =
@@ -1517,6 +1632,139 @@ let ``Explicit constructors with a base and then work on generic types`` () =
     c.Id |> equal 20
     c.Value |> equal "v"
     log.ToArray() |> equal [| "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors run a statement before the base call and then`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorStatementThen(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    log.ToArray() |> equal [| "pre"; "base"; "extra"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors run a statement before the base call`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorStatement(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    log.ToArray() |> equal [| "pre"; "base"; "extra" |]
+
+[<Fact>]
+let ``Explicit constructors work with an argument guard before the base call`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorGuardThen(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    log.ToArray() |> equal [| "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors work with a let and a statement before the base call`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorLetStatementThen(2, log)
+    c.Id |> equal 30
+    c.Extra |> equal 1
+    log.ToArray() |> equal [| "3"; "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors keep a statement building the base type apart from the base call`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorBaseTypeStatement(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    log.ToArray() |> equal [| "base"; "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors work with a record bound before the base call`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorRecordStatement(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 3
+    log.ToArray() |> equal [| "2"; "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors work with if else around the object and then`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorIfThen(2, log)
+    let d = ExplicitCtorIfThen(0, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    d.Id |> equal 10
+    d.Extra |> equal 2
+    log.ToArray() |> equal [| "base"; "a"; "base"; "b" |]
+
+[<Fact>]
+let ``Explicit constructors work with if else around the object`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorIf(2, log)
+    let d = ExplicitCtorIf(0, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    d.Id |> equal 10
+    d.Extra |> equal 2
+    log.ToArray() |> equal [| "base"; "base" |]
+
+[<Fact>]
+let ``Explicit constructors can mix then and unordered fields across branches`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorIfMixed(2, log)
+    let d = ExplicitCtorIfMixed(0, log)
+    c.Id |> equal 30
+    c.A |> equal 1
+    c.B |> equal 2
+    d.Id |> equal 20
+    d.A |> equal 3
+    d.B |> equal 2
+    log.ToArray() |> equal [| "pre"; "base"; "b"; "a"; "then"; "pre"; "base" |]
+
+[<Fact>]
+let ``Explicit constructors work with match around the object and then`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorMatchThen(2, log)
+    let d = ExplicitCtorMatchThen(0, log)
+    let e = ExplicitCtorMatchThen(3, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    d.Id |> equal 10
+    d.Extra |> equal 2
+    e.Id |> equal 30
+    e.Extra |> equal 3
+    log.ToArray() |> equal [| "base"; "a"; "base"; "b"; "base"; "c" |]
+
+[<Fact>]
+let ``Explicit constructors can inherit Exception with then`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorExceptionThen(2, log)
+    c.Extra |> equal 2
+    c.Message |> equal "msg"
+    log.ToArray() |> equal [| "extra"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors can inherit Exception`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorException(2, log)
+    c.Extra |> equal 2
+    c.Message |> equal "msg"
+    log.ToArray() |> equal [| "extra" |]
+
+[<Fact>]
+let ``Explicit constructors can inherit Exception with unordered fields`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorExceptionUnordered(2, log)
+    c.A |> equal 1
+    c.B |> equal 2
+    c.Message |> equal "msg"
+    log.ToArray() |> equal [| "b"; "a" |]
+
+[<Fact>]
+let ``Explicit constructors can inherit Exception across branches`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorExceptionIf(2, log)
+    let d = ExplicitCtorExceptionIf(0, log)
+    c.Extra |> equal 2
+    c.Message |> equal "big"
+    d.Extra |> equal 0
+    d.Message |> equal "small"
+    log.ToArray() |> equal [| "pre"; "then"; "pre" |]
 
 [<Fact>]
 let ``Struct with mutable fields works`` () =
