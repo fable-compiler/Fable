@@ -314,6 +314,61 @@ type ClassWithDefaultValueStaticAndInstanceFields =
     val Y: int
     new(x, y) = { X = x; Y = y }
 
+let logCtorStep (log: ResizeArray<string>) step value =
+    log.Add(step)
+    value
+
+type ExplicitCtorBase =
+    val Id: int
+    new(id: int, log: ResizeArray<string>) = { Id = logCtorStep log "base" (id * 10) }
+
+type ExplicitCtorThen =
+    inherit ExplicitCtorBase
+    val Extra: int
+    new(id: int, log: ResizeArray<string>) =
+        { inherit ExplicitCtorBase(id, log); Extra = 1 } then log.Add("then")
+
+type ExplicitCtorThenUnordered =
+    inherit ExplicitCtorBase
+    val A: int
+    val B: int
+    new(id: int, log: ResizeArray<string>) =
+        { inherit ExplicitCtorBase(id, log); B = logCtorStep log "b" 2; A = logCtorStep log "a" 1 } then log.Add("then")
+
+type ExplicitCtorUnordered =
+    inherit ExplicitCtorBase
+    val A: int
+    val B: int
+    new(id: int, log: ResizeArray<string>) =
+        { inherit ExplicitCtorBase(id, log); B = logCtorStep log "b" 2; A = logCtorStep log "a" 1 }
+
+type ExplicitCtorThenNoBase =
+    val A: int
+    val B: int
+    new(a: int, log: ResizeArray<string>) =
+        { B = logCtorStep log "b" 2; A = logCtorStep log "a" a } then
+            log.Add("then1")
+            log.Add("then2")
+
+type ExplicitCtorThenLet =
+    inherit ExplicitCtorBase
+    val A: int
+    new(id: int, log: ResizeArray<string>) =
+        let x = id + 1
+        { inherit ExplicitCtorBase(x, log); A = x } then log.Add("then")
+
+type ExplicitCtorThenChild =
+    inherit ExplicitCtorThen
+    val Own: string
+    new(id: int, log: ResizeArray<string>) =
+        { inherit ExplicitCtorThen(id, log); Own = "own" } then log.Add("child")
+
+type ExplicitCtorThenGeneric<'T> =
+    inherit ExplicitCtorBase
+    val Value: 'T
+    new(id: int, value: 'T, log: ResizeArray<string>) =
+        { inherit ExplicitCtorBase(id, log); Value = value } then log.Add("then")
+
 exception MyEx of int * string
 
 // type MyEx2(f: float) =
@@ -1403,6 +1458,65 @@ let ``Explicit constructors skip static fields next to DefaultValue fields`` () 
     c.X |> equal 1
     c.D |> equal 0
     c.Y |> equal 2
+
+[<Fact>]
+let ``Explicit constructors with a base run then after the object is built`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorThen(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    log.ToArray() |> equal [| "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors with then keep the evaluation order of unordered fields`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorThenUnordered(2, log)
+    c.Id |> equal 20
+    c.A |> equal 1
+    c.B |> equal 2
+    log.ToArray() |> equal [| "base"; "b"; "a"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors with a base keep the evaluation order of unordered fields`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorUnordered(2, log)
+    c.Id |> equal 20
+    c.A |> equal 1
+    c.B |> equal 2
+    log.ToArray() |> equal [| "base"; "b"; "a" |]
+
+[<Fact>]
+let ``Explicit constructors without a base run then after the object is built`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorThenNoBase(1, log)
+    c.A |> equal 1
+    c.B |> equal 2
+    log.ToArray() |> equal [| "b"; "a"; "then1"; "then2" |]
+
+[<Fact>]
+let ``Explicit constructors with a let before the base call work`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorThenLet(2, log)
+    c.Id |> equal 30
+    c.A |> equal 3
+    log.ToArray() |> equal [| "base"; "then" |]
+
+[<Fact>]
+let ``Explicit constructors with then can inherit from each other`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorThenChild(2, log)
+    c.Id |> equal 20
+    c.Extra |> equal 1
+    c.Own |> equal "own"
+    log.ToArray() |> equal [| "base"; "then"; "child" |]
+
+[<Fact>]
+let ``Explicit constructors with a base and then work on generic types`` () =
+    let log = ResizeArray<string>()
+    let c = ExplicitCtorThenGeneric<string>(2, "v", log)
+    c.Id |> equal 20
+    c.Value |> equal "v"
+    log.ToArray() |> equal [| "base"; "then" |]
 
 [<Fact>]
 let ``Struct with mutable fields works`` () =

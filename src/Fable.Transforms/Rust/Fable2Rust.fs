@@ -2178,7 +2178,13 @@ module Util =
             | _ -> [], idents
 
         let fields =
-            List.zip idents values
+            if List.length idents <> List.length values then
+                $"Cannot construct %s{ent.FullName}: expected %d{List.length idents} field values but found %d{List.length values}. Explicit constructors with a self identifier (`new (...) as x`) are not supported on Rust."
+                |> addError com [] r
+
+                []
+            else
+                List.zip idents values
             |> List.map (fun (ident, value) ->
                 let expr = transformLeaveContext com ctx None value
 
@@ -5051,23 +5057,51 @@ module Util =
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
-    let maybeConstructorBaseCall (com: IRustCompiler) (body: Fable.Expr) =
-        // support explicit field constructor base calls
-        // body pattern: Sequential([Call _; NewRecord _])
-        match body with
-        | Fable.Sequential([ first; second ]) ->
-            match first, second with
-            | Fable.Call(_, info, typ, _), Fable.Value(Fable.NewRecord(values, entRef, genArgs), r) ->
-                let membOpt = info.MemberRef |> Option.bind com.TryGetMember
+    let maybeConstructorBaseCall (com: IRustCompiler) ctx (body: Fable.Expr) =
+        let isBaseCall expr =
+            match expr with
+            | Fable.Call(_, info, Fable.DeclaredType(baseEntRef, _), _) ->
+                match info.MemberRef |> Option.bind com.TryGetMember with
+                | Some memb -> memb.IsConstructor && isValidBaseType com baseEntRef
+                | None -> false
+            | _ -> false
 
-                match membOpt, typ with
-                | Some memb, Fable.DeclaredType(baseEntRef, _) when memb.IsConstructor && isValidBaseType com baseEntRef ->
-                    let values = first :: values // add base call as first field value to the record
-                    let body = Fable.Value(Fable.NewRecord(values, entRef, genArgs), r)
-                    body
-                | _ -> body
-            | _ -> body
-        | _ -> body
+        let rec buildsRecord expr =
+            match expr with
+            | Fable.Value(Fable.NewRecord _, _) -> true
+            | Fable.Sequential exprs -> exprs |> List.last |> buildsRecord
+            | Fable.Let(_, _, body) -> buildsRecord body
+            | _ -> false
+
+        let rec addBaseField baseValue expr =
+            match expr with
+            | Fable.Value(Fable.NewRecord(values, entRef, genArgs), r) ->
+                Fable.Value(Fable.NewRecord(baseValue :: values, entRef, genArgs), r)
+            | Fable.Let(ident, value, body) -> Fable.Let(ident, value, addBaseField baseValue body)
+            | _ -> expr
+
+        let rec transform expr =
+            match expr with
+            | Fable.Sequential [ baseCall; Fable.Value(Fable.NewRecord _, _) as record ] when isBaseCall baseCall ->
+                addBaseField baseCall record
+            // F# binds fields written out of declaration order in lets around the record, after the base call
+            | Fable.Sequential [ baseCall; Fable.Let _ as lets ] when isBaseCall baseCall && buildsRecord lets ->
+                let baseIdent =
+                    getUniqueNameInDeclarationScope ctx "baseValue" |> makeTypedIdent baseCall.Type
+
+                Fable.Let(baseIdent, baseCall, addBaseField (Fable.IdentExpr baseIdent) lets)
+            // F# compiles `{ ... } then body` to a Sequential typed as the unit body, not as the object
+            | Fable.Sequential(init :: thenExprs) when expr.Type = Fable.Unit && buildsRecord init ->
+                let init = transform init
+
+                let ident =
+                    getUniqueNameInDeclarationScope ctx "instance" |> makeTypedIdent init.Type
+
+                Fable.Let(ident, init, Fable.Sequential(thenExprs @ [ Fable.IdentExpr ident ]))
+            | Fable.Let(ident, value, body) -> Fable.Let(ident, value, transform body)
+            | _ -> expr
+
+        transform body
 
     let transformAssocMember com ctx (memb: Fable.MemberFunctionOrValue) (decl: Fable.MemberDecl) =
         let ctx = { ctx with IsAssocMember = true }
@@ -5096,7 +5130,7 @@ module Util =
                 let thisArg = makeIdentExpr (rawIdent "self")
                 Fable.Let(ident, thisArg, body)
             elif memb.IsConstructor then
-                body |> maybeConstructorBaseCall com
+                body |> maybeConstructorBaseCall com ctx
             else
                 body
 
