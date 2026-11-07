@@ -45,6 +45,7 @@ let tests () =
             Rune.GetRuneAt("ABC", 3)
             |> ignore
 
+#if FABLE_COMPILER
     testCase "Rune.GetRuneAt throws for unpaired surrogate characters" <| fun () ->
         let highSurrogate = stringFromCharCode 0xD800
         let lowSurrogate = stringFromCharCode 0xDC00
@@ -56,6 +57,7 @@ let tests () =
         throwsAnyError <| fun () ->
             Rune.GetRuneAt(lowSurrogate, 0)
             |> ignore
+#endif
 
     testCase "Rune.Value returns the Unicode scalar value" <| fun () ->
         Rune.GetRuneAt("A", 0).Value
@@ -106,6 +108,7 @@ let tests () =
         |> Seq.toList
         |> equal [ "A"; "𠀀"; "B" ]
 
+#if FABLE_COMPILER
     testCase "String.EnumerateRunes replaces unpaired surrogates" <| fun () ->
         // .NET String.EnumerateRunes replaces invalid UTF-16 sequences with U+FFFD
         // https://learn.microsoft.com/en-us/dotnet/api/system.text.rune.replacementchar
@@ -118,3 +121,4 @@ let tests () =
         |> Seq.map _.Value
         |> Seq.toList
         |> equal [ 0xFFFD; 0x41; 0xFFFD ]
+#endif

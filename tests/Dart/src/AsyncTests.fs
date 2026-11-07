@@ -83,12 +83,14 @@ let tests () =
 
         f true + f false |> equal 22
 
+#if FABLE_COMPILER
     testCase "Non captured exception in async is propagated when using Async.StartImmediate"
     <| fun () -> throwsAnyError (fun () -> async { failwith "boom!" } |> Async.StartImmediate)
 
     // Behaviour of Async.Start is the same as Async.StartImmediate in Dart
     testCase "Non captured exception in async is propagated when using Async.Start"
     <| fun () -> throwsAnyError (fun () -> async { failwith "boom!" } |> Async.Start)
+#endif
 
     testCase "Simple async is executed correctly"
     <| fun () ->
@@ -327,6 +329,7 @@ let tests () =
             equal 3 x
         }
 
+#if FABLE_COMPILER
     testCaseAsync "Interaction between Async and Future works"
     <| fun () ->
         async {
@@ -380,6 +383,7 @@ let tests () =
 
             equal "boom" message
         }
+#endif
 
     testCase "Async try .. with returns correctly from 'with' branch"
     <| fun () ->
