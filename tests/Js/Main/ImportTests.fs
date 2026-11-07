@@ -99,6 +99,17 @@ type Treasure =
 
 let myKeyInlineWrapper() =
     Treasure.keyHolderInline
+
+[<Import("limit", "./js/1foo.js")>]
+let importedLimit: int = jsNative
+
+let private forLoopBoundThree () = 3
+
+let forLoopBoundWithImportedLimit () =
+    let mutable sum = 0
+    for _ = 0 to forLoopBoundThree () do
+        sum <- sum + importedLimit
+    sum
 #endif
 
 let tests =
@@ -116,6 +127,9 @@ let tests =
         fooAll.foo |> equal "foo"
         let fooAll2: IFooImported = JsInterop.importAll "./js/1foo.js"
         fooAll2.foo |> equal "foo"
+
+    testCase "for bound does not shadow an import" <| fun () ->
+        forLoopBoundWithImportedLimit () |> equal 400
 
     testCase "Symbols in external projects work" <| fun () ->
         equal "Fable Rocks!" Spaces.Helper.ConditionalExternalValue

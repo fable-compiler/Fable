@@ -247,6 +247,19 @@ type ParseSpeeds =
     | [<CompiledValue(500)>] Medium
     | [<CompiledValue(100)>] Slow
 
+#if !FABLE_COMPILER_TYPESCRIPT
+[<Global("limit")>]
+let globalLimit: int = jsNative
+
+let private forLoopBoundThree () = 3
+
+let forLoopBoundWithGlobalLimit () =
+    let mutable sum = 0
+    for _ = 0 to forLoopBoundThree () do
+        sum <- sum + globalLimit
+    sum
+#endif
+
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
@@ -679,6 +692,14 @@ let tests =
         instance.regular 3 |> equal 4
 
 #if FABLE_COMPILER
+#if !FABLE_COMPILER_TYPESCRIPT
+    testCase "for bound does not shadow a global" <| fun () ->
+        emitJsStatement () "Reflect.set(globalThis, 'limit', 21)"
+        let result = forLoopBoundWithGlobalLimit ()
+        emitJsStatement () "Reflect.deleteProperty(globalThis, 'limit')"
+        equal 84 result
+#endif
+
     testCase "Can type test interfaces decorated with Global" <| fun () ->
         let ar = ResizeArray [| 1; 2; 3 |] |> box
         match ar with

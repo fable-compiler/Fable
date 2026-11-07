@@ -2,6 +2,8 @@
 
 export const foo = "foo";
 
+export const limit = 100;
+
 export default {
     myKey: "a secret"
 }
