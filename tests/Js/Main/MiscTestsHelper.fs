@@ -40,6 +40,10 @@ let track x =
 
 let mutable forLoopCrossFileArray = [| 1; 2; 3 |]
 
+let mutable forLoopLengthCrossFileArray = [| 1; 2; 3 |]
+
+let mutable forInCrossFileArray = [| 1; 2; 3 |]
+
 let mutable forLoopCrossFileCalls = 0
 
 let forLoopCrossFileMakeArray () =
