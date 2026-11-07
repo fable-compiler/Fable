@@ -1,7 +1,7 @@
 import { toString as dateToString } from "./Date.ts";
 import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toExponentialHalfEven, toFixed, toFixedHalfEven, toHex, toPrecision, toPrecisionHalfEven, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
-import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentException_$ctor_Z384F8060, ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 import { toString } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
@@ -114,7 +114,7 @@ export function contains(str: string, pattern: string, ic: boolean | StringCompa
   return false;
 }
 
-export function indexOf(str: string, searchValue: string, comparison: StringComparison, startIndex: number = 0): number {
+export function indexOf(str: string, searchValue: string, comparison: boolean | StringComparison, startIndex: number = 0): number {
   if (comparison === StringComparison.Ordinal) { // fast path
     return str.indexOf(searchValue, startIndex);
   }
@@ -788,8 +788,22 @@ export function remove(str: string, startIndex: number, count?: number) {
   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
 }
 
-export function replace(str: string, search: string, replace: string) {
-  return str.replace(new RegExp(escape(search), "g"), replace);
+export function replace(str: string, search: string, replacement: string, comparison: boolean | StringComparison = StringComparison.Ordinal) {
+  if (search == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("oldValue");
+  }
+  if (search.length === 0) {
+    throw ArgumentException_$ctor_Z384F8060("String cannot be of zero length.", "oldValue");
+  }
+  let result = "";
+  let start = 0;
+  let match = indexOf(str, search, comparison);
+  while (match >= 0) {
+    result += str.slice(start, match) + (replacement ?? "");
+    start = match + search.length;
+    match = indexOf(str, search, comparison, start);
+  }
+  return result + str.slice(start);
 }
 
 export function replicate(n: number, x: string) {
