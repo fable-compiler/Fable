@@ -6,6 +6,7 @@ import {
   Record,
   Union,
   runStructuredFormatUserCode,
+  setStructuredFormatFellBack,
   structuredFormatPath,
   toString,
   toStructuredString,
@@ -62,20 +63,29 @@ export function structuredFormatDisplay(self: any, texts: string[], getValues: (
   structuredFormatPath.push(self);
   try {
     let str = texts[0];
-    let previous: any;
+    let previousIsValue = false;
     for (let i = 0; i < getValues.length; i++) {
       const value = runStructuredFormatUserCode(getValues[i]);
       if (value == null) {
-        return structuredFormatFallback(self);
+        const fallback = structuredFormatFallback(self);
+        setStructuredFormatFellBack(true);
+        return fallback;
       }
-      if (i > 0 && texts[i] === "" && typeof value !== "string" && typeof previous !== "string") {
-        str += " ";
+      if (texts[i] !== "" || value !== "") {
+        previousIsValue = previousIsValue && texts[i] === "" && typeof value !== "string";
+      }
+      if (typeof value !== "string") {
+        if (previousIsValue) {
+          str += " ";
+        }
+        previousIsValue = true;
       }
       str += structuredFormatValue(value) + texts[i + 1];
-      previous = value;
     }
+    setStructuredFormatFellBack(false);
     return str;
   } catch (e) {
+    setStructuredFormatFellBack(false);
     const message = e instanceof StructuredFormatNotFound
       ? e.message
       : "Exception has been thrown by the target of an invocation.";

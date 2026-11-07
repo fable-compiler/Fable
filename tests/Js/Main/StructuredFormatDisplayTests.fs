@@ -274,6 +274,37 @@ type DisplaySelfTrailing =
     { A: int }
     member this.Self = this
 
+[<StructuredFormatDisplay("G{Name}")>]
+type DisplayInlineTypeInfo<'T>() =
+    member inline _.Name = typeof<'T>.Name
+
+exception DisplayCarrier of obj
+
+[<StructuredFormatDisplay("A{E}")>]
+type DisplayThroughException() as this =
+    member _.E = DisplayCarrier(box this)
+
+[<StructuredFormatDisplay("Deep{Next}")>]
+type DisplayDeepException(n: int) =
+    member _.Next =
+        if n > 0 then
+            box (DisplayCarrier(DisplayDeepException(n - 1)))
+        else
+            box "end"
+
+[<StructuredFormatDisplay("{N}")>]
+type DisplayFallbackUnion =
+    | DisplayFallbackA of string
+    member _.N: string = null
+
+type DisplayFallbackHolder = DisplayFallbackHeld of DisplayFallbackUnion
+
+type DisplayUnionCarrier = DisplayUnionCarried of obj
+
+[<StructuredFormatDisplay("U{C}")>]
+type DisplayThroughUnion() as this =
+    member _.C = DisplayUnionCarried(box this)
+
 [<StructuredFormatDisplay("over {X}")>]
 type DisplayOverride =
     { X: int }
@@ -397,7 +428,26 @@ let tests = testList "StructuredFormatDisplay" [
 
     testCase "StructuredFormatDisplay supports inline properties" <| fun () ->
         sprintf "%A" ({ A = 1 }: DisplayInline) |> equal "2/v1/4"
+#if FABLE_COMPILER
+        let isNotFound (text: string) = text.StartsWith "<StructuredFormatDisplay exception: Method '" |> equal true
+        sprintf "%A" ({ V = 3 }: DisplayInlineGeneric<int>) |> isNotFound
+        sprintf "%A" (DisplayInlineTypeInfo<int>()) |> isNotFound
+#else
         sprintf "%A" ({ V = 3 }: DisplayInlineGeneric<int>) |> equal "[3]"
+        sprintf "%A" (DisplayInlineTypeInfo<int>()) |> equal "GInt32"
+#endif
+
+    testCase "StructuredFormatDisplay keeps union parentheses when a display falls back" <| fun () ->
+        sprintf "%A" (DisplayFallbackHeld(DisplayFallbackA "x")) |> equal "DisplayFallbackHeld (DisplayFallbackA \"x\")"
+        string (DisplayFallbackHeld(DisplayFallbackA "x")) |> equal "DisplayFallbackHeld (DisplayFallbackA \"x\")"
+        sprintf "%A" [ DisplayFallbackHeld(DisplayFallbackA "x") ] |> equal "[DisplayFallbackHeld (DisplayFallbackA \"x\")]"
+
+    testCase "StructuredFormatDisplay stops at cycles through unions" <| fun () ->
+        (sprintf "%A" (DisplayThroughUnion())).Length < 200 |> equal true
+
+    testCase "StructuredFormatDisplay stops at cycles through exceptions" <| fun () ->
+        (sprintf "%A" (DisplayThroughException())).Length < 200 |> equal true
+        (sprintf "%A" (DisplayDeepException 6)).Length < 400 |> equal true
 
     testCase "StructuredFormatDisplay supports union case testers" <| fun () ->
         sprintf "%A" DisplayCaseA |> equal "true/false"
@@ -470,6 +520,8 @@ let tests = testList "StructuredFormatDisplay" [
         show "s" "s" |> equal "ss"
         show 1 "" |> equal "1"
         show "" 1 |> equal "1"
+        sprintf "%A" { A = 1; E = ""; B = 2 } |> equal "1 2"
+        sprintf "%A" { A = ""; E = ""; B = 1 } |> equal "1"
         show 1 s |> equal "1 n"
         show v 1 |> equal "2 1"
         show p 1 |> equal "P2 1"

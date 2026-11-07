@@ -3896,6 +3896,7 @@ module Util =
         (ctx: Context)
         (fsEnt: FSharpEntity)
         thisExpr
+        (makeNotFound: unit -> Fable.Expr)
         (name: string)
         =
         match
@@ -3936,12 +3937,25 @@ module Util =
                             let paramName = genParamName p
 
                             match Map.tryFind paramName ctx.GenericArgs with
-                            | Some genArg -> genArg
-                            | None -> Fable.GenericParam(paramName, p.IsMeasure, [])
+                            | Some genArg -> Some genArg
+                            | None -> None
                         )
                         |> List.ofSeq
 
-                    makeCallFrom com ctx None typ genArgs (Some thisExpr) [] getter |> Some
+                    if isInline getter && genArgs |> List.exists Option.isNone then
+                        $"StructuredFormatDisplay of %s{fsEnt.DisplayName} references inline property %s{name}, which cannot be evaluated without the type's generic arguments"
+                        |> addWarning com [] (makeRange fsEnt.DeclarationLocation |> Some)
+
+                        makeNotFound () |> Some
+                    else
+                        let genArgs =
+                            List.zip (List.ofSeq fsEnt.GenericParameters) genArgs
+                            |> List.map (fun (p, genArg) ->
+                                genArg
+                                |> Option.defaultWith (fun () -> Fable.GenericParam(genParamName p, p.IsMeasure, []))
+                            )
+
+                        makeCallFrom com ctx None typ genArgs (Some thisExpr) [] getter |> Some
             | None ->
                 fsEnt.BaseType
                 |> Option.map nonAbbreviatedType
@@ -3955,7 +3969,7 @@ module Util =
                         |> Map.ofSeq
 
                     let baseCtx = { ctx with GenericArgs = baseGenArgs }
-                    tryGetStructuredFormatMember com baseCtx baseEnt thisExpr name
+                    tryGetStructuredFormatMember com baseCtx baseEnt thisExpr makeNotFound name
                 )
 
     let getStructuredFormatValue
@@ -3988,7 +4002,7 @@ module Util =
                 Fable.Get(thisExpr, kind, Fable.Any, None)
             | None -> makeNotFound ()
 
-        match tryGetStructuredFormatMember com ctx fsEnt thisExpr name with
+        match tryGetStructuredFormatMember com ctx fsEnt thisExpr makeNotFound name with
         | Some value -> value, true
         | None when fsEnt.IsFSharpUnion && name = "Tag" -> Fable.Get(thisExpr, Fable.UnionTag, Fable.Any, None), true
         | None when fsEnt.IsFSharpUnion ->

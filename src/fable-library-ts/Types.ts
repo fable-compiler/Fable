@@ -51,8 +51,17 @@ export function runStructuredFormatUserCode<T>(f: () => T): T {
   }
 }
 
+let structuredFormatFellBack = false;
+
+export function setStructuredFormatFellBack(fellBack: boolean) {
+  structuredFormatFellBack = fellBack;
+}
+
 function hasLibraryToString(x: any) {
-  return Symbol.iterator in x || x.toString === Record.prototype.toString || x.toString === Union.prototype.toString;
+  return Symbol.iterator in x
+    || x.toString === Record.prototype.toString
+    || x.toString === Union.prototype.toString
+    || x.toString === FSharpException.prototype.toString;
 }
 
 export function toStructuredString(x: any): string {
@@ -93,7 +102,8 @@ export function unionToString(name: string, fields: any[]) {
       let withParens = true;
       if (fields.length === 1) {
         fieldStr = toStringQuoted(fields[0]);
-        withParens = fieldStr.indexOf(" ") >= 0 && typeof fields[0]?.$toStructuredFormat !== "function";
+        withParens = fieldStr.indexOf(" ") >= 0
+          && (typeof fields[0]?.$toStructuredFormat !== "function" || structuredFormatFellBack);
       } else {
         fieldStr = fields.map((x: any) => toStringQuoted(x)).join(", ");
       }
