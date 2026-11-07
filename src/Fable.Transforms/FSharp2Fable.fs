@@ -818,17 +818,36 @@ let private withOmittedFieldDefaults (com: IFableCompiler) (ctx: Context) (fsTyp
     else
         args
 
-let rec private loadsSelf (e: FSharpExpr) =
+let private (|LoadSelf|_|) (e: FSharpExpr) =
     match e with
-    | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> true
-    | e -> e.ImmediateSubExpressions |> List.exists loadsSelf
+    | FSharpExprPatterns.ILAsm(("[I_ldarg 0us]" | "[I_ldarg 0]"), [], []) -> Some()
+    | _ -> None
+
+// FCS writes `init@` on self in every constructor of a class with a self identifier
+let rec private loadsSelf skipInitWrite (e: FSharpExpr) =
+    match e with
+    | LoadSelf -> true
+    | FSharpExprPatterns.FSharpFieldSet(Some LoadSelf, _, field, value) when
+        skipInitWrite && field.Name.StartsWith("init@")
+        ->
+        loadsSelf skipInitWrite value
+    | e -> e.ImmediateSubExpressions |> List.exists (loadsSelf skipInitWrite)
 
 let private hasSelfConstructor (com: IFableCompiler) (ent: FSharpEntity) =
-    let hasExplicitConstructor =
-        ent.MembersFunctionsAndValues
-        |> Seq.exists (fun memb -> memb.IsConstructor && not memb.IsImplicitConstructor)
+    let constructors =
+        ent.MembersFunctionsAndValues |> Seq.filter (fun memb -> memb.IsConstructor)
 
-    if (FsEnt.Ref ent).SourcePath.IsNone || not hasExplicitConstructor then
+    let hasPrimaryConstructor =
+        constructors |> Seq.exists (fun memb -> memb.IsImplicitConstructor)
+
+    let hasExplicitConstructor =
+        constructors |> Seq.exists (fun memb -> not memb.IsImplicitConstructor)
+
+    if
+        (FsEnt.Ref ent).SourcePath.IsNone
+        || isGlobalOrImportedFSharpEntity ent
+        || not hasExplicitConstructor
+    then
         false
     else
         let file = Path.normalizePathAndEnsureFsExtension ent.DeclarationLocation.FileName
@@ -840,9 +859,10 @@ let private hasSelfConstructor (com: IFableCompiler) (ent: FSharpEntity) =
                 | FSharpImplementationFileDeclaration.Entity(_, sub) -> exists sub
                 | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, body) ->
                     memb.IsConstructor
+                    && not memb.IsImplicitConstructor
                     && memb.DeclaringEntity
                        |> Option.exists (fun declaring -> declaring.TryFullName = ent.TryFullName)
-                    && loadsSelf body
+                    && loadsSelf hasPrimaryConstructor body
                 | FSharpImplementationFileDeclaration.InitAction _ -> false
             )
 
@@ -857,7 +877,9 @@ let private hasSelfConstructor (com: IFableCompiler) (ent: FSharpEntity) =
             com.AddWatchDependency(file)
             exists decls
         // Precompiled libraries keep the `init@` field of such a class, but not the constructor bodies
-        | None -> ent.FSharpFields |> Seq.exists (fun field -> field.Name.StartsWith("init@"))
+        | None ->
+            ent.FSharpFields
+            |> Seq.exists (fun field -> not field.IsStatic && field.Name.StartsWith("init@"))
 
 let private checkSelfConstructorBase (com: IFableCompiler) (ctx: Context) r (baseEnt: FSharpEntity) =
     if hasSelfConstructor com baseEnt then

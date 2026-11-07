@@ -1001,6 +1001,17 @@ type ValClassSelfOutOfOrder =
     val mutable W: int
     new () as self = { W = 2; Z = 3 } then self.W <- self.W + self.Z
 
+type SelfPrimaryBase(x: int) as this =
+    let mutable touched = 0
+    do this.Touch()
+    new () = SelfPrimaryBase(1)
+    member _.X = x
+    member _.Touched = touched
+    member _.Touch() = touched <- touched + 1
+
+type SelfPrimaryChild() =
+    inherit SelfPrimaryBase(2)
+
 let tests =
   testList "Types" [
 
@@ -2038,4 +2049,10 @@ let tests =
         b.Count |> equal 20
         let c = ValClassSelfOutOfOrder()
         (c.Z, c.W) |> equal (3, 5)
+
+    testCase "Primary constructor with a self identifier works with a secondary constructor" <| fun () ->
+        let a = SelfPrimaryBase()
+        (a.X, a.Touched) |> equal (1, 1)
+        let b = SelfPrimaryChild()
+        (b.X, b.Touched) |> equal (2, 1)
   ]

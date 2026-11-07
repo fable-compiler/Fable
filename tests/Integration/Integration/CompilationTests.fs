@@ -56,13 +56,13 @@ let private checkBrowserInlineExprs (precompiledDir: string) =
                         (Fable.BrowserInlineExprs.toString [| name, fromCompact |])
                         $"%s{name} differs between the two copies"
 
-let private precompiledSelfBaseTest =
+let private precompiledBaseTest name fixture shouldCompile =
     testCaseAsync
-        "Inheriting a precompiled class with a self identifier is an error"
+        name
         (async {
-            let testCaseDir = Path.Combine(__SOURCE_DIRECTORY__, "precompiledErrors", "selfBase")
+            let testCaseDir = Path.Combine(__SOURCE_DIRECTORY__, "precompiledBases", fixture)
             let libraryProject = Path.Combine(testCaseDir, "library", "library.fsproj")
-            let project = Path.Combine(testCaseDir, "selfBase.fsproj")
+            let project = Path.Combine(testCaseDir, fixture + ".fsproj")
             let tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
             let precompiledDir = Path.Combine(tempDir, "precompiled")
 
@@ -87,7 +87,10 @@ let private precompiledSelfBaseTest =
                             precompiledDir
                         |]
 
-                Expect.notEqual exitCode 0 "Expected the compilation to fail"
+                if shouldCompile then
+                    Expect.equal exitCode 0 "Expected the compilation to succeed"
+                else
+                    Expect.notEqual exitCode 0 "Expected the compilation to fail"
             finally
                 if Directory.Exists tempDir then
                     Directory.Delete(tempDir, true)
@@ -166,5 +169,9 @@ let tests =
             }))
 
     |> Seq.toList
-    |> List.append [ precompiledSelfBaseTest ]
+    |> List.append
+        [
+            precompiledBaseTest "Inheriting a precompiled class with a self identifier is an error" "selfBase" false
+            precompiledBaseTest "Inheriting a precompiled class with a static let binding compiles" "staticInit" true
+        ]
     |> testList "Compilation"

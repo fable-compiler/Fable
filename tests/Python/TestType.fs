@@ -2057,6 +2057,17 @@ type ValClassSelfOutOfOrder =
     val mutable W: int
     new () as self = { W = 2; Z = 3 } then self.W <- self.W + self.Z
 
+type SelfPrimaryBase(x: int) as this =
+    let mutable touched = 0
+    do this.Touch()
+    new () = SelfPrimaryBase(1)
+    member _.X = x
+    member _.Touched = touched
+    member _.Touch() = touched <- touched + 1
+
+type SelfPrimaryChild() =
+    inherit SelfPrimaryBase(2)
+
 [<Fact>]
 let ``test explicit constructor returns the object after its then block`` () =
     let before = valClassThenCalls
@@ -2082,3 +2093,10 @@ let ``test explicit constructor with a self identifier works`` () = // See #5166
     b.Count |> equal 20
     let c = ValClassSelfOutOfOrder()
     (c.Z, c.W) |> equal (3, 5)
+
+[<Fact>]
+let ``test primary constructor with a self identifier works with a secondary constructor`` () =
+    let a = SelfPrimaryBase()
+    (a.X, a.Touched) |> equal (1, 1)
+    let b = SelfPrimaryChild()
+    (b.X, b.Touched) |> equal (2, 1)

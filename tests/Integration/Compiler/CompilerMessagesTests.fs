@@ -162,6 +162,51 @@ type Derived() =
       |> Assert.Is.strictSuccess
       |> ignore
 
+    testCase "Child of a primary constructor class with a self identifier and a secondary constructor compiles" <| fun _ ->
+      let source =
+        """
+type Base(x: int) as this =
+    do this.Touch()
+    new () = Base(1)
+    member _.X = x
+    member _.Touch() = ()
+
+type Derived() =
+    inherit Base(2)
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Primary constructor child of a secondary constructor with a self identifier results in error" <| fun _ ->
+      let source =
+        """
+type Base(a: int) =
+    member val V = a with get, set
+    new () as self = Base(1) then self.V <- self.V + 10
+
+type Derived() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Exists.errorWith "does not support inheriting from"
+      |> ignore
+
+    testCase "Child of an imported class with a self identifier compiles" <| fun _ ->
+      let source =
+        """
+[<Fable.Core.Import("Base", "./base.js")>]
+type Base =
+    val mutable X: int
+    new () as self = { X = 1 } then self.X <- 2
+
+type Derived() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
     testCase "Explicit child of a class without a self identifier compiles" <| fun _ ->
       let source =
         """
