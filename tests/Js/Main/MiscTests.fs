@@ -532,6 +532,39 @@ type DocCommentClass() =
     /// Member doc */
     member _.Get() = 1
 
+let mutable private forLoopModuleBound = 3
+
+type ForLoopBound() =
+    let mutable bound = 3
+
+    member val Bound = 3 with get, set
+
+    member _.FieldBoundIterations() =
+        let mutable n = 0
+        for _ = 0 to bound do
+            bound <- 1
+            n <- n + 1
+        n
+
+    member this.PropertyBoundIterations() =
+        let mutable n = 0
+        for _ = 0 to this.Bound do
+            this.Bound <- 1
+            n <- n + 1
+        n
+
+let rec private forLoopBoundTailCall (n: int) acc =
+    if n = 0 then
+        acc
+    else
+        let xs = ResizeArray [ for _ in 1 .. n -> 1 ]
+        let mutable c = 0
+        for _ = 0 to xs.Count - 1 do
+            if xs.Count < 20 then
+                xs.Add 0
+            c <- c + 1
+        forLoopBoundTailCall (n - 1) (acc + c)
+
 let tests =
   testList "Miscellaneous" [
     testCase "Hoisted vars don't conflict with while loop" <| fun () -> // see #4031
@@ -760,6 +793,183 @@ let tests =
         for i in 3 .. -1 .. 1 do
             fns.Add(fun () -> i)
         fns |> Seq.map (fun f -> f ()) |> Seq.toArray |> equal [| 3; 2; 1 |]
+
+    testCase "for bound over a collection is evaluated once" <| fun () ->
+        let shrinking = ResizeArray [ 1; 2; 3; 4 ]
+        let mutable n = 0
+        for _ in 0 .. shrinking.Count - 1 do
+            if shrinking.Count > 2 then
+                shrinking.RemoveAt 0
+            n <- n + 1
+        equal 4 n
+        let growing = ResizeArray [ 1; 2 ]
+        let mutable m = 0
+        for _ = 0 to growing.Count - 1 do
+            if growing.Count < 8 then
+                growing.Add 9
+            m <- m + 1
+        equal 2 m
+
+    testCase "for bound with side effects is evaluated once" <| fun () ->
+        let calls = ref 0
+        let hi () =
+            calls.Value <- calls.Value + 1
+            2
+        for _ in 0 .. hi () do
+            ()
+        equal 1 calls.Value
+
+    testCase "for downto bound is evaluated once" <| fun () ->
+        let xs = ResizeArray [ 1; 2; 3; 4 ]
+        let mutable n = 0
+        for _ = xs.Count - 1 downto xs.Count - 2 do
+            xs.RemoveAt 0
+            n <- n + 1
+        equal 2 n
+        let ys = ResizeArray [ 1; 2; 3 ]
+        let mutable m = 0
+        for _ in 3 .. -1 .. ys.Count - 2 do
+            ys.Add 0
+            m <- m + 1
+        equal 3 m
+
+    testCase "for bound reading a mutable local changed in the body is evaluated once" <| fun () ->
+        let mutable hi = 3
+        let mutable a = 0
+        for _ = 0 to hi do
+            hi <- 10
+            a <- a + 1
+        equal 4 a
+        let mutable lo = 3
+        let mutable b = 0
+        for _ = 5 downto lo do
+            lo <- 0
+            b <- b + 1
+        equal 3 b
+        let mutable x = 2
+        let mutable c = 0
+        for _ = 0 to x + 1 do
+            x <- 100
+            c <- c + 1
+        equal 4 c
+        let mutable str = "abc"
+        let mutable d = 0
+        for _ = 0 to str.Length - 1 do
+            str <- "a"
+            d <- d + 1
+        equal 3 d
+
+    testCase "for bound reading a ref cell, a field or a module mutable is evaluated once" <| fun () ->
+        let r = ref 2
+        let mutable a = 0
+        for _ = 0 to r.Value do
+            r.Value <- 7
+            a <- a + 1
+        equal 3 a
+        ForLoopBound().FieldBoundIterations() |> equal 4
+        ForLoopBound().PropertyBoundIterations() |> equal 4
+        forLoopModuleBound <- 3
+        let mutable b = 0
+        for _ = 0 to forLoopModuleBound do
+            forLoopModuleBound <- 1
+            b <- b + 1
+        equal 4 b
+
+    testCase "for start is evaluated before the bound and both only once" <| fun () ->
+        let log = ResizeArray<string>()
+        let tick name value =
+            log.Add name
+            value
+        for _ = tick "start" 0 to tick "limit" 1 do
+            log.Add "body"
+        for _ = tick "start" 1 downto tick "limit" 0 do
+            log.Add "body"
+        String.concat "," log |> equal "start,limit,body,body,start,limit,body,body"
+
+    testCase "Nested for bounds are each evaluated once per entry" <| fun () ->
+        let log = ResizeArray<string>()
+        let tick name value =
+            log.Add name
+            value
+        let limit = 0
+        for _ = 0 to tick "outer" 1 + limit do
+            for _ = 0 to tick "inner" 0 + limit do
+                let limit = 5
+                log.Add(string limit)
+        String.concat "," log |> equal "outer,inner,5,inner,5"
+
+    testCase "Closures in a for body work when the bound is evaluated once" <| fun () ->
+        let fns = ResizeArray<unit -> int>()
+        let xs = ResizeArray [ 1; 2; 3 ]
+        for i = 0 to xs.Count - 1 do
+            let doubled = i * 2
+            fns.Add(fun () -> doubled + i + xs.Count)
+            if xs.Count < 8 then
+                xs.Add 0
+        fns |> Seq.map (fun f -> f ()) |> Seq.toArray |> equal [| 6; 9; 12 |]
+
+    testCase "for bound is evaluated once in tail recursive functions" <| fun () ->
+        forLoopBoundTailCall 3 0 |> equal 6
+
+    testCase "for bound is evaluated once when the loop is in expression position" <| fun () ->
+        let growUpTo20 (xs: ResizeArray<int>) =
+            if xs.Count < 20 then
+                xs.Add 0
+        let xs = ResizeArray [ 1; 2 ]
+        let unitResult = (for _ = 0 to xs.Count - 1 do growUpTo20 xs)
+        equal () unitResult
+        equal 4 xs.Count
+        let ys = ResizeArray [ 1; 2 ]
+        let run enabled =
+            if enabled then
+                for _ = 0 to ys.Count - 1 do
+                    growUpTo20 ys
+        run true
+        equal 4 ys.Count
+        let zs = ResizeArray [ 1; 2 ]
+        let count =
+            try
+                for _ = 0 to zs.Count - 1 do
+                    growUpTo20 zs
+                zs.Count
+            with _ -> -1
+        equal 4 count
+
+    testCase "for bound that needs statements is evaluated once" <| fun () ->
+        let log = ResizeArray<string>()
+        let tick name value =
+            log.Add name
+            value
+        let xs = ResizeArray [ 1; 2 ]
+        let mutable a = 0
+        for _ = 0 to (match xs.Count with 2 -> tick "match" 3 | _ -> 0) do
+            if xs.Count < 20 then
+                xs.Add 0
+            a <- a + 1
+        equal 4 a
+        let mutable b = 0
+        for _ = 0 to (let x = tick "let" 1 in x + tick "let2" 1) do
+            b <- b + 1
+        equal 3 b
+        let mutable c = 0
+        for _ = 0 to (try tick "try" 1 with _ -> 0) do
+            c <- c + 1
+        equal 2 c
+        String.concat "," log |> equal "match,let,let2,try"
+
+    testCase "for bound is evaluated once inside a seq expression" <| fun () ->
+        let count =
+            seq {
+                let xs = ResizeArray [ 1; 2 ]
+                let grow () =
+                    for _ = 0 to xs.Count - 1 do
+                        if xs.Count < 20 then
+                            xs.Add 0
+                    xs.Count
+                yield grow ()
+            }
+            |> Seq.head
+        equal 4 count
 
     testCase "Self references in constructors work" <| fun () -> // See #124
         let t = Test(5)

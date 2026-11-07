@@ -1149,6 +1149,20 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
+    let rec isStableForLoopLimit (limit: Fable.Expr) =
+        match limit with
+        | Fable.Value(Fable.NumberConstant _, _) -> true
+        | Fable.IdentExpr ident -> not ident.IsMutable
+        | Fable.Get(Fable.IdentExpr ident, Fable.FieldGet info, _, _) when info.Name = "length" ->
+            match ident.Type with
+            | Fable.String
+            | Fable.Array(_, (Fable.MutableArray | Fable.ImmutableArray)) -> not ident.IsMutable
+            | _ -> false
+        | Fable.Operation(Fable.Unary(_, operand), _, _, _) -> isStableForLoopLimit operand
+        | Fable.Operation(Fable.Binary(_, left, right), _, _, _) ->
+            isStableForLoopLimit left && isStableForLoopLimit right
+        | _ -> false
+
     type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
@@ -3544,12 +3558,28 @@ but thanks to the optimisation done below we get
             let body = transformBlockWithVarHoisting com ctx None body
             [| Statement.whileStatement (guard, body, ?loc = range) |]
 
-        | Fable.ForLoop(var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
+        | Fable.ForLoop(var, TransformExpr com ctx start, fableLimit, body, isUp, range) ->
+            let limit = transformAsExpr com ctx fableLimit
+
             let op1, op2 =
                 if isUp then
                     BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
                 else
                     BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
+
+            let makeDeclarator name init =
+                VariableDeclarator.variableDeclarator (
+                    name,
+                    init = init,
+                    ?annotation = makeTypeAnnotationIfTypeScript com ctx var.Type (Some init)
+                )
+
+            let limitDeclarators, limitExpr =
+                if isStableForLoopLimit fableLimit then
+                    [||], limit
+                else
+                    let limitName = getUniqueNameInDeclarationScope ctx "limit"
+                    [| makeDeclarator limitName limit |], Expression.identifier limitName
 
             [|
                 Statement.forStatement (
@@ -3558,11 +3588,9 @@ but thanks to the optimisation done below we get
                     transformBlockWithVarHoisting com ctx None body,
                     VariableDeclaration.variableDeclaration (
                         Let,
-                        var.Name,
-                        init = start,
-                        ?annotation = makeTypeAnnotationIfTypeScript com ctx var.Type (Some start)
+                        Array.append [| makeDeclarator var.Name start |] limitDeclarators
                     ),
-                    Expression.binaryExpression (op1, identAsExpr var, limit),
+                    Expression.binaryExpression (op1, identAsExpr var, limitExpr),
                     Expression.updateExpression (op2, false, identAsExpr var),
                     ?loc = range
                 )
