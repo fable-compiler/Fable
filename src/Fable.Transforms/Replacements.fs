@@ -2149,6 +2149,11 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             "Normalization expects an optional System.Text.NormalizationForm"
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
+    | "Replace", Some c, [ _oldValue; _newValue; _ignoreCase; _culture ] ->
+        WarningCodes.cultureInfoIgnored |> addWarningWithCode com ctx.InlinePath r
+
+        Helper.LibCall(com, "String", "replace", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         let args =
             match i.CompiledName, args with
