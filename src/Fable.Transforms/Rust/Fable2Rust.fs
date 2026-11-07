@@ -4922,11 +4922,29 @@ module Util =
         let isByRefPreferred =
             memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
 
+        let hasFactAttribute =
+            memb.Attributes
+            |> Seq.exists (fun a -> a.Entity.FullName.EndsWith(".FactAttribute", StringComparison.Ordinal))
+
+        let asyncTestReturnType =
+            match hasFactAttribute, decl.Body.Type with
+            | true, Replacements.Util.IsEntity (Types.fsharpAsyncGeneric) (_, [ returnType ]) -> Some returnType
+            | _ -> None
+
+        let returnType = asyncTestReturnType |> Option.defaultValue decl.Body.Type // memb.ReturnParameter.Type
+
         let fnDecl, fnBody, genArgs =
             let ctx = { ctx with IsParamByRefPreferred = isByRefPreferred }
             let parameters = memb.CurriedParameterGroups |> List.concat
-            let returnType = decl.Body.Type // memb.ReturnParameter.Type
             transformFunc com ctx parameters returnType (Some memb.FullName) decl.Args decl.Body
+
+        let fnBody =
+            match asyncTestReturnType with
+            | Some _returnType ->
+                // wrap the async test body with runSynchronously
+                let none = mkGenericPathExpr [ rawIdent "None" ] None
+                makeLibCall com ctx None "Async" "runSynchronously" [ fnBody; none; none ]
+            | None -> fnBody
 
         let isUnsafe =
             memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustUnsafe)
@@ -4934,7 +4952,7 @@ module Util =
         let fnBodyBlock =
             if isUnsafe then
                 fnBody |> mkUnsafeBlockExpr |> mkBodyBlock
-            else if decl.Body.Type = Fable.Unit then
+            else if returnType = Fable.Unit then
                 mkSemiBlock fnBody
             else
                 mkExprBlock fnBody
