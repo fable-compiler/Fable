@@ -107,7 +107,7 @@ type Derived =
       |> Assert.Exists.errorWith "uses a self identifier"
       |> ignore
 
-    testCase "Self identifier with a primary constructor base results in error" <| fun _ ->
+    testCase "Self identifier with a primary constructor base compiles" <| fun _ ->
       let source =
         """
 type Base(a: int) =
@@ -119,7 +119,7 @@ type Derived =
     new (a: int) as self = { inherit Base(a); Y = 0 } then self.Y <- self.A + 1
 """
       compile source
-      |> Assert.Exists.errorWith "uses a self identifier"
+      |> Assert.Is.strictSuccess
       |> ignore
 
     testCase "Self identifier with a BCL base results in error" <| fun _ ->
@@ -1113,5 +1113,37 @@ let one = AuthState.One "a"
 """
       compile source
       |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Explicit constructor calling a secondary constructor of a base with a primary constructor results in error" <| fun _ ->
+      let source =
+        """
+type Base(x: int) =
+    new (s: string) = Base(s.Length)
+    member _.X = x
+
+type Derived =
+    inherit Base
+    val Y: int
+    new (s: string) = { inherit Base(s); Y = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "Derived calls a secondary constructor of"
+      |> ignore
+
+    testCase "Explicit constructor calling a parameterless secondary constructor of a base results in error" <| fun _ ->
+      let source =
+        """
+type Base(x: int) =
+    new () = Base(42)
+    member _.X = x
+
+type Derived =
+    inherit Base
+    val Y: int
+    new () = { inherit Base(); Y = 1 }
+"""
+      compile source
+      |> Assert.Exists.errorWith "calls a secondary constructor"
       |> ignore
   ]

@@ -4579,7 +4579,12 @@ let transformClassWithCompilerGeneratedConstructor
         ]
 
     let args =
-        baseFieldIds @ Array.toList fieldIds
+        let fieldIds =
+            fieldIds
+            |> Array.toList
+            |> List.map (fun id -> { id with Type = FableTransforms.uncurryType id.Type })
+
+        baseFieldIds @ fieldIds
         |> List.map (fun id ->
             let ta, _ = Annotation.typeAnnotation com ctx None id.Type
             Arg.arg (ident com ctx id, annotation = ta)
@@ -4637,7 +4642,7 @@ let transformClassWithPrimaryConstructor
         else
             [], []
 
-    let consArgs, consBody, _returnType =
+    let consArgs, consBody, _returnType, varArgInit =
         if classAttributes.Style = ClassStyle.Attributes then
             if classAttributes.Init then
                 // For attributes style with init=true, generate new constructor with property names
@@ -4673,13 +4678,24 @@ let transformClassWithPrimaryConstructor
                         assign None left right |> exprAsStatement ctx
                     )
 
-                propertyArgs, propertyBody, Expression.none
+                propertyArgs, propertyBody, Expression.none, []
             else
                 // For attributes style with init=false, no constructor arguments or body
-                Arguments.empty, [], Expression.none
+                Arguments.empty, [], Expression.none, []
         else
             let info = com.GetMember(cons.MemberRef)
-            getMemberArgsAndBody com ctx ClassConstructor info.HasSpread cons.Args cons.Body
+
+            let usedIn = cons.Body :: Option.toList classDecl.BaseCall
+
+            let args, varArgInit =
+                match tryMakeConstructorVarArgTuple ctx info.HasSpread cons.Args usedIn with
+                | Some(args, (varArg, array)) -> args, transformBindingAsStatements com ctx varArg array
+                | None -> cons.Args, []
+
+            let consArgs, consBody, returnType =
+                getMemberArgsAndBody com ctx ClassConstructor info.HasSpread args cons.Body
+
+            consArgs, consBody, returnType, varArgInit
 
     let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
 
@@ -4701,7 +4717,13 @@ let transformClassWithPrimaryConstructor
             // Don't generate exposed constructor for abstract classes since they can't be instantiated
             []
         else
-            let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
+            let argExprs =
+                let args = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
+
+                match consArgs.VarArg with
+                | Some varArg -> args @ [ Expression.starred (Expression.identifier varArg.Arg) ]
+                | None -> args
+
             let exposedConsBody = Expression.call (classIdent, argExprs)
             let name = com.GetIdentifier(ctx, cons.Name)
 
@@ -4745,6 +4767,8 @@ let transformClassWithPrimaryConstructor
             Some baseExpr, consBody
         )
         |> Option.defaultValue (None, consBody)
+
+    let consBody = varArgInit @ consBody
 
     [
         yield! stmts

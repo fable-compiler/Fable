@@ -4535,10 +4535,21 @@ but thanks to the optimisation done below we get
             )
 
         let args =
-            Array.append baseFieldIds fieldIds
-            |> Array.map (fun fi ->
-                Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
-            )
+            Array.append
+                (baseFieldIds
+                 |> Array.map (fun fi ->
+                     let typeAnnotation =
+                         if com.IsTypeScript then
+                             makeTypeAnnotation com ctx fi.Type |> Some
+                         else
+                             None
+
+                     Parameter.parameter (fi.Name, ?typeAnnotation = typeAnnotation)
+                 ))
+                (fieldIds
+                 |> Array.map (fun fi ->
+                     Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
+                 ))
 
         declareType com ctx ent decl.Name decl.XmlDoc args body baseExpr classMembers
 
@@ -4822,7 +4833,17 @@ but thanks to the optimisation done below we get
         let classMembers = Array.append abstractClassMembers classMembers
 
         let exposedCons =
-            let argExprs = consArgs |> Array.map (fun p -> Expression.identifier (p.Name))
+            let argExprs =
+                consArgs
+                |> Array.mapi (fun i p ->
+                    let arg = Expression.identifier (p.Name)
+
+                    if consInfo.HasSpread && i = consArgs.Length - 1 then
+                        Expression.spreadElement arg
+                    else
+                        arg
+                )
+
             let exposedConsBody = Expression.newExpression (classIdent, argExprs)
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 
