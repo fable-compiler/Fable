@@ -1117,6 +1117,33 @@ let tests = testList "Strings" [
         "aBc".Replace("b", "x", true, CultureInfo.InvariantCulture) |> equal "axc"
         "aBc".Replace("b", "x", false, CultureInfo.InvariantCulture) |> equal "aBc"
 
+    testCase "String.Replace with a StringComparison value works" <| fun () ->
+        [ StringComparison.Ordinal; StringComparison.OrdinalIgnoreCase ]
+        |> List.map (fun comparison -> "aBc".Replace("b", "x", comparison))
+        |> equal [ "aBc"; "axc" ]
+        [ ("b", "x", StringComparison.OrdinalIgnoreCase) ] |> List.map "aBc".Replace |> equal [ "axc" ]
+
+    testCase "String.Replace with ignoreCase and CultureInfo evaluates every argument in order" <| fun () ->
+        let log = ResizeArray<string>()
+        let t (s: string) =
+            log.Add s
+            s
+        (t "aBc").Replace(t "b", t "x", (log.Add "ic"; true), (log.Add "culture"; CultureInfo.InvariantCulture))
+        |> equal "axc"
+        List.ofSeq log |> equal [ "aBc"; "b"; "x"; "ic"; "culture" ]
+
+    testCase "String.Replace with an empty search string throws the .NET message" <| fun () ->
+        let messageOf (f: unit -> string) =
+            try
+                f () |> ignore
+                "none"
+            with e ->
+                e.Message
+        let expected = "The value cannot be an empty string. (Parameter 'oldValue')"
+        messageOf (fun () -> "abc".Replace("", "x")) |> equal expected
+        messageOf (fun () -> "abc".Replace("", "x", StringComparison.OrdinalIgnoreCase)) |> equal expected
+        messageOf (fun () -> System.Text.StringBuilder("abc").Replace("", "x").ToString()) |> equal expected
+
     testCase "String.Replace with StringComparison does not rescan matches" <| fun () ->
         "aaa".Replace("aa", "b") |> equal "ba"
         "aaaa".Replace("aa", "aaa") |> equal "aaaaaa"
