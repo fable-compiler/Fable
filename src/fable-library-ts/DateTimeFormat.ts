@@ -481,7 +481,7 @@ const recognizedDateWords = new Set([
 // the 7th are truncated, matching how TimeOnly/TimeSpan parsing treats them.
 export function subMillisecondTicks(input: string): number {
   const m = /:\d{1,2}\.(\d+)/.exec(input);
-  return m == null ? 0 : +m[1].padEnd(7, "0").substring(3, 7);
+  return m == null ? 0 : +m[1]!.padEnd(7, "0").substring(3, 7);
 }
 
 // A trailing UTC designator, if the input carries one. The JS `Date` built-in
@@ -497,7 +497,7 @@ function detectOffset(input: string): Offset {
     return null;
   }
 
-  const designator = m[1];
+  const designator = m[1]!;
   if (designator.toUpperCase() === "Z") {
     return "Z";
   }
@@ -538,7 +538,7 @@ export function parseRaw(input: string): [Date, Offset] {
       let timeInSeconds = 0;
       if (m[2] != null) {
         const timeParts = m[2].split(":");
-        const hourPart = parseInt(timeParts[0], 10);
+        const hourPart = parseInt(timeParts[0]!, 10);
         timeInSeconds =
           hourPart * 3600 +
           parseInt(timeParts[1] || "0", 10) * 60 +
@@ -559,7 +559,7 @@ export function parseRaw(input: string): [Date, Offset] {
         if (m[4] === "Z") {
           offset = "Z";
         } else {
-          let offsetInMinutes = parseInt(m[5], 10) * 60 + parseInt(m[6] || "0", 10);
+          let offsetInMinutes = parseInt(m[5]!, 10) * 60 + parseInt(m[6] || "0", 10);
           if (m[4][0] === "-") {
             offsetInMinutes *= -1;
           }

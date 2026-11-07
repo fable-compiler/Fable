@@ -45,7 +45,7 @@ function validResponse(regexMatch: RegExpExecArray, radix: number) {
   return {
     sign: sign || "",
     prefix: prefix || "",
-    digits,
+    digits: digits!,
     radix,
   };
 }
@@ -98,9 +98,9 @@ export function isValid(str: string, style: number, radix?: number) {
   const res = integerRegex.exec(str.replace(/_/g, ""));
   if (res != null) {
     const [/*all*/, /*sign*/, prefix, digits] = res;
-    radix = radix || getRadix(prefix, style);
+    radix = radix || getRadix(prefix ?? "", style);
     const invalidDigits = getInvalidDigits(radix);
-    if (!invalidDigits.test(digits)) {
+    if (!invalidDigits.test(digits!)) {
       return validResponse(res, radix);
     }
   }

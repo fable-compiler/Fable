@@ -204,7 +204,7 @@ function runParallel<T>(computations: Async<T>[], limit: number | undefined, par
     const startNext = () => {
       const i = next++;
       running++;
-      startAsPromise(computations[i], token)
+      startAsPromise(computations[i]!, token)
         .then(
           (x) => { results[i] = x; },
           (err) => {

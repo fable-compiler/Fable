@@ -62,20 +62,20 @@ function utf8_encode(str: string) {
 function utf8_decode(bytes: ArrayLike<uint8>) {
   let pos = 0;
   const decodeUtf8 = () => {
-    const i1 = bytes[pos++];
+    const i1 = bytes[pos++]!;
     if ((i1 & 0x80) === 0) {
       return i1;
     } else if ((i1 & 0xE0) === 0xC0) {
-      const i2 = bytes[pos++];
+      const i2 = bytes[pos++]!;
       return ((i1 & 0x1F) << 6) | (i2 & 0x3F);
     } else if ((i1 & 0xF0) === 0xE0) {
-      const i2 = bytes[pos++];
-      const i3 = bytes[pos++];
+      const i2 = bytes[pos++]!;
+      const i3 = bytes[pos++]!;
       return ((i1 & 0x0F) << 12) | ((i2 & 0x3F) << 6) | (i3 & 0x3F);
     } else if ((i1 & 0xF8) === 0xF0) {
-      const i2 = bytes[pos++];
-      const i3 = bytes[pos++];
-      const i4 = bytes[pos++];
+      const i2 = bytes[pos++]!;
+      const i3 = bytes[pos++]!;
+      const i4 = bytes[pos++]!;
       return ((i1 & 0x07) << 18) | ((i2 & 0x3F) << 12) | ((i3 & 0x3F) << 6) | (i4 & 0x3F);
     } else {
       throw new RangeError("Invalid UTF8 byte: " + i1);
