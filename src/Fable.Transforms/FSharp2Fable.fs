@@ -1604,8 +1604,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! args = transformExprList com ctx args
             let genArgs = List.map (makeType ctx.GenericArgs) genArgs
             let typ = makeType ctx.GenericArgs fsExpr.Type
+            let r = makeRangeFrom fsExpr
 
-            return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
+            match tryUnboundErasedConstructorEntity com ctx memb with
+            | Some ent ->
+                return
+                    $"Cannot call the constructor of erased type {ent.DisplayName}. It does not exist at runtime."
+                    |> addErrorAndReturnNull com ctx.InlinePath r
+            | None -> return makeCallFrom com ctx r typ genArgs None args memb
 
         | FSharpExprPatterns.Sequential(ConstructorCall(baseCons, _, _) as first,
                                         FSharpExprPatterns.NewRecord(fsType, ownArgs)) when
