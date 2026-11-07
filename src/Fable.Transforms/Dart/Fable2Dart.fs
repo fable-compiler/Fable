@@ -2253,6 +2253,12 @@ module Util =
                 ],
                 None
 
+        | Fable.ForLoop(var, start, limit, body, isUp, range) when
+            not (isStableForLoopLimit limit || isReReadForLoopLimit com isUp limit)
+            ->
+            makeForLoopWithBoundLimit (getUniqueNameInDeclarationScope ctx) range isUp var start limit body
+            |> transform com ctx returnStrategy
+
         | Fable.ForLoop(var, start, limit, body, isUp, _range) ->
             let statements, startAndLimit =
                 combineStatementsAndExprs

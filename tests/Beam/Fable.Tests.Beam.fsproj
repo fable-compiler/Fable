@@ -59,6 +59,7 @@
     <Compile Include="OptionTests.fs" />
     <Compile Include="ConversionTests.fs" />
     <Compile Include="LoopTests.fs" />
+    <Compile Include="LoopBoundNameTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="TupleTests.fs" />
     <Compile Include="MapTests.fs" />

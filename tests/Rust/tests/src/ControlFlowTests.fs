@@ -87,6 +87,21 @@ let ``for_in step range other than one still works`` () =
     a |> equal 25
 
 [<Fact>]
+let ``for_in over a mutable array reassigned in the body iterates the array held at loop start`` () =
+    let mutable a = [| 1; 2; 3 |]
+    let mutable sum = 0
+    for x in a do
+        a <- [| 100 |]
+        sum <- sum + x
+    sum |> equal 6
+    let mutable pairs = [| (1, 2); (3, 4) |]
+    let mutable total = 0
+    for (x, y) in pairs do
+        pairs <- [| (100, 100) |]
+        total <- total + x + y
+    total |> equal 10
+
+[<Fact>]
 let ``while loop works`` () =
     let mutable i = 0
     let mutable total = 0
