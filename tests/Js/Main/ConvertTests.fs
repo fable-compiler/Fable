@@ -399,6 +399,37 @@ let tests =
         raisedExceptionType (fun () -> parse "1e-99999999999") |> equal "FormatException"
         tryParseStyle "1e-99999999999" |> equal (false, 0I)
 
+    testCase "BigInteger.Parse reads long runs of zeros and white space quickly" <| fun () ->
+        let zeros = String.replicate 200000 "0"
+        let expected = bigint.Pow(10I, 200001) + 1I
+        let parse (s: string) = bigint.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)
+        parse ("1" + zeros + "1") |> equal expected
+        parse ("1" + zeros + "1e5") |> equal (expected * 100000I)
+        parse ("(1," + zeros + ".0)") |> equal (-bigint.Pow(10I, 200000))
+        parse (zeros + "1") |> equal 1I
+        parse (String.replicate 200000 " " + "1") |> equal 1I
+        raisedExceptionType (fun () -> parse ("1." + zeros + "1")) |> equal "FormatException"
+        raisedExceptionType (fun () -> parse ("1" + String.replicate 200000 " " + "1")) |> equal "FormatException"
+        raisedExceptionType (fun () -> parse ("1" + String.replicate 200000 "\u0000" + "1")) |> equal "FormatException"
+        bigint.Parse("1" + zeros + "1", NumberStyles.HexNumber) |> equal (bigint.Pow(16I, 200001) + 1I)
+        bigint.Parse("1" + zeros + "1", NumberStyles.BinaryNumber) |> equal (1I - bigint.Pow(2I, 200001))
+        let res = ref 5I
+        bigint.TryParse("1" + zeros + "1", NumberStyles.Integer, CultureInfo.InvariantCulture, res) |> equal true
+        res.Value |> equal expected
+
+    testCase "BigInteger parsing evaluates the format provider in order" <| fun () ->
+        let log = ResizeArray()
+        let note name x =
+            log.Add name
+            x
+        let ok, v = bigint.TryParse(note "s" "42", note "style" NumberStyles.Integer, note "provider" CultureInfo.InvariantCulture)
+        (ok, v) |> equal (true, 42I)
+        bigint.Parse(note "s" "43", note "style" NumberStyles.Integer, note "provider" CultureInfo.InvariantCulture) |> equal 43I
+        bigint.Parse(note "s" "44", note "provider" CultureInfo.InvariantCulture) |> equal 44I
+        let ok, v = bigint.TryParse(note "s" "45", note "provider" CultureInfo.InvariantCulture)
+        (ok, v) |> equal (true, 45I)
+        List.ofSeq log |> equal [ "s"; "style"; "provider"; "s"; "style"; "provider"; "s"; "provider"; "s"; "provider" ]
+
     testCase "BigInteger.TryParse without NumberStyles uses Integer" <| fun () ->
         let res = ref 5I
         bigint.TryParse("x", res) |> equal false

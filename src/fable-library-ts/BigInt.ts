@@ -3,7 +3,7 @@ import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } 
 import { decimal, fromParts, truncate } from "./Decimal.ts";
 import { Exception, bigintHash } from "./Util.ts";
 import { ArgumentException_$ctor_Z721C83C5, ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
-import { NumberStyles, splitNumber } from "./NumberStyles.ts";
+import { NumberStyles, splitNumber, trimEndChars } from "./NumberStyles.ts";
 
 const isBigEndian = false;
 
@@ -236,7 +236,7 @@ function parseDecimal(s: string, style: int32): bigint | undefined {
         return undefined;
     }
     const [, integral, fraction, exponent] = match;
-    const significant = (integral + fraction).replace(/0+$/, "");
+    const significant = trimEndChars(integral + fraction, "0");
     if (significant === "") {
         return zero;
     }
@@ -263,7 +263,7 @@ function parseWithStyle(s: string, style: int32): bigint | undefined {
     return style & NumberStyles.AllowBinarySpecifier ? parseBinary(s, style) : parseDecimal(s, style);
 }
 
-export function tryParse(s: string, style: int32, res: FSharpRef<bigint>): boolean {
+export function tryParse(s: string, style: int32, _provider: unknown, res: FSharpRef<bigint>): boolean {
     checkStyle(style);
     let value: bigint | undefined;
     try {
@@ -275,7 +275,7 @@ export function tryParse(s: string, style: int32, res: FSharpRef<bigint>): boole
     return value !== undefined;
 }
 
-export function parse(s: string, style: int32 = NumberStyles.Integer): bigint {
+export function parse(s: string, style: int32 = NumberStyles.Integer, _provider?: unknown): bigint {
     if (s == null) {
         throw ArgumentNullException_$ctor_Z721C83C5("value");
     }

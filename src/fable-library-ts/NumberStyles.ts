@@ -33,8 +33,16 @@ function digitsPattern(style: number): RegExp {
   return new RegExp(`^(?:${integral}${point}${leadingPoint})${exponent}$`);
 }
 
+export function trimEndChars(s: string, chars: string): string {
+  let end = s.length;
+  while (end > 0 && chars.includes(s[end - 1])) {
+    end--;
+  }
+  return s.slice(0, end);
+}
+
 function trimTrailingWhite(s: string, style: number): string {
-  return style & NumberStyles.AllowTrailingWhite ? s.replace(/[\t-\r ]+$/, "") : s;
+  return style & NumberStyles.AllowTrailingWhite ? trimEndChars(s, "\t\n\v\f\r ") : s;
 }
 
 // Returns undefined when the string does not have the format allowed by the style
@@ -43,7 +51,7 @@ export function splitNumber(str: string, style: number): NumberParts | undefined
     throw new Exception("The number style AllowHexSpecifier is not supported on floating point data types.");
   }
   // .NET ignores trailing NULs and its white space is only [\t\n\v\f\r ]
-  let s = trimTrailingWhite(str.replace(/\0+$/, ""), style);
+  let s = trimTrailingWhite(trimEndChars(str, "\0"), style);
   if (style & NumberStyles.AllowLeadingWhite) {
     s = s.replace(/^[\t-\r ]+/, "");
   }

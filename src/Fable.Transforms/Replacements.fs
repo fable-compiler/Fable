@@ -3155,7 +3155,13 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         | Some InvariantCulture -> ()
         | Some _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
-        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, [ str; style ] @ outValue, ?loc = r)
+        let providerArg =
+            match provider, outValue with
+            | Some provider, _ -> [ provider ]
+            | None, [] -> []
+            | None, _ -> [ makeNull () ]
+
+        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, [ str; style ] @ providerArg @ outValue, ?loc = r)
         |> Some
     | meth, callee ->
         let args =
