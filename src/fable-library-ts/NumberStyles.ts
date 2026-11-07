@@ -11,6 +11,7 @@ export const NumberStyles = {
   AllowThousands: 64,
   AllowExponent: 128,
   AllowHexSpecifier: 512,
+  AllowBinarySpecifier: 1024,
   Integer: 7,
   HexNumber: 515,
   Number: 111,

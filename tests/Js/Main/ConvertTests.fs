@@ -326,6 +326,79 @@ let tests =
         tryParseStyle null NumberStyles.HexNumber |> equal (false, 0I)
         raisedExceptionType (fun () -> tryParseStyle "1F" (NumberStyles.AllowHexSpecifier ||| NumberStyles.AllowThousands)) |> equal "ArgumentException"
 
+    testCase "BigInteger.Parse with BinaryNumber reads two's complement" <| fun () ->
+        bigint.Parse("101", NumberStyles.BinaryNumber) |> equal -3I
+        bigint.Parse("0101", NumberStyles.BinaryNumber) |> equal 5I
+        bigint.Parse("1", NumberStyles.BinaryNumber) |> equal -1I
+        bigint.Parse("0", NumberStyles.BinaryNumber) |> equal 0I
+        bigint.Parse("01", NumberStyles.BinaryNumber) |> equal 1I
+        bigint.Parse("10", NumberStyles.BinaryNumber) |> equal -2I
+        bigint.Parse("11111111", NumberStyles.BinaryNumber) |> equal -1I
+        bigint.Parse("011111111", NumberStyles.BinaryNumber) |> equal 255I
+        bigint.Parse("1000000000000000000000000000000000000000000000000000000000000000000000", NumberStyles.BinaryNumber) |> equal -590295810358705651712I
+        bigint.Parse("0111111111111111111111111111111111111111111111111111111111111111111111", NumberStyles.BinaryNumber) |> equal 590295810358705651711I
+        bigint.Parse(" 101 ", NumberStyles.BinaryNumber) |> equal -3I
+        bigint.Parse("\t0101\n", NumberStyles.BinaryNumber) |> equal 5I
+        bigint.Parse("0101\u0000", NumberStyles.BinaryNumber) |> equal 5I
+        bigint.Parse("0101\u0000 ", NumberStyles.BinaryNumber) |> equal 5I
+        bigint.Parse("101", NumberStyles.AllowBinarySpecifier) |> equal -3I
+        bigint.Parse(" 101", NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowLeadingWhite) |> equal -3I
+        bigint.Parse("101 ", NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowTrailingWhite) |> equal -3I
+        bigint.Parse("101", NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowLeadingSign) |> equal -3I
+        for s in [ ""; " "; "12"; "-1"; "+1"; "1-"; "(1)"; "0b101"; "1 0"; "1.0"; "1,0"; "1F"; "\u00000101"; "0101 \u0000"; "\u00a0101" ] do
+            raisedExceptionType (fun () -> bigint.Parse(s, NumberStyles.BinaryNumber)) |> equal "FormatException"
+        for s in [ " 101"; "101 "; " 101 " ] do
+            raisedExceptionType (fun () -> bigint.Parse(s, NumberStyles.AllowBinarySpecifier)) |> equal "FormatException"
+        raisedExceptionType (fun () -> bigint.Parse(" 101 ", NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowLeadingWhite)) |> equal "FormatException"
+        raisedExceptionType (fun () -> bigint.Parse(" 101 ", NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowTrailingWhite)) |> equal "FormatException"
+        for s in [ "-1"; "1.0"; "1,0"; "1e1"; "(1)" ] do
+            raisedExceptionType (fun () -> bigint.Parse(s, NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowLeadingSign ||| NumberStyles.AllowDecimalPoint ||| NumberStyles.AllowThousands ||| NumberStyles.AllowExponent ||| NumberStyles.AllowParentheses)) |> equal "FormatException"
+        raisedExceptionType (fun () -> bigint.Parse(null, NumberStyles.BinaryNumber)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> bigint.Parse("101", NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowHexSpecifier)) |> equal "ArgumentException"
+
+    testCase "BigInteger.TryParse with BinaryNumber reads two's complement" <| fun () ->
+        let tryParseStyle (s: string) (style: NumberStyles) =
+            let res = ref 5I
+            let success = bigint.TryParse(s, style, CultureInfo.InvariantCulture, res)
+            success, res.Value
+        tryParseStyle "11111111" NumberStyles.AllowBinarySpecifier |> equal (true, -1I)
+        tryParseStyle "0101" NumberStyles.BinaryNumber |> equal (true, 5I)
+        tryParseStyle " 101 " NumberStyles.BinaryNumber |> equal (true, -3I)
+        tryParseStyle " 101 " NumberStyles.AllowBinarySpecifier |> equal (false, 0I)
+        tryParseStyle "12" NumberStyles.BinaryNumber |> equal (false, 0I)
+        tryParseStyle null NumberStyles.BinaryNumber |> equal (false, 0I)
+        raisedExceptionType (fun () -> tryParseStyle "101" (NumberStyles.AllowBinarySpecifier ||| NumberStyles.AllowHexSpecifier)) |> equal "ArgumentException"
+
+    testCase "BigInteger.Parse checks for null before the NumberStyles, TryParse checks the NumberStyles first" <| fun () ->
+        let undefinedStyle = enum<NumberStyles> 2048
+        let invalidHexStyle = NumberStyles.AllowHexSpecifier ||| NumberStyles.AllowLeadingSign
+        let tryParseStyle (s: string) (style: NumberStyles) =
+            let res = ref 5I
+            bigint.TryParse(s, style, CultureInfo.InvariantCulture, res)
+        raisedExceptionType (fun () -> bigint.Parse(null, undefinedStyle)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> bigint.Parse(null, invalidHexStyle)) |> equal "ArgumentNullException"
+        raisedExceptionType (fun () -> bigint.Parse("1", undefinedStyle)) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> bigint.Parse("1", invalidHexStyle)) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> tryParseStyle null undefinedStyle) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> tryParseStyle null invalidHexStyle) |> equal "ArgumentException"
+
+    testCase "BigInteger.Parse handles exponents too big for a BigInteger" <| fun () ->
+        let parse (s: string) = bigint.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)
+        let tryParseStyle (s: string) =
+            let res = ref 5I
+            let success = bigint.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, res)
+            success, res.Value
+        for s in [ "1e1000000000"; "-1e1000000000"; "1.0e1000000000"; "0.0001e99999999999"; "1e1073741823" ] do
+            raisedExceptionType (fun () -> parse s) |> equal "OverflowException"
+            tryParseStyle s |> equal (false, 0I)
+        parse "1e100000" |> equal (bigint.Pow(10I, 100000))
+        parse "1.5e100000" |> equal (15I * bigint.Pow(10I, 99999))
+        parse "0e99999999999" |> equal 0I
+        tryParseStyle "1e100000" |> equal (true, bigint.Pow(10I, 100000))
+        tryParseStyle "0e99999999999" |> equal (true, 0I)
+        raisedExceptionType (fun () -> parse "1e-99999999999") |> equal "FormatException"
+        tryParseStyle "1e-99999999999" |> equal (false, 0I)
+
     testCase "BigInteger.TryParse without NumberStyles uses Integer" <| fun () ->
         let res = ref 5I
         bigint.TryParse("x", res) |> equal false

@@ -3142,16 +3142,11 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | str :: rest -> str, makeIntConst (int System.Globalization.NumberStyles.Integer), List.tryHead rest
             | [] -> failwith "Unexpected BigInteger parse call without arguments"
 
-        let supportedStyles =
-            int (
-                (System.Globalization.NumberStyles.Any
-                 &&& ~~~System.Globalization.NumberStyles.AllowCurrencySymbol)
-                ||| System.Globalization.NumberStyles.AllowHexSpecifier
-            )
-
         match style with
-        | NumberConst(NumberValue.Int32 style, _) when style &&& ~~~supportedStyles <> 0 ->
-            WarningCodes.numberStylesIgnored style
+        | NumberConst(NumberValue.Int32 style, _) when
+            style &&& int System.Globalization.NumberStyles.AllowCurrencySymbol <> 0
+            ->
+            WarningCodes.currencySymbolNotSupported
             |> addWarningWithCode com ctx.InlinePath r
         | _ -> ()
 

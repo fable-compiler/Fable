@@ -25,6 +25,9 @@ const minusOne: bigint = -1n;
 
 const allNumberStyles = 0x7ff;
 
+// V8 caps a BigInt at 2^30 bits and 10^323228497 is the first power of ten above that
+const maxDecimalScale = 323228496;
+
 export function isBigInt(x: any): boolean {
     return typeof x === "bigint";
 }
@@ -208,12 +211,22 @@ function checkStyle(style: int32): void {
     }
 }
 
-// .NET reads hex digits as two's complement at their written width, so a leading 8-F is negative
-function parseHex(s: string, style: int32): bigint | undefined {
+function matchDigits(s: string, style: int32, digit: string): string | undefined {
     const leadingWhite = style & NumberStyles.AllowLeadingWhite ? "[\\t-\\r ]*" : "";
     const trailingWhite = style & NumberStyles.AllowTrailingWhite ? "[\\t-\\r ]*" : "";
-    const match = new RegExp(`^${leadingWhite}([0-9a-fA-F]+)\\0*${trailingWhite}$`).exec(s);
-    return match ? BigInt.asIntN(match[1].length * 4, BigInt(`0x${match[1]}`)) : undefined;
+    return new RegExp(`^${leadingWhite}(${digit}+)\\0*${trailingWhite}$`).exec(s)?.[1];
+}
+
+// .NET reads hex digits as two's complement at their written width, so a leading 8-F is negative
+function parseHex(s: string, style: int32): bigint | undefined {
+    const digits = matchDigits(s, style, "[0-9a-fA-F]");
+    return digits === undefined ? undefined : BigInt.asIntN(digits.length * 4, BigInt(`0x${digits}`));
+}
+
+// .NET reads binary digits as two's complement at their written width, so a leading 1 is negative
+function parseBinary(s: string, style: int32): bigint | undefined {
+    const digits = matchDigits(s, style, "[01]");
+    return digits === undefined ? undefined : BigInt.asIntN(digits.length, BigInt(`0b${digits}`));
 }
 
 function parseDecimal(s: string, style: int32): bigint | undefined {
@@ -231,6 +244,9 @@ function parseDecimal(s: string, style: int32): bigint | undefined {
     if (scale < 0) {
         return undefined;
     }
+    if (scale > maxDecimalScale) {
+        throw OverflowException_$ctor_Z721C83C5("The value could not be parsed.");
+    }
     let magnitude: bigint;
     try {
         magnitude = BigInt(significant) * 10n ** BigInt(scale);
@@ -241,7 +257,10 @@ function parseDecimal(s: string, style: int32): bigint | undefined {
 }
 
 function parseWithStyle(s: string, style: int32): bigint | undefined {
-    return style & NumberStyles.AllowHexSpecifier ? parseHex(s, style) : parseDecimal(s, style);
+    if (style & NumberStyles.AllowHexSpecifier) {
+        return parseHex(s, style);
+    }
+    return style & NumberStyles.AllowBinarySpecifier ? parseBinary(s, style) : parseDecimal(s, style);
 }
 
 export function tryParse(s: string, style: int32, res: FSharpRef<bigint>): boolean {
@@ -257,10 +276,10 @@ export function tryParse(s: string, style: int32, res: FSharpRef<bigint>): boole
 }
 
 export function parse(s: string, style: int32 = NumberStyles.Integer): bigint {
-    checkStyle(style);
     if (s == null) {
         throw ArgumentNullException_$ctor_Z721C83C5("value");
     }
+    checkStyle(style);
     const value = parseWithStyle(s, style);
     if (value === undefined) {
         throw FormatException_$ctor_Z721C83C5("The value could not be parsed.");
