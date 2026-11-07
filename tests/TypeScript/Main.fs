@@ -48,6 +48,7 @@ let allTests =
     Sets.tests
     Stack.tests
     Strings.tests
+    StructuredFormatDisplay.tests
     Sudoku.tests
     TailCalls.tests
     TimeOnly.tests

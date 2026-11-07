@@ -3803,3 +3803,242 @@ module Util =
                         )
                         |> ErasedUnionCaseTests.Tests
                     | result -> result
+
+    // The parsing rules of FSharp.Core's sformat.fs, including keeping the escapes of the texts between placeholders
+    let private structuredFormatPlaceholder =
+        System.Text.RegularExpressions.Regex(@"^(?<pre>.*?)(?<!\\)\{(?<prop>.*?)(?<!\\)\}(?<post>.*)$")
+
+    let private structuredFormatStrayBracket =
+        System.Text.RegularExpressions.Regex(@"(?<!\\)\{|(?<!\\)\}")
+
+    let tryParseStructuredFormat (format: string) =
+        let unescape (s: string) =
+            s.Replace("\\{", "{").Replace("\\}", "}")
+
+        let texts = ResizeArray<string>()
+        let props = ResizeArray<string>()
+
+        let rec parse (txt: string) =
+            let m = structuredFormatPlaceholder.Match txt
+
+            if not m.Success then
+                if structuredFormatStrayBracket.IsMatch txt then
+                    false
+                else
+                    texts.Add(unescape txt)
+                    true
+            else
+                let pre = unescape m.Groups["pre"].Value
+                let post = m.Groups["post"].Value
+
+                if texts.Count = 0 then
+                    texts.Add pre
+                else
+                    texts[texts.Count - 1] <- texts[texts.Count - 1] + pre
+
+                props.Add(unescape m.Groups["prop"].Value)
+                let next = structuredFormatPlaceholder.Match post
+
+                if String.IsNullOrEmpty post then
+                    texts.Add ""
+                    true
+                elif next.Success then
+                    let between = next.Groups["pre"].Value
+
+                    if structuredFormatStrayBracket.IsMatch between then
+                        false
+                    else
+                        texts.Add between
+                        parse post[between.Length ..]
+                elif structuredFormatStrayBracket.IsMatch post then
+                    false
+                else
+                    texts.Add(unescape post)
+                    true
+
+        if isNull format || format.Length <= 1 || not (parse format) then
+            None
+        else
+            Some(List.ofSeq texts, List.ofSeq props)
+
+    let tryGetStructuredFormatDisplay (com: Compiler) (fsEnt: FSharpEntity) =
+        let isClassBacked () =
+            let ent = com.GetEntity(FsEnt.Ref fsEnt)
+
+            not (
+                isErasedOrStringEnumEntity ent
+                || isGlobalOrImportedEntity ent
+                || isPojoDefinedByConsArgsEntity ent
+                || hasAttribute Atts.tsTaggedUnion ent
+            )
+
+        let overridesToString () =
+            fsEnt.MembersFunctionsAndValues
+            |> Seq.exists (fun m ->
+                m.IsOverrideOrExplicitInterfaceImplementation
+                && m.DisplayName = "ToString"
+                && m.ImplementedAbstractSignatures
+                   |> Seq.exists (fun s -> getFsTypeFullName s.DeclaringType <> "System.IFormattable")
+            )
+
+        let format =
+            match
+                fsEnt.Attributes
+                |> tryFindAttrib "Microsoft.FSharp.Core.StructuredFormatDisplayAttribute"
+            with
+            | Some att ->
+                match Seq.tryHead att.ConstructorArguments with
+                | Some(_, (:? string as format)) -> Some format
+                | _ -> None
+            | None -> None
+
+        let isRecordOrUnion = fsEnt.IsFSharpRecord || fsEnt.IsFSharpUnion
+
+        let isClassOrStruct =
+            (fsEnt.IsClass || fsEnt.IsValueType)
+            && not (fsEnt.IsEnum || fsEnt.IsMeasure || fsEnt.IsFSharpExceptionDeclaration)
+
+        match com.Options.Language, format with
+        | (JavaScript | TypeScript), Some format when (isRecordOrUnion || isClassOrStruct) && isClassBacked () ->
+            Some(format, isRecordOrUnion && not (overridesToString ()))
+        | _ -> None
+
+    let private makeStructuredFormatCaseSwitch
+        (com: IFableCompiler)
+        (fsEnt: FSharpEntity)
+        thisExpr
+        (makeCaseExpr: FSharpUnionCase -> Fable.Expr)
+        =
+        let cases = fsEnt.UnionCases |> List.ofSeq |> List.rev
+
+        cases.Tail
+        |> List.fold
+            (fun elseExpr case ->
+                let test =
+                    Fable.Test(thisExpr, Fable.UnionCaseTest(unionCaseTag com fsEnt case), None)
+
+                Fable.IfThenElse(test, makeCaseExpr case, elseExpr, None)
+            )
+            (makeCaseExpr cases.Head)
+
+    let rec private tryGetStructuredFormatMember
+        (com: IFableCompiler)
+        (ctx: Context)
+        (fsEnt: FSharpEntity)
+        thisExpr
+        (makeNotFound: unit -> Fable.Expr)
+        (name: string)
+        =
+        match
+            fsEnt.FSharpFields
+            |> Seq.tryFind (fun f -> f.Name = name && (fsEnt.IsFSharpRecord || f.Accessibility.IsPublic))
+        with
+        | Some field ->
+            let fieldType = makeType ctx.GenericArgs field.FieldType
+
+            let kind =
+                Fable.FieldInfo.Create(FsField.FSharpFieldName field, fieldType = fieldType)
+
+            Fable.Get(thisExpr, kind, fieldType, None) |> Some
+        | None ->
+            let prop =
+                fsEnt.MembersFunctionsAndValues
+                |> Seq.tryFind (fun m ->
+                    m.IsProperty
+                    && m.IsInstanceMember
+                    && m.HasGetterMethod
+                    && m.DisplayName = name
+                    && m.GetterMethod.CurriedParameterGroups
+                       |> Seq.forall (fun group -> group.Count = 0)
+                )
+
+            match prop with
+            | Some prop ->
+                match prop.GetterMethod with
+                | UnionCaseTesterFor unionCase ->
+                    Fable.Test(thisExpr, Fable.UnionCaseTest(unionCaseTag com fsEnt unionCase), None)
+                    |> Some
+                | getter ->
+                    let typ = makeType ctx.GenericArgs getter.ReturnParameter.Type
+
+                    let genArgs =
+                        fsEnt.GenericParameters
+                        |> Seq.map (fun p ->
+                            let paramName = genParamName p
+
+                            match Map.tryFind paramName ctx.GenericArgs with
+                            | Some genArg -> Some genArg
+                            | None -> None
+                        )
+                        |> List.ofSeq
+
+                    if isInline getter && genArgs |> List.exists Option.isNone then
+                        $"StructuredFormatDisplay of %s{fsEnt.DisplayName} references inline property %s{name}, which cannot be evaluated without the type's generic arguments"
+                        |> addWarning com [] (makeRange fsEnt.DeclarationLocation |> Some)
+
+                        makeNotFound () |> Some
+                    else
+                        let genArgs =
+                            List.zip (List.ofSeq fsEnt.GenericParameters) genArgs
+                            |> List.map (fun (p, genArg) ->
+                                genArg
+                                |> Option.defaultWith (fun () -> Fable.GenericParam(genParamName p, p.IsMeasure, []))
+                            )
+
+                        makeCallFrom com ctx None typ genArgs (Some thisExpr) [] getter |> Some
+            | None ->
+                fsEnt.BaseType
+                |> Option.map nonAbbreviatedType
+                |> Option.filter (fun baseType -> baseType.HasTypeDefinition)
+                |> Option.bind (fun baseType ->
+                    let baseEnt = baseType.TypeDefinition
+
+                    let baseGenArgs =
+                        Seq.zip baseEnt.GenericParameters baseType.GenericArguments
+                        |> Seq.map (fun (p, genArg) -> genParamName p, makeType ctx.GenericArgs genArg)
+                        |> Map.ofSeq
+
+                    let baseCtx = { ctx with GenericArgs = baseGenArgs }
+                    tryGetStructuredFormatMember com baseCtx baseEnt thisExpr makeNotFound name
+                )
+
+    let getStructuredFormatValue
+        (com: IFableCompiler)
+        (ctx: Context)
+        (fsEnt: FSharpEntity)
+        thisExpr
+        (makeNotFoundCall: string -> Fable.Expr)
+        (name: string)
+        =
+        let makeNotFound () =
+            makeNotFoundCall $"""{fsEnt.QualifiedName.Split(',')[0]}.{name}"""
+
+        let makeUnionField (case: FSharpUnionCase) =
+            match case.Fields |> Seq.tryFindIndex (fun f -> f.Name = name) with
+            | Some fieldIndex ->
+                let genArgs =
+                    fsEnt.GenericParameters
+                    |> Seq.map (fun p -> Fable.GenericParam(p.Name, p.IsMeasure, []))
+                    |> List.ofSeq
+
+                let kind =
+                    Fable.UnionFieldInfo.Create(
+                        entity = FsEnt.Ref fsEnt,
+                        genArgs = genArgs,
+                        caseIndex = unionCaseTag com fsEnt case,
+                        fieldIndex = fieldIndex
+                    )
+
+                Fable.Get(thisExpr, kind, Fable.Any, None)
+            | None -> makeNotFound ()
+
+        match tryGetStructuredFormatMember com ctx fsEnt thisExpr makeNotFound name with
+        | Some value -> value, true
+        | None when fsEnt.IsFSharpUnion && name = "Tag" -> Fable.Get(thisExpr, Fable.UnionTag, Fable.Any, None), true
+        | None when fsEnt.IsFSharpUnion ->
+            let isDeclared =
+                fsEnt.UnionCases
+                |> Seq.exists (fun case -> case.Fields |> Seq.exists (fun f -> f.Name = name))
+
+            makeStructuredFormatCaseSwitch com fsEnt thisExpr makeUnionField, isDeclared
+        | None -> makeNotFound (), false

@@ -83,6 +83,7 @@
     <Compile Include="SetTests.fs" />
     <Compile Include="StackTests.fs" />
     <Compile Include="StringTests.fs" />
+    <Compile Include="StructuredFormatDisplayTests.fs" />
     <Compile Include="SudokuTest.fs" />
     <Compile Include="TailCallTests.fs" />
     <Compile Include="TimeOnlyTests.fs" />

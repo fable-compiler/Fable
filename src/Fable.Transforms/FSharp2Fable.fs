@@ -2589,6 +2589,83 @@ let private warnDuplicateCompiledNames (com: FableCompiler) ctx (ent: FSharpEnti
                 |> addWarningWithCode com ctx.InlinePath (makeRange uci.DeclarationLocation |> Some)
         )
 
+let private attachStructuredFormatDisplay (com: FableCompiler) (ctx: Context) (fsEnt: FSharpEntity) =
+    tryGetStructuredFormatDisplay com fsEnt
+    |> Option.bind (fun (format, attachToString) ->
+        tryParseStructuredFormat format
+        |> Option.map (fun (texts, props) -> attachToString, texts, props)
+    )
+    |> Option.iter (fun (attachToString, texts, props) ->
+        let entRef = FsEnt.Ref fsEnt
+
+        let genArgs =
+            fsEnt.GenericParameters
+            |> Seq.map (fun p -> Fable.GenericParam(p.Name, p.IsMeasure, []))
+            |> List.ofSeq
+
+        let thisArg = makeTypedIdent (Fable.DeclaredType(entRef, genArgs)) "self"
+        let thisExpr = Fable.IdentExpr thisArg
+        let ctx = { ctx with UsedNamesInDeclarationScope = HashSet([ thisArg.Name ]) }
+
+        let makeNotFoundCall (memberName: string) =
+            Replacements.Util.Helper.LibCall(
+                com,
+                "String",
+                "structuredFormatNotFound",
+                Fable.Any,
+                [ makeStrConst memberName ]
+            )
+
+        let values =
+            props
+            |> List.map (fun name ->
+                let value, isDeclared =
+                    getStructuredFormatValue com ctx fsEnt thisExpr makeNotFoundCall name
+
+                if not isDeclared then
+                    $"StructuredFormatDisplay of %s{fsEnt.DisplayName} references %s{name}, which is not a property of the type"
+                    |> addWarning com [] (makeRange fsEnt.DeclarationLocation |> Some)
+
+                Fable.Delegate([], value, None, Fable.Tags.empty)
+            )
+
+        let body =
+            Replacements.Util.Helper.LibCall(
+                com,
+                "String",
+                "structuredFormatDisplay",
+                Fable.String,
+                [
+                    thisExpr
+                    texts |> List.map makeStrConst |> makeArray Fable.String
+                    values |> makeArray Fable.Any
+                ]
+            )
+
+        let attachMember memberName =
+            com.AddAttachedMember(
+                fsEnt.FullName,
+                isMangled = false,
+                memb =
+                    {
+                        Name = memberName
+                        Args = [ thisArg ]
+                        Body = body
+                        IsMangled = false
+                        MemberRef = Fable.GeneratedMember.Function(memberName, [], Fable.String, entRef = entRef)
+                        ImplementedSignatureRef = None
+                        UsedNames = set ctx.UsedNamesInDeclarationScope
+                        Tags = Fable.Tags.empty
+                        XmlDoc = None
+                    }
+            )
+
+        attachMember "$toStructuredFormat"
+
+        if attachToString then
+            attachMember "toString"
+    )
+
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls
     |> List.collect (fun fsDecl ->
@@ -2597,6 +2674,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             warnIgnoredCaseTests com ctx fsEnt
             checkInlinedTaggedUnionCases com ctx fsEnt
             warnDuplicateCompiledNames com ctx fsEnt
+            attachStructuredFormatDisplay com ctx fsEnt
 
             if not (isGlobalOrImportedFSharpEntity fsEnt) then
                 tryGetBaseEntity fsEnt
