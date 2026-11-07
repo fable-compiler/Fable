@@ -914,37 +914,153 @@ let read (e: Erased) = e.A
       |> Assert.Is.strictSuccess
       |> ignore
 
-    testCase "Class inheriting an erased class compiles" <| fun _ ->
+    testCase "Erased class with a constructor calling itself compiles" <| fun _ ->
       let source =
         """
 open Fable.Core
 
 [<Erase>]
 type Erased(a: int) =
+    let child = Erased(a - 1)
     member _.A = a
 
-type Derived() =
-    inherit Erased(1)
-
-let value = Derived()
+let read (e: Erased) = e.A
 """
       compile source
-      |> Assert.Is.success
+      |> Assert.Is.strictSuccess
       |> ignore
 
-    testCase "Object expression over an erased class compiles" <| fun _ ->
+    testCase "Additional constructors over an Emit primary compile" <| fun _ ->
       let source =
         """
 open Fable.Core
 
 [<Erase>]
-type Erased(a: int) =
-    member _.A = a
+type EmitPrim [<Emit("({a:$0})")>] (a: int) =
+    new() = EmitPrim(1)
+    new(a: int, b: int) = EmitPrim(a + b)
+    new(s: string) = EmitPrim(s.Length)
+    [<Emit("$0.a")>] member _.A : int = a
 
-let value = { new Erased(1) with member _.ToString() = "value" }
+let values = [ EmitPrim().A; EmitPrim(2, 3).A; EmitPrim("abc").A ]
 """
       compile source
-      |> Assert.Is.success
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Additional constructor over a generic Emit primary compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type GenEmit<'T> [<Emit("({a:$0})")>] (a: 'T) =
+    new(a: 'T, _unused: string) = GenEmit<'T>(a)
+    [<Emit("$0.a")>] member _.A : 'T = a
+
+let value = GenEmit<int>(5, "x").A
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Additional constructor over an imported primary compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Imp [<ImportMember("./foo.js")>] (a: int) =
+    new() = Imp(1)
+    member _.A = a
+
+let value = Imp()
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Chain of constructors over an Emit primary compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Chain [<Emit("({a:$0})")>] (a: int) =
+    new(a: int, b: int) = Chain(a + b)
+    new() = Chain(1, 2)
+    [<Emit("$0.a")>] member _.A : int = a
+
+let value = Chain().A
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Static member calling an Emit primary compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Fact [<Emit("({a:$0})")>] (a: int) =
+    new() = Fact(1)
+    static member Default = Fact()
+    [<Emit("$0.a")>] member _.A : int = a
+
+let value = Fact.Default.A
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Intrinsic extension constructor over an Emit primary compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type W [<Emit("({a:$0})")>] (a: int) =
+    [<Emit("$0.a")>] member _.A : int = a
+
+type W with
+    new() = W(8)
+
+let value = W().A
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased class with the Pojo attribute compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase; JS.Pojo>]
+type P(a: int, ?b: string) =
+    member val a = a with get, set
+    member val b = b with get, set
+
+let p = P(1, b = "x")
+"""
+      compile source
+      |> Assert.Is.strictSuccess
+      |> ignore
+
+    testCase "Erased constructor called inside a quotation compiles" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<Erase>]
+type Plain(a: int) =
+    member _.A = a
+
+let quotation = <@ fun (x: int) -> Plain(x) @>
+"""
+      compile source
+      |> Assert.Is.strictSuccess
       |> ignore
 
     testCase "Erased class with an Emit constructor compiles" <| fun _ ->

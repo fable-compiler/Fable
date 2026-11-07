@@ -2395,21 +2395,32 @@ module Util =
             | _ -> false
         )
 
-    let tryUnboundErasedConstructorEntity (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
+    let private hasMemberPlugin (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
+        memb.Attributes
+        |> Seq.exists (fun att ->
+            com.Plugins.MemberDeclarationPlugins.ContainsKey((FsAtt(att) :> Fable.Attribute).Entity)
+        )
+
+    let tryUnboundErasedConstructorEntity (com: Compiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
         let isCalledFromOwnConstructor (ent: FSharpEntity) =
             match ctx.EnclosingMember with
             | Some enclosing -> enclosing.IsConstructor && enclosing.DeclaringEntity = Some ent
             | None -> false
 
+        let isBoundConstructor (ctor: FSharpMemberOrFunctionOrValue) =
+            ctor.IsConstructor
+            && (isEmittedOrImportedMember ctor || hasMemberPlugin com ctor)
+
         memb.DeclaringEntity
         |> Option.filter (fun ent ->
             memb.IsConstructor
+            && not ctx.CapturingQuotation
             && isErasedOrStringEnumFSharpEntity ent
             && not (
-                isEmittedOrImportedMember memb
-                || isGlobalOrImportedFSharpEntity ent
-                || isInline memb
+                isGlobalOrImportedFSharpEntity ent
+                || isPojoDefinedByConsArgsFSharpEntity ent
                 || isCalledFromOwnConstructor ent
+                || Seq.exists isBoundConstructor ent.MembersFunctionsAndValues
             )
         )
 

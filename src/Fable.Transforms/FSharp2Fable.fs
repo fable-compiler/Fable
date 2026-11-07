@@ -1606,7 +1606,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let typ = makeType ctx.GenericArgs fsExpr.Type
             let r = makeRangeFrom fsExpr
 
-            match tryUnboundErasedConstructorEntity ctx memb with
+            match tryUnboundErasedConstructorEntity com ctx memb with
             | Some ent ->
                 return
                     $"Cannot call the constructor of erased type {ent.DisplayName}. It does not exist at runtime."
