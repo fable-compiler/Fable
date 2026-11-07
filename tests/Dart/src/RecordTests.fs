@@ -58,6 +58,12 @@ type RecordShadowingFileScope =
         member this.Wrap() = { Value = this.Wrapped }
         member this.Add() = addOne this.addOne
 
+[<Struct>]
+type StructRecordCopied = { T: float; S: string }
+
+[<Struct>]
+type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
+
 let tests() =
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
@@ -181,3 +187,20 @@ let tests() =
         let record = { Wrapped = 3; addOne = 7 } :> IWrap
         record.Wrap().Value |> equal 3
         record.Add() |> equal 8
+
+    testCase "Copy-and-update of a let mutable struct record keeps the unchanged fields" <| fun () ->
+        let mutable mark = { T = 1.0; S = "a" }
+        let copies = ResizeArray()
+        for i in 1..2 do
+            mark <- { T = float i; S = "b" }
+            copies.Add { mark with S = "c" }
+        copies |> Seq.map (fun m -> m.T) |> List.ofSeq |> equal [ 1.0; 2.0 ]
+        copies |> Seq.map (fun m -> m.S) |> List.ofSeq |> equal [ "c"; "c" ]
+
+    testCase "Copy-and-update of a let mutable struct record with mutable fields keeps the unchanged fields" <| fun () ->
+        let mutable p = { MutableN = 1; FixedN = 2 }
+        p.MutableN <- 5
+        let q = { p with FixedN = 9 }
+        q.MutableN |> equal 5
+        q.FixedN |> equal 9
+        p.FixedN |> equal 2

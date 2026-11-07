@@ -1230,6 +1230,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                 return (expr, bindings) ||> List.fold (fun e (i, v) -> Fable.Let(i, v, e))
 
+            | FSharpExprPatterns.AddressOf inner when
+                var.IsCompilerGenerated
+                && var.CompiledName = "inputRecord"
+                && com.Options.Language <> Rust
+                ->
+                let! value = transformExpr com ctx [] inner
+                let ctx, ident = putIdentInScope com ctx var (Some value)
+                let ident = { ident with Type = value.Type }
+                let! body = transformExpr com ctx [] body
+                return Fable.Let(ident, value, body)
+
             | _ when isInline var ->
                 let ctx = { ctx with ScopeInlineValues = (var, value) :: ctx.ScopeInlineValues }
 
@@ -1544,6 +1555,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
             let r = makeRangeFrom fsExpr
+
+            let callee =
+                match callee with
+                | Some(IgnoreAddressOf inner) when com.Options.Language <> Rust -> Some inner
+                | callee -> callee
+
             let! callee = transformCallee com ctx callee calleeType
             // let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
             let typ = resolveFieldType ctx calleeType field.FieldType
