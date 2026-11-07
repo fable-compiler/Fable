@@ -77,11 +77,13 @@ let tests() =
         s.[2..] |> equal "t and dog"
         s.[..8] |> equal "cat and d"
 
+#if FABLE_COMPILER
     testCase "String literal addition is optimized" <| fun () ->
         "bar" + aLiteral |> equal "barfoo"
         "bar" + notALiteral |> equal "barfoo"
         obj.ReferenceEquals("bar" + aLiteral, "barfoo") |> equal true
         obj.ReferenceEquals("bar" + notALiteral, "barfoo") |> equal false
+#endif
 
     testCase "String chunkBySize works" <| fun () -> // See #1296
         "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList

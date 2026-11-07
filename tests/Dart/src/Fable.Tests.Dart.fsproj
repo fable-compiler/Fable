@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
     <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Fable.Core/Fable.Core.fsproj" />
+    <PackageReference Include="Expecto" Version="11.1.1" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Tests.Util.fs" />
@@ -42,6 +44,6 @@
     <Compile Include="TupleTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTests.fs" />
-    <Content Include="..\main.dart" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

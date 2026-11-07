@@ -156,6 +156,7 @@ let tests() =
         let result = LeafExpressionConverter.EvaluateQuotation <@ (fun x -> (fun y -> x + y)) 3 4 @>
         equal 7 (result :?> int)
 
+#if FABLE_COMPILER
     testCase "Evaluate tuple" <| fun () ->
         // NOTE: the canonical suite casts the result to `(int * int)`, but Dart
         // reifies generic type arguments, so `obj :?> (int * int)` fails for a
@@ -165,6 +166,7 @@ let tests() =
         let arr = result :?> obj[]
         equal 1 (arr.[0] :?> int)
         equal 2 (arr.[1] :?> int)
+#endif
 
     testCase "Expr.GetFreeVars returns empty for closed expr" <| fun () ->
         let q = <@ fun x -> x + 1 @>
@@ -229,6 +231,7 @@ let tests() =
         | NewRecord(_ty, values) -> equal 1 (List.length values)
         | _ -> failwith "Expected NewRecord"
 
+#if FABLE_COMPILER
     testCase "Evaluate mutable variable set (VarSet)" <| fun () ->
         let result = LeafExpressionConverter.EvaluateQuotation <@ let mutable v = 1 in (v <- 2); v @>
         equal 2 (result :?> int)
@@ -239,6 +242,7 @@ let tests() =
                 <@ let r = { Value = 1 }: MutableRec in r.Value <- 5; r.Value @>
 
         equal 5 (result :?> int)
+#endif
 
     testCase "DerivedPatterns AndAlso, OrElse and SpecificCall work" <| fun () ->
         dpToSql <@ fun (c: DpRec) -> c.Country = "UK" @> |> equal "(col = ?)"

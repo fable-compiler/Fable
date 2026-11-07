@@ -1,5 +1,7 @@
 module Fable.Tests.Dart.Util
 
+#if FABLE_COMPILER
+
 open Fable.Core
 open Fable.Core.Dart
 
@@ -21,6 +23,57 @@ let testList (msg: string) (tests: unit list) = ()
 let equal (expected: 'T) (actual: 'T) = Test.expect(actual, Test.equals(expected))
 let notEqual (expected: 'T) (actual: 'T) = Test.expect(actual, Test.isNot(Test.equals(expected)))
 let throwsAnyError (f: unit -> 'a): unit = Test.expect(f, Test.throwsException)
+
+#else
+
+open Expecto
+let private expectoTestCase = testCase
+let private expectoTestCaseAsync = testCaseAsync
+let private expectoTestList = testList
+
+let mutable private registeredTests = []
+let mutable private registeredTestNames = Map.empty
+
+let private uniqueTestName (name: string) =
+    match Map.tryFind name registeredTestNames with
+    | Some count ->
+        registeredTestNames <- Map.add name (count + 1) registeredTestNames
+        $"{name} ({count + 1})"
+    | None ->
+        registeredTestNames <- Map.add name 1 registeredTestNames
+        name
+
+let private register test =
+    registeredTests <- test :: registeredTests
+
+let testCase (msg: string) (f: unit -> unit) =
+    register (expectoTestCase (uniqueTestName msg) f)
+
+let testCaseAsync (msg: string) (f: unit -> Async<unit>) =
+    register (expectoTestCaseAsync (uniqueTestName msg) (f ()))
+
+let testList (msg: string) (tests: unit list) =
+    let testCount = List.length tests
+    let childTests = registeredTests |> List.take testCount |> List.rev
+    registeredTests <- registeredTests |> List.skip testCount
+    register (expectoTestList (uniqueTestName msg) childTests)
+
+let getExpectoTests () = expectoTestList "All" (List.rev registeredTests)
+let collectExpectoModule (name: string) (registerTests: unit -> unit) =
+    let previousTests = registeredTests
+    let previousNames = registeredTestNames
+    registeredTests <- []
+    registeredTestNames <- Map.empty
+    registerTests ()
+    let moduleTests = registeredTests |> List.rev
+    registeredTests <- expectoTestList name moduleTests :: previousTests
+    registeredTestNames <- previousNames
+
+let equal expected actual: unit = Expecto.Expect.equal actual expected ""
+let notEqual expected actual: unit = Expecto.Expect.notEqual actual expected ""
+let throwsAnyError (f: unit -> 'a): unit = Expecto.Expect.throws (fun () -> f () |> ignore) ""
+
+#endif
 
 /// Matches the most specific type first, so an ArgumentOutOfRangeException is not reported as ArgumentException.
 let raisedExceptionType (f: unit -> 'a): string =
