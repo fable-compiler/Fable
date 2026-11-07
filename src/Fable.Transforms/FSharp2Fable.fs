@@ -2598,10 +2598,11 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             checkInlinedTaggedUnionCases com ctx fsEnt
             warnDuplicateCompiledNames com ctx fsEnt
 
-            tryGetBaseEntity fsEnt
-            |> Option.iter (fun (baseEnt, _) ->
-                checkSelfConstructorBase com ctx (Some(makeRange fsEnt.DeclarationLocation)) baseEnt
-            )
+            if not (isGlobalOrImportedFSharpEntity fsEnt) then
+                tryGetBaseEntity fsEnt
+                |> Option.iter (fun (baseEnt, _) ->
+                    checkSelfConstructorBase com ctx (Some(makeRange fsEnt.DeclarationLocation)) baseEnt
+                )
 
             match sub with
             | [] when isIgnoredLeafEntity fsEnt -> []

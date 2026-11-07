@@ -207,6 +207,21 @@ type Derived() =
       |> Assert.Is.success
       |> ignore
 
+    testCase "Imported child of a class with a self identifier compiles" <| fun _ ->
+      let source =
+        """
+type Base =
+    val mutable X: int
+    new () as self = { X = 1 } then self.X <- 2
+
+[<Fable.Core.Import("Child", "./child.js")>]
+type Child() =
+    inherit Base()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
     testCase "Explicit child of a class without a self identifier compiles" <| fun _ ->
       let source =
         """
