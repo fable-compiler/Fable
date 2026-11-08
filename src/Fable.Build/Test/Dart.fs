@@ -26,6 +26,7 @@ let handle (args: string list) =
     Shell.copyFile buildDir (testsFolder </> "analysis_options.yaml")
 
     Directory.GetFiles(testsFolder, "*.dart") |> Seq.iter (Shell.copyFile buildDir)
+
     let testCmd = $"dart test {buildDir}/src/Main.dart"
 
     let fableArgs =
