@@ -61,6 +61,38 @@ type StructRecord = { Size: int; Seed: int; Path: int list }
 
 type StructRecordHolder = { Tag: int; Data: StructRecord }
 
+[<Struct>]
+type StructRecordCopied = { T: float; S: string }
+
+[<Struct>]
+type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
+
+[<Struct>]
+type StructRecordOrdered = { OrdA: int; OrdB: int; OrdC: int }
+
+type ByRefClassRecord = { BcP: int; BcQ: int }
+
+type ByRefClass =
+    val mutable BkF: int
+    val BkV: int
+    new() = { BkF = 0; BkV = 3 }
+
+let sumStructRecordByRef (r: byref<StructRecordOrdered>) = r.OrdA + r.OrdC
+
+let copyStructRecordByRef (r: byref<StructRecordOrdered>) = { r with OrdB = 99 }
+
+let sumClassRecordByRef (r: byref<ByRefClassRecord>) = r.BcP + r.BcQ
+
+let setClassRecordOutRef (r: outref<ByRefClassRecord>) =
+    r <- { BcP = 4; BcQ = 1 }
+    r.BcP + r.BcQ
+
+let sumClassByRef (r: byref<ByRefClass>) = r.BkF + r.BkV
+
+let sumAnonymousStructRecordByRef (x: byref<struct {| AnX: int; AnY: int |}>) = x.AnX + x.AnY
+
+let mutable moduleStructRecord = { T = 1.0; S = "a" }
+
 [<Fact>]
 let ``test sprintf formats record fields with their F# names`` () =
     sprintf "%A" { Size = 1; Seed = 2; Path = [] }
@@ -258,3 +290,58 @@ let ``test Copy-and-update of a struct record argument works`` () =
     equal 1 held.Data.Size
     equal 2 held.Data.Seed
     equal [ 8; 7 ] held.Data.Path
+
+[<Fact>]
+let ``test copy-and-update of a let mutable struct record keeps the unchanged fields`` () =
+    let mutable mark = { T = 1.0; S = "a" }
+    let copies = ResizeArray()
+    for i in 1..2 do
+        mark <- { T = float i; S = "b" }
+        copies.Add { mark with S = "c" }
+    copies |> Seq.map (fun m -> m.T) |> List.ofSeq |> equal [ 1.0; 2.0 ]
+    copies |> Seq.map (fun m -> m.S) |> List.ofSeq |> equal [ "c"; "c" ]
+
+[<Fact>]
+let ``test copy-and-update of a let mutable struct record with mutable fields keeps the unchanged fields`` () =
+    let mutable p = { MutableN = 1; FixedN = 2 }
+    p.MutableN <- 5
+    let q = { p with FixedN = 9 }
+    q.MutableN |> equal 5
+    q.FixedN |> equal 9
+    p.FixedN |> equal 2
+
+[<Fact>]
+let ``test copy-and-update of a module-level mutable struct record keeps the unchanged fields`` () =
+    moduleStructRecord <- { moduleStructRecord with T = 7.0 }
+    let copy = { moduleStructRecord with S = "b" }
+    copy.T |> equal 7.0
+    copy.S |> equal "b"
+    moduleStructRecord.S |> equal "a"
+
+[<Fact>]
+let ``test field reads and copy-and-update through a byref struct record parameter work`` () =
+    let mutable r = { OrdA = 1; OrdB = 2; OrdC = 3 }
+    sumStructRecordByRef &r |> equal 4
+    let x = copyStructRecordByRef &r
+    (x.OrdA, x.OrdB, x.OrdC) |> equal (1, 99, 3)
+
+[<Fact>]
+let ``test field reads through a byref or outref to a reference type work`` () =
+    let mutable c = { BcP = 1; BcQ = 2 }
+    sumClassRecordByRef &c |> equal 3
+    let mutable o = { BcP = 0; BcQ = 0 }
+    setClassRecordOutRef &o |> equal 5
+    let mutable k = ByRefClass()
+    k.BkF <- 4
+    sumClassByRef &k |> equal 7
+
+[<Fact>]
+let ``test copy-and-update of a let mutable anonymous struct record keeps the unchanged fields`` () =
+    let mutable a = struct {| X = 1; Y = 2 |}
+    let b = {| a with Y = 99 |}
+    (b.X, b.Y) |> equal (1, 99)
+
+[<Fact>]
+let ``test field reads through a byref to an anonymous struct record work`` () =
+    let mutable a = struct {| AnX = 1; AnY = 2 |}
+    sumAnonymousStructRecordByRef &a |> equal 3
