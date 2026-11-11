@@ -17,13 +17,13 @@ Homepage = "https://fable.io"
 [dependency-groups]
 dev = [
     "pytest>=9.2.0,<10",
-    "ruff>=0.17.3,<0.18",
+    "ruff>=0.17.4,<0.18",
     "maturin>=1.16.0,<2",
-    "dunamai>=1.26.3,<2",
-    "pydantic>=2.14.2",
+    "dunamai>=1.26.4,<2",
+    "pydantic>=2.14.3",
     "attrs>=26.1.0",
     "pyright>=1.1.414",
-    "ty>=0.0.95",
+    "ty>=0.0.99",
 ]
 
 [tool.hatch.build.targets.sdist]
