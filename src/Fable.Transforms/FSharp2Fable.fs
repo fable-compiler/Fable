@@ -770,6 +770,26 @@ let private withDefaultValueFields (com: IFableCompiler) (ctx: Context) (fsType:
     else
         args
 
+let private derefByRefCallee
+    (com: IFableCompiler)
+    (ctx: Context)
+    r
+    (callee: FSharpExpr)
+    (calleeType: FSharpType)
+    (transformedCallee: Fable.Expr)
+    =
+    match callee with
+    | FSharpExprPatterns.Value var when
+        com.Options.Language <> Rust
+        && isByRefType callee.Type
+        && isByRefValue var
+        // An inref argument is passed as the value itself when its source is immutable
+        && not (isInRefType var.FullType)
+        && not (var.IsCompilerGenerated && var.CompiledName = "inputRecord")
+        ->
+        Replacements.Api.getRefCell com r (makeType ctx.GenericArgs calleeType) transformedCallee
+    | _ -> transformedCallee
+
 let rec private transformDecisionTargets
     (com: IFableCompiler)
     (ctx: Context)
@@ -1413,7 +1433,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         // Getters and Setters
         | FSharpExprPatterns.AnonRecordGet(callee, calleeType, fieldIndex) ->
             let r = makeRangeFrom fsExpr
-            let! callee = transformExpr com ctx [] callee
+
+            let callee =
+                match callee with
+                | IgnoreAddressOf inner when com.Options.Language <> Rust -> inner
+                | _ -> callee
+
+            let! transformedCallee = transformExpr com ctx [] callee
+            let callee = derefByRefCallee com ctx r callee calleeType transformedCallee
 
             let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
 
@@ -1431,7 +1458,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 | Some(IgnoreAddressOf inner) when com.Options.Language <> Rust -> Some inner
                 | callee -> callee
 
-            let! callee = transformCallee com ctx callee calleeType
+            let! transformedCallee = transformCallee com ctx callee calleeType
+
+            let callee =
+                match callee with
+                | Some callee -> derefByRefCallee com ctx r callee calleeType transformedCallee
+                | None -> transformedCallee
+
             // let typ = makeType ctx.GenericArgs fsExpr.Type // Doesn't always work
             let typ = resolveFieldType ctx calleeType field.FieldType
 

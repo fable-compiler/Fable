@@ -67,6 +67,30 @@ type StructRecordCopied = { T: float; S: string }
 [<Struct>]
 type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
+[<Struct>]
+type StructRecordOrdered = { OrdA: int; OrdB: int; OrdC: int }
+
+type ByRefClassRecord = { BcP: int; BcQ: int }
+
+type ByRefClass =
+    val mutable BkF: int
+    val BkV: int
+    new() = { BkF = 0; BkV = 3 }
+
+let sumStructRecordByRef (r: byref<StructRecordOrdered>) = r.OrdA + r.OrdC
+
+let copyStructRecordByRef (r: byref<StructRecordOrdered>) = { r with OrdB = 99 }
+
+let sumClassRecordByRef (r: byref<ByRefClassRecord>) = r.BcP + r.BcQ
+
+let setClassRecordOutRef (r: outref<ByRefClassRecord>) =
+    r <- { BcP = 4; BcQ = 1 }
+    r.BcP + r.BcQ
+
+let sumClassByRef (r: byref<ByRefClass>) = r.BkF + r.BkV
+
+let sumAnonymousStructRecordByRef (x: byref<struct {| AnX: int; AnY: int |}>) = x.AnX + x.AnY
+
 let mutable moduleStructRecord = { T = 1.0; S = "a" }
 
 [<Fact>]
@@ -293,3 +317,31 @@ let ``test copy-and-update of a module-level mutable struct record keeps the unc
     copy.T |> equal 7.0
     copy.S |> equal "b"
     moduleStructRecord.S |> equal "a"
+
+[<Fact>]
+let ``test field reads and copy-and-update through a byref struct record parameter work`` () =
+    let mutable r = { OrdA = 1; OrdB = 2; OrdC = 3 }
+    sumStructRecordByRef &r |> equal 4
+    let x = copyStructRecordByRef &r
+    (x.OrdA, x.OrdB, x.OrdC) |> equal (1, 99, 3)
+
+[<Fact>]
+let ``test field reads through a byref or outref to a reference type work`` () =
+    let mutable c = { BcP = 1; BcQ = 2 }
+    sumClassRecordByRef &c |> equal 3
+    let mutable o = { BcP = 0; BcQ = 0 }
+    setClassRecordOutRef &o |> equal 5
+    let mutable k = ByRefClass()
+    k.BkF <- 4
+    sumClassByRef &k |> equal 7
+
+[<Fact>]
+let ``test copy-and-update of a let mutable anonymous struct record keeps the unchanged fields`` () =
+    let mutable a = struct {| X = 1; Y = 2 |}
+    let b = {| a with Y = 99 |}
+    (b.X, b.Y) |> equal (1, 99)
+
+[<Fact>]
+let ``test field reads through a byref to an anonymous struct record work`` () =
+    let mutable a = struct {| AnX = 1; AnY = 2 |}
+    sumAnonymousStructRecordByRef &a |> equal 3

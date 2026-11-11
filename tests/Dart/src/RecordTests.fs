@@ -64,6 +64,8 @@ type StructRecordCopied = { T: float; S: string }
 [<Struct>]
 type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
+let mutable moduleStructRecord = { T = 1.0; S = "a" }
+
 let tests() =
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
@@ -204,3 +206,15 @@ let tests() =
         q.MutableN |> equal 5
         q.FixedN |> equal 9
         p.FixedN |> equal 2
+
+    testCase "Copy-and-update of a module-level mutable struct record keeps the unchanged fields" <| fun () ->
+        moduleStructRecord <- { moduleStructRecord with T = 7.0 }
+        let copy = { moduleStructRecord with S = "b" }
+        copy.T |> equal 7.0
+        copy.S |> equal "b"
+        moduleStructRecord.S |> equal "a"
+
+    testCase "Copy-and-update of a let mutable anonymous struct record keeps the unchanged fields" <| fun () ->
+        let mutable a = struct {| X = 1; Y = 2 |}
+        let b = {| a with Y = 99 |}
+        (b.X, b.Y) |> equal (1, 99)

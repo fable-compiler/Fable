@@ -850,6 +850,9 @@ module Helpers =
     //      typ.TypeDefinition.DisplayName = "inref" ||
     //      typ.TypeDefinition.DisplayName = "outref")
 
+    let isInRefType (typ: FSharpType) =
+        typ.HasTypeDefinition && typ.TypeDefinition.DisplayName = "inref"
+
     let isByRefValue (value: FSharpMemberOrFunctionOrValue) =
         // Value type "this" is passed as inref, so it has to be excluded
         // (Note: the non-abbreviated type of inref and outref is byref)
