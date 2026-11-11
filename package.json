@@ -24,10 +24,10 @@
   },
   "dependencies": {
     "@types/node": "^26.6.6",
-    "concurrently": "^10.0.6",
+    "concurrently": "^10.0.7",
     "ghreleases": "^3.0.2",
     "nodemon": "^3.1.14",
-    "rollup": "^4.67.3",
+    "rollup": "^4.68.0",
     "terser": "^5.51.2",
     "typescript": "^7.0.2"
   },
