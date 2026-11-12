@@ -67,9 +67,11 @@ type StructRecordCopied = { T: float; S: string }
 [<Struct>]
 type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
-type CyclicNode = { CnName: string; mutable CnNext: CyclicNode option }
-
 type CyclicTree = { CtLabel: string; mutable CtChildren: CyclicTree list }
+
+type CyclicLoop = { mutable LoopNext: CyclicLoop list }
+
+type CyclicOption = { mutable OptNext: CyclicOption option }
 
 [<Struct>]
 type StructRecordOrdered = { OrdA: int; OrdB: int; OrdC: int }
@@ -303,20 +305,16 @@ let ``test formatting a cyclic record stops at the cycle`` () =
     sprintf "%A" t |> equal expected
     string t |> equal expected
     $"{t}" |> equal expected
-    let n = { CnName = "a"; CnNext = None }
-    n.CnNext <- Some n
-    let s = sprintf "%A" n
-    s.StartsWith("{ CnName = \"a\"") |> equal true
-    s.EndsWith("... }") |> equal true
-    let a = { CtLabel = "a"; CtChildren = [] }
-    let b = { CtLabel = "b"; CtChildren = [ a ] }
-    a.CtChildren <- [ b ]
-    let s = sprintf "%A" a
-    (s.Contains("CtLabel = \"b\""), s.Contains("[...]")) |> equal (true, true)
-    let leaf = { CtLabel = "l"; CtChildren = [] }
-    let s = sprintf "%A" { CtLabel = "p"; CtChildren = [ leaf; leaf ] }
-    s.Split([| "CtLabel = \"l\"" |], System.StringSplitOptions.None).Length |> equal 3
-    s.Contains("...") |> equal false
+    let a = { LoopNext = [] }
+    let b = { LoopNext = [ a ] }
+    a.LoopNext <- [ b ]
+    sprintf "%A" a |> equal "{ LoopNext = [{ LoopNext = [...] }] }"
+    let leaf = { LoopNext = [] }
+    sprintf "%A" { LoopNext = [ leaf; leaf ] }
+    |> equal "{ LoopNext = [{ LoopNext = [] }; { LoopNext = [] }] }"
+    let o = { OptNext = None }
+    o.OptNext <- Some o
+    (sprintf "%A" o).EndsWith("... }") |> equal true
 
 [<Fact>]
 let ``test copy-and-update of a let mutable struct record keeps the unchanged fields`` () =
