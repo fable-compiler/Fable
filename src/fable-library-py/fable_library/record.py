@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from threading import local
+
 from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
 from .core import int32
 from .protocols import IComparable
@@ -78,7 +80,28 @@ def _field_to_string(value: object) -> str:
     return str(value)
 
 
+class _FormattingState(local):
+    def __init__(self) -> None:
+        self.records: set[int] = set()
+
+
+_formatting = _FormattingState()
+
+
 def record_to_string(self: Record) -> str:
+    # FSharp.Core prints "..." for a value that is already being formatted
+    records = _formatting.records
+    key = id(self)
+    if key in records:
+        return "..."
+    records.add(key)
+    try:
+        return _record_fields_to_string(self)
+    finally:
+        records.discard(key)
+
+
+def _record_fields_to_string(self: Record) -> str:
     if not hasattr(self, "__slots__"):
         return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + _field_to_string(kv[1]), self.__dict__.items())) + " }"
 

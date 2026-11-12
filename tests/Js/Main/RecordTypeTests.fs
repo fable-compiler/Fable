@@ -76,6 +76,10 @@ type StructRecordCopied = { T: float; S: string }
 [<Struct>]
 type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
+type CyclicNode = { CnName: string; mutable CnNext: CyclicNode option }
+
+type CyclicTree = { CtLabel: string; mutable CtChildren: CyclicTree list }
+
 [<Struct>]
 type StructRecordOrdered = { OrdA: int; OrdB: int; OrdC: int }
 
@@ -241,6 +245,28 @@ let tests =
         a.xs.Add 1
         equal 1 a.xs.Count
         equal 1 b.xs.Count
+
+    testCase "Formatting a cyclic record stops at the cycle" <| fun () ->
+        let t = { CtLabel = "root"; CtChildren = [] }
+        t.CtChildren <- [ t ]
+        let expected = "{ CtLabel = \"root\"\n  CtChildren = [...] }"
+        sprintf "%A" t |> equal expected
+        string t |> equal expected
+        $"{t}" |> equal expected
+        let n = { CnName = "a"; CnNext = None }
+        n.CnNext <- Some n
+        let s = sprintf "%A" n
+        s.StartsWith("{ CnName = \"a\"") |> equal true
+        s.EndsWith("... }") |> equal true
+        let a = { CtLabel = "a"; CtChildren = [] }
+        let b = { CtLabel = "b"; CtChildren = [ a ] }
+        a.CtChildren <- [ b ]
+        let s = sprintf "%A" a
+        (s.Contains("CtLabel = \"b\""), s.Contains("[...]")) |> equal (true, true)
+        let leaf = { CtLabel = "l"; CtChildren = [] }
+        let s = sprintf "%A" { CtLabel = "p"; CtChildren = [ leaf; leaf ] }
+        s.Split([| "CtLabel = \"l\"" |], System.StringSplitOptions.None).Length |> equal 3
+        s.Contains("...") |> equal false
 
     testCase "Copy-and-update of a let mutable struct record keeps the unchanged fields" <| fun () ->
         let mutable mark = { T = 1.0; S = "a" }
