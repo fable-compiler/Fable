@@ -1610,7 +1610,7 @@ let ``test System.Diagnostics.Stopwatch.Frequency works`` () =
     let x = System.Diagnostics.Stopwatch.Frequency
     x > 1000000L |> equal true
 
-
+[<Fact>]
 let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
     let freq = double System.Diagnostics.Stopwatch.Frequency
     let start = System.Diagnostics.Stopwatch.GetTimestamp()
@@ -1618,6 +1618,47 @@ let ``test System.Diagnostics.Stopwatch.GetTimestamp works`` () =
     let stop = System.Diagnostics.Stopwatch.GetTimestamp()
     let elapsedMs = (double (stop - start)) * 1000.0 / freq
     elapsedMs > 0 |> equal true
+
+[<Fact>]
+let ``test Stopwatch accumulates while running and after restart`` () =
+    let sw = System.Diagnostics.Stopwatch()
+    box sw :? System.Diagnostics.Stopwatch |> equal true
+    sw.IsRunning |> equal false
+    sw.ElapsedMilliseconds |> equal 0L
+    sw.Start()
+    sw.Start()
+    System.Threading.Thread.Sleep(20)
+    (sw.ElapsedMilliseconds > 0L) |> equal true
+    (sw.Elapsed.TotalMilliseconds > 0.0) |> equal true
+    let elapsedTicks = sw.ElapsedTicks
+    (elapsedTicks > 0L) |> equal true
+    sw.Stop()
+    sw.Stop()
+    let stopped = sw.ElapsedTicks
+    (stopped >= elapsedTicks) |> equal true
+    sw.Start()
+    System.Threading.Thread.Sleep(20)
+    sw.Stop()
+    (sw.ElapsedTicks > stopped) |> equal true
+    sw.Restart()
+    sw.IsRunning |> equal true
+    (sw.ElapsedTicks < stopped) |> equal true
+    sw.Reset()
+    sw.IsRunning |> equal false
+    sw.ElapsedTicks |> equal 0L
+
+[<Fact>]
+let ``test Stopwatch timestamp units and elapsed time agree`` () =
+    System.Diagnostics.Stopwatch.IsHighResolution |> equal true
+    let frequency = System.Diagnostics.Stopwatch.Frequency
+    let start = System.Diagnostics.Stopwatch.GetTimestamp()
+    System.Threading.Thread.Sleep(20)
+    let stop = System.Diagnostics.Stopwatch.GetTimestamp()
+    let elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(start, stop)
+    (elapsed.TotalMilliseconds >= 10.0) |> equal true
+    (System.Diagnostics.Stopwatch.GetElapsedTime(start).Ticks >= elapsed.Ticks) |> equal true
+    let calculatedMilliseconds = float (stop - start) * 1000.0 / float frequency
+    (abs (calculatedMilliseconds - elapsed.TotalMilliseconds) < 1.0) |> equal true
 
 [<Fact>]
 let ``test Module mutable values work`` () =
