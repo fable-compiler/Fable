@@ -1307,12 +1307,13 @@ module PrinterExtensions =
 
             // When negating a negative numeric literal (e.g. -(-5)), we must wrap
             // it in parens to avoid emitting --5, which JS parses as a decrement.
+            // -0.0 is printed as "-0" too, but `-0.0 < 0.0` is false, so check its sign.
             let needsParens =
                 not isSuffix
                 && operator = "-"
                 && (
                     match argument with
-                    | Literal(NumericLiteral(value, _)) -> value < 0.0
+                    | Literal(NumericLiteral(value, _)) -> value < 0.0 || (value = 0.0 && 1.0 / value < 0.0)
                     | UnaryExpression(_, op, isSuffix, _) -> op = "-" && not isSuffix
                     | _ -> false
                 )
