@@ -76,6 +76,12 @@ type StructRecordCopied = { T: float; S: string }
 [<Struct>]
 type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
+type CyclicTree = { CtLabel: string; mutable CtChildren: CyclicTree list }
+
+type CyclicLoop = { mutable LoopNext: CyclicLoop list }
+
+type CyclicOption = { mutable OptNext: CyclicOption option }
+
 [<Struct>]
 type StructRecordOrdered = { OrdA: int; OrdB: int; OrdC: int }
 
@@ -241,6 +247,24 @@ let tests =
         a.xs.Add 1
         equal 1 a.xs.Count
         equal 1 b.xs.Count
+
+    testCase "Formatting a cyclic record stops at the cycle" <| fun () ->
+        let t = { CtLabel = "root"; CtChildren = [] }
+        t.CtChildren <- [ t ]
+        let expected = "{ CtLabel = \"root\"\n  CtChildren = [...] }"
+        sprintf "%A" t |> equal expected
+        string t |> equal expected
+        $"{t}" |> equal expected
+        let a = { LoopNext = [] }
+        let b = { LoopNext = [ a ] }
+        a.LoopNext <- [ b ]
+        sprintf "%A" a |> equal "{ LoopNext = [{ LoopNext = [...] }] }"
+        let leaf = { LoopNext = [] }
+        sprintf "%A" { LoopNext = [ leaf; leaf ] }
+        |> equal "{ LoopNext = [{ LoopNext = [] }; { LoopNext = [] }] }"
+        let o = { OptNext = None }
+        o.OptNext <- Some o
+        (sprintf "%A" o).EndsWith("... }") |> equal true
 
     testCase "Copy-and-update of a let mutable struct record keeps the unchanged fields" <| fun () ->
         let mutable mark = { T = 1.0; S = "a" }

@@ -124,8 +124,19 @@ function recordToJSON<T>(self: T) {
   return o;
 }
 
+const recordsBeingFormatted = new Set<any>();
+
+// FSharp.Core prints "..." for a value that is already being formatted
 function recordToString<T>(self: T) {
-  return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }";
+  if (recordsBeingFormatted.has(self)) {
+    return "...";
+  }
+  recordsBeingFormatted.add(self);
+  try {
+    return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }";
+  } finally {
+    recordsBeingFormatted.delete(self);
+  }
 }
 
 function recordGetHashCode<T>(self: T) {

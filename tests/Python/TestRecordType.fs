@@ -67,6 +67,12 @@ type StructRecordCopied = { T: float; S: string }
 [<Struct>]
 type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
+type CyclicTree = { CtLabel: string; mutable CtChildren: CyclicTree list }
+
+type CyclicLoop = { mutable LoopNext: CyclicLoop list }
+
+type CyclicOption = { mutable OptNext: CyclicOption option }
+
 [<Struct>]
 type StructRecordOrdered = { OrdA: int; OrdB: int; OrdC: int }
 
@@ -290,6 +296,25 @@ let ``test Copy-and-update of a struct record argument works`` () =
     equal 1 held.Data.Size
     equal 2 held.Data.Seed
     equal [ 8; 7 ] held.Data.Path
+
+[<Fact>]
+let ``test formatting a cyclic record stops at the cycle`` () =
+    let t = { CtLabel = "root"; CtChildren = [] }
+    t.CtChildren <- [ t ]
+    let expected = "{ CtLabel = \"root\"\n  CtChildren = [...] }"
+    sprintf "%A" t |> equal expected
+    string t |> equal expected
+    $"{t}" |> equal expected
+    let a = { LoopNext = [] }
+    let b = { LoopNext = [ a ] }
+    a.LoopNext <- [ b ]
+    sprintf "%A" a |> equal "{ LoopNext = [{ LoopNext = [...] }] }"
+    let leaf = { LoopNext = [] }
+    sprintf "%A" { LoopNext = [ leaf; leaf ] }
+    |> equal "{ LoopNext = [{ LoopNext = [] }; { LoopNext = [] }] }"
+    let o = { OptNext = None }
+    o.OptNext <- Some o
+    (sprintf "%A" o).EndsWith("... }") |> equal true
 
 [<Fact>]
 let ``test copy-and-update of a let mutable struct record keeps the unchanged fields`` () =
