@@ -1103,6 +1103,66 @@ module AST =
     let makeForLoop range isUp ident start limit body =
         ForLoop(ident, start, limit, body, isUp, range)
 
+    let makeForLoopWithBoundLimit (getUniqueName: string -> string) range isUp ident (start: Expr) (limit: Expr) body =
+        let bindLimit start =
+            let limitIdent = getUniqueName "limit" |> makeTypedIdent limit.Type
+            Let(limitIdent, limit, makeForLoop range isUp ident start (IdentExpr limitIdent) body)
+
+        match start with
+        | Value _ -> bindLimit start
+        | IdentExpr i when not i.IsMutable -> bindLimit start
+        | _ ->
+            let startIdent = getUniqueName "start" |> makeTypedIdent start.Type
+            Let(startIdent, start, bindLimit (IdentExpr startIdent))
+
+    let rec isStableForLoopLimit (limit: Expr) =
+        match limit with
+        | Value(NumberConstant _, _) -> true
+        | IdentExpr ident -> not ident.IsMutable
+        | Get(IdentExpr ident, FieldGet info, _, _) when info.Name = "length" ->
+            match ident.Type with
+            | String
+            | Array(_, (MutableArray | ImmutableArray)) -> not ident.IsMutable
+            | _ -> false
+        | Operation(Unary(_, operand), _, _, _) -> isStableForLoopLimit operand
+        | Operation(Binary(_, left, right), _, _, _) -> isStableForLoopLimit left && isStableForLoopLimit right
+        | _ -> false
+
+    let private isMutableArrayValue (com: Compiler) (expr: Expr) =
+        let isArray =
+            function
+            | Array(_, (MutableArray | ImmutableArray)) -> true
+            | _ -> false
+
+        let isGetterCall (callInfo: CallInfo) =
+            Option.isNone callInfo.ThisArg && List.isEmpty callInfo.Args
+
+        match expr with
+        | IdentExpr ident -> ident.IsMutable && isArray ident.Type
+        | Call(IdentExpr ident, callInfo, _, _) when isGetterCall callInfo -> ident.IsMutable && isArray ident.Type
+        | Call(Import({ Kind = MemberImport memberRef }, _, _), callInfo, typ, _) when
+            isGetterCall callInfo && isArray typ
+            ->
+            match com.TryGetMember(memberRef) with
+            | Some memb -> memb.IsValue && memb.IsMutable
+            | None -> false
+        | _ -> false
+
+    // .NET reads an upward `<mutable array>.Length - 1` bound on every iteration
+    let isReReadForLoopLimitWith (com: Compiler) (isLength: Expr -> Expr option) isUp (limit: Expr) =
+        match limit with
+        | Operation(Binary(BinaryMinus, length, Value(NumberConstant(NumberValue.Int32 1, _), _)), _, _, _) when isUp ->
+            match length with
+            | Get(arr, FieldGet info, _, _) when info.Name = "length" -> isMutableArrayValue com arr
+            | length ->
+                match isLength length with
+                | Some arr -> isMutableArrayValue com arr
+                | None -> false
+        | _ -> false
+
+    let isReReadForLoopLimit (com: Compiler) isUp (limit: Expr) =
+        isReReadForLoopLimitWith com (fun _ -> None) isUp limit
+
     let makeBinOp range typ left right op =
         Operation(Binary(op, left, right), Tags.empty, typ, range)
 

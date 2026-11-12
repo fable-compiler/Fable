@@ -567,6 +567,9 @@ let rec private forLoopBoundTailCall (n: int) acc =
 
 let mutable forLoopPublicArray = [| 1; 2; 3 |]
 let mutable private forLoopPrivateArray = [| 1; 2; 3 |]
+let mutable forLoopLengthPublicArray = [| 1; 2; 3 |]
+let mutable private forLoopStepPrivateArray = [| 1; 2; 3 |]
+let mutable forInPublicArray = [| 1; 2; 3 |]
 
 let tests =
   testList "Miscellaneous" [
@@ -1031,6 +1034,90 @@ let tests =
             if q < 10 then a <- Array.append a [| 0 |]
             q <- q + 1
         equal 4 q
+
+    testCase "for bound reading Array.length of a mutable array minus one is evaluated once" <| fun () ->
+        let mutable a = [| 1; 2; 3 |]
+        let mutable n = 0
+        for _ = 0 to Array.length a - 1 do
+            a <- [| 1 |]
+            n <- n + 1
+        equal 3 n
+        forLoopLengthPublicArray <- [| 1; 2; 3 |]
+        let mutable m = 0
+        for _ = 0 to Array.length forLoopLengthPublicArray - 1 do
+            forLoopLengthPublicArray <- [| 1 |]
+            m <- m + 1
+        equal 3 m
+        MiscTestsHelper.forLoopLengthCrossFileArray <- [| 1; 2; 3 |]
+        let mutable p = 0
+        for _ = 0 to Array.length MiscTestsHelper.forLoopLengthCrossFileArray - 1 do
+            MiscTestsHelper.forLoopLengthCrossFileArray <- [| 1 |]
+            p <- p + 1
+        equal 3 p
+        a <- [| 1; 2; 3 |]
+        let mutable q = 0
+        for _ = (a <- [| 1; 2; 3; 4 |]; 0) to Array.length a - 1 do
+            a <- [| 1 |]
+            q <- q + 1
+        equal 4 q
+
+    testCase "for bound over the length of a mutable array with a step of 1 is evaluated once" <| fun () ->
+        let mutable a = [| 1; 2; 3 |]
+        let mutable n = 0
+        for _ in 0 .. 1 .. a.Length - 1 do
+            a <- [| 1 |]
+            n <- n + 1
+        equal 3 n
+        a <- [| 1; 2; 3 |]
+        let mutable m = 0
+        for _ in 0 .. 1 .. Array.length a - 1 do
+            a <- [| 1 |]
+            m <- m + 1
+        equal 3 m
+        forLoopStepPrivateArray <- [| 1; 2; 3 |]
+        let mutable p = 0
+        for _ in 0 .. 1 .. forLoopStepPrivateArray.Length - 1 do
+            forLoopStepPrivateArray <- [| 1 |]
+            p <- p + 1
+        equal 3 p
+
+    testCase "for in over a mutable array reassigned in the body iterates the array held at loop start" <| fun () ->
+        let mutable a = [| 1; 2; 3 |]
+        let mutable sum = 0
+        for x in a do
+            a <- [| 100 |]
+            sum <- sum + x
+        equal 6 sum
+        let mutable pairs = [| (1, 2); (3, 4) |]
+        let mutable total = 0
+        for (x, y) in pairs do
+            pairs <- [| (100, 100) |]
+            total <- total + x + y
+        equal 10 total
+        a <- [| 1; 2; 3 |]
+        let mutable n = 0
+        for _ in a do
+            a <- [| 100 |]
+            n <- n + 1
+        equal 3 n
+        forInPublicArray <- [| 1; 2; 3 |]
+        let mutable s = 0
+        for x in forInPublicArray do
+            forInPublicArray <- [| 100 |]
+            s <- s + x
+        equal 6 s
+        MiscTestsHelper.forInCrossFileArray <- [| 1; 2; 3 |]
+        let mutable c = 0
+        for x in MiscTestsHelper.forInCrossFileArray do
+            MiscTestsHelper.forInCrossFileArray <- [| 100 |]
+            c <- c + x
+        equal 6 c
+        a <- [| 1; 2; 3 |]
+        let fns = ResizeArray<unit -> int>()
+        for x in a do
+            a <- [| 100 |]
+            fns.Add(fun () -> x)
+        fns |> Seq.map (fun f -> f ()) |> Seq.toArray |> equal [| 1; 2; 3 |]
 
     testCase "Self references in constructors work" <| fun () -> // See #124
         let t = Test(5)

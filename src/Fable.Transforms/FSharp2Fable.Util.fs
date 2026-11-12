@@ -1305,6 +1305,63 @@ module Patterns =
             ValueSome(ident, start, step, stop, body)
         | _ -> ValueNone
 
+    [<return: Struct>]
+    let (|MutableArrayValue|_|) (expr: FSharpExpr) =
+        let isMutableArray (v: FSharpMemberOrFunctionOrValue) =
+            v.IsMutable
+            && v.FullType.HasTypeDefinition
+            && v.FullType.TypeDefinition.IsArrayType
+
+        match expr with
+        | Value v when isMutableArray v -> ValueSome v
+        | Call(None, v, _, _, []) when isMutableArray v -> ValueSome v
+        | _ -> ValueNone
+
+    [<return: Struct>]
+    let (|MutableArrayLengthMinusOne|_|) (expr: FSharpExpr) =
+        let isDeclaredIn entityFullName (memb: FSharpMemberOrFunctionOrValue) =
+            memb.DeclaringEntity
+            |> Option.bind (fun ent -> ent.TryFullName)
+            |> Option.exists ((=) entityFullName)
+
+        match expr with
+        | Call(None, minus, _, _, [ length; Const((:? int as one), _) ]) when
+            minus.CompiledName = "op_Subtraction" && one = 1
+            ->
+            match length with
+            | Call(None, memb, _, _, [ MutableArrayValue arr as arrExpr ]) when
+                memb.CompiledName = "Length"
+                && isDeclaredIn "Microsoft.FSharp.Collections.ArrayModule" memb
+                ->
+                ValueSome(arr, arrExpr, false)
+            | Call(Some(MutableArrayValue arr as arrExpr), memb, _, _, []) when
+                memb.CompiledName = "get_Length" && isDeclaredIn "System.Array" memb
+                ->
+                ValueSome(arr, arrExpr, true)
+            | _ -> ValueNone
+        | _ -> ValueNone
+
+    [<return: Struct>]
+    let (|ForInMutableArray|_|) =
+        function
+        | FastIntegerForLoop(Const _ as start,
+                             (MutableArrayLengthMinusOne(arr, arrExpr, false) as limit),
+                             Lambda(idx,
+                                    Let((elemVar,
+                                         (Call(None, getArray, _, _, [ MutableArrayValue arr'; Value idx' ]) as elemExpr),
+                                         _),
+                                        rest)),
+                             true,
+                             _,
+                             _) when
+            idx.IsCompilerGenerated
+            && getArray.CompiledName = "GetArray"
+            && arr.Equals(arr')
+            && idx.Equals(idx')
+            ->
+            ValueSome(start, limit, arrExpr, idx, elemVar, elemExpr, rest)
+        | _ -> ValueNone
+
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
     /// where the F# compiler automatically passes a byref arg and returns it as a tuple
     [<return: Struct>]
@@ -2036,6 +2093,27 @@ module Util =
     open Patterns
     open TypeHelpers
     open Identifiers
+
+    let rec private isSameValueRead (expected: Fable.Expr) (actual: Fable.Expr) =
+        match expected, actual with
+        | Fable.IdentExpr i1, Fable.IdentExpr i2 -> i1.Name = i2.Name
+        | Fable.Import(i1, _, _), Fable.Import(i2, _, _) -> i1.Selector = i2.Selector && i1.Path = i2.Path
+        | Fable.Call(callee1, info1, _, _), Fable.Call(callee2, info2, _, _) ->
+            List.isEmpty info1.Args
+            && List.isEmpty info2.Args
+            && Option.isNone info1.ThisArg
+            && Option.isNone info2.ThisArg
+            && isSameValueRead callee1 callee2
+        | _ -> false
+
+    let replaceValueRead (value: Fable.Expr) (replacement: Fable.Expr) (expr: Fable.Expr) =
+        expr
+        |> visitFromOutsideIn (fun e ->
+            if isSameValueRead value e then
+                Some replacement
+            else
+                None
+        )
 
     let isUnitArg (ident: Fable.Ident) =
         ident.IsCompilerGenerated && ident.Type = Fable.Unit

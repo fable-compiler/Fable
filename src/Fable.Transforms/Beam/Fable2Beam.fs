@@ -1084,6 +1084,17 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, [])
             ]
 
+    | ForLoop(ident, start, limit, body, isUp, range) when
+        not (
+            isStableForLoopLimit limit
+            || isReReadForLoopLimitWith com tryGetArrayOfLength isUp limit
+        )
+        ->
+        let getUniqueName name = $"%s{name}_%d{com.IncrementCounter()}"
+
+        makeForLoopWithBoundLimit getUniqueName range isUp ident start limit body
+        |> transformExpr com ctx
+
     | ForLoop(ident, start, limit, body, isUp, _range) ->
         // Transform for loop to a tail-recursive named fun:
         // For_loop_ = fun For_loop_(I) ->
