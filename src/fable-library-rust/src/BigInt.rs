@@ -72,12 +72,16 @@ pub mod BigInt_ {
     }
 
     macro_rules! shift_op {
-        ($op_trait:ident, $op_fn:ident, $op:tt) => {
+        ($op_trait:ident, $op_fn:ident, $op:tt, $rev_op:tt) => {
             impl core::ops::$op_trait<i32> for bigint {
                 type Output = Self;
                 #[inline]
                 fn $op_fn(self, rhs: i32) -> Self::Output {
-                    (self.as_ref() $op rhs).into()
+                    if rhs < 0 {
+                        (self.as_ref() $rev_op rhs.unsigned_abs()).into()
+                    } else {
+                        (self.as_ref() $op rhs).into()
+                    }
                 }
             }
         };
@@ -96,8 +100,8 @@ pub mod BigInt_ {
     bin_op!(BitOr, bitor, |);
     bin_op!(BitXor, bitxor, ^);
 
-    shift_op!(Shl, shl, <<);
-    shift_op!(Shr, shr, >>);
+    shift_op!(Shl, shl, <<, >>);
+    shift_op!(Shr, shr, >>, <<);
 
     pub fn zero() -> bigint { BigInt::zero().into() }
     pub fn one() -> bigint { BigInt::one().into() }
