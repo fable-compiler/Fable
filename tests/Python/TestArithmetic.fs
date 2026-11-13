@@ -590,6 +590,36 @@ let ``test Int64 Infix modulo with negative numbers`` () =
     5L % -3L |> equal 2L
     -5L % -3L |> equal -2L
 
+let private divI8 (a: sbyte) (b: sbyte) = a / b
+let private remI8 (a: sbyte) (b: sbyte) = a % b
+let private divI16 (a: int16) (b: int16) = a / b
+let private remI16 (a: int16) (b: int16) = a % b
+let private divI64 (a: int64) (b: int64) = a / b
+let private remI64 (a: int64) (b: int64) = a % b
+
+let private throwsOverflow (f: unit -> 'a) =
+    try
+        f () |> ignore
+        false
+    with :? OverflowException ->
+        true
+
+[<Fact>]
+let ``test Int8 MinValue divided by -1 wraps`` () =
+    divI8 SByte.MinValue -1y |> equal SByte.MinValue
+    remI8 SByte.MinValue -1y |> equal 0y
+
+[<Fact>]
+let ``test Int16 MinValue divided by -1 wraps`` () =
+    divI16 Int16.MinValue -1s |> equal Int16.MinValue
+    remI16 Int16.MinValue -1s |> equal 0s
+
+[<Fact>]
+let ``test Int64 MinValue divided by -1 throws OverflowException`` () =
+    throwsOverflow (fun () -> divI64 Int64.MinValue -1L) |> equal true
+    throwsOverflow (fun () -> remI64 Int64.MinValue -1L) |> equal true
+    throwsOverflow (fun () -> divI64 Int64.MinValue 1L) |> equal false
+
 [<Fact>]
 let ``test Int64 Evaluation order is preserved by generated code`` () =
     (4L - 2L) * 2L + 1L |> equal 5L
