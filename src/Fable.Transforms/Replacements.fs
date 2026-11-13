@@ -504,6 +504,11 @@ let toList com returnType expr =
 let stringToCharArray e =
     Helper.InstanceCall(e, "split", Array(Char, MutableArray), [ makeStrConst "" ])
 
+let maskShiftCount (mask: int) (count: Expr) =
+    match count with
+    | Value(NumberConstant(NumberValue.Int32 n, _), _) -> makeIntConst (n &&& mask)
+    | _ -> Operation(Binary(BinaryAndBitwise, count, makeIntConst mask), Tags.empty, Int32.Number, None)
+
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), Tags.empty, t, r)
@@ -521,6 +526,27 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         match t with
         | Number(UInt32, _) -> Operation(Binary(BinaryShiftRightZeroFill, operation, makeIntConst 0), Tags.empty, t, r)
         | _ -> operation
+
+    let truncateNarrowUnsigned operation =
+        match t with
+        | Number(UInt8, _) -> binOp BinaryAndBitwise operation (makeIntConst 0xFF)
+        | Number(UInt16, _) -> binOp BinaryAndBitwise operation (makeIntConst 0xFFFF)
+        | _ -> truncateUnsigned operation
+
+    let signExtend (bits: int) operation =
+        binOp BinaryShiftRightSignPropagating (binOp BinaryShiftLeft operation (makeIntConst bits)) (makeIntConst bits)
+
+    let truncateNarrow operation =
+        match t with
+        | Number(Int8, _) -> signExtend 24 operation
+        | Number(Int16, _) -> signExtend 16 operation
+        | _ -> truncateNarrowUnsigned operation
+
+    let maskNarrowShiftCount argTypes count =
+        match argTypes with
+        | Number((Int8 | UInt8), _) :: _ -> maskShiftCount 7 count
+        | Number((Int16 | UInt16), _) :: _ -> maskShiftCount 15 count
+        | _ -> count
 
     let logicOp op left right =
         Operation(Logical(op, left, right), Tags.empty, Boolean, r)
@@ -542,8 +568,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | Number(Integers _, _) :: _ -> binOp BinaryDivide left right |> fastIntFloor
             | _ -> binOp BinaryDivide left right
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
-        | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
+        | Operators.leftShift, [ left; right ] ->
+            binOp BinaryShiftLeft left (maskNarrowShiftCount argTypes right)
+            |> truncateNarrow // See #1530
         | Operators.rightShift, [ left; right ] ->
+            let right = maskNarrowShiftCount argTypes right
+
             match argTypes with
             | Number(UInt32, _) :: _ -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
@@ -552,7 +582,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.exclusiveOr, [ left; right ] -> binOp BinaryXorBitwise left right |> truncateUnsigned
         | Operators.booleanAnd, [ left; right ] -> logicOp LogicalAnd left right
         | Operators.booleanOr, [ left; right ] -> logicOp LogicalOr left right
-        | Operators.logicalNot, [ operand ] -> unOp UnaryNotBitwise operand |> truncateUnsigned
+        | Operators.logicalNot, [ operand ] -> unOp UnaryNotBitwise operand |> truncateNarrowUnsigned
         | Operators.unaryNegation, [ operand ] ->
             match argTypes with
             | Number(Int8, _) :: _ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int8", t, args, ?loc = r)
@@ -576,6 +606,17 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
 
         Helper.LibCall(com, "Decimal", opName, t, args, argTypes, ?loc = r)
     | Number(BigIntegers kind, _) :: _ ->
+        let args =
+            match opName, args with
+            | (Operators.leftShift | Operators.rightShift), [ left; right ] ->
+                match kind with
+                | Int64
+                | UInt64
+                | NativeInt
+                | UNativeInt -> [ left; maskShiftCount 63 right ]
+                | _ -> args
+            | _ -> args
+
         let op = Helper.LibCall(com, "BigInt", opName, t, args, argTypes, ?loc = r)
 
         if kind = BigInt then

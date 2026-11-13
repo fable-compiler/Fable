@@ -126,6 +126,33 @@ let tests =
         (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
         (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
 
+    testCase "Bitwise NOT is truncated to the width of the integer type" <| fun () ->
+        let mutable u8 = 5uy
+        let mutable u16 = 5us
+        let mutable i8 = 0y
+        ~~~u8 |> equal 250uy
+        ~~~u16 |> equal 65530us
+        string (~~~i8) |> equal "-1"
+        string (~~~0y) |> equal "-1"
+
+    testCase "Left shift is truncated to the width of the integer type" <| fun () ->
+        let mutable u8 = 250uy
+        let mutable i8 = 120y
+        let mutable u16 = 65530us
+        let mutable i16 = 32000s
+        u8 <<< 1 |> equal 244uy
+        i8 <<< 1 |> equal -16y
+        u16 <<< 1 |> equal 65524us
+        i16 <<< 1 |> equal -1536s
+
+    testCase "8-bit and 16-bit shift count is masked to 3 and 4 bits" <| fun () ->
+        let mutable n = 9
+        1uy <<< 9 |> equal 2uy
+        -128y >>> n |> equal -64y
+        n <- 17
+        1s <<< n |> equal 2s
+        32768us >>> 17 |> equal 16384us
+
     testCase "Bitwise shift right can be generated" <| fun () -> // See #1530
         4 >>> 2 |> equal 1
 
@@ -685,6 +712,18 @@ let tests =
 
     testCase "UInt64 Bitwise shift right can be generated" <| fun () -> // See #1482
       15210016002388773605UL >>> 33 |> equal 1770678907UL
+
+    testCase "64-bit shift count is masked to 6 bits" <| fun () ->
+        1L <<< 65 |> equal 2L
+        -8L >>> -1 |> equal -1L
+        let mutable n = 65
+        1L <<< n |> equal 2L
+        1UL <<< n |> equal 2UL
+        1n <<< n |> equal 2n
+        1un <<< n |> equal 2un
+        1I <<< n |> equal 36893488147419103232I
+        n <- -1
+        -8L >>> n |> equal -1L
 
     testCase "Int64 abs works" <| fun () ->
         abs -4L |> equal 4L
