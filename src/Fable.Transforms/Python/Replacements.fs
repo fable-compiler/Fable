@@ -2328,7 +2328,10 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "OrElse", _ -> Helper.LibCall(com, "Option", "or_else", t, List.rev args, ?loc = r) |> Some
     | "OrElseWith", [ ifNoneThunk; opt ] -> Options.orElseWith com ctx r t ifNoneThunk opt |> Some
     | "Iterate", [ action; opt ] -> Options.iterate com ctx r t action opt |> Some
-    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" as meth), _ ->
+    | "Count", [ opt ] ->
+        IfThenElse(Test(opt, OptionTest true, None), makeIntConst 1, makeIntConst 0, r)
+        |> Some
+    | ("Contains" | "Exists" | "Fold" | "ForAll" as meth), _ ->
         let meth = Naming.lowerFirst meth
         let args = args |> List.replaceLast (toArray None t)
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
