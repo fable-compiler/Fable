@@ -148,6 +148,17 @@ let ``Match.Groups indexer getter works`` () =
     g.Value |> equal ".1"
 
 [<Fact>]
+let ``Match.Groups indexer getter works with out of range index`` () =
+    let m = Regex("(a)(b)?").Match("a")
+    m.Groups[5].Success |> equal false
+    m.Groups[5].Value |> equal ""
+    m.Groups[-1].Success |> equal false
+    m.Groups[-1].Value |> equal ""
+    let m2 = Regex("x").Match("a")
+    m2.Groups[1].Success |> equal false
+    m2.Groups[1].Value |> equal ""
+
+[<Fact>]
 let ``Match.Groups iteration works`` () =
     let str = "For more information, see Chapter 3.4.5.1"
     let m = Regex.Match(str, "Chapter \d+(\.\d)*")
