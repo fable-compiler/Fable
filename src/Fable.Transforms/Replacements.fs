@@ -443,7 +443,9 @@ let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
             Helper.LibCall(com, dateTimeModule com, "toString", String, args)
         | Builtin BclDateTimeOffset when com.Options.JsTemporal ->
             Helper.LibCall(com, dateTimeOffsetModule com, "toString", String, args)
-        | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset as bt) ->
+        // DateOffset has no toString: Date.toString formats both and dispatches on the offset
+        | Builtin BclDateTimeOffset -> Helper.LibCall(com, "Date", "toString", String, args)
+        | Builtin(BclGuid | BclTimeSpan | BclDateTime as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number(Int16, _) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number(Int32, _) -> Helper.LibCall(com, "Util", "int32ToString", String, args)

@@ -24,6 +24,12 @@ let tests =
         DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", Globalization.CultureInfo.InvariantCulture)
         |> equal "16:37"
 
+    testCase "string on DateTimeOffset works" <| fun () -> // See #5297
+        let d = DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.FromHours 2.)
+        string d |> equal (d.ToString())
+        string (DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.Zero))
+        |> equal (DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.Zero).ToString())
+
     testCase "DateTimeOffset.ToString without separator works" <| fun () -> // See #1131
         DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")
         |> equal "201709"
