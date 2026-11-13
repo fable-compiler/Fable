@@ -267,6 +267,48 @@ let ``test MatchCollection.Count works`` () =
     test "[A-E]" 10
     test "(ZZ)+" 0
 
+let private allMatches (m: Match) =
+    let res = ResizeArray()
+    let mutable m = m
+    while m.Success && res.Count < 20 do
+        res.Add((m.Index, m.Value))
+        m <- m.NextMatch()
+    List.ofSeq res
+
+[<Fact>]
+let ``test Match.NextMatch works`` () =
+    let next = Regex("a").Match("aa").NextMatch()
+    next.Success |> equal true
+    next.Index |> equal 1
+    next.Value |> equal "a"
+    let last = next.NextMatch()
+    last.Success |> equal false
+    last.NextMatch().Success |> equal false
+    Regex("z").Match("ab").NextMatch().Success |> equal false
+
+[<Fact>]
+let ``test Match.NextMatch gives the same matches as Regex.Matches`` () =
+    let test (input: string) (pattern: string) expected =
+        Regex(pattern).Match(input) |> allMatches |> equal expected
+        Regex.Match(input, pattern) |> allMatches |> equal expected
+        Regex(pattern).Matches(input)
+        |> Seq.cast<Match>
+        |> Seq.map (fun m -> m.Index, m.Value)
+        |> Seq.toList
+        |> equal expected
+    test "aa" "a" [ 0, "a"; 1, "a" ]
+    test "baa" "a*" [ 0, ""; 1, "aa"; 3, "" ]
+    test "abc" "b*" [ 0, ""; 1, "b"; 2, ""; 3, "" ]
+    test "ab" "z" []
+    Regex("a").Match("aaba", 1) |> allMatches |> equal [ 1, "a"; 3, "a" ]
+    Regex.Match("xAya", "a", RegexOptions.IgnoreCase) |> allMatches |> equal [ 1, "A"; 3, "a" ]
+    Regex("a").Matches("aXaXa").[1] |> allMatches |> equal [ 2, "a"; 4, "a" ]
+
+[<Fact>]
+let ``test Match.NextMatch starts one position after an empty match`` () =
+    Regex("|a").Match("a") |> allMatches |> equal [ 0, ""; 1, "" ]
+    Regex("x*").Match("") |> allMatches |> equal [ 0, "" ]
+
 // [<Fact>]
 // let ``test Regex.Matches doesn't fall in infinite loop`` () = // See #2845
 //     let test input pattern expected =

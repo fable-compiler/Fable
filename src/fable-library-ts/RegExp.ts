@@ -44,9 +44,40 @@ export function isMatch(reg: RegExp, input: string, startAt = 0) {
   return reg.test(input);
 }
 
+// A match is the array returned by `exec`, which has no reference to its regex
+const matchRegex = Symbol("matchRegex");
+
+type MatchWithRegex = RegExpExecArray & { [matchRegex]?: RegExp };
+
+function setMatchRegex<M extends RegExpExecArray | null>(m: M, reg: RegExp): M {
+  if (m != null) {
+    (m as MatchWithRegex)[matchRegex] = reg;
+  }
+  return m;
+}
+
 export function match(reg: RegExp, input: string, startAt = 0) {
   reg.lastIndex = startAt;
-  return reg.exec(input);
+  return setMatchRegex(reg.exec(input), reg);
+}
+
+export function nextMatch(m: RegExpExecArray | null) {
+  if (m == null) {
+    return null;
+  }
+  const reg = (m as MatchWithRegex)[matchRegex];
+  if (reg == null) {
+    throw new Exception("Match.NextMatch is only supported on a match returned by Regex");
+  }
+  if (!reg.global) {
+    throw new Exception("Non-global RegExp"); // lastIndex is ignored
+  }
+  let startAt = m.index + m[0].length;
+  if (m[0].length === 0) {
+    // A unicode regex moves a lastIndex set inside a surrogate pair back to the start of the pair
+    startAt += reg.unicode && (m.input.codePointAt(startAt) ?? 0) > 0xFFFF ? 2 : 1;
+  }
+  return match(reg, m.input, startAt);
 }
 
 export function matches(reg: RegExp, input: string, startAt = 0) {
@@ -66,7 +97,7 @@ export function matches(reg: RegExp, input: string, startAt = 0) {
       reg.lastIndex++
     } else {
       lastMatchIndex = m.index;
-      matches.push(m);
+      matches.push(setMatchRegex(m, reg));
     }
   }
   return matches;
@@ -108,6 +139,7 @@ export function replace(
       if (withGroups) {
         match.groups = arguments[pLast];
       }
+      match[matchRegex] = reg;
       res = (replacement as MatchEvaluator)(match);
     }
     return res;

@@ -221,6 +221,58 @@ let tests =
         test "a\" \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
         test "a\" \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
 
+    testCase "Match.NextMatch works" <| fun _ ->
+        let next = Regex("a").Match("aa").NextMatch()
+        next.Success |> equal true
+        next.Index |> equal 1
+        next.Value |> equal "a"
+        let last = next.NextMatch()
+        last.Success |> equal false
+        last.NextMatch().Success |> equal false
+        Regex("z").Match("ab").NextMatch().Success |> equal false
+
+    testCase "Match.NextMatch gives the same matches as Regex.Matches" <| fun _ ->
+        let allMatches (m: Match) =
+            let res = ResizeArray()
+            let mutable m = m
+            while m.Success && res.Count < 20 do
+                res.Add((m.Index, m.Value))
+                m <- m.NextMatch()
+            List.ofSeq res
+        let test (input: string) (pattern: string) expected =
+            Regex(pattern).Match(input) |> allMatches |> equal expected
+            Regex.Match(input, pattern) |> allMatches |> equal expected
+            Regex(pattern).Matches(input)
+            |> Seq.cast<Match>
+            |> Seq.map (fun m -> m.Index, m.Value)
+            |> Seq.toList
+            |> equal expected
+        test "aa" "a" [ 0, "a"; 1, "a" ]
+        test "baa" "a*" [ 0, ""; 1, "aa"; 3, "" ]
+        test "abc" "b*" [ 0, ""; 1, "b"; 2, ""; 3, "" ]
+        test "ab" "z" []
+        Regex("a").Match("aaba", 1) |> allMatches |> equal [ 1, "a"; 3, "a" ]
+        Regex.Match("xAya", "a", RegexOptions.IgnoreCase) |> allMatches |> equal [ 1, "A"; 3, "a" ]
+        Regex("a").Matches("aXaXa").[1] |> allMatches |> equal [ 2, "a"; 4, "a" ]
+
+    testCase "Match.NextMatch moves past a surrogate pair after an empty match" <| fun _ ->
+        let input = "a\U0001F600b"
+        let mutable m = Regex("x*").Match(input)
+        let mutable lastIndex = -1
+        let mutable count = 0
+        while m.Success && count < 20 do
+            lastIndex <- m.Index
+            count <- count + 1
+            m <- m.NextMatch()
+        m.Success |> equal false
+        lastIndex |> equal input.Length
+
+    testCase "Match.NextMatch works in a Regex.Replace evaluator" <| fun _ ->
+        Regex("a").Replace("aXa", fun (m: Match) ->
+            let next = m.NextMatch()
+            if next.Success then string next.Index else "-")
+        |> equal "2X-"
+
     testCase "Regex.Split works" <| fun _ ->
         let test str expected =
             let splits = Regex.Split(str, "[;,]")

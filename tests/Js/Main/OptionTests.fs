@@ -199,6 +199,17 @@ let tests =
         Some "123" |> Option.contains "test" |> equal false
         None |> Option.contains "test" |> equal false
 
+    testCase "Option.count works" <| fun () ->
+        Some 1 |> Option.count |> equal 1
+        (None: int option) |> Option.count |> equal 0
+        ValueSome 1 |> ValueOption.count |> equal 1
+        (ValueNone: int voption) |> ValueOption.count |> equal 0
+
+    testCase "Option.count works with runtime values" <| fun () ->
+        [ Some None; Some(Some 1); None ] |> List.map Option.count |> equal [ 1; 1; 0 ]
+        [ Some (); None ] |> List.map Option.count |> equal [ 1; 0 ]
+        [ ValueSome None; ValueSome(Some 1); ValueNone ] |> List.map ValueOption.count |> equal [ 1; 1; 0 ]
+
     testCase "Option.filter works" <| fun () -> // See #390
         let optionToString opt =
             match opt with
