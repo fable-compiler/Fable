@@ -1,4 +1,5 @@
 import { Exception, MutableArray, equals, isArrayLike } from "./Util.ts";
+import { ArgumentException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z384F8060 } from "./System.ts";
 
 export function count<T>(col: Iterable<T>): number {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.get_Count"] === "function") {
@@ -20,6 +21,30 @@ export function count<T>(col: Iterable<T>): number {
           return count; // other collections
         }
       }
+    }
+  }
+}
+
+export function item<T>(col: unknown, index: number): T {
+  if (typeof (col as any)["System.Collections.Generic.IReadOnlyList`1.get_ItemZ524259A4"] === "function") {
+    return (col as any)["System.Collections.Generic.IReadOnlyList`1.get_ItemZ524259A4"](index); // collection
+  } else {
+    const xs = col as Iterable<T>;
+    if (isArrayLike(xs)) {
+      // A GroupCollection is a RegExpExecArray, an index out of range is an unsuccessful group
+      if ((index >= 0 && index < xs.length) || "input" in xs) {
+        return xs[index]; // array, resize array
+      }
+      throw ArgumentOutOfRangeException_$ctor_Z384F8060("index", "Index was out of range. Must be non-negative and less than the size of the collection.");
+    } else {
+      let i = 0;
+      for (const v of xs) {
+        if (i === index) {
+          return v; // other collections
+        }
+        i++;
+      }
+      throw ArgumentException_$ctor_Z384F8060("The index was outside the range of elements in the list.", "n");
     }
   }
 }

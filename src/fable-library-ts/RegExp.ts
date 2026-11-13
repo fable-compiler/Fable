@@ -1,4 +1,5 @@
 import { Exception } from "./Util.ts";
+import { ArgumentOutOfRangeException_$ctor_Z721C83C5 } from "./System.ts";
 
 export type MatchEvaluator = (match: any) => string;
 
@@ -78,6 +79,17 @@ export function nextMatch(m: RegExpExecArray | null) {
     startAt += reg.unicode && (m.input.codePointAt(startAt) ?? 0) > 0xFFFF ? 2 : 1;
   }
   return match(reg, m.input, startAt);
+}
+
+export function groups(m: RegExpExecArray | null): RegExpExecArray {
+  return m ?? (Object.assign([undefined], { index: 0, input: "" }) as unknown as RegExpExecArray);
+}
+
+export function matchAt(matches: RegExpExecArray[], i: number): RegExpExecArray {
+  if (i < 0 || i >= matches.length) {
+    throw ArgumentOutOfRangeException_$ctor_Z721C83C5("i");
+  }
+  return matches[i];
 }
 
 export function matches(reg: RegExp, input: string, startAt = 0) {

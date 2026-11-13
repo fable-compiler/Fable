@@ -3368,6 +3368,9 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let collections (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
+    | "get_Item", Some ar ->
+        Helper.LibCall(com, "CollectionUtil", "item", t, ar :: args, genArgs = [ t ], ?loc = r)
+        |> Some
     | ("get_Count" | "get_IsReadOnly" | "Add" | "Remove" | "Clear" | "Contains" | "CopyTo") as meth, Some ar ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "CollectionUtil", meth, t, ar :: args, ?loc = r) |> Some
@@ -4342,7 +4345,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // Capture
     | "get_Index" ->
         if not isGroup then
-            propStr "index" thisArg.Value |> Some
+            emitExpr r t [ thisArg.Value ] "$0?.index ?? 0" |> Some
         else
             "Accessing index of Regex groups is not supported"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -4355,41 +4358,32 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r)
             |> Some
         else
-            propInt 0 thisArg.Value |> Some
+            emitExpr r t [ thisArg.Value ] "$0?.[0] ?? \"\"" |> Some
     | "get_Length" ->
         if isGroup then
-            propStr "length" thisArg.Value |> Some
+            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, String, None)
+            |> propStr "length"
+            |> Some
         else
-            propInt 0 thisArg.Value |> propStr "length" |> Some
+            emitExpr r t [ thisArg.Value ] "($0?.[0] ?? \"\").length" |> Some
     // Group
     | "get_Success" -> nullCheck r false thisArg.Value |> Some
     // Match
-    | "get_Groups" -> thisArg.Value |> Some
+    | "get_Groups" -> Helper.LibCall(com, "RegExp", "groups", t, [ thisArg.Value ], ?loc = r) |> Some
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
         // can be group index or group name
         //        `m.Groups.[0]` `m.Groups.["name"]`
         match (args |> List.head).Type with
         | String ->
-            // name
-            (* `groups` might not exist -> check first:
-                (`m`: `thisArg.Value`; `name`: `args.Head`)
-                  ```ts
-                  m.groups?.[name]
-                  ```
-                or here
-                  ```ts
-                  m.groups && m.groups[name]
-                  ```
-            *)
-            let groups = propStr "groups" thisArg.Value
-            let getItem = getExpr r t groups args.Head
-
-            Operation(Logical(LogicalAnd, groups, getItem), Tags.empty, t, None) |> Some
+            // name, `groups` only exists when the regex has named groups
+            emitExpr r t [ thisArg.Value; args.Head ] "$0.groups?.[$1]" |> Some
         | _ ->
             // index
             getExpr r t thisArg.Value args.Head |> Some
-    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
+    | "get_Item" ->
+        Helper.LibCall(com, "RegExp", "matchAt", t, thisArg.Value :: args, ?loc = r)
+        |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
     | "IsMatch"
@@ -5144,6 +5138,7 @@ let private replacedModules =
             Types.valueCollection, collections
             Types.keyCollection, collections
             Types.ireadonlycollection, collections
+            Types.ireadonlylist, collections
             Types.icollectionGeneric, collections
             Types.icollection, collections
             "System.Collections.Generic.CollectionExtensions", collectionExtensions

@@ -54,6 +54,17 @@ type MyStruct(value: int, flag: bool) =
     member _.Value = value
     member _.Flag = flag
 
+type ReadOnlyListWrapper<'T>(xs: 'T[]) =
+    interface IReadOnlyList<'T> with
+        member _.Item with get i = xs.[xs.Length - 1 - i]
+        member _.Count = xs.Length
+        member _.GetEnumerator() : IEnumerator<'T> = (xs :> seq<'T>).GetEnumerator()
+        member _.GetEnumerator() : System.Collections.IEnumerator = (xs :> System.Collections.IEnumerable).GetEnumerator()
+
+let readOnlyListItem (xs: IReadOnlyList<'T>) (index: int) = xs.[index]
+
+let readOnlyListFirstLength (xs: IReadOnlyList<string>) = xs.[0].Length
+
 let tests =
   testList "Arrays" [
     testCase "Pattern matching with arrays works" <| fun () ->
@@ -1852,6 +1863,22 @@ let tests =
         let ys = [| 4; 5; 6 |]
         coll.CopyTo(ys, 0)
         ys = xs |> equal true
+
+    testCase "IReadOnlyList indexer works" <| fun () ->
+        let xs = [| "a"; "b"; "c" |]
+        readOnlyListItem xs 2 |> equal "c"
+        readOnlyListItem (ResizeArray xs) 2 |> equal "c"
+        readOnlyListItem (List.ofArray xs) 2 |> equal "c"
+        readOnlyListItem (ReadOnlyListWrapper xs) 0 |> equal "c"
+        readOnlyListFirstLength [| "abc" |] |> equal 3
+
+    testCase "IReadOnlyList indexer throws when out of range" <| fun () ->
+        let xs = [| "a"; "b"; "c" |]
+        raisedExceptionType (fun () -> readOnlyListItem xs 3) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> readOnlyListItem xs -1) |> equal "ArgumentOutOfRangeException"
+        raisedExceptionType (fun () -> readOnlyListItem [ "a" ] 1) |> equal "ArgumentException"
+        throwsError "Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')" (fun () -> readOnlyListItem xs 3)
+        throwsError "The index was outside the range of elements in the list. (Parameter 'n')" (fun () -> readOnlyListItem [ "a" ] 1)
 
     testCase "Array functions raise ArgumentException on empty arrays" <| fun () ->
         let xs: int[] = [||]
