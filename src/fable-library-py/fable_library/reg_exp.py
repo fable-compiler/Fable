@@ -94,6 +94,21 @@ def match(reg: Pattern[str], input: str, start_at: int = 0) -> Match[str] | None
     return reg.search(input, pos=start_at)
 
 
+def next_match(m: Match[str] | None) -> Match[str] | None:
+    if m is None:
+        return None
+
+    end = m.end()
+    if end > m.start():
+        return m.re.search(m.string, pos=end)
+
+    # search clamps pos to the end of the string, so the same empty match would be found again
+    if end >= len(m.string):
+        return None
+
+    return m.re.search(m.string, pos=end + 1)
+
+
 def matches(reg: Pattern[str], input: str, start_at: int = 0) -> MatchCollection:
     return MatchCollection(list(reg.finditer(input, pos=start_at)))
 
@@ -169,6 +184,7 @@ __all__ = [
     "is_match",
     "match",
     "matches",
+    "next_match",
     "options",
     "replace",
     "split",
