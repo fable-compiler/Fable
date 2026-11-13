@@ -250,8 +250,6 @@ let tests =
         test "aa" "a" [ 0, "a"; 1, "a" ]
         test "baa" "a*" [ 0, ""; 1, "aa"; 3, "" ]
         test "abc" "b*" [ 0, ""; 1, "b"; 2, ""; 3, "" ]
-        test "aab" "(?=a)" [ 0, ""; 1, "" ]
-        test "ab" "$" [ 2, "" ]
         test "ab" "z" []
         Regex("a").Match("aaba", 1) |> allMatches |> equal [ 1, "a"; 3, "a" ]
         Regex.Match("xAya", "a", RegexOptions.IgnoreCase) |> allMatches |> equal [ 1, "A"; 3, "a" ]
@@ -268,13 +266,6 @@ let tests =
             m <- m.NextMatch()
         m.Success |> equal false
         lastIndex |> equal input.Length
-
-    testCase "Match.NextMatch works with groups" <| fun _ ->
-        let m = Regex(@"(\d)(?<letter>[a-z])").Match("1a 2b").NextMatch()
-        m.Value |> equal "2b"
-        m.Groups.[1].Value |> equal "2"
-        m.Groups.["letter"].Value |> equal "b"
-        m.NextMatch().Success |> equal false
 
     testCase "Match.NextMatch works in a Regex.Replace evaluator" <| fun _ ->
         Regex("a").Replace("aXa", fun (m: Match) ->

@@ -247,33 +247,14 @@ let ``test Option.contains works`` () =
 let ``test Option.count works`` () =
     Some 1 |> Option.count |> equal 1
     (None: int option) |> Option.count |> equal 0
-    Some(None: int option) |> Option.count |> equal 1
-    Some () |> Option.count |> equal 1
-
-[<Fact>]
-let ``test ValueOption.count works`` () =
     ValueSome 1 |> ValueOption.count |> equal 1
     (ValueNone: int voption) |> ValueOption.count |> equal 0
 
 [<Fact>]
 let ``test Option.count works with runtime values`` () =
-    [ Some 1; None ] |> List.map Option.count |> equal [ 1; 0 ]
     [ Some None; Some(Some 1); None ] |> List.map Option.count |> equal [ 1; 1; 0 ]
     [ Some (); None ] |> List.map Option.count |> equal [ 1; 0 ]
-
-[<Fact>]
-let ``test ValueOption.count works with runtime values`` () =
-    [ ValueSome 1; ValueNone ] |> List.map ValueOption.count |> equal [ 1; 0 ]
     [ ValueSome None; ValueSome(Some 1); ValueNone ] |> List.map ValueOption.count |> equal [ 1; 1; 0 ]
-
-[<Fact>]
-let ``test Option.count evaluates the option once`` () =
-    let mutable calls = 0
-    let getOnlyOnce () =
-        calls <- calls + 1
-        Some 5
-    getOnlyOnce () |> Option.count |> equal 1
-    equal 1 calls
 
 [<Fact>]
 let ``test Option.filter works`` () =

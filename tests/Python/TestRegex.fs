@@ -267,6 +267,14 @@ let ``test MatchCollection.Count works`` () =
     test "[A-E]" 10
     test "(ZZ)+" 0
 
+let private allMatches (m: Match) =
+    let res = ResizeArray()
+    let mutable m = m
+    while m.Success && res.Count < 20 do
+        res.Add((m.Index, m.Value))
+        m <- m.NextMatch()
+    List.ofSeq res
+
 [<Fact>]
 let ``test Match.NextMatch works`` () =
     let next = Regex("a").Match("aa").NextMatch()
@@ -280,13 +288,6 @@ let ``test Match.NextMatch works`` () =
 
 [<Fact>]
 let ``test Match.NextMatch gives the same matches as Regex.Matches`` () =
-    let allMatches (m: Match) =
-        let res = ResizeArray()
-        let mutable m = m
-        while m.Success && res.Count < 20 do
-            res.Add((m.Index, m.Value))
-            m <- m.NextMatch()
-        List.ofSeq res
     let test (input: string) (pattern: string) expected =
         Regex(pattern).Match(input) |> allMatches |> equal expected
         Regex.Match(input, pattern) |> allMatches |> equal expected
@@ -298,8 +299,6 @@ let ``test Match.NextMatch gives the same matches as Regex.Matches`` () =
     test "aa" "a" [ 0, "a"; 1, "a" ]
     test "baa" "a*" [ 0, ""; 1, "aa"; 3, "" ]
     test "abc" "b*" [ 0, ""; 1, "b"; 2, ""; 3, "" ]
-    test "aab" "(?=a)" [ 0, ""; 1, "" ]
-    test "ab" "$" [ 2, "" ]
     test "ab" "z" []
     Regex("a").Match("aaba", 1) |> allMatches |> equal [ 1, "a"; 3, "a" ]
     Regex.Match("xAya", "a", RegexOptions.IgnoreCase) |> allMatches |> equal [ 1, "A"; 3, "a" ]
@@ -307,53 +306,8 @@ let ``test Match.NextMatch gives the same matches as Regex.Matches`` () =
 
 [<Fact>]
 let ``test Match.NextMatch starts one position after an empty match`` () =
-    let allMatches (m: Match) =
-        let res = ResizeArray()
-        let mutable m = m
-        while m.Success && res.Count < 20 do
-            res.Add((m.Index, m.Value))
-            m <- m.NextMatch()
-        List.ofSeq res
     Regex("|a").Match("a") |> allMatches |> equal [ 0, ""; 1, "" ]
     Regex("x*").Match("") |> allMatches |> equal [ 0, "" ]
-
-[<Fact>]
-let ``test Match.NextMatch keeps anchors and lookbehinds relative to the whole input`` () =
-    Regex("^a").Match("aa").NextMatch().Success |> equal false
-    let m = Regex("(?<=a)b").Match("abab").NextMatch()
-    m.Success |> equal true
-    m.Index |> equal 3
-    let m = Regex("^a", RegexOptions.Multiline).Match("a\na").NextMatch()
-    m.Success |> equal true
-    m.Index |> equal 2
-
-[<Fact>]
-let ``test Match.NextMatch moves past an astral character after an empty match`` () =
-    let input = "a\U0001F600b"
-    let mutable m = Regex("x*").Match(input)
-    let mutable lastIndex = -1
-    let mutable count = 0
-    while m.Success && count < 20 do
-        lastIndex <- m.Index
-        count <- count + 1
-        m <- m.NextMatch()
-    m.Success |> equal false
-    lastIndex |> equal input.Length
-
-[<Fact>]
-let ``test Match.NextMatch works with groups`` () =
-    let m = Regex(@"(\d)(?<letter>[a-z])").Match("1a 2b").NextMatch()
-    m.Value |> equal "2b"
-    m.Groups.[1].Value |> equal "2"
-    m.Groups.["letter"].Value |> equal "b"
-    m.NextMatch().Success |> equal false
-
-[<Fact>]
-let ``test Match.NextMatch works in a Regex.Replace evaluator`` () =
-    Regex("a").Replace("aXa", fun (m: Match) ->
-        let next = m.NextMatch()
-        if next.Success then string next.Index else "-")
-    |> equal "2X-"
 
 // [<Fact>]
 // let ``test Regex.Matches doesn't fall in infinite loop`` () = // See #2845

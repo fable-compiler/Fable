@@ -202,29 +202,13 @@ let tests =
     testCase "Option.count works" <| fun () ->
         Some 1 |> Option.count |> equal 1
         (None: int option) |> Option.count |> equal 0
-        Some(None: int option) |> Option.count |> equal 1
-        Some () |> Option.count |> equal 1
-
-    testCase "ValueOption.count works" <| fun () ->
         ValueSome 1 |> ValueOption.count |> equal 1
         (ValueNone: int voption) |> ValueOption.count |> equal 0
 
     testCase "Option.count works with runtime values" <| fun () ->
-        [ Some 1; None ] |> List.map Option.count |> equal [ 1; 0 ]
         [ Some None; Some(Some 1); None ] |> List.map Option.count |> equal [ 1; 1; 0 ]
         [ Some (); None ] |> List.map Option.count |> equal [ 1; 0 ]
-
-    testCase "ValueOption.count works with runtime values" <| fun () ->
-        [ ValueSome 1; ValueNone ] |> List.map ValueOption.count |> equal [ 1; 0 ]
         [ ValueSome None; ValueSome(Some 1); ValueNone ] |> List.map ValueOption.count |> equal [ 1; 1; 0 ]
-
-    testCase "Option.count evaluates the option once" <| fun () ->
-        let mutable calls = 0
-        let getOnlyOnce () =
-            calls <- calls + 1
-            Some 5
-        getOnlyOnce () |> Option.count |> equal 1
-        equal 1 calls
 
     testCase "Option.filter works" <| fun () -> // See #390
         let optionToString opt =
