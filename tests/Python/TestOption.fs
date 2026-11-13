@@ -256,6 +256,17 @@ let ``test ValueOption.count works`` () =
     (ValueNone: int voption) |> ValueOption.count |> equal 0
 
 [<Fact>]
+let ``test Option.count works with runtime values`` () =
+    [ Some 1; None ] |> List.map Option.count |> equal [ 1; 0 ]
+    [ Some None; Some(Some 1); None ] |> List.map Option.count |> equal [ 1; 1; 0 ]
+    [ Some (); None ] |> List.map Option.count |> equal [ 1; 0 ]
+
+[<Fact>]
+let ``test ValueOption.count works with runtime values`` () =
+    [ ValueSome 1; ValueNone ] |> List.map ValueOption.count |> equal [ 1; 0 ]
+    [ ValueSome None; ValueSome(Some 1); ValueNone ] |> List.map ValueOption.count |> equal [ 1; 1; 0 ]
+
+[<Fact>]
 let ``test Option.count evaluates the option once`` () =
     let mutable calls = 0
     let getOnlyOnce () =
