@@ -257,6 +257,18 @@ let tests =
         Regex.Match("xAya", "a", RegexOptions.IgnoreCase) |> allMatches |> equal [ 1, "A"; 3, "a" ]
         Regex("a").Matches("aXaXa").[1] |> allMatches |> equal [ 2, "a"; 4, "a" ]
 
+    testCase "Match.NextMatch moves past a surrogate pair after an empty match" <| fun _ ->
+        let input = "a\U0001F600b"
+        let mutable m = Regex("x*").Match(input)
+        let mutable lastIndex = -1
+        let mutable count = 0
+        while m.Success && count < 20 do
+            lastIndex <- m.Index
+            count <- count + 1
+            m <- m.NextMatch()
+        m.Success |> equal false
+        lastIndex |> equal input.Length
+
     testCase "Match.NextMatch works with groups" <| fun _ ->
         let m = Regex(@"(\d)(?<letter>[a-z])").Match("1a 2b").NextMatch()
         m.Value |> equal "2b"
