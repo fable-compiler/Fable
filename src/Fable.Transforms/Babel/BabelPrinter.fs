@@ -1224,7 +1224,8 @@ module PrinterExtensions =
 
             match objectWithParens, object with
             | Some true, _
-            | _, Literal(NumericLiteral(_)) -> printer.WithParens(object)
+            | _, Literal(NumericLiteral(_))
+            | _, UnaryExpression _ -> printer.WithParens(object)
             | _ -> printer.ComplexExpressionWithParens(object)
 
             if isComputed then
