@@ -7,6 +7,38 @@ open Fable.AST.Babel
 open Fable.Transforms.Printer
 
 module PrinterExtensions =
+    let regExpLiteralBody (pattern: string) =
+        if pattern.Length = 0 then
+            "(?:)"
+        else
+            let sb = System.Text.StringBuilder()
+            let mutable pendingBackslash = false
+
+            for c in pattern do
+                let lineTerminator =
+                    match c with
+                    | '\n' -> Some @"\n"
+                    | '\r' -> Some @"\r"
+                    | '\u2028' -> Some @"\u2028"
+                    | '\u2029' -> Some @"\u2029"
+                    | _ -> None
+
+                match lineTerminator with
+                | Some escapeSequence ->
+                    sb.Append(escapeSequence) |> ignore
+                    pendingBackslash <- false
+                | None when pendingBackslash ->
+                    sb.Append('\\').Append(c) |> ignore
+                    pendingBackslash <- false
+                | None when c = '\\' -> pendingBackslash <- true
+                | None when c = '/' -> sb.Append(@"\/") |> ignore
+                | None -> sb.Append(c) |> ignore
+
+            if pendingBackslash then
+                sb.Append('\\') |> ignore
+
+            sb.ToString()
+
     let rec hasSideEffects (e: Expression) =
         match e with
         | Undefined(_)
@@ -895,7 +927,7 @@ module PrinterExtensions =
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc = loc)
             // Note we cannot use Naming.escapeString because it will corrupt the regex pattern
-            printer.Print(Regex.Replace(pattern, @"(?<!\\)\/", @"\/").Replace("\r", @"\r").Replace("\n", @"\n"))
+            printer.Print(regExpLiteralBody pattern)
 
             printer.Print("/")
             printer.Print(flags)
