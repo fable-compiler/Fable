@@ -997,7 +997,7 @@ T min<T>(int Function(T, T) comparer, T x, T y) {
 }
 
 T max<T>(int Function(T, T) comparer, T x, T y) {
-  return comparer(x, y) > 0 ? x : y;
+  return comparer(x, y) < 0 ? y : x;
 }
 
 T clamp<T>(int Function(T, T) comparer, T value, T min, T max) {

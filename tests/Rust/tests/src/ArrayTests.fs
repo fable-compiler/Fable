@@ -771,6 +771,26 @@ let ``Array.minBy works`` () =
     |> equal 2.
 
 [<Fact>]
+let ``Array.minBy and Array.maxBy keep the first of tied elements`` () =
+    let xs = [| "a", 1; "b", 0; "c", 0; "d", 1 |]
+    xs |> Array.minBy snd |> equal ("b", 0)
+    xs |> Array.maxBy snd |> equal ("a", 1)
+    xs |> Array.minBy (fun _ -> 0) |> equal ("a", 1)
+
+[<Fact>]
+let ``Array.minBy and Array.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f (x: int) = calls <- calls + 1; x
+    [| 5; 3; 8; 1; 9 |] |> Array.minBy f |> equal 1
+    [| 5; 3; 8; 1; 9 |] |> Array.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
+let ``Array.min and Array.max keep the first of equal elements`` () =
+    Array.min [| 1.0m; 1.00m |] |> string |> equal "1.0"
+    Array.max [| 1.00m; 1.0m |] |> string |> equal "1.00"
+
+[<Fact>]
 let ``Array.ofList works`` () =
     let xs = [1.; 2.]
     let ys = Array.ofList xs

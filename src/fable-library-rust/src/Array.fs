@@ -830,42 +830,56 @@ let inline sumBy (projection: 'T -> 'U) (source: 'T[]) : 'U =
     acc
 
 let maxBy (projection: 'T -> 'U) (xs: 'T[]) : 'T =
-    reduce
-        (fun x y ->
-            if (projection x) > (projection y) then
-                x
-            else
-                y
-        )
-        xs
+    if isEmpty xs then
+        invalidOp SR.arrayWasEmpty
+
+    let mutable acc = xs[0]
+    let mutable accv = projection acc
+
+    for i = 1 to xs.Length - 1 do
+        let x = xs[i]
+        let v = projection x
+
+        if v > accv then
+            acc <- x
+            accv <- v
+
+    acc
 
 let max (xs: 'T[]) : 'T =
     reduce
         (fun x y ->
-            if x > y then
-                x
-            else
+            if y > x then
                 y
+            else
+                x
         )
         xs
 
 let minBy (projection: 'T -> 'U) (xs: 'T[]) : 'T =
-    reduce
-        (fun x y ->
-            if (projection x) < (projection y) then
-                x
-            else
-                y
-        )
-        xs
+    if isEmpty xs then
+        invalidOp SR.arrayWasEmpty
+
+    let mutable acc = xs[0]
+    let mutable accv = projection acc
+
+    for i = 1 to xs.Length - 1 do
+        let x = xs[i]
+        let v = projection x
+
+        if v < accv then
+            acc <- x
+            accv <- v
+
+    acc
 
 let min (xs: 'T[]) : 'T =
     reduce
         (fun x y ->
-            if x < y then
-                x
-            else
+            if y < x then
                 y
+            else
+                x
         )
         xs
 
