@@ -403,6 +403,31 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let logicOp op left right =
         Operation(Logical(op, left, right), Tags.empty, Boolean, r)
 
+    let shiftOp op wrappingMeth argTypes left right =
+        let wrappingShift count =
+            Helper.InstanceCall(left, wrappingMeth, t, [ count ], ?loc = r)
+
+        let fixedBits =
+            match argTypes with
+            | Number((Int8 | UInt8), _) :: _ -> Some 8
+            | Number((Int16 | UInt16), _) :: _ -> Some 16
+            | Number((Int32 | UInt32), _) :: _ -> Some 32
+            | Number((Int64 | UInt64), _) :: _ -> Some 64
+            | _ -> None
+
+        match argTypes, fixedBits, right with
+        | _, Some bits, Value(NumberConstant(NumberValue.Int32 n, _), _) ->
+            binOp op left (makeIntConst (n &&& (bits - 1)))
+        | _, Some _, _ -> convertTo com ctx None UInt32.Number [ right ] |> wrappingShift
+        | Number((NativeInt | UNativeInt), _) :: _, _, Value(NumberConstant(NumberValue.Int32 n, _), _) ->
+            if 0 <= n && n < 32 then
+                binOp op left right
+            else
+                makeTypeConst None UInt32.Number (uint32 n) |> wrappingShift
+        | Number((NativeInt | UNativeInt), _) :: _, _, _ ->
+            convertTo com ctx None UInt32.Number [ right ] |> wrappingShift
+        | _ -> binOp op left right
+
     let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [ left; right ] ->
@@ -417,11 +442,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.division, [ left; right ] -> binOp BinaryDivide left right
         | Operators.divideByInt, [ left; right ] -> libCallTyped com r t "Native" "divideByInt" [ left; right ] argTypes
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
-        | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
+        | Operators.leftShift, [ left; right ] -> shiftOp BinaryShiftLeft "wrapping_shl" argTypes left right
         | Operators.rightShift, [ left; right ] ->
-            match argTypes with
-            // | Number(UInt32,_)::_ -> binOp BinaryShiftRightZeroFill left right // See #646
-            | _ -> binOp BinaryShiftRightSignPropagating left right
+            shiftOp BinaryShiftRightSignPropagating "wrapping_shr" argTypes left right
         | Operators.bitwiseAnd, [ left; right ] -> binOp BinaryAndBitwise left right |> truncateUnsigned
         | Operators.bitwiseOr, [ left; right ] -> binOp BinaryOrBitwise left right |> truncateUnsigned
         | Operators.exclusiveOr, [ left; right ] -> binOp BinaryXorBitwise left right |> truncateUnsigned

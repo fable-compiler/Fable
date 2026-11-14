@@ -163,6 +163,75 @@ let ``Arithmetic right shift preserves sign for signed integer types`` () =
     -2L >>> 1 |> equal -1L   // int64: 0xFFFFFFFFFFFFFFFF = -1
 
 [<Fact>]
+let ``Literal shift count is masked to the width of the integer type`` () =
+    let mutable u8 = 1uy
+    let mutable i8 = -128y
+    let mutable u16 = 0x8000us
+    let mutable i16 = 1s
+    let mutable u32 = 1u
+    let mutable i32 = -8
+    let mutable u64 = 1UL
+    let mutable i64 = -8L
+    u8 <<< 9 |> equal 2uy
+    i8 >>> 9 |> equal -64y
+    u16 >>> 17 |> equal 16384us
+    i16 <<< 17 |> equal 2s
+    u32 <<< 32 |> equal 1u
+    i32 >>> -1 |> equal -1
+    u64 <<< 64 |> equal 1UL
+    i64 >>> -1 |> equal -1L
+
+[<Fact>]
+let ``Run-time left shift count is masked to the width of the integer type`` () =
+    let mutable n = 9
+    1uy <<< n |> equal 2uy
+    1y <<< n |> equal 2y
+    n <- 17
+    1us <<< n |> equal 2us
+    1s <<< n |> equal 2s
+    n <- 33
+    1u <<< n |> equal 2u
+    1 <<< n |> equal 2
+    n <- 65
+    1UL <<< n |> equal 2UL
+    1L <<< n |> equal 2L
+    n <- -1
+    1uy <<< n |> equal 128uy
+    1 <<< n |> equal Int32.MinValue
+
+[<Fact>]
+let ``Run-time right shift count is masked to the width of the integer type`` () =
+    let mutable n = 9
+    0x80uy >>> n |> equal 64uy
+    -128y >>> n |> equal -64y
+    n <- 17
+    0x8000us >>> n |> equal 16384us
+    -32768s >>> n |> equal -16384s
+    n <- 33
+    0x80000000u >>> n |> equal 1073741824u
+    Int32.MinValue >>> n |> equal -1073741824
+    n <- 65
+    0x8000000000000000UL >>> n |> equal 4611686018427387904UL
+    Int64.MinValue >>> n |> equal -4611686018427387904L
+    n <- -1
+    -8 >>> n |> equal -1
+    -8L >>> n |> equal -1L
+
+[<Fact>]
+let ``Native integer shift count is masked to the width of the integer type`` () =
+    let mutable i = 1n
+    let mutable u = 0x8000000000000000un
+    let mutable n = 65
+    i <<< 3 |> equal 8n
+    i <<< 65 |> equal 2n
+    u >>> 65 |> equal 4611686018427387904un
+    -8n >>> -1 |> equal -1n
+    i <<< n |> equal 2n
+    u >>> n |> equal 4611686018427387904un
+    n <- -1
+    -8n >>> n |> equal -1n
+
+[<Fact>]
 let ``UInt64 multiplication with 0 returns uint`` () = // See #1480
     0x0UL * 0x1UL |> equal 0x0UL
 
@@ -932,6 +1001,15 @@ let ``Big integers addition works`` () =
     let y = bigint 1L
     let z = 1I
     (x + y + z) |> equal 59823749821707124891298739821798327321028091380982I
+
+[<Fact>]
+let ``BigInt shift with a negative count shifts in the other direction`` () =
+    let mutable n = -8
+    1I <<< 65 |> equal 36893488147419103232I
+    1I <<< -1 |> equal 0I
+    1I >>> -8 |> equal 256I
+    -9223372036854775807I <<< n |> equal -36028797018963968I
+    -9223372036854775807I >>> n |> equal -2361183241434822606592I
 
 [<Fact>]
 let ``BigInt Infix add can be generated`` () =
