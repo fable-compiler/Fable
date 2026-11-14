@@ -32,6 +32,30 @@ let tests =
         Regex("\\t").IsMatch("foo\tbar") |> equal true
         Regex(@"\\t").IsMatch("foo\tbar") |> equal false
 
+    testCase "Literal regex works with an empty pattern" <| fun _ ->
+        Regex("").IsMatch("x") |> equal true
+        Regex("", RegexOptions.IgnoreCase).IsMatch("x") |> equal true
+        Regex("", RegexOptions.Multiline).Replace("ab", "-") |> equal "-a-b-"
+        Regex("", RegexOptions.Singleline).Replace("ab", "-") |> equal "-a-b-"
+        Regex("").Matches("ab").Count |> equal 3
+        Regex("").Replace("ab", "-") |> equal "-a-b-"
+        Regex("").Split("ab") |> equal [| ""; "a"; "b"; "" |]
+
+    testCase "Literal regex works with a slash after an escaped backslash" <| fun _ ->
+        Regex(@"\\/").Replace(@"a\/b", "-") |> equal "a-b"
+        Regex(@"\\\\/").Replace(@"a\\/b", "-") |> equal "a-b"
+
+    testCase "Literal regex works with line and paragraph separators" <| fun _ ->
+        Regex("a\u2028b").IsMatch("a\u2028b") |> equal true
+        Regex("a\u2029b").IsMatch("a\u2029b") |> equal true
+        Regex("a\\\u2028b").IsMatch("a\u2028b") |> equal true
+
+    testCase "Literal regex works with an escaped new line" <| fun _ ->
+        Regex("a\\\nb").IsMatch("a\nb") |> equal true
+        Regex("a\\\rb").IsMatch("a\rb") |> equal true
+        Regex("a\\\r\nb").IsMatch("a\r\nb") |> equal true
+        Regex("a[\\\n]b").IsMatch("a\nb") |> equal true
+
     testCase "Regex.Options works" <| fun _ ->
         let option1 = RegexOptions.IgnoreCase
         let option2 = RegexOptions.ECMAScript
