@@ -982,6 +982,18 @@ let ``List.tryLast works`` () =
     List.tryLast<float> [] |> equal None
 
 [<Fact>]
+let ``List.groupBy keeps each NaN key in its own group`` () =
+    List.groupBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+    |> List.map (fun (k, v) -> System.Double.IsNaN k, List.length v)
+    |> equal [ true, 1; true, 1; false, 2 ]
+
+[<Fact>]
+let ``List.countBy counts each NaN key separately`` () =
+    List.countBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+    |> List.map (fun (k, n) -> System.Double.IsNaN k, n)
+    |> equal [ true, 1; true, 1; false, 2 ]
+
+[<Fact>]
 let ``List.countBy works`` () =
     let xs = [1; 2; 3; 4]
     let ys = xs |> List.countBy (fun x -> x % 2)

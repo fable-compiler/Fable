@@ -944,6 +944,16 @@ let tests =
         let xs = [|"a"; "a"; "a"; "a"|]
         Array.length xs |> equal 4
 
+    testCase "Array.groupBy keeps each NaN key in its own group" <| fun () ->
+        Array.groupBy id [| System.Double.NaN; System.Double.NaN; 1.0; 1.0 |]
+        |> Array.map (fun (k, v) -> System.Double.IsNaN k, Array.length v)
+        |> equal [| true, 1; true, 1; false, 2 |]
+
+    testCase "Array.countBy counts each NaN key separately" <| fun () ->
+        Array.countBy id [| System.Double.NaN; System.Double.NaN; 1.0; 1.0 |]
+        |> Array.map (fun (k, n) -> System.Double.IsNaN k, n)
+        |> equal [| true, 1; true, 1; false, 2 |]
+
     testCase "Array.countBy works" <| fun () ->
         let xs = [|1; 2; 3; 4|]
         xs |> Array.countBy (fun x -> x % 2)
