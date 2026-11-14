@@ -662,6 +662,9 @@ module private Transforms =
             Get(innerExpr, OptionValue, t, r)
         | Value(NewOption(Some(Extended(Curry(innerExpr, arity2), _)), t, isStruct), r), _ when matches arity arity2 ->
             Value(NewOption(Some(innerExpr), t, isStruct), r)
+        | Value(NewOption(None, (LambdaType _ as t), isStruct), r), Some arity ->
+            let argTypes, returnType = uncurryLambdaType arity [] t
+            Value(NewOption(None, DelegateType(argTypes, returnType), isStruct), r)
         // User imports are uncurried even if they're typed as lambdas, see test "ofImport should inline properly"
         | Import({ Kind = UserImport _ }, _, _), _ -> expr
         | _, Some arity -> Replacements.Api.uncurryExprAtRuntime com arity expr
@@ -877,10 +880,22 @@ module private Transforms =
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
-            let args =
-                com.GetEntity(ent).FSharpFields
-                |> Seq.filter (fun f -> not f.IsStatic)
-                |> uncurryConsArgs args
+            let entity = com.GetEntity(ent)
+
+            let fieldTypes =
+                entity.FSharpFields
+                |> List.filter (fun f -> not f.IsStatic)
+                |> List.map (fun f -> f.FieldType)
+
+            let baseArgTypes =
+                match args.Length - fieldTypes.Length with
+                | baseArgCount when baseArgCount > 0 ->
+                    match FSharp2Fable.Util.tryGetPrimaryConstructorBaseArgTypes entity with
+                    | Some argTypes -> argTypes @ List.replicate baseArgCount Any |> List.take baseArgCount
+                    | None -> args |> List.take baseArgCount |> List.map (fun a -> a.Type)
+                | _ -> []
+
+            let args = uncurryArgs com false (baseArgTypes @ fieldTypes) args
 
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->

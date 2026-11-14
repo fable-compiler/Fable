@@ -2500,6 +2500,86 @@ module Util =
 
         collect ent genArgs []
 
+    let uncurryLikeDeclaredType (declaredType: Fable.Type) (actualType: Fable.Type) =
+        let rec arity =
+            function
+            | Fable.LambdaType(_, returnType) -> 1 + arity returnType
+            | _ -> 0
+
+        let rec uncurry n argTypes =
+            function
+            | Fable.LambdaType(argType, returnType) when n > 0 -> uncurry (n - 1) (argType :: argTypes) returnType
+            | returnType -> Fable.DelegateType(List.rev argTypes, returnType)
+
+        match declaredType, actualType with
+        | Fable.Option(declaredType, _), Fable.Option(actualType, isStruct) when arity declaredType > 1 ->
+            Fable.Option(uncurry (arity declaredType) [] actualType, isStruct)
+        | _ when arity declaredType > 1 -> uncurry (arity declaredType) [] actualType
+        | _ -> actualType
+
+    let tryGetPrimaryConstructorBase (ent: FSharpEntity) =
+        match tryGetBaseEntity ent with
+        | Some(baseEnt, baseGenArgs) when
+            baseEnt.IsClass
+            && not (isGlobalOrImportedFSharpEntity baseEnt)
+            && (FsEnt.Ref baseEnt).SourcePath.IsSome
+            ->
+            baseEnt.MembersFunctionsAndValues
+            |> Seq.tryFind _.IsImplicitConstructor
+            |> Option.map (fun cons -> baseEnt, baseGenArgs, cons)
+        | _ -> None
+
+    let getPrimaryConstructorBaseArgs
+        (com: Compiler)
+        (ent: FSharpEntity)
+        (baseEnt: FSharpEntity)
+        (baseGenArgs: IList<FSharpType>)
+        (cons: FSharpMemberOrFunctionOrValue)
+        =
+        let genArgs =
+            Seq.zip baseEnt.GenericParameters baseGenArgs
+            |> Seq.map (fun (param, typ) -> genParamName param, makeType Map.empty typ)
+            |> Map.ofSeq
+
+        let sanitize conflicts name =
+            match com.Options.Language with
+            | Python ->
+                (Fable.Py.Naming.toPythonNaming name, Naming.NoMemberPart)
+                ||> Fable.Py.Naming.sanitizeIdent conflicts
+            | _ -> (name, Naming.NoMemberPart) ||> Naming.sanitizeJsIdent conflicts
+
+        let usedNames =
+            ent.FSharpFields
+            |> Seq.filter (fun field -> not field.IsStatic)
+            |> Seq.map (FsField.FSharpFieldName >> sanitize (fun _ -> false))
+            |> HashSet
+
+        let isUsed name =
+            usedNames.Contains name
+            || com.Options.Language = Python && Fable.Py.Naming.pyBuiltins.Contains name
+
+        match List.ofSeq (Seq.concat cons.CurriedParameterGroups) with
+        | [ param ] when isUnit param.Type && param.Name.IsNone -> []
+        | parameters ->
+            parameters
+            |> List.mapi (fun i param ->
+                let name = param.Name |> Option.defaultValue $"arg%d{i}" |> sanitize isUsed
+
+                usedNames.Add(name) |> ignore
+
+                let typ =
+                    uncurryLikeDeclaredType (makeType Map.empty param.Type) (makeType genArgs param.Type)
+
+                makeTypedIdentExpr typ name
+            )
+
+    let tryGetPrimaryConstructorBaseArgTypes (ent: Fable.Entity) =
+        match ent with
+        | :? FsEnt as ent ->
+            tryGetPrimaryConstructorBase ent.FSharpEntity
+            |> Option.map (fun (_, _, cons) -> getArgTypes () cons)
+        | _ -> None
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityIdentWithSuffix (com: Compiler) (ent: Fable.EntityRef) suffix =
         let error msg =
@@ -2517,27 +2597,6 @@ module Util =
                 makeInternalClassImport com ent entityName file
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) = entityIdentWithSuffix com ent ""
-
-    /// Compiler-generated constructors of derived classes receive the inherited fields and pass them to the base
-    let tryMakeCompilerGeneratedBaseCall (com: Compiler) (ent: FSharpEntity) =
-        if supportsCompilerGeneratedBaseCall com && hasCompilerGeneratedConstructor ent then
-            match tryGetCompilerGeneratedBases ent with
-            | Some(_ :: _ as bases) ->
-                let baseEnt = List.last bases
-
-                let args =
-                    getInheritedValFields ent Map.empty
-                    |> List.map (fun (field, typ) -> makeTypedIdentExpr typ field.Name)
-
-                let baseExpr =
-                    match tryGlobalOrImportedFSharpEntity com baseEnt with
-                    | Some baseExpr -> baseExpr
-                    | None -> FsEnt.Ref baseEnt |> entityIdent com
-
-                Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
-            | _ -> None
-        else
-            None
 
     /// In Python a union is emitted as a public type alias (`type Demo = Demo_A | Demo_B`)
     /// plus a private base class (`_Demo`) that holds the runtime members: attached static
@@ -2711,6 +2770,48 @@ module Util =
                 isMutable = memb.IsMutable,
                 ?entRef = entRef
             )
+
+    /// Compiler-generated constructors of derived classes receive the inherited fields and pass them to the base
+    let tryMakeCompilerGeneratedBaseCall (com: Compiler) (ent: FSharpEntity) =
+        if supportsCompilerGeneratedBaseCall com && hasCompilerGeneratedConstructor ent then
+            match tryGetCompilerGeneratedBases ent with
+            | Some(_ :: _ as bases) ->
+                let baseEnt = List.last bases
+
+                let args =
+                    getInheritedValFields ent Map.empty
+                    |> List.map (fun (field, typ) ->
+                        let typ = uncurryLikeDeclaredType (makeType Map.empty field.FieldType) typ
+                        makeTypedIdentExpr typ field.Name
+                    )
+
+                let baseExpr =
+                    match tryGlobalOrImportedFSharpEntity com baseEnt with
+                    | Some baseExpr -> baseExpr
+                    | None -> FsEnt.Ref baseEnt |> entityIdent com
+
+                Some(Fable.Call(baseExpr, Fable.CallInfo.Create(args = args), Fable.Unit, None))
+            | Some _ -> None
+            | None ->
+                match tryGetPrimaryConstructorBase ent, tryGetBaseEntity ent with
+                | Some(baseEnt, baseGenArgs, cons), _ ->
+                    let args = getPrimaryConstructorBaseArgs com ent baseEnt baseGenArgs cons
+                    let baseExpr = FsEnt.Ref baseEnt |> entityIdent com
+
+                    let info = Fable.CallInfo.Create(args = args, memberRef = getFunctionMemberRef cons)
+
+                    Some(Fable.Call(baseExpr, info, Fable.Unit, None))
+                | None, Some(baseEnt, _) when
+                    hasCompilerGeneratedConstructor baseEnt
+                    && ent.MembersFunctionsAndValues |> Seq.exists _.IsConstructor
+                    ->
+                    $"%s{ent.FullName} has no primary constructor and inherits %s{baseEnt.FullName}, which has no primary constructor either but inherits a class that has one. Fable cannot compile this inheritance chain."
+                    |> addError com [] (makeRange ent.DeclarationLocation |> Some)
+
+                    None
+                | _ -> None
+        else
+            None
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then
