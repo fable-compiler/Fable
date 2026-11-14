@@ -39,17 +39,19 @@ let countBy
     Seq.delay (fun () ->
         let dict = System.Collections.Generic.Dictionary<'Key, int>(comparer)
         let keys = ResizeArray<'Key>()
+        let counts = ResizeArray<int>()
 
         for x in xs do
             let key = projection x
 
             match dict.TryGetValue key with
-            | true, v -> dict[key] <- v + 1
+            | true, index -> counts[index] <- counts[index] + 1
             | false, _ ->
-                dict[key] <- 1
+                dict[key] <- keys.Count
                 keys.Add(key)
+                counts.Add(1)
 
-        Seq.map (fun key -> key, dict[key]) keys
+        Seq.mapi (fun index key -> key, counts[index]) keys
     )
 
 let groupBy
@@ -61,7 +63,7 @@ let groupBy
     Seq.delay (fun () ->
         let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>(comparer)
 
-        let keys = ResizeArray<'Key>()
+        let groups = ResizeArray<'Key * ResizeArray<'T>>()
 
         for x in xs do
             let key = projection x
@@ -69,10 +71,11 @@ let groupBy
             if dict.ContainsKey(key) then
                 dict[key].Add(x)
             else
-                dict[key] <- ResizeArray [ x ]
-                keys.Add(key)
+                let group = ResizeArray [ x ]
+                dict[key] <- group
+                groups.Add((key, group))
 
-        Seq.map (fun key -> key, dict[key] :> seq<'T>) keys
+        Seq.map (fun (key, group: ResizeArray<'T>) -> key, group :> seq<'T>) groups
     )
 
 module Array =

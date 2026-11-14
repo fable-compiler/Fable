@@ -1123,21 +1123,23 @@ let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T[]) : 'T[] =
 let countBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * int)[] =
     let dict = System.Collections.Generic.Dictionary<'Key, int>()
     let keys = ResizeArray<'Key>()
+    let counts = ResizeArray<int>()
 
     for x in xs do
         let key = projection x
 
         match dict.TryGetValue(key) with
-        | true, prev -> dict[key] <- prev + 1
+        | true, index -> counts[index] <- counts[index] + 1
         | false, _ ->
-            dict[key] <- 1
+            dict[key] <- keys.Count
             keys.Add(key)
+            counts.Add(1)
 
-    keys |> asArray |> map (fun key -> key, dict[key])
+    keys |> asArray |> mapIndexed (fun index key -> key, counts[index])
 
 let groupBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * 'T[])[] =
     let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
-    let keys = ResizeArray<'Key>()
+    let groups = ResizeArray<'Key * ResizeArray<'T>>()
 
     for x in xs do
         let key = projection x
@@ -1145,10 +1147,11 @@ let groupBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 
         match dict.TryGetValue(key) with
         | true, prev -> prev.Add(x)
         | false, _ ->
-            dict.Add(key, ResizeArray [| x |])
-            keys.Add(key)
+            let group = ResizeArray [| x |]
+            dict.Add(key, group)
+            groups.Add((key, group))
 
-    keys |> asArray |> map (fun key -> key, dict[key] |> asArray)
+    groups |> asArray |> map (fun (key, group) -> key, group |> asArray)
 
 let insertAt (index: int) (y: 'T) (xs: 'T[]) : 'T[] =
     let len = xs.Length
