@@ -123,7 +123,7 @@ export function divWithMatchContainingForLoop(counter) {
             else {
                 const total = (counter + 1) | 0;
                 return map((i) => <div key={int32ToString(i)}>
-                    {i + total}
+                    {(i + total) | 0}
                 </div>, rangeDouble(1, 1, total));
             }
         })()}
@@ -145,7 +145,7 @@ export function divWithElementBeforeMatchContainingForLoop(counter) {
             else {
                 const total = (matchValue + 1) | 0;
                 return map((i) => <div key={int32ToString(i)}>
-                    {i + total}
+                    {(i + total) | 0}
                 </div>, rangeDouble(1, 1, total));
             }
         })()}

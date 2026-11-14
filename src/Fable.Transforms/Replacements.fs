@@ -509,6 +509,71 @@ let maskShiftCount (mask: int) (count: Expr) =
     | Value(NumberConstant(NumberValue.Int32 n, _), _) -> makeIntConst (n &&& mask)
     | _ -> Operation(Binary(BinaryAndBitwise, count, makeIntConst mask), Tags.empty, Int32.Number, None)
 
+let private (|IntegerWrap|_|) (e: Expr) =
+    let (|IntConst|_|) e =
+        match e with
+        | Value(NumberConstant(NumberValue.Int32 n, _), _) -> Some n
+        | _ -> None
+
+    match e with
+    | Operation(Binary((BinaryOrBitwise | BinaryShiftRightZeroFill), inner, IntConst 0), _, _, _) -> Some(inner, 32)
+    | Operation(Binary(BinaryAndBitwise, inner, IntConst 0xFF), _, _, _) -> Some(inner, 8)
+    | Operation(Binary(BinaryAndBitwise, inner, IntConst 0xFFFF), _, _, _) -> Some(inner, 16)
+    | Operation(Binary(BinaryShiftRightSignPropagating,
+                       Operation(Binary(BinaryShiftLeft, inner, IntConst left), _, _, _),
+                       IntConst right),
+                _,
+                _,
+                _) when left = right && (left = 16 || left = 24) -> Some(inner, 32 - left)
+    | _ -> None
+
+let private integerWidth (t: Type) =
+    match t with
+    | Number((Int8 | UInt8), _) -> Some 8
+    | Number((Int16 | UInt16), _) -> Some 16
+    | Number((Int32 | UInt32), _) -> Some 32
+    | _ -> None
+
+/// Upper bound of log2 |e| when e is known to be an integer, operands being in the range of their type
+let rec private integerBits (e: Expr) =
+    match e with
+    | IntegerWrap(_, width) -> Some width
+    | Operation(kind, _, t, _) ->
+        match integerWidth t, kind with
+        | None, _ -> None
+        | Some _, Binary((BinaryPlus | BinaryMinus), left, right) ->
+            Option.map2 (fun left right -> max left right + 1) (integerBits left) (integerBits right)
+        | Some _, Binary(BinaryMultiply, left, right) -> Option.map2 (+) (integerBits left) (integerBits right)
+        | Some _,
+          Binary((BinaryModulus | BinaryShiftLeft | BinaryShiftRightSignPropagating | BinaryShiftRightZeroFill | BinaryOrBitwise | BinaryXorBitwise | BinaryAndBitwise),
+                 _,
+                 _)
+        | Some _, Unary((UnaryMinus | UnaryPlus | UnaryNotBitwise), _) -> Some 32
+        | Some _, _ -> None
+    | _ -> integerWidth e.Type
+
+let private maxExactIntegerBits = 53
+
+let private unwrapInt32Operand (width: int) (e: Expr) =
+    match e with
+    | IntegerWrap(inner, innerWidth) when innerWidth >= width -> inner
+    | _ -> e
+
+let private unwrapArithmeticOperands (width: int) (combineBits: int -> int -> int) (left: Expr) (right: Expr) =
+    let unwrap e =
+        match e with
+        | IntegerWrap(inner, innerWidth) when innerWidth >= width && Option.isSome (integerBits inner) -> inner
+        | _ -> e
+
+    let isExact (left, right) =
+        match integerBits left, integerBits right with
+        | Some leftBits, Some rightBits -> combineBits leftBits rightBits <= maxExactIntegerBits
+        | _ -> false
+
+    [ unwrap left, unwrap right; unwrap left, right; left, unwrap right ]
+    |> List.tryFind isExact
+    |> Option.defaultValue (left, right)
+
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let unOp operator operand =
         Operation(Unary(operator, operand), Tags.empty, t, r)
@@ -542,6 +607,39 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Number(Int16, _) -> signExtend 16 operation
         | _ -> truncateNarrowUnsigned operation
 
+    let truncateArithmetic operation =
+        match t with
+        | Number(Int32, _) -> binOp BinaryOrBitwise operation (makeIntConst 0)
+        | Number((Int8 | Int16 | UInt8 | UInt16 | UInt32), _) -> truncateNarrow operation
+        | _ -> operation
+
+    let addOrSubtract op left right =
+        let left, right =
+            match integerWidth t with
+            | Some width -> unwrapArithmeticOperands width (fun left right -> max left right + 1) left right
+            | None -> left, right
+
+        binOp op left right |> truncateArithmetic
+
+    let multiply left right =
+        match t with
+        | Number((Int32 | UInt32), _) ->
+            let args = [ unwrapInt32Operand 32 left; unwrapInt32Operand 32 right ]
+
+            Helper.GlobalCall("Math", t, args, memb = "imul", ?loc = r) |> truncateUnsigned
+        | _ ->
+            let left, right =
+                match integerWidth t with
+                | Some width -> unwrapArithmeticOperands width (+) left right
+                | None -> left, right
+
+            binOp BinaryMultiply left right |> truncateArithmetic
+
+    let int32Op op left right =
+        binOp op (unwrapInt32Operand 32 left) (unwrapInt32Operand 32 right)
+
+    let resultWidth = integerWidth t |> Option.defaultValue 32
+
     let maskNarrowShiftCount argTypes count =
         match argTypes with
         | Number((Int8 | UInt8), _) :: _ -> maskShiftCount 7 count
@@ -556,33 +654,44 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.addition, [ left; right ] ->
             match argTypes with
             | Char :: _ -> binOpChar BinaryPlus left right
-            | _ -> binOp BinaryPlus left right
+            | _ -> addOrSubtract BinaryPlus left right
         | Operators.subtraction, [ left; right ] ->
             match argTypes with
             | Char :: _ -> binOpChar BinaryMinus left right
-            | _ -> binOp BinaryMinus left right
-        | Operators.multiply, [ left; right ] -> binOp BinaryMultiply left right
+            | _ -> addOrSubtract BinaryMinus left right
+        | Operators.multiply, [ left; right ] -> multiply left right
         | (Operators.division | Operators.divideByInt), [ left; right ] ->
             match argTypes with
+            | Number((Int8 | Int16 | UInt32), _) :: _ -> binOp BinaryDivide left right |> truncateNarrow
             // Floor result of integer divisions (see #172)
             | Number(Integers _, _) :: _ -> binOp BinaryDivide left right |> fastIntFloor
             | _ -> binOp BinaryDivide left right
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] ->
-            binOp BinaryShiftLeft left (maskNarrowShiftCount argTypes right)
+            let right = maskNarrowShiftCount argTypes (unwrapInt32Operand 32 right)
+
+            binOp BinaryShiftLeft (unwrapInt32Operand resultWidth left) right
             |> truncateNarrow // See #1530
         | Operators.rightShift, [ left; right ] ->
-            let right = maskNarrowShiftCount argTypes right
+            let left = unwrapInt32Operand 32 left
+            let right = maskNarrowShiftCount argTypes (unwrapInt32Operand 32 right)
 
             match argTypes with
             | Number(UInt32, _) :: _ -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
-        | Operators.bitwiseAnd, [ left; right ] -> binOp BinaryAndBitwise left right |> truncateUnsigned
-        | Operators.bitwiseOr, [ left; right ] -> binOp BinaryOrBitwise left right |> truncateUnsigned
-        | Operators.exclusiveOr, [ left; right ] -> binOp BinaryXorBitwise left right |> truncateUnsigned
+        | Operators.bitwiseAnd, [ left; right ] -> int32Op BinaryAndBitwise left right |> truncateUnsigned
+        | Operators.bitwiseOr, [ left; right ] -> int32Op BinaryOrBitwise left right |> truncateUnsigned
+        | Operators.exclusiveOr, [ left; right ] -> int32Op BinaryXorBitwise left right |> truncateUnsigned
         | Operators.booleanAnd, [ left; right ] -> logicOp LogicalAnd left right
         | Operators.booleanOr, [ left; right ] -> logicOp LogicalOr left right
-        | Operators.logicalNot, [ operand ] -> unOp UnaryNotBitwise operand |> truncateNarrowUnsigned
+        | Operators.logicalNot, [ operand ] ->
+            let width =
+                match t with
+                | Number((UInt8 | UInt16), _) -> resultWidth
+                | _ -> 32
+
+            unOp UnaryNotBitwise (unwrapInt32Operand width operand)
+            |> truncateNarrowUnsigned
         | Operators.unaryNegation, [ operand ] ->
             match argTypes with
             | Number(Int8, _) :: _ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int8", t, args, ?loc = r)
@@ -1824,13 +1933,24 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_Dereference", [ arg ] -> getRefCell com r t arg |> Some
     | "op_ColonEquals", [ o; v ] -> setRefCell com r o v |> Some
     | "Ref", [ arg ] -> makeRefCellFromValue com r arg |> Some
-    | ("Increment" | "Decrement"), _ ->
-        if i.CompiledName = "Increment" then
-            "void($0.contents++)"
-        else
-            "void($0.contents--)"
-        |> emitExpr r t args
-        |> Some
+    | ("Increment" | "Decrement"), [ arg ] ->
+        let opName =
+            if i.CompiledName = "Increment" then
+                Operators.addition
+            else
+                Operators.subtraction
+
+        let update cell =
+            let current = getRefCell com None Int32.Number cell
+
+            applyOp com ctx None Int32.Number opName [ current; makeIntConst 1 ]
+            |> setRefCell com r cell
+
+        match arg with
+        | IdentExpr _ -> update arg |> Some
+        | _ ->
+            let ident = makeUniqueIdent com ctx arg.Type "refCell"
+            Let(ident, arg, update (IdentExpr ident)) |> Some
     // Concatenates two lists
     | "op_Append", _ ->
         Helper.LibCall(com, "List", "append", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)

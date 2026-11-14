@@ -81,8 +81,8 @@ type Derived =
 
     testCase "Editing an inline function in a file with a signature recompiles the files that inlined it" <| fun _ ->
       Compiler.Cached.startWatchingSignedLibrary Compiler.Settings.standard signature (library 3) source
-      waitForOutput "Program.fs" "2 * 3"
+      waitForOutput "Program.fs" "Math.imul(2, 3)"
 
       Compiler.Cached.rewriteWatchedLibrary (library 4)
-      waitForOutput "Program.fs" "2 * 4"
+      waitForOutput "Program.fs" "Math.imul(2, 4)"
   ]

@@ -567,6 +567,12 @@ module private Transforms =
               Value(NumberConstant(NumberValue.Int32 v2, NumberInfo.Empty), r2) ->
                 Value(NumberConstant(NumberValue.Int32(v1 + v2), NumberInfo.Empty), addRanges [ r1; r2 ])
             | _ -> e
+        | Operation(Binary(AST.BinaryOrBitwise,
+                           (Value(NumberConstant(NumberValue.Int32 _, NumberInfo.Empty), _) as v),
+                           Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), _)),
+                    _,
+                    _,
+                    _) -> v
 
         | Operation(Logical(AST.LogicalAnd, (Value(BoolConstant b, _) as v1), v2), [], _, _) ->
             if b then

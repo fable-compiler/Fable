@@ -73,6 +73,73 @@ let tests =
         5 % -3 |> equal 2
         -5 % -3 |> equal -2
 
+    testCase "Integer addition and subtraction wrap to the width of the type" <| fun () ->
+        let mutable i = 2147483640
+        let mutable u = 4294967290u
+        let mutable b = 250uy
+        let mutable sb = 120y
+        let mutable s = 32760s
+        let mutable us = 65530us
+        i + 10 |> equal -2147483646
+        10u - u |> equal 16u
+        b + 10uy |> equal 4uy
+        -10y - sb |> equal 126y
+        s + 10s |> equal -32766s
+        10us - us |> equal 16us
+
+    testCase "Integer multiplication wraps to the width of the type" <| fun () ->
+        let mutable i = (1 <<< 28) + 1
+        let mutable u = 4000000005u
+        let mutable sb = 120y
+        i * i |> equal 536870913
+        u * u |> equal 3329200153u
+        sb * 10y |> equal -80y
+
+    testCase "Integer division wraps to the width of the type" <| fun () ->
+        let mutable u = 4294967290u
+        let mutable sb = -128y
+        let mutable minusOne = -1y
+        u / 1u |> equal 4294967290u
+        sb / minusOne |> equal -128y
+
+    testCase "Nested integer operations wrap to the width of the type" <| fun () ->
+        let mutable i = 0x1234
+        let mutable j = 0x1FF
+        let mutable u = 4294967290u
+        let mutable ten = 10u
+        let mutable b = 200uy
+        let mutable sb = 100y
+        let mutable us = 65535us
+        let mutable s = 255s
+        i + 2147483647 + 2147483647 |> equal 4658
+        u + ten + ten |> equal 14u
+        (u + ten) * 3u |> equal 12u
+        ((1 <<< 28) + i) * ((1 <<< 28) + i) * 3 |> equal -2082336848
+        (i &&& 0xFF) + 1 |> equal 0x35
+        (i &&& 0xFF) * 3 |> equal 156
+        (i &&& 0xFF) ^^^ 1 |> equal 0x35
+        (i &&& 0xFF) <<< 1 |> equal 0x68
+        ((j <<< 24) >>> 24) + 1 |> equal 0
+        sb + sb * 3y |> equal -112y
+        ~~~(sb + sb) |> equal 55y
+        (sb + sb) >>> 1 |> equal -28y
+        (sb + sb) / 2y |> equal -28y
+        (sb / 8y) - 13y |> equal -1y
+        b + b + b |> equal 88uy
+        (b + b) ^^^ 1uy |> equal 145uy
+        (b + b) >>> 1 |> equal 72uy
+        (b + b) <<< 1 |> equal 32uy
+        ~~~(b + b) |> equal 111uy
+        (b + b) % 7uy |> equal 4uy
+        us * us * us * us |> equal 1us
+        s * s * s * s * s * s * s |> equal 1791s
+        (u + ten) / 2u |> equal 2u
+        ten - 5u / 2u |> equal 8u
+        (u + ten) >>> 1 |> equal 2u
+        (u + ten) ^^^ 1u |> equal 5u
+        (if sb + sb < 0y then 1 else 0) |> equal 1
+        (if u + ten < ten then 1 else 0) |> equal 1
+
     testCase "Math.DivRem works with ints" <| fun () ->
         Math.DivRem(5, 2) |> equal (2, 1)
         Math.DivRem(4, 2) |> equal (2, 0)
@@ -1233,6 +1300,16 @@ let tests =
         let i = ref 5
         decr i
         !i |> equal 4
+
+    testCase "incr wraps and evaluates its argument once" <| fun () ->
+        let mutable calls = 0
+        let cell = ref 2147483647
+        let getCell () =
+            calls <- calls + 1
+            cell
+        incr (getCell ())
+        cell.Value |> equal -2147483648
+        calls |> equal 1
 
     testCase "Long integers equality works" <| fun () ->
         let x = 5L
