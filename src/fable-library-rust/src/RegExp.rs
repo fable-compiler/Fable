@@ -485,7 +485,7 @@ pub mod RegExp_ {
         }
 
         pub fn item_n(&self, index: i32) -> Group {
-            if index >= 0 || index < self.count() {
+            if index >= 0 && index < self.count() {
                 self.0[index].clone()
             } else {
                 Group::empty()
