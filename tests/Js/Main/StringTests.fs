@@ -157,6 +157,10 @@ let tests = testList "Strings" [
         throwsAnyError <| fun () ->
             sb.Chars(3) |> ignore
 
+    testCase "StringBuilder.Replace inserts the replacement literally" <| fun () ->
+        System.Text.StringBuilder("a$b").Replace("$", "$$").ToString() |> equal "a$$b"
+        System.Text.StringBuilder("abc").Replace("b", Unchecked.defaultof<string>).ToString() |> equal "ac"
+
     testCase "StringBuilder.Replace works" <| fun () ->
         let sb = System.Text.StringBuilder()
                             .Append("abc")
@@ -1066,6 +1070,101 @@ let tests = testList "Strings" [
         "abc abc abc".Replace("abc", "d") |> equal "d d d"
         // String.Replace does not get stuck in endless loop
         "...".Replace(".", "..") |> equal "......"
+
+    testCase "String.Replace inserts the replacement literally" <| fun () ->
+        "a$b".Replace("$", "$$") |> equal "a$$b"
+        "price: X".Replace("X", "$&") |> equal "price: $&"
+        "abc".Replace("b", "$`") |> equal "a$`c"
+        "abc".Replace("b", "$'") |> equal "a$'c"
+        "abc".Replace("b", "$1") |> equal "a$1c"
+        "aBc".Replace("b", "$&", StringComparison.OrdinalIgnoreCase) |> equal "a$&c"
+
+    testCase "String.Replace with a null replacement removes the matches" <| fun () ->
+        let replacement = Unchecked.defaultof<string>
+        "abc".Replace("b", replacement) |> equal "ac"
+        "aBc".Replace("b", replacement, StringComparison.OrdinalIgnoreCase) |> equal "ac"
+
+    testCase "String.Replace rejects an empty or null search string" <| fun () ->
+        let thrownBy (f: unit -> string) =
+            try
+                f () |> ignore
+                "none"
+            with
+            | :? ArgumentNullException -> "ArgumentNullException"
+            | :? ArgumentException -> "ArgumentException"
+            | _ -> "other"
+
+        let search = Unchecked.defaultof<string>
+        thrownBy (fun () -> "abc".Replace("", "x")) |> equal "ArgumentException"
+        thrownBy (fun () -> "".Replace("", "x")) |> equal "ArgumentException"
+        thrownBy (fun () -> "abc".Replace("", "x", StringComparison.OrdinalIgnoreCase)) |> equal "ArgumentException"
+        thrownBy (fun () -> "abc".Replace("", "x", StringComparison.InvariantCulture)) |> equal "ArgumentException"
+        thrownBy (fun () -> "abc".Replace(search, "x")) |> equal "ArgumentNullException"
+        thrownBy (fun () -> "abc".Replace(search, "x", StringComparison.Ordinal)) |> equal "ArgumentNullException"
+
+    testCase "String.Replace with StringComparison works" <| fun () ->
+        "aBc".Replace("b", "x", StringComparison.Ordinal) |> equal "aBc"
+        "aBc".Replace("b", "x", StringComparison.OrdinalIgnoreCase) |> equal "axc"
+        "aBc".Replace("b", "x", StringComparison.CurrentCulture) |> equal "aBc"
+        "aBc".Replace("b", "x", StringComparison.CurrentCultureIgnoreCase) |> equal "axc"
+        "aBc".Replace("b", "x", StringComparison.InvariantCulture) |> equal "aBc"
+        "aBc".Replace("b", "x", StringComparison.InvariantCultureIgnoreCase) |> equal "axc"
+        "".Replace("a", "x", StringComparison.OrdinalIgnoreCase) |> equal ""
+        let replaceWith (comparison: StringComparison) = "aBc".Replace("b", "x", comparison)
+        replaceWith StringComparison.OrdinalIgnoreCase |> equal "axc"
+
+    testCase "String.Replace with ignoreCase and CultureInfo works" <| fun () ->
+        "aBc".Replace("b", "x", true, CultureInfo.InvariantCulture) |> equal "axc"
+        "aBc".Replace("b", "x", false, CultureInfo.InvariantCulture) |> equal "aBc"
+
+    testCase "String.Replace with a StringComparison value works" <| fun () ->
+        [ StringComparison.Ordinal; StringComparison.OrdinalIgnoreCase ]
+        |> List.map (fun comparison -> "aBc".Replace("b", "x", comparison))
+        |> equal [ "aBc"; "axc" ]
+        [ ("b", "x", StringComparison.OrdinalIgnoreCase) ] |> List.map "aBc".Replace |> equal [ "axc" ]
+
+    testCase "String.Replace with ignoreCase and CultureInfo evaluates every argument in order" <| fun () ->
+        let log = ResizeArray<string>()
+        let t (s: string) =
+            log.Add s
+            s
+        (t "aBc").Replace(t "b", t "x", (log.Add "ic"; true), (log.Add "culture"; CultureInfo.InvariantCulture))
+        |> equal "axc"
+        List.ofSeq log |> equal [ "aBc"; "b"; "x"; "ic"; "culture" ]
+
+    testCase "String.Replace with an empty search string throws the .NET message" <| fun () ->
+        let messageOf (f: unit -> string) =
+            try
+                f () |> ignore
+                "none"
+            with e ->
+                e.Message
+        let expected = "The value cannot be an empty string. (Parameter 'oldValue')"
+        messageOf (fun () -> "abc".Replace("", "x")) |> equal expected
+        messageOf (fun () -> "abc".Replace("", "x", StringComparison.OrdinalIgnoreCase)) |> equal expected
+        messageOf (fun () -> System.Text.StringBuilder("abc").Replace("", "x").ToString()) |> equal expected
+
+    testCase "String.Replace with StringComparison does not rescan matches" <| fun () ->
+        "aaa".Replace("aa", "b") |> equal "ba"
+        "aaaa".Replace("aa", "aaa") |> equal "aaaaaa"
+        "aAa".Replace("aa", "b", StringComparison.OrdinalIgnoreCase) |> equal "ba"
+        "AAA".Replace("a", "aa", StringComparison.OrdinalIgnoreCase) |> equal "aaaaaa"
+
+    testCase "String.Replace with StringComparison treats the search string literally" <| fun () ->
+        "a.b*c".Replace(".", "!") |> equal "a!b*c"
+        "(a)[b]\\^$|?+{}".Replace("(a)[b]\\^$|?+{}", "ok") |> equal "ok"
+        "a.b".Replace("A.", "!", StringComparison.OrdinalIgnoreCase) |> equal "!b"
+        "axb".Replace("A.", "!", StringComparison.OrdinalIgnoreCase) |> equal "axb"
+
+    testCase "String.Replace with StringComparison matches UTF-16 code units" <| fun () ->
+        let emoji = "\U0001F600"
+        let high = string emoji[0]
+        let low = string emoji[1]
+        ("a" + emoji + "b").Replace(emoji, "x") |> equal "axb"
+        ("a" + emoji + "b").Replace(high, "x") |> equal ("ax" + low + "b")
+        ("a" + emoji + "b").Replace(low, "x") |> equal ("a" + high + "xb")
+        ("a" + emoji + "b").Replace(high, "x", StringComparison.OrdinalIgnoreCase) |> equal ("ax" + low + "b")
+        "\U00010400".Replace("\U00010428", "x", StringComparison.OrdinalIgnoreCase) |> equal "x"
 
     testCase "Access char by index works" <| fun () ->
         let c = "abcd".[2]
