@@ -378,6 +378,9 @@ module Types =
     let ireadonlycollection = "System.Collections.Generic.IReadOnlyCollection`1"
 
     [<Literal>]
+    let ireadonlylist = "System.Collections.Generic.IReadOnlyList`1"
+
+    [<Literal>]
     let ireadonlydictionary = "System.Collections.Generic.IReadOnlyDictionary`2"
 
     [<Literal>]

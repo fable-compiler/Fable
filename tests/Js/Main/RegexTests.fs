@@ -1,6 +1,8 @@
 module Fable.Tests.Regex
 
 open Util.Testing
+open Fable.Tests.Util
+open System.Collections.Generic
 open System.Text.RegularExpressions
 
 let tests =
@@ -173,6 +175,34 @@ let tests =
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")
         m.Value |> equal "Chapter 3.4.5.1"
+
+    testCase "Members of a failed Match work" <| fun _ ->
+        let m = Regex("^test/(?<name>.*?)$").Match("test")
+        m.Success |> equal false
+        m.Value |> equal ""
+        m.Index |> equal 0
+        m.Length |> equal 0
+        m.Groups.Count |> equal 1
+        m.Groups.[0].Success |> equal false
+        m.Groups.[1].Value |> equal ""
+        m.Groups.["name"].Success |> equal false
+        [ for g in m.Groups -> g.Success ] |> equal [ false ]
+
+    testCase "Members of an unmatched Group work" <| fun _ ->
+        let m = Regex("(a)|(b)").Match("b")
+        m.Groups.[1].Success |> equal false
+        m.Groups.[1].Length |> equal 0
+        m.Groups.[2].Length |> equal 1
+        Regex("(?<n>a)").Match("a").Groups.["n"].Value |> equal "a"
+        let gs = m.Groups :> IReadOnlyList<Group>
+        gs.[2].Value |> equal "b"
+        gs.[5].Success |> equal false
+
+    testCase "Regex.Matches indexer throws when out of range" <| fun _ ->
+        let ms = Regex("\\d").Matches("1a2")
+        ms.[1].Value |> equal "2"
+        raisedExceptionType (fun () -> ms.[2]) |> equal "ArgumentOutOfRangeException"
+        throwsError "Specified argument was out of the range of valid values. (Parameter 'i')" (fun () -> ms.[-1])
 
     testCase "Regex.Matches indexer getter works" <| fun _ ->
         let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
