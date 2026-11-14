@@ -339,7 +339,7 @@ function toSignedBytes(x: bigint, isBigEndian: boolean): Uint8Array {
         x = x >> 8n;
     } while (x !== sentinel);
     // extra byte if the top byte's sign bit would misrepresent the sign
-    if (isNeg !== (bytes[bytes.length - 1] > 127)) {
+    if (isNeg !== (bytes[bytes.length - 1]! > 127)) {
         bytes.push(isNeg ? 255 : 0);
     }
     if (isBigEndian) {
@@ -354,16 +354,16 @@ function fromSignedBytes(bytes: ArrayLike<uint8>, isBigEndian: boolean) {
     }
     const len = bytes.length;
     const first = isBigEndian ? 0 : len - 1;
-    const isNeg = bytes[first] > 127;
+    const isNeg = bytes[first]! > 127;
     const codes = new Uint16Array(len * 2 + 2);
     codes[0] = 48;  // 0
     codes[1] = 120; // x
     const inc = isBigEndian ? 1 : -1;
     let pos = isBigEndian ? 0 : len - 1;
     for (let i = 0; i < bytes.length; i++, pos += inc) {
-        const byte = bytes[pos];
-        codes[2 * i + 2] = hexCodes[byte >> 4];
-        codes[2 * i + 3] = hexCodes[byte & 15];
+        const byte = bytes[pos]!;
+        codes[2 * i + 2] = hexCodes[byte >> 4]!;
+        codes[2 * i + 3] = hexCodes[byte & 15]!;
     }
     const str = String.fromCharCode.apply(null, codes as any as number[]);
     let x = BigInt(str);

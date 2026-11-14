@@ -143,7 +143,7 @@ type StringBuilder(value: string, capacity: int) =
                 failwith "Index was outside the bounds of the array"
             else
                 let pos = index - len
-                buf[i][pos]
+                buf[i].Chars(pos)
 
         and set (index: int) (value: char) =
             let mutable len = 0
