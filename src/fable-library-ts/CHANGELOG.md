@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
+last_commit_released: a0b15375e23d1354ee2443f7e8e727bc330be3ee
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.13.1 - 2026-11-14
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass defaults for DefaultValue fields to ctors (#5267) ([cc94c9cc](https://github.com/fable-compiler/Fable/commit/cc94c9ccba1100c39f9764e8511040bbb34be249))
+* *(js/ts)* Keep TimeSpan.Ticks exact for big values (#5250) ([3c1cea99](https://github.com/fable-compiler/Fable/commit/3c1cea99d30edc2cf3fa5dbeb3a3e6a00e97235a))
+* *(js/ts)* `IReadOnlyList` indexer and failed `Regex` match members (#5301) ([0adb969d](https://github.com/fable-compiler/Fable/commit/0adb969d86f610b3557346ab4745cd461c066414))
+* *(js/ts/python)* Handle cyclic records in formatting (#5298) ([78a006a5](https://github.com/fable-compiler/Fable/commit/78a006a58ed4f3032e9fa8923e0d31676af88f6a))
+* *(js/ts/python)* Support `Option.count` and `Match.NextMatch` (#5300) ([22a8ee46](https://github.com/fable-compiler/Fable/commit/22a8ee4628db78b0afed5a270e0f39f34d94029b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7d46c71405542c6d6e4a0204251f4b704efac847..a0b15375e23d1354ee2443f7e8e727bc330be3ee)</small></strong>
 
 ## 2.13.0 - 2026-11-03
 
