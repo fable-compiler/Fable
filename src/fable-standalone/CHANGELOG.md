@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
+last_commit_released: a0b15375e23d1354ee2443f7e8e727bc330be3ee
 pre_release: beta
 include:
   - ../Fable.Transforms/
@@ -20,6 +20,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 4.0.0-beta.7 - 2026-11-14
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass defaults for DefaultValue fields to ctors (#5267) ([cc94c9cc](https://github.com/fable-compiler/Fable/commit/cc94c9ccba1100c39f9764e8511040bbb34be249))
+* *(all)* Copy mutable struct records by value (#5270) ([f9657ad3](https://github.com/fable-compiler/Fable/commit/f9657ad304803ff00c9a2ada398b5f586ad74e53))
+* *(js/ts)* Keep TimeSpan.Ticks exact for big values (#5250) ([3c1cea99](https://github.com/fable-compiler/Fable/commit/3c1cea99d30edc2cf3fa5dbeb3a3e6a00e97235a))
+* *(js/ts)* Evaluate the Array.create count once ([66ace468](https://github.com/fable-compiler/Fable/commit/66ace46864b628dd4a5b8b71f121c282892f2e0e))
+* *(js/ts)* Evaluate for loop bound once (#5282) ([62378c8b](https://github.com/fable-compiler/Fable/commit/62378c8bd5bfdaed907df11619a3362b86dd522b))
+* *(js/ts)* Truncate 8/16-bit bitwise results and mask shift counts (#5302) ([eea3ef98](https://github.com/fable-compiler/Fable/commit/eea3ef980b3223dfacb8ca4a3549ecb622a26c8c))
+* *(js/ts)* `IReadOnlyList` indexer and failed `Regex` match members (#5301) ([0adb969d](https://github.com/fable-compiler/Fable/commit/0adb969d86f610b3557346ab4745cd461c066414))
+* *(js/ts)* Wrap integer arithmetic like .NET (#5304) ([e453d983](https://github.com/fable-compiler/Fable/commit/e453d983cd2c695de572eb547705397459e64a04))
+* *(js/ts)* Print valid regex literal for `Regex("")` (#5306) ([a0b15375](https://github.com/fable-compiler/Fable/commit/a0b15375e23d1354ee2443f7e8e727bc330be3ee))
+* *(js/ts/python)* Support explicit constructors with as and then (#5235) ([f8bfce33](https://github.com/fable-compiler/Fable/commit/f8bfce3393da131243c3e3daebad015ec18cf42f))
+* *(js/ts/python)* Handle cyclic records in formatting (#5298) ([78a006a5](https://github.com/fable-compiler/Fable/commit/78a006a58ed4f3032e9fa8923e0d31676af88f6a))
+* *(js/ts/python)* Support `Option.count` and `Match.NextMatch` (#5300) ([22a8ee46](https://github.com/fable-compiler/Fable/commit/22a8ee4628db78b0afed5a270e0f39f34d94029b))
+* *(rust)* Wrap async test bodies with runSynchronously (#5289) ([f51333f4](https://github.com/fable-compiler/Fable/commit/f51333f48b8f7d05b15b9b50fd58fb9283cc04a7))
+* *(rust)* Mask shift counts like .NET (#5303) ([c353f703](https://github.com/fable-compiler/Fable/commit/c353f703decdaf656b1bdabc4563fedf8a1523c4))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Read arrays at the call site (#5264) ([dd668b28](https://github.com/fable-compiler/Fable/commit/dd668b28234708ef2bc04b9056d1548f92552dcb))
+* *(js/ts)* Read string chars at the call site ([07a38e76](https://github.com/fable-compiler/Fable/commit/07a38e764b1dd8fb79b4374df2aa22c18e0b7fce))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7d46c71405542c6d6e4a0204251f4b704efac847..a0b15375e23d1354ee2443f7e8e727bc330be3ee)</small></strong>
 
 ## 4.0.0-beta.6 - 2026-11-03
 
