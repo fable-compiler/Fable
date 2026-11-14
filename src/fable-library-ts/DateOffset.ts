@@ -18,6 +18,8 @@ import DateTime, { create as createDate, dateOffsetToString, daysInMonth, parseR
 import { FSharpRef } from "./Types.ts";
 import { Exception, compareDates, DateTimeKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.ts";
 
+export { toString } from "./Date.ts";
+
 export default function DateTimeOffset(value: number, offset?: number) {
   checkOffsetInRange(offset);
   const d = new Date(value) as IDateTimeOffset;

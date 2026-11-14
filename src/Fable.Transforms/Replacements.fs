@@ -443,9 +443,7 @@ let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
             Helper.LibCall(com, dateTimeModule com, "toString", String, args)
         | Builtin BclDateTimeOffset when com.Options.JsTemporal ->
             Helper.LibCall(com, dateTimeOffsetModule com, "toString", String, args)
-        // DateOffset has no toString: Date.toString formats both and dispatches on the offset
-        | Builtin BclDateTimeOffset -> Helper.LibCall(com, "Date", "toString", String, args)
-        | Builtin(BclGuid | BclTimeSpan | BclDateTime as bt) ->
+        | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number(Int16, _) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number(Int32, _) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
@@ -3808,14 +3806,7 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
         Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToString" ->
-        // The Temporal module formats itself; the JS-Date one delegates to Date.toString (dispatches on offset)
-        let toStringModule =
-            if com.Options.JsTemporal then
-                moduleName
-            else
-                "Date"
-
-        Helper.LibCall(com, toStringModule, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, moduleName, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Offset" ->
         Helper.LibCall(com, moduleName, "offset", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)

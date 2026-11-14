@@ -359,7 +359,7 @@ export function dateToString_D(info: DateInfo): string {
 export function dateToString_d(info: DateInfo): string {
   return padWithZeros(info.month, 2)
     + "/" + padWithZeros(info.day, 2)
-    + "/" + info.year;
+    + "/" + padWithZeros(info.year, 4);
 }
 
 export function dateToString_T(info: DateInfo): string {

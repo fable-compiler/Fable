@@ -26,9 +26,16 @@ let tests =
 
     testCase "string on DateTimeOffset works" <| fun () -> // See #5297
         let d = DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.FromHours 2.)
-        string d |> equal (d.ToString())
-        string (DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.Zero))
-        |> equal (DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.Zero).ToString())
+        string d |> equal "11/12/2026 09:30:00 +02:00"
+        d.ToString() |> equal "11/12/2026 09:30:00 +02:00"
+        String.Format("{0}", d) |> equal "11/12/2026 09:30:00 +02:00"
+        sprintf "%O" d |> equal "11/12/2026 09:30:00 +02:00"
+        sprintf "%A" d |> equal "11/12/2026 09:30:00 +02:00"
+        string (DateTimeOffset(2026, 11, 12, 9, 30, 0, TimeSpan.Zero)) |> equal "11/12/2026 09:30:00 +00:00"
+        string (DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan(-5, -30, 0))) |> equal "01/02/2026 03:04:05 -05:30"
+        string (DateTimeOffset(2026, 7, 4, 15, 4, 5, 123, TimeSpan(5, 45, 0))) |> equal "07/04/2026 15:04:05 +05:45"
+        string DateTimeOffset.MinValue |> equal "01/01/0001 00:00:00 +00:00"
+        string DateTimeOffset.MaxValue |> equal "12/31/9999 23:59:59 +00:00"
 
     testCase "DateTimeOffset.ToString without separator works" <| fun () -> // See #1131
         DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")

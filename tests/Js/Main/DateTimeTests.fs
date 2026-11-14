@@ -539,6 +539,14 @@ let tests =
         |> format
         |> equal "09/01/2014 16:37:02"
 
+    testCase "DateTime.ToString pads the year to four digits" <| fun _ ->
+        let d = DateTime(99, 3, 4, 5, 6, 7, DateTimeKind.Utc)
+        d.ToString() |> equal "03/04/0099 05:06:07"
+        d.ToString("d", CultureInfo.InvariantCulture) |> equal "03/04/0099"
+        d.ToString("G", CultureInfo.InvariantCulture) |> equal "03/04/0099 05:06:07"
+        d.ToString("g", CultureInfo.InvariantCulture) |> equal "03/04/0099 05:06"
+        DateTime.MinValue.ToString() |> equal "01/01/0001 00:00:00"
+
     testCase "DateTime.ToString('g') works" <| fun _ ->
         let format (d: DateTime) = d.ToString("g", CultureInfo.InvariantCulture)
         DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)

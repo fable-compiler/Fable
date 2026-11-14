@@ -405,7 +405,7 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
   const d = DateTime(date.getTime() + (date.offset ?? 0), DateTimeKind.Utc);
   if (typeof format !== "string") {
-    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
+    return dateToString_d(d) + " " + dateToString_T(d) + " " + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
     switch (format) {
       case "D": return dateToString_D(d);
@@ -449,7 +449,7 @@ function dateToString_D(date: IDateTime) {
 function dateToString_d(date: IDateTime) {
   return padWithZeros(month(date), 2)
     + "/" + padWithZeros(day(date), 2)
-    + "/" + year(date);
+    + "/" + padWithZeros(year(date), 4);
 }
 
 function dateToString_T(date: IDateTime) {
