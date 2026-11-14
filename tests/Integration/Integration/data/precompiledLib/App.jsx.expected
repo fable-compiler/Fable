@@ -8,7 +8,7 @@ export const greeting = {
     },
 };
 
-export const doubled = 21 * 2;
+export const doubled = Math.imul(21, 2);
 
 export const plain = plain_1(1);
 

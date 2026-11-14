@@ -19,5 +19,5 @@ export const twice = TwiceBuilder_$ctor();
 
 export let callCount = createAtom(0);
 
-export const result = ((callCount(callCount() + 1), callCount()), (callCount(callCount() + 1), callCount()));
+export const result = ((callCount((callCount() + 1) | 0), callCount()), (callCount((callCount() + 1) | 0), callCount()));
 

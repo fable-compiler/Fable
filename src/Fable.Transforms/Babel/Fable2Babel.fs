@@ -1193,6 +1193,16 @@ module Util =
         | _ -> false
 
     let isReReadForLoopLimit (com: Compiler) isUp (limit: Fable.Expr) =
+        let limit =
+            match limit with
+            | Fable.Operation(Fable.Binary(BinaryOrBitwise,
+                                           wrapped,
+                                           Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 0, _), _)),
+                              _,
+                              _,
+                              _) -> wrapped
+            | _ -> limit
+
         match limit with
         | Fable.Operation(Fable.Binary(BinaryMinus,
                                        length,
@@ -1620,10 +1630,21 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         getExpr r expr (Expression.stringLiteral ("tag"))
 
+    let private isInt32Expression (e: Expression) =
+        match e with
+        | BinaryExpression(operator = ("|" | "&" | "^" | "<<" | ">>"))
+        | UnaryExpression(operator = "~")
+        | CallExpression(
+            callee = MemberExpression(
+                object = Expression.Identifier(Identifier(name = "Math"))
+                property = Expression.Identifier(Identifier(name = "imul")))) -> true
+        | _ -> false
+
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
+        | _ when isInt32Expression e -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number((Int8 | Int16 | Int32), Fable.NumberInfo.Empty) ->
             Expression.binaryExpression (BinaryOrBitwise, e, Expression.numericLiteral (0.))
