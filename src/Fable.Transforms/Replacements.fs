@@ -3973,14 +3973,7 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
         Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToString" ->
-        // The Temporal module formats itself; the JS-Date one delegates to Date.toString (dispatches on offset)
-        let toStringModule =
-            if com.Options.JsTemporal then
-                moduleName
-            else
-                "Date"
-
-        Helper.LibCall(com, toStringModule, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, moduleName, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Offset" ->
         Helper.LibCall(com, moduleName, "offset", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
