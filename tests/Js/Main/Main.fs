@@ -28,6 +28,7 @@ let allTests =
     Event.tests
     HashSets.tests
     Import.tests
+    ImportValueDynamic.tests
     InlineIfLambda.tests
     JsInterop.tests
     Lists.tests
