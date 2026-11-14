@@ -1,6 +1,6 @@
 import { FSharpRef } from "./Types.ts";
 import { Exception } from "./Util.ts";
-import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, DivideByZeroException_$ctor, FormatException_$ctor_Z721C83C5, OverflowException_$ctor, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
 
 export type int8 = number;
 export type uint8 = number;
@@ -110,6 +110,43 @@ export function isValid(str: string, style: number, radix?: number) {
 export function parseOverflow(unsigned: boolean, bitsize: number) {
   const type = bitsize === 8 ? (unsigned ? "an unsigned byte" : "a signed byte") : (unsigned ? "a UInt" : "an Int") + bitsize;
   return OverflowException_$ctor_Z721C83C5(`Value was either too large or too small for ${type}.`);
+}
+
+export function absOverflow() {
+  return OverflowException_$ctor_Z721C83C5("Negating the minimum value of a twos complement number is invalid.");
+}
+
+export function abs(x: number, bitsize: number): number {
+  if (x === -(2 ** (bitsize - 1))) {
+    throw absOverflow();
+  }
+  return Math.abs(x);
+}
+
+export function pown(x: number, n: int32, unsigned: boolean, bitsize: number): number {
+  let res = 1;
+  let e = Math.abs(n);
+  while (e > 0) {
+    if (e % 2 === 1) {
+      res *= x;
+    }
+    e = Math.floor(e / 2);
+    if (e > 0) {
+      x *= x;
+    }
+  }
+  const min = unsigned ? 0 : -(2 ** (bitsize - 1));
+  const max = unsigned ? 2 ** bitsize - 1 : 2 ** (bitsize - 1) - 1;
+  if (res < min || res > max) {
+    throw OverflowException_$ctor();
+  }
+  if (n >= 0) {
+    return res;
+  }
+  if (res === 0) {
+    throw DivideByZeroException_$ctor();
+  }
+  return ~~(1 / res);
 }
 
 export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number): number {

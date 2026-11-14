@@ -857,6 +857,25 @@ let tests =
     testCase "abs works" <| fun () ->
         abs -4 |> equal 4
 
+    testCase "abs of the minimum value of a signed integer throws OverflowException" <| fun () ->
+        let mutable i8 = SByte.MinValue
+        let mutable i16 = Int16.MinValue
+        let mutable i32 = Int32.MinValue
+        let mutable i64 = Int64.MinValue
+        let mutable n = nativeint Int64.MinValue
+        raisedExceptionType (fun () -> abs i8) |> equal "OverflowException"
+        raisedExceptionType (fun () -> abs i16) |> equal "OverflowException"
+        raisedExceptionType (fun () -> abs i32) |> equal "OverflowException"
+        raisedExceptionType (fun () -> abs i64) |> equal "OverflowException"
+        raisedExceptionType (fun () -> abs n) |> equal "OverflowException"
+        raisedExceptionType (fun () -> Math.Abs i32) |> equal "OverflowException"
+        raisedExceptionType (fun () -> Math.Abs i64) |> equal "OverflowException"
+        abs (i8 + 1y) |> equal 127y
+        abs (i32 + 1) |> equal Int32.MaxValue
+        abs (i64 + 1L) |> equal Int64.MaxValue
+        abs (bigint i64) |> equal 9223372036854775808I
+        -i32 |> equal Int32.MinValue
+
     testCase "round works" <| fun () ->
         round -12.5 |> equal -12.
         round 1.5 |> equal 2.
@@ -875,6 +894,47 @@ let tests =
 
     testCase "pown works" <| fun () ->
         pown 2.2 3 |> checkTo3dp 10648.
+
+    testCase "pown works with integers" <| fun () ->
+        let mutable two = 2
+        let mutable twoL = 2L
+        pown two 30 |> equal 1073741824
+        pown -two 31 |> equal Int32.MinValue
+        pown two -1 |> equal 0
+        pown -1 -3 |> equal -1
+        pown 2uy 7 |> equal 128uy
+        pown 2u 31 |> equal 2147483648u
+        pown twoL 62 |> equal 4611686018427387904L
+        pown -twoL 63 |> equal Int64.MinValue
+        pown 3L 39 |> equal 4052555153018976267L
+        pown twoL -1 |> equal 0L
+        pown 2UL 63 |> equal 9223372036854775808UL
+        pown 2I 100 |> equal 1267650600228229401496703205376I
+        pown 2I -1 |> equal 0I
+
+    testCase "pown throws OverflowException when the result is out of range" <| fun () ->
+        let mutable two = 2
+        let mutable twoL = 2L
+        raisedExceptionType (fun () -> pown two 31) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown -two 32) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown -3 21) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 46341 two) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2y 7) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2uy 8) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2s 15) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2us 16) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2u 32) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown twoL 63) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 3L 40) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2UL 64) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2n 63) |> equal "OverflowException"
+        raisedExceptionType (fun () -> pown 2un 64) |> equal "OverflowException"
+
+    testCase "pown of zero with a negative exponent throws DivideByZeroException" <| fun () ->
+        let mutable zero = 0
+        let mutable zeroL = 0L
+        throwsError "Attempted to divide by zero." (fun () -> pown zero -1)
+        throwsError "Attempted to divide by zero." (fun () -> pown zeroL -1)
 
     testCase "sqrt works" <| fun () ->
         sqrt 4.5 |> checkTo3dp 2121.

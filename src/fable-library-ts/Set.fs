@@ -874,7 +874,10 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
         for x in this do
             res <- combineHash res (hash x)
 
-        abs res
+        if res < 0 then
+            -res
+        else
+            res
 
     override this.GetHashCode() = this.ComputeHashCode()
 
