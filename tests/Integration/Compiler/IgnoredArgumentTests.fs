@@ -121,7 +121,7 @@ DateTime.Parse("2026-01-01") |> ignore
         """
 open System
 open System.Globalization
-Double.Parse("1.5", NumberStyles.Currency, CultureInfo.InvariantCulture) |> ignore
+Int32.Parse("1", NumberStyles.Currency, CultureInfo.InvariantCulture) |> ignore
 """
       compile source
       |> Assert.Code.warning "FABLE0103"
