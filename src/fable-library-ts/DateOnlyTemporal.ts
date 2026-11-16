@@ -119,37 +119,37 @@ export function parse(str: string): DateOnly {
     let d = 1;
 
     if (r[2] == null) {
-      if (r[1].length < 3) {
-        if (r[3].length < 3) {
+      if (r[1]!.length < 3) {
+        if (r[3]!.length < 3) {
           // 12/30 = December 30, {CurrentYear}
           y = Temporal.Now.plainDateISO().year;
-          m = +r[1];
-          d = +r[3];
+          m = +r[1]!;
+          d = +r[3]!;
         } else {
           // 12/2000 = December 1, 2000
-          m = +r[1];
-          y = +r[3];
+          m = +r[1]!;
+          y = +r[3]!;
         }
       } else {
-        if (r[3].length > 2)
+        if (r[3]!.length > 2)
           fail();
 
         // 2000/12 = December 1, 2000
-        y = +r[1];
-        m = +r[3];
+        y = +r[1]!;
+        m = +r[3]!;
       }
     } else {
       // 2000/1/30 or 1/30/2000
-      const yearFirst = r[1].length > 2;
-      const yTmp = r[yearFirst ? 1 : 3];
+      const yearFirst = r[1]!.length > 2;
+      const yTmp = r[yearFirst ? 1 : 3]!;
       y = +yTmp;
 
       // year 0-29 is 2000-2029, 30-99 is 1930-1999
       if (yTmp.length < 3)
         y += y >= 30 ? 1900 : 2000;
 
-      m = +r[yearFirst ? 2 : 1];
-      d = +r[yearFirst ? 3 : 2];
+      m = +r[yearFirst ? 2 : 1]!;
+      d = +r[yearFirst ? 3 : 2]!;
     }
 
     if (y > 0) {
