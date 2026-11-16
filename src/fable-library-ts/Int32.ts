@@ -15,8 +15,8 @@ export type float64 = number;
 
 export const NumberStyles = {
   // None: 0x00000000,
-  // AllowLeadingWhite: 0x00000001,
-  // AllowTrailingWhite: 0x00000002,
+  AllowLeadingWhite: 0x00000001,
+  AllowTrailingWhite: 0x00000002,
   // AllowLeadingSign: 0x00000004,
   // AllowTrailingSign: 0x00000008,
   // AllowParentheses: 0x00000010,
@@ -95,7 +95,9 @@ export function getRadix(prefix: string, style: number) {
 
 export function isValid(str: string, style: number, radix?: number) {
   if (style & NumberStyles.AllowHexSpecifier) {
-    const hexRes = /^\s*([0-9a-fA-F]+)\s*$/.exec(str);
+    const leading = style & NumberStyles.AllowLeadingWhite ? "[\\t-\\r ]*" : "";
+    const trailing = style & NumberStyles.AllowTrailingWhite ? "[\\t-\\r ]*" : "";
+    const hexRes = new RegExp(`^${leading}([0-9a-fA-F]+)${trailing}$`).exec(str);
     return hexRes != null ? { sign: "", prefix: "", digits: hexRes[1], radix: 16 } : null;
   }
   const integerRegex = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;

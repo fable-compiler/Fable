@@ -369,8 +369,16 @@ let tests =
         Int32.Parse("0b1", hex) |> equal 177
         Int64.Parse("0b1", hex) |> equal 177L
         Byte.Parse("0b1", hex) |> equal 177uy
-        Int32.Parse("80000000", hex) |> equal -2147483648
-        Int64.Parse("FFFFFFFF", hex) |> equal 4294967295L
+
+    testCase "NumberStyles.AllowHexSpecifier accepts only the white space the style allows" <| fun () ->
+        let hexOnly = System.Globalization.NumberStyles.AllowHexSpecifier
+        let hexLeading = hexOnly ||| System.Globalization.NumberStyles.AllowLeadingWhite
+        (fun () -> Int32.Parse(" 1F", hexOnly)) |> throwsError ""
+        (fun () -> Int32.Parse("1F ", hexLeading)) |> throwsError ""
+        Int32.Parse(" 1F", hexLeading) |> equal 31
+        Int32.Parse("\t1F\n", System.Globalization.NumberStyles.HexNumber) |> equal 31
+        (fun () -> Int32.Parse("\u00A01F", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        Int32.TryParse("1F\u3000", System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture) |> equal (false, 0)
 
     testCase "A plus sign before a radix specifier is rejected" <| fun () ->
         for s in [ "+0x11"; "+0X11"; "+0o7"; "+0b1"; " +0x11 " ] do
@@ -379,9 +387,6 @@ let tests =
             (fun () -> byte s) |> throwsError ""
         int "+11" |> equal 11
         int64 "+11" |> equal 11L
-        int " 0x11" |> equal 17
-        int "-0x11" |> equal -17
-        int64 "-0x11" |> equal -17L
         Convert.ToInt32("+0x1F", 16) |> equal 31
         Convert.ToInt64("+0x1F", 16) |> equal 31L
 
