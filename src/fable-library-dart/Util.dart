@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 import 'dart:math' as dart_math;
+import 'dart:typed_data';
 
 final _curried = Expando();
 
@@ -1113,4 +1114,11 @@ String padLeftAndRightWithZeros(int i, int lengthLeft, int lengthRight) {
     str = str + "0";
   }
   return str;
+}
+
+final _float32 = Float32List(1);
+
+double fround(double x) {
+  _float32[0] = x;
+  return _float32[0];
 }

@@ -589,6 +589,8 @@ let private operators
             | Number(Int64, _) -> "range", "range_int64", addStep args
             | Number(UInt64, _) -> "range", "range_u_int64", addStep args
             | Number(BigInt, _) -> "range", "range_big_int", addStep args
+            | Number(Float32, _) -> "range", "range_single", addStep args
+            | Number(Float64, _) -> "range", "range_float", addStep args
             | _ -> "range", "range_double", addStep args
 
         Helper.LibCall(com, modul, meth, _t, args, info.SignatureArgTypes, ?loc = r)
@@ -3251,8 +3253,14 @@ let private intrinsicFunctions
     | "RangeChar", _ ->
         Helper.LibCall(com, "range", "range_char", t, args, info.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeSingle" | "RangeDouble"), _ ->
+    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16"), _ ->
         Helper.LibCall(com, "range", "range_double", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeSingle", _ ->
+        Helper.LibCall(com, "range", "range_single", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeDouble", _ ->
+        Helper.LibCall(com, "range", "range_float", t, args, info.SignatureArgTypes, ?loc = r)
         |> Some
     | "RangeInt32", _ ->
         Helper.LibCall(com, "range", "range_int32", t, args, info.SignatureArgTypes, ?loc = r)

@@ -17,6 +17,7 @@
     neg_infinity/0,
     nan/0,
     is_infinity/1,
+    round_single/1,
     new_lazy/1,
     new_lazy_from_value/1,
     force_lazy/1,
@@ -60,6 +61,7 @@
 -spec neg_infinity() -> float().
 -spec nan() -> nan.
 -spec is_infinity(term()) -> boolean().
+-spec round_single(float()) -> float().
 -spec new_lazy(fun()) -> reference().
 -spec new_lazy_from_value(term()) -> reference().
 -spec force_lazy(reference()) -> term().
@@ -391,6 +393,16 @@ neg_infinity() -> -1.7976931348623157e308.
 nan() -> nan.
 is_infinity(X) when is_float(X) -> X >= 1.7976931348623157e308 orelse X =< -1.7976931348623157e308;
 is_infinity(_) -> false.
+
+%% Rounds a float to single precision. A value outside the single range becomes the infinity stand-in.
+round_single(X) when is_float(X) ->
+    try
+        <<Single:32/float>> = <<X:32/float>>,
+        Single
+    catch
+        error:_ when X > 0 -> pos_infinity();
+        error:_ -> neg_infinity()
+    end.
 
 %% Lazy<T> with memoization via process dictionary.
 new_lazy(Factory) ->
