@@ -53,7 +53,7 @@ let stringComparisonIgnored = "FABLE0101", "String comparison argument is ignore
 /// changes the decimal separator or the day/month order silently changes the result.
 let formatProviderIgnored = "FABLE0102", "Format provider argument is ignored"
 
-/// A `NumberStyles` value that isn't `Integer` or `HexNumber` passed to a numeric `Parse`. The
+/// A `NumberStyles` value the target doesn't honour passed to a numeric `Parse`. The
 /// value is interpolated because the range can't tell you which style was discarded.
 let numberStylesIgnored (style: int) =
     "FABLE0103", $"NumberStyles argument %d{style} is ignored"

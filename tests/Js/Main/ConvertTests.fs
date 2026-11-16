@@ -678,6 +678,117 @@ let tests =
         equal -17L (int64 "-0x11")
         equal -11 (int "-1_1")
 
+    testCase "Integer Parse and Convert reject the formats only the F# conversions accept" <| fun () ->
+        for s in [ "0x1F"; "-0x1"; "0b101"; "1_000"; " 12" ] do
+            raisedExceptionType (fun () -> Int32.Parse s) |> equal "FormatException"
+            raisedExceptionType (fun () -> Int64.Parse s) |> equal "FormatException"
+            raisedExceptionType (fun () -> Convert.ToInt32 s) |> equal "FormatException"
+            raisedExceptionType (fun () -> Convert.ToInt64 s) |> equal "FormatException"
+            raisedExceptionType (fun () -> Convert.ToInt32(s, CultureInfo.InvariantCulture)) |> equal "FormatException"
+            tryParse Int32.TryParse 0 s |> equal (false, 0)
+        raisedExceptionType (fun () -> Byte.Parse "0xFF") |> equal "FormatException"
+        Int32.Parse " 12 " |> equal 12
+        Int64.Parse "+12" |> equal 12L
+        Convert.ToInt32 " 12 " |> equal 12
+        Convert.ToInt64 " 12 " |> equal 12L
+        int " 12" |> equal 12
+        uint8 "0xFF" |> equal 255uy
+
+    testCase "Convert to an integer returns zero for a null string" <| fun () ->
+        let s: string = null
+        Convert.ToSByte s |> equal 0y
+        Convert.ToByte s |> equal 0uy
+        Convert.ToInt16 s |> equal 0s
+        Convert.ToUInt16 s |> equal 0us
+        Convert.ToInt32 s |> equal 0
+        Convert.ToUInt32 s |> equal 0u
+        Convert.ToInt64 s |> equal 0L
+        Convert.ToUInt64 s |> equal 0UL
+        Convert.ToInt32(s, CultureInfo.InvariantCulture) |> equal 0
+        Convert.ToByte(s, CultureInfo.InvariantCulture) |> equal 0uy
+        Convert.ToInt64(s, CultureInfo.InvariantCulture) |> equal 0L
+        Convert.ToUInt64(s, CultureInfo.InvariantCulture) |> equal 0UL
+
+    testCase "Integer Parse honours NumberStyles" <| fun () ->
+        let parse (s: string) = Int32.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)
+        parse "1,000" |> equal 1000
+        parse "1.0" |> equal 1
+        parse "(5)" |> equal -5
+        parse "1e3" |> equal 1000
+        parse "10e-1" |> equal 1
+        parse "-0.0" |> equal 0
+        parse "(2147483648)" |> equal -2147483648
+        raisedExceptionType (fun () -> parse "1.5") |> equal "OverflowException"
+        raisedExceptionType (fun () -> parse "1e10") |> equal "OverflowException"
+        raisedExceptionType (fun () -> parse "0x1F") |> equal "FormatException"
+        raisedExceptionType (fun () -> Int32.Parse("-12", NumberStyles.None)) |> equal "FormatException"
+        Int32.TryParse("1.5", NumberStyles.Any, CultureInfo.InvariantCulture) |> equal (false, 0)
+        Int64.Parse("1e10", NumberStyles.Any, CultureInfo.InvariantCulture) |> equal 10000000000L
+        Int64.Parse("(9223372036854775808)", NumberStyles.Any, CultureInfo.InvariantCulture) |> equal Int64.MinValue
+        UInt64.Parse("18446744073709551615", NumberStyles.Any, CultureInfo.InvariantCulture) |> equal UInt64.MaxValue
+        raisedExceptionType (fun () -> UInt64.Parse("-0.0", NumberStyles.Any, CultureInfo.InvariantCulture)) |> equal "OverflowException"
+        raisedExceptionType (fun () -> Byte.Parse("1,000", NumberStyles.Any, CultureInfo.InvariantCulture)) |> equal "OverflowException"
+        Int32.Parse("101", NumberStyles.BinaryNumber) |> equal 5
+        SByte.Parse("11111111", NumberStyles.BinaryNumber) |> equal -1y
+
+    testCase "Integer Parse accepts trailing NULs after hex and binary digits" <| fun () ->
+        Int32.Parse("FF\000", NumberStyles.HexNumber) |> equal 255
+        Int32.Parse("FF\000\000", NumberStyles.AllowHexSpecifier) |> equal 255
+        Int32.Parse("FF \000", NumberStyles.HexNumber) |> equal 255
+        Int32.Parse("101\000", NumberStyles.BinaryNumber) |> equal 5
+        Int32.TryParse("FF\000", NumberStyles.HexNumber, CultureInfo.InvariantCulture) |> equal (true, 255)
+        Int64.Parse("FF\000", NumberStyles.HexNumber) |> equal 255L
+        Int64.Parse("FF \000", NumberStyles.HexNumber) |> equal 255L
+        Int64.Parse("101\000", NumberStyles.BinaryNumber) |> equal 5L
+        Int64.TryParse("FF\000", NumberStyles.HexNumber, CultureInfo.InvariantCulture) |> equal (true, 255L)
+        raisedExceptionType (fun () -> Int32.Parse("FF\000 ", NumberStyles.HexNumber)) |> equal "FormatException"
+        raisedExceptionType (fun () -> Int32.Parse("FF \000", NumberStyles.AllowHexSpecifier)) |> equal "FormatException"
+        raisedExceptionType (fun () -> Int64.Parse("F\000F", NumberStyles.HexNumber)) |> equal "FormatException"
+
+    testCase "Integer Parse and TryParse reject invalid NumberStyles" <| fun () ->
+        let invalidStyles =
+            [
+                NumberStyles.HexNumber ||| NumberStyles.AllowLeadingSign
+                NumberStyles.AllowHexSpecifier ||| NumberStyles.AllowDecimalPoint
+                NumberStyles.AllowHexSpecifier ||| NumberStyles.AllowCurrencySymbol
+                NumberStyles.BinaryNumber ||| NumberStyles.AllowLeadingSign
+                NumberStyles.AllowHexSpecifier ||| NumberStyles.AllowBinarySpecifier
+                enum<NumberStyles> 0x800
+                enum<NumberStyles> 0x1000
+                enum<NumberStyles> -1
+            ]
+        for style in invalidStyles do
+            raisedExceptionType (fun () -> Int32.Parse("1", style)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Byte.Parse("1", style)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Int64.Parse("1", style)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Int32.TryParse("1", style, CultureInfo.InvariantCulture)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> UInt64.TryParse("1", style, CultureInfo.InvariantCulture)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Int32.Parse(null, style)) |> equal "ArgumentNullException"
+            raisedExceptionType (fun () -> Int64.Parse(null, style)) |> equal "ArgumentNullException"
+            raisedExceptionType (fun () -> Int32.TryParse(null, style, CultureInfo.InvariantCulture)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> Int64.TryParse(null, style, CultureInfo.InvariantCulture)) |> equal "ArgumentException"
+        Int32.TryParse(null, NumberStyles.HexNumber, CultureInfo.InvariantCulture) |> equal (false, 0)
+
+    testCase "TryParse sets the out value to zero when it fails" <| fun () ->
+        let i32 = ref 5
+        Int32.TryParse("x", i32) |> equal false
+        i32.Value |> equal 0
+        let u8 = ref 5uy
+        Byte.TryParse("x", u8) |> equal false
+        u8.Value |> equal 0uy
+        let i64 = ref 5L
+        Int64.TryParse("x", i64) |> equal false
+        i64.Value |> equal 0L
+        let f64 = ref 5.0
+        Double.TryParse("x", f64) |> equal false
+        f64.Value |> equal 0.0
+        let f32 = ref 5.0f
+        Single.TryParse("x", f32) |> equal false
+        f32.Value |> equal 0.0f
+        let dec = ref 5M
+        Decimal.TryParse("x", dec) |> equal false
+        dec.Value |> equal 0M
+
     testCase "System.Int32.TryParse works" <| fun () ->
         tryParse Int32.TryParse 0 "1" |> equal (true, 1)
         tryParse Int32.TryParse 0 "    1     " |> equal (true, 1)

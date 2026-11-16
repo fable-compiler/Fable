@@ -1,6 +1,7 @@
 import { FSharpRef } from "./Types.ts";
 import { Exception } from "./Util.ts";
-import { ArgumentNullException_$ctor_Z721C83C5, DivideByZeroException_$ctor, FormatException_$ctor_Z721C83C5, OverflowException_$ctor, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
+import { integerDigits, invalidStyleMessage, NumberStyles, radixStyles, splitNumber } from "./NumberStyles.ts";
+import { ArgumentException_$ctor_Z721C83C5, ArgumentNullException_$ctor_Z721C83C5, DivideByZeroException_$ctor, FormatException_$ctor_Z721C83C5, OverflowException_$ctor, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
 
 export type int8 = number;
 export type uint8 = number;
@@ -12,33 +13,6 @@ export type uint32 = number;
 export type float16 = number;
 export type float32 = number;
 export type float64 = number;
-
-export const NumberStyles = {
-  // None: 0x00000000,
-  AllowLeadingWhite: 0x00000001,
-  AllowTrailingWhite: 0x00000002,
-  // AllowLeadingSign: 0x00000004,
-  // AllowTrailingSign: 0x00000008,
-  // AllowParentheses: 0x00000010,
-  // AllowDecimalPoint: 0x00000020,
-  // AllowThousands: 0x00000040,
-  // AllowExponent: 0x00000080,
-  // AllowCurrencySymbol: 0x00000100,
-  AllowHexSpecifier: 0x00000200,
-
-  // Integer = AllowLeadingWhite | AllowTrailingWhite | AllowLeadingSign,
-  // HexNumber = AllowLeadingWhite | AllowTrailingWhite | AllowHexSpecifier,
-  // Number = AllowLeadingWhite | AllowTrailingWhite | AllowLeadingSign |
-  //          AllowTrailingSign | AllowDecimalPoint | AllowThousands,
-  // Float = AllowLeadingWhite | AllowTrailingWhite | AllowLeadingSign |
-  //         AllowDecimalPoint | AllowExponent,
-  // Currency = AllowLeadingWhite | AllowTrailingWhite | AllowLeadingSign | AllowTrailingSign |
-  //            AllowParentheses | AllowDecimalPoint | AllowThousands | AllowCurrencySymbol,
-  // Any = AllowLeadingWhite | AllowTrailingWhite | AllowLeadingSign | AllowTrailingSign |
-  //       AllowParentheses | AllowDecimalPoint | AllowThousands | AllowCurrencySymbol | AllowExponent,
-} as const;
-
-export type NumberStyles = typeof NumberStyles[keyof typeof NumberStyles];
 
 function validResponse(regexMatch: RegExpExecArray, radix: number) {
   const [/*all*/, sign, prefix, digits] = regexMatch;
@@ -80,26 +54,17 @@ export function getPrefix(radix: number): string {
   }
 }
 
-export function getRadix(prefix: string, style: number) {
-  if (style & NumberStyles.AllowHexSpecifier) {
-    return 16;
-  } else {
-    switch (prefix) {
-      case "0b": case "0B": return 2;
-      case "0o": case "0O": return 8;
-      case "0x": case "0X": return 16;
-      default: return 10;
-    }
+function getRadix(prefix: string) {
+  switch (prefix) {
+    case "0b": case "0B": return 2;
+    case "0o": case "0O": return 8;
+    case "0x": case "0X": return 16;
+    default: return 10;
   }
 }
 
-export function isValid(str: string, style: number, radix?: number) {
-  if (style & NumberStyles.AllowHexSpecifier) {
-    const leading = style & NumberStyles.AllowLeadingWhite ? "[\\t-\\r ]*" : "";
-    const trailing = style & NumberStyles.AllowTrailingWhite ? "[\\t-\\r ]*" : "";
-    const hexRes = new RegExp(`^${leading}([0-9a-fA-F]+)${trailing}$`).exec(str);
-    return hexRes != null ? { sign: "", prefix: "", digits: hexRes[1], radix: 16 } : null;
-  }
+// FSharp.Core's grammar for the string conversions (int, int64, ...), or digits in the given radix for Convert.ToInt32(s, radix)
+export function splitFSharpInteger(str: string, radix?: number) {
   const integerRegex = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;
   const res = integerRegex.exec(str.replace(/_/g, ""));
   if (res != null) {
@@ -108,13 +73,30 @@ export function isValid(str: string, style: number, radix?: number) {
     if (radix == null && sign === "+" && prefix != null) {
       return null;
     }
-    radix = radix || getRadix(prefix, style);
+    radix = radix || getRadix(prefix);
     const invalidDigits = getInvalidDigits(radix);
     if (!invalidDigits.test(digits)) {
       return validResponse(res, radix);
     }
   }
   return null;
+}
+
+// The digits of a string parsed with NumberStyles.AllowHexSpecifier or AllowBinarySpecifier
+export function splitRadixDigits(str: string, style: number) {
+  const radix = style & NumberStyles.AllowHexSpecifier ? 16 : 2;
+  const digit = radix === 16 ? "[0-9a-fA-F]" : "[01]";
+  const leading = style & NumberStyles.AllowLeadingWhite ? "[\\t-\\r ]*" : "";
+  const trailing = style & NumberStyles.AllowTrailingWhite ? "[\\t-\\r ]*" : "";
+  const res = new RegExp(`^${leading}(${digit}+)${trailing}\\0*$`).exec(str);
+  return res != null ? { digits: res[1], radix } : null;
+}
+
+export function checkIntegerStyle(style: number): void {
+  const message = invalidStyleMessage(style, true);
+  if (message !== undefined) {
+    throw ArgumentException_$ctor_Z721C83C5(message);
+  }
 }
 
 export function parseOverflow(unsigned: boolean, bitsize: number) {
@@ -159,33 +141,71 @@ export function pown(x: number, n: int32, unsigned: boolean, bitsize: number): n
   return ~~(1 / res);
 }
 
-export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number): number {
+function formatError(str: string) {
+  return FormatException_$ctor_Z721C83C5(`The input string '${str}' was not in a correct format.`);
+}
+
+function checkRange(v: number, radix: number, unsigned: boolean, bitsize: number): number {
+  const [umin, umax] = getRange(true, bitsize);
+  if (!unsigned && radix !== 10 && v >= umin && v <= umax) {
+    v = v << (32 - bitsize) >> (32 - bitsize);
+  }
+  const [min, max] = getRange(unsigned, bitsize);
+  if (v >= min && v <= max) {
+    return v;
+  }
+  throw parseOverflow(unsigned, bitsize);
+}
+
+export function fromString(str: string, unsigned: boolean, bitsize: number, radix?: number): number {
   if (str == null) {
     throw ArgumentNullException_$ctor_Z721C83C5("s");
   }
-  const res = isValid(str, style, radix);
+  const res = splitFSharpInteger(str, radix);
   if (res != null) {
-    let v = Number.parseInt(res.sign + res.digits, res.radix);
+    const v = Number.parseInt(res.sign + res.digits, res.radix);
     if (!Number.isNaN(v)) {
-      const [umin, umax] = getRange(true, bitsize);
-      if (!unsigned && res.radix !== 10 && v >= umin && v <= umax) {
-        v = v << (32 - bitsize) >> (32 - bitsize);
-      }
-      const [min, max] = getRange(unsigned, bitsize);
-      if (v >= min && v <= max) {
-        return v;
-      }
-      throw parseOverflow(unsigned, bitsize);
+      return checkRange(v, res.radix, unsigned, bitsize);
     }
   }
-  throw FormatException_$ctor_Z721C83C5(`The input string '${str}' was not in a correct format.`);
+  throw formatError(str);
+}
+
+export function parse(str: string, style: number, unsigned: boolean, bitsize: number): number {
+  if (str == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("s");
+  }
+  checkIntegerStyle(style);
+  if (style & radixStyles) {
+    const res = splitRadixDigits(str, style);
+    if (res != null) {
+      return checkRange(Number.parseInt(res.digits, res.radix), res.radix, unsigned, bitsize);
+    }
+    throw formatError(str);
+  }
+  const parts = splitNumber(str, style);
+  if (parts == null) {
+    throw formatError(str);
+  }
+  const digits = integerDigits(parts, unsigned);
+  if (digits == null) {
+    throw parseOverflow(unsigned, bitsize);
+  }
+  return checkRange(parts.negative ? 0 - Number(digits) : Number(digits), 10, unsigned, bitsize);
+}
+
+// Convert.ToInt32(null) returns 0 where Int32.Parse(null) throws
+export function convertString(str: string | null, unsigned: boolean, bitsize: number): number {
+  return str == null ? 0 : parse(str, NumberStyles.Integer, unsigned, bitsize);
 }
 
 export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<number>): boolean {
+  checkIntegerStyle(style);
   try {
     defValue.contents = parse(str, style, unsigned, bitsize);
     return true;
   } catch {
+    defValue.contents = 0;
     return false;
   }
 }

@@ -339,12 +339,23 @@ let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
         | Number(kind, _) -> kind
         | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
 
-    let style = int System.Globalization.NumberStyles.Any
     let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
 
-    let parseArgs = [ makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
+    let parseArgs = [ makeBoolConst unsigned; makeIntConst bitsize ]
 
-    Helper.LibCall(com, numberModule, "parse", targetType, [ args.Head ] @ parseArgs @ args.Tail, ?loc = r)
+    Helper.LibCall(com, numberModule, "fromString", targetType, [ args.Head ] @ parseArgs @ args.Tail, ?loc = r)
+
+let parseInt com (ctx: Context) r targetType (str: Expr) : Expr =
+    let kind =
+        match targetType with
+        | Number(kind, _) -> kind
+        | x -> FableError $"Unexpected type in parseInt: %A{x}" |> raise
+
+    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
+
+    let parseArgs = [ str; makeBoolConst unsigned; makeIntConst bitsize ]
+
+    Helper.LibCall(com, numberModule, "convertString", targetType, parseArgs, ?loc = r)
 
 let wrapLong com (ctx: Context) r t (arg: Expr) : Expr =
     match t with
@@ -3199,13 +3210,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _ -> operators com ctx r t i thisArg args
     | ("Parse" | "TryParse") as meth, str :: (ExprType(Number(Int32, _)) as style) :: _ ->
         match style with
-        | NumberConst(NumberValue.Int32 style, _) when
-            (if isFloatOrDecimalType then
-                 style &&& ~~~supportedFloatStyles <> 0
-             else
-                 style <> int System.Globalization.NumberStyles.HexNumber
-                 && style <> int System.Globalization.NumberStyles.Integer)
-            ->
+        | NumberConst(NumberValue.Int32 style, _) when isFloatOrDecimalType && style &&& ~~~supportedFloatStyles <> 0 ->
             WarningCodes.numberStylesIgnored style
             |> addWarningWithCode com ctx.InlinePath r
         | _ -> ()
@@ -3222,7 +3227,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             | Types.float64 ->
                 System.Globalization.NumberStyles.Float
                 ||| System.Globalization.NumberStyles.AllowThousands
-            | _ -> System.Globalization.NumberStyles.Any
+            | _ -> System.Globalization.NumberStyles.Integer
 
         parseCall meth str args (makeIntConst (int style)) |> Some
     | "Pow", _ ->
@@ -3816,15 +3821,33 @@ let private decodedBytes (com: ICompiler) r t expr =
         toArray r t expr
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    let stringToParse () =
+        match args, i.SignatureArgTypes with
+        | [ ExprType String as str ], _ -> Some str
+        | [ ExprType String; _ ], [ _; Number _ ] -> None
+        | [ ExprType String as str; provider ], _ ->
+            match provider with
+            | InvariantCulture -> ()
+            | _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+
+            Some str
+        | _ -> None
+
     match i.CompiledName with
     | "ToSByte"
     | "ToByte"
     | "ToInt16"
     | "ToUInt16"
     | "ToInt32"
-    | "ToUInt32" -> round com args |> toInt com ctx r t |> Some
-    | "ToInt64" -> round com args |> toLong com ctx r t |> Some
-    | "ToUInt64" -> round com args |> toLong com ctx r t |> Some
+    | "ToUInt32" ->
+        match stringToParse () with
+        | Some str -> parseInt com ctx r t str |> Some
+        | None -> round com args |> toInt com ctx r t |> Some
+    | "ToInt64"
+    | "ToUInt64" ->
+        match stringToParse () with
+        | Some str -> parseInt com ctx r t str |> wrapLong com ctx r t |> Some
+        | None -> round com args |> toLong com ctx r t |> Some
     | "ToSingle"
     | "ToDouble" -> toFloat com ctx r t args |> Some
     | "ToDecimal" ->

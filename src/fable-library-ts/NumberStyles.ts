@@ -19,6 +19,25 @@ export const NumberStyles = {
   Float: 167,
 } as const;
 
+const allNumberStyles = 0x7ff;
+export const radixStyles = NumberStyles.AllowHexSpecifier | NumberStyles.AllowBinarySpecifier;
+
+// Returns the ArgumentException message instead of throwing: importing System.ts here is a circular import that breaks module initialisation
+export function invalidStyleMessage(style: number, fixedSize: boolean): string | undefined {
+  if (style & ~allNumberStyles) {
+    return "An undefined NumberStyles value is being used.";
+  }
+  const radix = style & radixStyles;
+  // Unlike BigInteger, the fixed size integers also reject AllowBinarySpecifier with anything but white space
+  if (fixedSize && radix && (radix === radixStyles || style & ~NumberStyles.HexNumber & ~radixStyles)) {
+    return "With the AllowHexSpecifier or AllowBinarySpecifier bit set in the enum bit field, the only other valid bits that can be combined into the enum value must be AllowLeadingWhite and AllowTrailingWhite.";
+  }
+  if (!fixedSize && style & NumberStyles.AllowHexSpecifier && style & ~NumberStyles.HexNumber) {
+    return "With the AllowHexSpecifier bit set in the enum bit field, the only other valid bits that can be combined into the enum value must be a subset of those in HexNumber.";
+  }
+  return undefined;
+}
+
 export interface NumberParts {
   digits: string;
   negative: boolean;
@@ -108,4 +127,25 @@ export function splitNumber(str: string, style: number): NumberParts | undefined
     return undefined;
   }
   return { digits: digits.replace(/,/g, ""), negative };
+}
+
+// UInt64.MaxValue has 20 digits
+const maxIntegerDigits = 20;
+
+// Returns undefined where .NET overflows before its range check: a fraction, or a negative unsigned number with a decimal point
+export function integerDigits(parts: NumberParts, unsigned: boolean): string | undefined {
+  const [, integral, fraction, exponent] = /^(\d*)\.?(\d*)(?:[eE]([+-]?\d+))?$/.exec(parts.digits)!;
+  if (unsigned && parts.negative && parts.digits.includes(".")) {
+    return undefined;
+  }
+  const trimmed = trimEndChars(integral + fraction, "0");
+  const significant = trimmed.replace(/^0+/, "");
+  if (significant === "") {
+    return "0";
+  }
+  const scale = Number(exponent ?? 0) + integral.length - trimmed.length;
+  if (scale < 0 || significant.length + scale > maxIntegerDigits) {
+    return undefined;
+  }
+  return significant + "0".repeat(scale);
 }

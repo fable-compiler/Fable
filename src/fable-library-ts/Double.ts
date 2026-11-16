@@ -21,6 +21,7 @@ export function tryParse(str: string, style: number, defValue: FSharpRef<number>
       return true;
     }
   }
+  defValue.contents = 0;
   return false;
 }
 
