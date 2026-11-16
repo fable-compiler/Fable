@@ -1114,4 +1114,29 @@ let one = AuthState.One "a"
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
+
+    testCase "Parsing with AllowCurrencySymbol is not reported" <| fun _ ->
+      let source =
+        """
+open System
+open System.Globalization
+bigint.Parse("1", NumberStyles.Any, CultureInfo.InvariantCulture) |> ignore
+Double.Parse("1.5", NumberStyles.Currency, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0103"
+      |> ignore
+
+    testCase "BigInteger parsing with honoured NumberStyles is not reported" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+bigint.Parse("1", NumberStyles.Float ||| NumberStyles.Number) |> ignore
+bigint.Parse("1", NumberStyles.HexNumber) |> ignore
+bigint.Parse("1", NumberStyles.BinaryNumber) |> ignore
+bigint.TryParse("1", NumberStyles.AllowBinarySpecifier, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0103"
+      |> ignore
   ]

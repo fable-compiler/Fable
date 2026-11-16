@@ -3146,11 +3146,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | Types.float64 -> true
         | _ -> false
 
-    let supportedFloatStyles =
-        int (
-            System.Globalization.NumberStyles.Any
-            &&& ~~~System.Globalization.NumberStyles.AllowCurrencySymbol
-        )
+    let supportedFloatStyles = int System.Globalization.NumberStyles.Any
 
     let checkFormatProvider meth hasStyle =
         let acceptedArgs =
@@ -3332,6 +3328,32 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             |> Some
     | "Log2", None ->
         Helper.LibCall(com, "BigInt", "ilog2", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | ("Parse" | "TryParse") as meth, None ->
+        let inputs, outValue =
+            if meth = "TryParse" then
+                List.splitAt (args.Length - 1) args
+            else
+                args, []
+
+        let str, style, provider =
+            match inputs with
+            | str :: (ExprType(Number(Int32, _)) as style) :: rest -> str, style, List.tryHead rest
+            | str :: rest -> str, makeIntConst (int System.Globalization.NumberStyles.Integer), List.tryHead rest
+            | [] -> failwith "Unexpected BigInteger parse call without arguments"
+
+        match provider with
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+
+        let providerArg =
+            match provider, outValue with
+            | Some provider, _ -> [ provider ]
+            | None, [] -> []
+            | None, _ -> [ makeNull () ]
+
+        Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, [ str; style ] @ providerArg @ outValue, ?loc = r)
         |> Some
     | meth, callee ->
         let args =
