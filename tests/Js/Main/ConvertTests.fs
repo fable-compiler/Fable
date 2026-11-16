@@ -357,6 +357,39 @@ let tests =
         // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
         (fun () -> Int32.Parse("–", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
+    testCase "NumberStyles.HexNumber accepts only hex digits and white space" <| fun () ->
+        let hex = System.Globalization.NumberStyles.HexNumber
+        for s in [ "-1F"; "+1F"; "0x1F"; "0X1f"; "1_F" ] do
+            (fun () -> Int32.Parse(s, hex)) |> throwsError ""
+            (fun () -> Int64.Parse(s, hex)) |> throwsError ""
+            (fun () -> Byte.Parse(s, hex)) |> throwsError ""
+        Int32.TryParse("-1F", hex, CultureInfo.InvariantCulture) |> equal (false, 0)
+        Int32.TryParse("0x1F", hex, CultureInfo.InvariantCulture) |> equal (false, 0)
+        Int32.Parse(" 1F ", hex) |> equal 31
+        Int32.Parse("0b1", hex) |> equal 177
+        Int64.Parse("0b1", hex) |> equal 177L
+        Byte.Parse("0b1", hex) |> equal 177uy
+
+    testCase "NumberStyles.AllowHexSpecifier accepts only the white space the style allows" <| fun () ->
+        let hexOnly = System.Globalization.NumberStyles.AllowHexSpecifier
+        let hexLeading = hexOnly ||| System.Globalization.NumberStyles.AllowLeadingWhite
+        (fun () -> Int32.Parse(" 1F", hexOnly)) |> throwsError ""
+        (fun () -> Int32.Parse("1F ", hexLeading)) |> throwsError ""
+        Int32.Parse(" 1F", hexLeading) |> equal 31
+        Int32.Parse("\t1F\n", System.Globalization.NumberStyles.HexNumber) |> equal 31
+        (fun () -> Int32.Parse("\u00A01F", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        Int32.TryParse("1F\u3000", System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture) |> equal (false, 0)
+
+    testCase "A plus sign before a radix specifier is rejected" <| fun () ->
+        for s in [ "+0x11"; "+0X11"; "+0o7"; "+0b1"; " +0x11 " ] do
+            (fun () -> int s) |> throwsError ""
+            (fun () -> int64 s) |> throwsError ""
+            (fun () -> byte s) |> throwsError ""
+        int "+11" |> equal 11
+        int64 "+11" |> equal 11L
+        Convert.ToInt32("+0x1F", 16) |> equal 31
+        Convert.ToInt64("+0x1F", 16) |> equal 31L
+
     testCase "System.Int64.Parse works" <| fun () ->
         Int64.Parse("5") |> equal 5L
         Int64.Parse("-5") |> equal -5L
