@@ -114,6 +114,40 @@ module Util =
         | Fable.Array(elemType, _) -> elemType
         | _ -> Fable.Any // Fallback if not array type
 
+    let tryMakeConstructorVarArgTuple
+        (ctx: Context)
+        (hasSpread: bool)
+        (args: Fable.Ident list)
+        (usedIn: Fable.Expr list)
+        =
+        match List.tryLast args with
+        | Some varArg when hasSpread ->
+            let argNames = args |> List.map _.Name |> set
+
+            let tupleName =
+                ("_" + varArg.Name, Naming.NoMemberPart)
+                ||> Naming.sanitizeIdent (fun name ->
+                    argNames.Contains name
+                    || ctx.UsedNames.RootScope.Contains name
+                    || ctx.UsedNames.CurrentDeclarationScope.Contains name
+                    || usedIn |> List.exists (isIdentUsed name)
+                )
+
+            let varArgTuple = { varArg with Name = tupleName }
+
+            let array =
+                Fable.Value(
+                    Fable.NewArray(
+                        Fable.ArrayFrom(Fable.IdentExpr varArgTuple),
+                        getVarArgElementType varArg.Type,
+                        Fable.MutableArray
+                    ),
+                    None
+                )
+
+            Some(List.take (args.Length - 1) args @ [ varArgTuple ], (varArg, array))
+        | _ -> None
+
     /// Splits a list of items into regular items and an optional vararg item.
     /// When hasSpread is true and items is non-empty, the last item becomes the vararg.
     let splitVarArg<'T> (hasSpread: bool) (items: 'T list) : 'T list * 'T option =

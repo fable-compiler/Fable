@@ -2117,3 +2117,482 @@ let ``test explicit constructor self identifier is the created object`` () =
     valClassSelfSaved.Count |> equal 3
     obj.ReferenceEquals(valClassSelfSaved.[1], b) |> equal true
     obj.ReferenceEquals(valClassSelfSaved.[2], b) |> equal true
+
+type PrimaryCtorBase(x: int) =
+    member _.X = x
+    member val Tag = "base" with get, set
+    member this.Describe() = this.Tag + ":" + string x
+
+type PrimaryCtorValChild =
+    inherit PrimaryCtorBase
+    val Label: string
+    new (x: int, label: string) = { inherit PrimaryCtorBase(x); Label = label }
+    new (label: string) = { inherit PrimaryCtorBase(label.Length); Label = label }
+
+type PrimaryCtorUnitBase() =
+    member val Greeting = "hi"
+
+type PrimaryCtorUnitChild =
+    inherit PrimaryCtorUnitBase
+    val Count: int
+    new (count: int) = { inherit PrimaryCtorUnitBase(); Count = count }
+
+type PrimaryCtorGenericBase<'T>(value: 'T, size: int) =
+    member _.Value = value
+    member _.Size = size
+
+type PrimaryCtorGenericChild<'T> =
+    inherit PrimaryCtorGenericBase<'T list>
+    val Item: 'T
+    new (item: 'T) = { inherit PrimaryCtorGenericBase<'T list>([ item; item ], 2); Item = item }
+
+type PrimaryCtorNamedBase(label: string) =
+    member _.BaseLabel = label
+
+type PrimaryCtorSameNameChild =
+    inherit PrimaryCtorNamedBase
+    val label: string
+    new (a: string, b: string) = { inherit PrimaryCtorNamedBase(a); label = b }
+
+type PrimaryCtorOptionalBase(a: int, ?b: string, ?c: int) =
+    member _.Describe = $"""{a}-{defaultArg b "B"}-{defaultArg c 7}"""
+
+type PrimaryCtorOptionalChild =
+    inherit PrimaryCtorOptionalBase
+    val Z: int
+    new () = { inherit PrimaryCtorOptionalBase(1); Z = 9 }
+    new (b: string) = { inherit PrimaryCtorOptionalBase(1, b); Z = 8 }
+    new (c: int) = { inherit PrimaryCtorOptionalBase(1, c = c); Z = 7 }
+
+type PrimaryCtorParamArrayBase(a: int, [<ParamArray>] xs: int[]) =
+    member _.Total = a + Array.sum xs
+    member _.Count = xs.Length
+
+type PrimaryCtorParamArrayChild =
+    inherit PrimaryCtorParamArrayBase
+    val Z: int
+    new () = { inherit PrimaryCtorParamArrayBase(1, 2, 3); Z = 5 }
+    new (xs: int[]) = { inherit PrimaryCtorParamArrayBase(1, xs); Z = 6 }
+    new (_: bool) = { inherit PrimaryCtorParamArrayBase(1); Z = 7 }
+
+type PrimaryCtorSuffixBase(x: int, x_: int) =
+    member _.Sum = x * 10 + x_
+
+type PrimaryCtorSuffixChild =
+    inherit PrimaryCtorSuffixBase
+    val x: int
+    new (a: int, b: int, c: int) = { inherit PrimaryCtorSuffixBase(a, b); x = c }
+
+type PrimaryCtorKeywordBase(``switch``: int, pass: int) =
+    member _.Value = ``switch`` * 10 + pass
+
+type PrimaryCtorKeywordChild =
+    inherit PrimaryCtorKeywordBase
+    val Z: int
+    new (a: int) = { inherit PrimaryCtorKeywordBase(a, 2); Z = 1 }
+
+type PrimaryCtorFunctionBase(f: int -> int -> int) =
+    member _.Apply a b = f a b
+
+type PrimaryCtorFunctionChild =
+    inherit PrimaryCtorFunctionBase
+    val G: int -> int -> int
+    new (n: int, g: int -> int -> int) = { inherit PrimaryCtorFunctionBase(fun a b -> a + b + n); G = g }
+
+type PrimaryCtorDefaultValueChild =
+    inherit PrimaryCtorFunctionBase
+    val G: int -> int -> int
+    [<DefaultValue>] val mutable D: int
+    new (g: int -> int -> int) = { inherit PrimaryCtorFunctionBase(fun a b -> a + b); G = g }
+
+type ValClassFunctionBase =
+    val F: int -> int -> int
+    new (f) = { F = f }
+
+type ValClassFunctionChild =
+    inherit ValClassFunctionBase
+    val G: int -> int -> int
+    new (f, g) = { inherit ValClassFunctionBase(f); G = g }
+
+type PrimaryCtorArrayBase(xs: int[]) =
+    member _.Items = xs
+
+type PrimaryCtorParamArrayForwardingChild([<ParamArray>] xs: int[]) =
+    inherit PrimaryCtorArrayBase(xs)
+    member _.First = xs.[0]
+
+type PrimaryCtorParamArrayPrefixed(_xs: int, [<ParamArray>] xs: int[]) =
+    member _.Value = _xs + xs.Length
+
+type PrimaryCtorSelfBase(self: int, this: int) =
+    member _.Sum = self * 10 + this
+
+type PrimaryCtorSelfChild =
+    inherit PrimaryCtorSelfBase
+    val Z: int
+    new (a: int) = { inherit PrimaryCtorSelfBase(a, 2); Z = 4 }
+
+type PrimaryCtorTypedFunctionBase(f: int -> int -> int, g: int * int -> int, h: (int -> int -> int) option) =
+    member _.F a b = f a b
+    member _.G a b = g (a, b)
+    member _.H a b = match h with Some h -> h a b | None -> -1
+
+type PrimaryCtorTypedFunctionChild =
+    inherit PrimaryCtorTypedFunctionBase
+    val Z: int
+    new (f: int -> int -> int) = { inherit PrimaryCtorTypedFunctionBase(f, (fun (a, b) -> a * b), Some(fun a b -> a + b)); Z = 5 }
+
+type PrimaryCtorGenericFunctionBase<'T>(v: 'T, f: int -> int -> 'T) =
+    member _.V = v
+    member _.F a b = f a b
+
+type PrimaryCtorGenericFunctionChild =
+    inherit PrimaryCtorGenericFunctionBase<int -> int -> int>
+    val Z: int
+    new () = { inherit PrimaryCtorGenericFunctionBase<int -> int -> int>((fun a b -> a * 10 + b), (fun a b c d -> a + b + c * d)); Z = 1 }
+
+type PrimaryCtorNamedUnitBase(u: unit) =
+    member _.Unit = u
+    member val Value = 42
+
+type PrimaryCtorNamedUnitChild =
+    inherit PrimaryCtorNamedUnitBase
+    val Count: int
+    new (count: int) = { inherit PrimaryCtorNamedUnitBase(()); Count = count }
+
+let primaryCtorOrderLog = ResizeArray<string>()
+let mutable primaryCtorOrderCounter = 0
+
+let logPrimaryCtorOrder step value =
+    primaryCtorOrderLog.Add step
+    value
+
+let primaryCtorThrowingLog = ResizeArray<string>()
+
+type PrimaryCtorOrderBase(n: int) =
+    do primaryCtorOrderLog.Add $"base body %d{n}"
+    do primaryCtorOrderCounter <- primaryCtorOrderCounter + 1
+
+type PrimaryCtorOrderChild =
+    inherit PrimaryCtorOrderBase
+    val Snapshot: int
+    val Label: string
+    val Combine: int -> int -> int
+    new () =
+        { inherit PrimaryCtorOrderBase(logPrimaryCtorOrder "base arg" 7)
+          Snapshot = logPrimaryCtorOrder "Snapshot" primaryCtorOrderCounter
+          Label = logPrimaryCtorOrder "Label" "l"
+          Combine = logPrimaryCtorOrder "Combine" (fun a b -> a * 10 + b) }
+
+type PrimaryCtorThrowingBase(n: int) =
+    do failwith $"base failed %d{n}"
+
+type PrimaryCtorThrowingChild =
+    inherit PrimaryCtorThrowingBase
+    val X: int
+    new () = { inherit PrimaryCtorThrowingBase(1); X = (primaryCtorThrowingLog.Add "X"; 1) }
+
+type PrimaryCtorVirtualBase(name: string) =
+    abstract Calc: int -> int
+    default _.Calc a = a
+    member _.Name = name
+
+type PrimaryCtorVirtualChild =
+    inherit PrimaryCtorVirtualBase
+    val K: int
+    val F: int -> int -> int
+    new (k, f) = { inherit PrimaryCtorVirtualBase("base"); K = k; F = f }
+    override this.Calc a = a * this.K
+
+let multiplyInts (a: int) (b: int) = a * b
+
+let primaryCtorOutOfOrderLog = ResizeArray<string>()
+
+let logPrimaryCtorOutOfOrder step value =
+    primaryCtorOutOfOrderLog.Add step
+    value
+
+type PrimaryCtorOutOfOrderChild =
+    inherit PrimaryCtorBase
+    val P: int
+    val Q: int
+    new (a: int, b: int) = { inherit PrimaryCtorBase(a); Q = b + 1; P = a }
+
+type PrimaryCtorOutOfOrderLoggedBase(n: int) =
+    do primaryCtorOutOfOrderLog.Add $"base body %d{n}"
+
+type PrimaryCtorOutOfOrderLoggedChild =
+    inherit PrimaryCtorOutOfOrderLoggedBase
+    val X: int
+    val Y: int
+    new (a: int) =
+        { inherit PrimaryCtorOutOfOrderLoggedBase(logPrimaryCtorOutOfOrder "base arg" a)
+          Y = logPrimaryCtorOutOfOrder "Y" (a + 1)
+          X = logPrimaryCtorOutOfOrder "X" a }
+
+let passPrimaryCtorValue value = value
+
+type PrimaryCtorOptionFunctionChild =
+    inherit PrimaryCtorBase
+    val H: (int -> int -> int) option
+    new () = { inherit PrimaryCtorBase(1); H = passPrimaryCtorValue (Some(fun a b -> a * 10 + b)) }
+
+type PrimaryCtorExplicitMid =
+    inherit PrimaryCtorBase
+    val B: int
+    new (b) = { inherit PrimaryCtorBase(1); B = b }
+
+type PrimaryCtorOverExplicitLeaf(c: int) =
+    inherit PrimaryCtorExplicitMid(c)
+    member _.C = c
+
+[<Fact>]
+let ``test explicit constructor calls a base primary constructor`` () =
+    let child = PrimaryCtorValChild(3, "origin")
+    child.X |> equal 3
+    child.Label |> equal "origin"
+    child.Tag |> equal "base"
+    child.Describe() |> equal "base:3"
+    (box child :? PrimaryCtorBase) |> equal true
+    let other = PrimaryCtorValChild("abcd")
+    other.X |> equal 4
+    other.Label |> equal "abcd"
+
+[<Fact>]
+let ``test explicit constructor calls a parameterless base primary constructor`` () =
+    let child = PrimaryCtorUnitChild(4)
+    child.Greeting |> equal "hi"
+    child.Count |> equal 4
+    (box child :? PrimaryCtorUnitBase) |> equal true
+
+[<Fact>]
+let ``test explicit constructor resolves the generic arguments of a base primary constructor`` () =
+    let child = PrimaryCtorGenericChild(7)
+    child.Value |> equal [ 7; 7 ]
+    child.Size |> equal 2
+    child.Item |> equal 7
+
+[<Fact>]
+let ``test explicit constructor keeps base primary constructor arguments apart from fields of the same name`` () =
+    let child = PrimaryCtorSameNameChild("a", "b")
+    child.BaseLabel |> equal "a"
+    child.label |> equal "b"
+
+[<Fact>]
+let ``test explicit constructor passes omitted optional arguments to a base primary constructor`` () =
+    let child = PrimaryCtorOptionalChild()
+    child.Describe |> equal "1-B-7"
+    child.Z |> equal 9
+    let child = PrimaryCtorOptionalChild("x")
+    child.Describe |> equal "1-x-7"
+    child.Z |> equal 8
+    let child = PrimaryCtorOptionalChild(3)
+    child.Describe |> equal "1-B-3"
+    child.Z |> equal 7
+
+[<Fact>]
+let ``test explicit constructor passes ParamArray arguments to a base primary constructor`` () =
+    let child = PrimaryCtorParamArrayChild()
+    child.Total |> equal 6
+    child.Count |> equal 2
+    child.Z |> equal 5
+    let child = PrimaryCtorParamArrayChild([| 4; 5 |])
+    child.Total |> equal 10
+    child.Count |> equal 2
+    child.Z |> equal 6
+    let child = PrimaryCtorParamArrayChild(true)
+    child.Total |> equal 1
+    child.Count |> equal 0
+    child.Z |> equal 7
+
+[<Fact>]
+let ``test explicit constructor gives distinct names to base primary constructor arguments`` () =
+    let child = PrimaryCtorSuffixChild(1, 2, 3)
+    child.Sum |> equal 12
+    child.x |> equal 3
+
+[<Fact>]
+let ``test explicit constructor accepts base primary constructor arguments named after keywords`` () =
+    let child = PrimaryCtorKeywordChild(4)
+    child.Value |> equal 42
+    child.Z |> equal 1
+
+[<Fact>]
+let ``test explicit constructor passes functions to a base primary constructor and its own fields`` () =
+    let child = PrimaryCtorFunctionChild(1, (fun a b -> a * b))
+    child.Apply 2 3 |> equal 6
+    child.G 2 3 |> equal 6
+
+[<Fact>]
+let ``test explicit constructor passes base arguments next to a DefaultValue field`` () =
+    let child = PrimaryCtorDefaultValueChild(fun a b -> a * b)
+    child.D <- 7
+    child.Apply 2 3 |> equal 5
+    child.G 5 2 |> equal 10
+    child.D |> equal 7
+
+[<Fact>]
+let ``test explicit constructor copies inherited function fields`` () =
+    let child = ValClassFunctionChild((fun a b -> a - b), (fun a b -> a * b))
+    child.F 5 2 |> equal 3
+    child.G 5 2 |> equal 10
+
+[<Fact>]
+let ``test primary constructor forwards its ParamArray to the base constructor`` () =
+    let child = PrimaryCtorParamArrayForwardingChild(9, 8)
+    child.Items |> equal [| 9; 8 |]
+    child.First |> equal 9
+
+[<Fact>]
+let ``test primary constructor ParamArray does not clash with other arguments`` () =
+    PrimaryCtorParamArrayPrefixed(1, 2, 3).Value |> equal 3
+
+[<Fact>]
+let ``test explicit constructor accepts base primary constructor arguments named self or this`` () =
+    let child = PrimaryCtorSelfChild(3)
+    child.Sum |> equal 32
+    child.Z |> equal 4
+
+[<Fact>]
+let ``test explicit constructor passes curried, tupled and optional functions to a base primary constructor`` () =
+    let child = PrimaryCtorTypedFunctionChild(fun a b -> a - b)
+    child.F 5 2 |> equal 3
+    child.G 3 4 |> equal 12
+    child.H 3 4 |> equal 7
+    child.Z |> equal 5
+
+[<Fact>]
+let ``test explicit constructor keeps functions passed to a generic base primary constructor parameter curried`` () =
+    let child = PrimaryCtorGenericFunctionChild()
+    child.V 1 2 |> equal 12
+    child.F 1 2 3 4 |> equal 15
+    child.Z |> equal 1
+
+[<Fact>]
+let ``test explicit constructor passes a named unit argument to a base primary constructor`` () =
+    let child = PrimaryCtorNamedUnitChild(3)
+    child.Count |> equal 3
+    child.Value |> equal 42
+    child.Unit |> equal ()
+
+[<Fact>]
+let ``test explicit constructor evaluates its field values after the base primary constructor`` () =
+    primaryCtorOrderLog.Clear()
+    let counter = primaryCtorOrderCounter
+    let child = PrimaryCtorOrderChild()
+    List.ofSeq primaryCtorOrderLog |> equal [ "base arg"; "base body 7"; "Snapshot"; "Label"; "Combine" ]
+    child.Snapshot |> equal (counter + 1)
+    child.Label |> equal "l"
+    child.Combine 1 2 |> equal 12
+
+[<Fact>]
+let ``test explicit constructor skips its field values when the base primary constructor throws`` () =
+    primaryCtorThrowingLog.Clear()
+    let failed =
+        try
+            PrimaryCtorThrowingChild() |> ignore
+            false
+        with _ ->
+            true
+    failed |> equal true
+    List.ofSeq primaryCtorThrowingLog |> equal []
+
+[<Fact>]
+let ``test explicit constructor sets fields listed out of declaration order`` () =
+    let child = PrimaryCtorOutOfOrderChild(1, 2)
+    child.P |> equal 1
+    child.Q |> equal 3
+    child.Describe() |> equal "base:1"
+
+[<Fact>]
+let ``test explicit constructor evaluates fields listed out of declaration order after the base primary constructor`` () =
+    primaryCtorOutOfOrderLog.Clear()
+    let child = PrimaryCtorOutOfOrderLoggedChild(5)
+    List.ofSeq primaryCtorOutOfOrderLog |> equal [ "base arg"; "base body 5"; "Y"; "X" ]
+    child.X |> equal 5
+    child.Y |> equal 6
+
+[<Fact>]
+let ``test explicit constructor sets an option of a curried function computed after the base primary constructor`` () =
+    let child = PrimaryCtorOptionFunctionChild()
+    child.H.Value 1 2 |> equal 12
+
+[<Fact>]
+let ``test primary constructor passes its arguments to an explicit base constructor over a primary constructor`` () =
+    let leaf = PrimaryCtorOverExplicitLeaf(4)
+    leaf.B |> equal 4
+    leaf.C |> equal 4
+
+[<Fact>]
+let ``test object expression over an explicit constructor passes its own fields`` () =
+    let o = { new PrimaryCtorVirtualChild(3, multiplyInts) with override _.ToString() = "o" }
+    o.Calc 1 |> equal 3
+    o.F 2 3 |> equal 6
+    string o |> equal "o"
+
+let primaryCtorThenLog = ResizeArray<string>()
+let primaryCtorThenSaved = ResizeArray<obj>()
+
+type PrimaryCtorThenBase(a: int) =
+    do primaryCtorThenLog.Add "base"
+    member _.A = a
+
+type PrimaryCtorThenChild =
+    inherit PrimaryCtorThenBase
+    val X: int
+    val Y: string
+    new (n: int) =
+        let v = n + 1
+        { inherit PrimaryCtorThenBase((primaryCtorThenLog.Add "arg"; v)); Y = (primaryCtorThenLog.Add "y"; "y"); X = (primaryCtorThenLog.Add "x"; v * 2) }
+        then primaryCtorThenLog.Add "then"
+
+type PrimaryCtorThenSelfChild =
+    inherit PrimaryCtorThenBase
+    val mutable X: int
+    new (x: int) as self = { inherit PrimaryCtorThenBase(x); X = x } then primaryCtorThenSaved.Add(box self); self.X <- self.X + self.A
+    new () as self = PrimaryCtorThenSelfChild(7) then self.X <- self.X * 2; primaryCtorThenSaved.Add(box self)
+
+type PrimaryCtorThenGenericBase<'T>(a: 'T) =
+    member _.A = a
+
+type PrimaryCtorThenGenericChild<'T> =
+    inherit PrimaryCtorThenGenericBase<'T>
+    val mutable Items: 'T list
+    new (a: 'T) as self = { inherit PrimaryCtorThenGenericBase<'T>(a); Items = [] } then self.Items <- [ self.A; a ]
+
+type PrimaryCtorThenSelfBase(a: int) as this =
+    let mutable touched = 0
+    do this.Touch()
+    member _.A = a
+    member _.Touched = touched
+    member _.Touch() = touched <- touched + 1
+
+type PrimaryCtorThenSelfBaseChild =
+    inherit PrimaryCtorThenSelfBase
+    val X: int
+    new () = { inherit PrimaryCtorThenSelfBase(1); X = 2 }
+
+[<Fact>]
+let ``test explicit constructor runs its then block after a base primary constructor`` () =
+    primaryCtorThenLog.Clear()
+    let c = PrimaryCtorThenChild(1)
+    (c.A, c.X, c.Y) |> equal (2, 4, "y")
+    List.ofSeq primaryCtorThenLog |> equal [ "arg"; "base"; "y"; "x"; "then" ]
+
+[<Fact>]
+let ``test explicit constructor with a self identifier works with a base primary constructor`` () =
+    primaryCtorThenSaved.Clear()
+    let a = PrimaryCtorThenSelfChild(3)
+    (a.A, a.X) |> equal (3, 6)
+    obj.ReferenceEquals(primaryCtorThenSaved.[0], a) |> equal true
+    let b = PrimaryCtorThenSelfChild()
+    (b.A, b.X) |> equal (7, 28)
+    obj.ReferenceEquals(primaryCtorThenSaved.[1], b) |> equal true
+    obj.ReferenceEquals(primaryCtorThenSaved.[2], b) |> equal true
+    let g = PrimaryCtorThenGenericChild("q")
+    g.Items |> equal [ "q"; "q" ]
+
+[<Fact>]
+let ``test explicit constructor works with a base primary constructor that has a self identifier`` () =
+    let c = PrimaryCtorThenSelfBaseChild()
+    (c.A, c.Touched, c.X) |> equal (1, 1, 2)
