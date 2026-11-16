@@ -1,5 +1,6 @@
 module Fable.Tests.PluginsTests
 
+open Fable.Core
 open Fable.Tests
 open Util.Testing
 
@@ -8,6 +9,10 @@ let constFn () = 0
 
 [<ReturnMemberNamePlugin>]
 let memberNameFn () = ""
+
+[<Erase>]
+type ErasedWithCallPlugin [<ReturnMemberNamePlugin>] (a: int) =
+    member _.A = a
 
 let tests =
     testList
@@ -18,4 +23,7 @@ let tests =
 
             testCase "TransformCall rewrites the call site"
             <| fun () -> equal "memberNameFn" (memberNameFn ())
+
+            testCase "TransformCall rewrites a call to an erased constructor"
+            <| fun () -> equal ".ctor" (box (ErasedWithCallPlugin(1)) :?> string)
         ]
