@@ -609,6 +609,23 @@ let tests =
             [ 0.5f; 0.55f; 0.6f; 0.65f; 0.7f; 0.75f; 0.8f; 0.85f; 0.9f; 0.95000005f; 1.0f
               1.05f; 1.1f; 1.1500001f; 1.2f; 1.25f; 1.3f; 1.35f; 1.4000001f; 1.45f; 1.5f ]
 
+    testCase "Integer ranges stop at the bounds of their type" <| fun () ->
+        seq { System.Int64.MaxValue - 2L .. System.Int64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+        |> equal [ 9223372036854775805L; 9223372036854775806L; 9223372036854775807L ]
+        seq { System.Int64.MinValue + 2L .. -1L .. System.Int64.MinValue } |> Seq.truncate 10 |> Seq.toList
+        |> equal [ -9223372036854775806L; -9223372036854775807L; -9223372036854775808L ]
+        seq { 0UL .. 6000000000000000000UL .. System.UInt64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+        |> equal [ 0UL; 6000000000000000000UL; 12000000000000000000UL; 18000000000000000000UL ]
+
+    testCase "for loops over integer ranges stop at the bounds of their type" <| fun () ->
+        let count64 (start: int64) (stop: int64) =
+            let mutable count = 0
+            for _ in start .. stop do
+                count <- count + 1
+                if count > 10 then failwith "The range did not stop"
+            count
+        count64 (System.Int64.MaxValue - 2L) System.Int64.MaxValue |> equal 3
+
     testCase "Seq.reduce works" <| fun () ->
         let xs = [1.; 2.]
         xs |> Seq.reduce (+)

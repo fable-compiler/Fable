@@ -23,6 +23,40 @@ let integralRangeStep<'T when 'T: comparison> (start: 'T) (step: 'T) (stop: 'T) 
     let stepFn = makeRangeStepFunction step stop zero add
     Seq.delay (fun () -> Seq.unfold stepFn start)
 
+let inline private integerRange (start: ^T) (step: ^T) (stop: ^T) : seq< ^T > =
+    let zero: ^T = LanguagePrimitives.GenericZero
+
+    if step = zero then
+        invalidArg "step" "The step of a range cannot be zero."
+
+    let up = step > zero
+
+    // No operation here leaves the range of ^T: stop - x is only computed when x has the sign of the step, x + step when it has not.
+    let hasNext (x: ^T) =
+        if up then
+            if x >= zero then
+                stop - x >= step
+            else
+                x + step <= stop
+        else if x <= zero then
+            stop - x <= step
+        else
+            x + step >= stop
+
+    let stepFn (x: ^T voption) =
+        match x with
+        | ValueNone -> None
+        | ValueSome x ->
+            if hasNext x then
+                Some(x, ValueSome(x + step))
+            else
+                Some(x, ValueNone)
+
+    if (up && start <= stop) || (not up && start >= stop) then
+        Seq.unfold stepFn (ValueSome start)
+    else
+        Seq.empty
+
 let rangeBigInt start step stop =
     integralRangeStep start step stop 0I (+)
 
@@ -98,11 +132,9 @@ let rangeSingle (start: float32) (step: float32) (stop: float32) : seq<float32> 
     floatingRange (fun x -> float (float32 x)) (float start) (float step) (float stop)
     |> unbox
 
-let rangeInt64 start step stop =
-    integralRangeStep start step stop 0L (+)
+let rangeInt64 (start: int64) (step: int64) (stop: int64) : seq<int64> = integerRange start step stop
 
-let rangeUInt64 start step stop =
-    integralRangeStep start step stop 0UL (+)
+let rangeUInt64 (start: uint64) (step: uint64) (stop: uint64) : seq<uint64> = integerRange start step stop
 
 let rangeChar (start: char) (stop: char) =
     let intStop = int stop

@@ -8,18 +8,35 @@ let inline rangeNumeric (start: 'T) (step: 'T) (stop: 'T) =
     if stepComparedWithZero = 0 then
         failwith "The step of a range cannot be zero"
 
-    let stepFn x =
-        let comparedWithLast = compare x stop
+    let up = stepComparedWithZero > 0
 
-        if
-            (stepComparedWithZero > 0 && comparedWithLast <= 0)
-            || (stepComparedWithZero < 0 && comparedWithLast >= 0)
-        then
-            Some(x, x + step)
+    // No operation here leaves the range of 'T: stop - x is only computed when x has the sign of the step, x + step when it has not.
+    let hasNext (x: 'T) =
+        if up then
+            if compare x zero >= 0 then
+                compare (stop - x) step >= 0
+            else
+                compare (x + step) stop <= 0
+        else if compare x zero <= 0 then
+            compare (stop - x) step <= 0
         else
-            None
+            compare (x + step) stop >= 0
 
-    Seq.unfold stepFn start
+    let stepFn (x: 'T voption) =
+        match x with
+        | ValueNone -> None
+        | ValueSome x ->
+            if hasNext x then
+                Some(x, ValueSome(x + step))
+            else
+                Some(x, ValueNone)
+
+    let comparedWithLast = compare start stop
+
+    if (up && comparedWithLast <= 0) || (not up && comparedWithLast >= 0) then
+        Seq.unfold stepFn (ValueSome start)
+    else
+        Seq.empty
 
 let inline private floatingRangeStep (start: 'T) (step: 'T) (stop: 'T) : seq<'T> =
     let zero: 'T = LanguagePrimitives.GenericZero

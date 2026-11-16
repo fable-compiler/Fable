@@ -1200,6 +1200,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             | Char -> "Range", "rangeChar", args
             | Number(Decimal, _) -> "Range", "rangeDecimal", addStep args
             | Number(BigInt, _) -> "Range", "range_big_int", addStep args
+            | Number(Int8, _) -> "Range", "rangeSByte", addStep args
+            | Number(UInt8, _) -> "Range", "rangeByte", addStep args
+            | Number(Int16, _) -> "Range", "rangeInt16", addStep args
+            | Number(UInt16, _) -> "Range", "rangeUInt16", addStep args
             | Number(Int32, _) -> "Range", "range_int32", addStep args
             | Number(UInt32, _) -> "Range", "range_uint32", addStep args
             | Number(Int64, _) -> "Range", "range_int64", addStep args
@@ -2739,20 +2743,16 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
     // Type: RangeDouble: float -> float -> float -> float seq
     // Usage: RangeDouble start step stop
-    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32"), None, args ->
-        Helper.LibCall(com, "range", "rangeDouble", t, args, i.SignatureArgTypes, ?loc = r)
+    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeInt64" | "RangeUInt64" as name),
+      None,
+      args ->
+        Helper.LibCall(com, "range", Naming.lowerFirst name, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "RangeSingle", None, args ->
         Helper.LibCall(com, "range", "rangeSingle", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "RangeDouble", None, args ->
         Helper.LibCall(com, "range", "rangeFloat", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "RangeInt64", None, args ->
-        Helper.LibCall(com, "range", "rangeInt64", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "RangeUInt64", None, args ->
-        Helper.LibCall(com, "range", "rangeUInt64", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
 

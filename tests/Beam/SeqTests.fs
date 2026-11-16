@@ -1253,6 +1253,38 @@ let ``test Float32 ranges with a step have the same elements as .NET`` () =
     |> equal [ 16777216f; 16777216f; 16777218f; 16777220f; 16777220f; 16777220f; 16777222f; 16777224f; 16777224f; 16777224f; 16777226f ]
 
 [<Fact>]
+let ``test Integer ranges stop at the bounds of their type`` () =
+    seq { 2147483645 .. System.Int32.MaxValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 2147483645; 2147483646; 2147483647 ]
+    seq { -2147483646 .. -1 .. System.Int32.MinValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ -2147483646; -2147483647; -2147483648 ]
+    seq { 0u .. 3000000000u .. 4294967295u } |> Seq.truncate 10 |> Seq.toList |> equal [ 0u; 3000000000u ]
+    seq { System.Int64.MaxValue - 2L .. System.Int64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 9223372036854775805L; 9223372036854775806L; 9223372036854775807L ]
+    seq { System.Int64.MinValue + 2L .. -1L .. System.Int64.MinValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ -9223372036854775806L; -9223372036854775807L; -9223372036854775808L ]
+    seq { 0UL .. 6000000000000000000UL .. System.UInt64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 0UL; 6000000000000000000UL; 12000000000000000000UL; 18000000000000000000UL ]
+
+[<Fact>]
+let ``test for loops over integer ranges stop at the bounds of their type`` () =
+    let count32 (start: int) (step: int) (stop: int) =
+        let mutable count = 0
+        for _ in start .. step .. stop do
+            count <- count + 1
+            if count > 10 then failwith "The range did not stop"
+        count
+    let count64 (start: int64) (stop: int64) =
+        let mutable count = 0
+        for _ in start .. stop do
+            count <- count + 1
+            if count > 10 then failwith "The range did not stop"
+        count
+    count32 2147483640 3 System.Int32.MaxValue |> equal 3
+    count32 -2147483640 -3 System.Int32.MinValue |> equal 3
+    count64 (System.Int64.MaxValue - 2L) System.Int64.MaxValue |> equal 3
+
+[<Fact>]
 let ``test Seq.init, Seq.replicate and Seq.take reject a negative count when called`` () =
     raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
     raisedExceptionType (fun () -> Seq.replicate -1 0) |> equal "ArgumentOutOfRangeException"

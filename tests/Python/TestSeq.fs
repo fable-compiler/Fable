@@ -729,6 +729,43 @@ let ``test Float32 ranges with a step have the same elements as .NET`` () =
           1.05f; 1.1f; 1.1500001f; 1.2f; 1.25f; 1.3f; 1.35f; 1.4000001f; 1.45f; 1.5f ]
 
 [<Fact>]
+let ``test Integer ranges stop at the bounds of their type`` () =
+    seq { 2147483645 .. System.Int32.MaxValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 2147483645; 2147483646; 2147483647 ]
+    seq { -2147483646 .. -1 .. System.Int32.MinValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ -2147483646; -2147483647; -2147483648 ]
+    seq { 120y .. -50y .. -100y } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 120y; 70y; 20y; -30y; -80y ]
+    seq { 0uy .. 255uy } |> Seq.truncate 300 |> Seq.length |> equal 256
+    seq { 32765s .. 32767s } |> Seq.truncate 10 |> Seq.toList |> equal [ 32765s; 32766s; 32767s ]
+    seq { 65533us .. 65535us } |> Seq.truncate 10 |> Seq.toList |> equal [ 65533us; 65534us; 65535us ]
+    seq { 0u .. 3000000000u .. 4294967295u } |> Seq.truncate 10 |> Seq.toList |> equal [ 0u; 3000000000u ]
+    seq { System.Int64.MaxValue - 2L .. System.Int64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 9223372036854775805L; 9223372036854775806L; 9223372036854775807L ]
+    seq { System.Int64.MinValue + 2L .. -1L .. System.Int64.MinValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ -9223372036854775806L; -9223372036854775807L; -9223372036854775808L ]
+    seq { 0UL .. 6000000000000000000UL .. System.UInt64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+    |> equal [ 0UL; 6000000000000000000UL; 12000000000000000000UL; 18000000000000000000UL ]
+
+[<Fact>]
+let ``test for loops over integer ranges stop at the bounds of their type`` () =
+    let count32 (start: int) (step: int) (stop: int) =
+        let mutable count = 0
+        for _ in start .. step .. stop do
+            count <- count + 1
+            if count > 10 then failwith "The range did not stop"
+        count
+    let count64 (start: int64) (stop: int64) =
+        let mutable count = 0
+        for _ in start .. stop do
+            count <- count + 1
+            if count > 10 then failwith "The range did not stop"
+        count
+    count32 2147483640 3 System.Int32.MaxValue |> equal 3
+    count32 -2147483640 -3 System.Int32.MinValue |> equal 3
+    count64 (System.Int64.MaxValue - 2L) System.Int64.MaxValue |> equal 3
+
+[<Fact>]
 let ``test Seq.reduce works`` () =
     let xs = [1.; 2.]
     xs |> Seq.reduce (+)

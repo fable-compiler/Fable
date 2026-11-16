@@ -1264,6 +1264,21 @@ let tests() =
         seq { 16777216f .. 1f .. 16777226f } |> Seq.toList
         |> equal [ 16777216f; 16777216f; 16777218f; 16777220f; 16777220f; 16777220f; 16777222f; 16777224f; 16777224f; 16777224f; 16777226f ]
 
+    testCase "Integer ranges stop at the bounds of their type" <| fun () ->
+        seq { System.Int64.MaxValue - 2L .. System.Int64.MaxValue } |> Seq.truncate 10 |> Seq.toList
+        |> equal [ 9223372036854775805L; 9223372036854775806L; 9223372036854775807L ]
+        seq { System.Int64.MinValue + 2L .. -1L .. System.Int64.MinValue } |> Seq.truncate 10 |> Seq.toList
+        |> equal [ -9223372036854775806L; -9223372036854775807L; -9223372036854775808L ]
+
+    testCase "for loops over integer ranges stop at the bounds of their type" <| fun () ->
+        let count64 (start: int64) (stop: int64) =
+            let mutable count = 0
+            for _ in start .. stop do
+                count <- count + 1
+                if count > 10 then failwith "The range did not stop"
+            count
+        count64 (System.Int64.MaxValue - 2L) System.Int64.MaxValue |> equal 3
+
     testCase "Seq.init, Seq.replicate and Seq.take with a negative count raise when called" <| fun () ->
         raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
         raisedExceptionType (fun () -> Seq.replicate -1 "a") |> equal "ArgumentOutOfRangeException"
