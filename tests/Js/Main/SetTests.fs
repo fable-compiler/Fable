@@ -4,8 +4,24 @@ open System.Collections.Generic
 open Util.Testing
 open Fable.Tests.Util
 
+[<CustomEquality; CustomComparison>]
+type FixedHash =
+    { V: int }
+    override this.GetHashCode() = this.V
+    override this.Equals(o) =
+        match o with
+        | :? FixedHash as h -> h.V = this.V
+        | _ -> false
+    interface System.IComparable with
+        member this.CompareTo(o) = compare this.V (o :?> FixedHash).V
+
 let tests =
     testList "Sets" [
+        testCase "Set hash that wraps to Int32.MinValue does not throw" <| fun () ->
+            let s = set [ { V = 2147483017 } ]
+            hash s |> equal -2147483648
+            HashSet([ s ]).Count |> equal 1
+
         testCase "set function works" <| fun () ->
             let xs = set [1]
             xs |> Set.isEmpty

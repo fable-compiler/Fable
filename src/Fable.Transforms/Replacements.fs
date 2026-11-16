@@ -239,6 +239,16 @@ let getParseParams (kind: NumberKind) =
 
     isFloatOrDecimal, numberModule, unsigned, bitsize
 
+let getBigIntegerParams (kind: NumberKind) =
+    match kind with
+    | Int64
+    | NativeInt -> 64, true
+    | UInt64
+    | UNativeInt -> 64, false
+    | Int128 -> 128, true
+    | UInt128 -> 128, false
+    | x -> FableError $"Unexpected kind in getBigIntegerParams: %A{x}" |> raise
+
 let kindIndex kind = //         0   1   2   3   4   5   6   7   8   9  10  11
     match kind with //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
     | Int8 -> 0 //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
@@ -1852,6 +1862,19 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             makeThrow r t (error com (str "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
+    | "PowInteger", [ ExprType(Number(Integers kind, _)); _ ] ->
+        let _, _, unsigned, bitsize = getParseParams kind
+        let args = args @ [ makeBoolConst unsigned; makeIntConst bitsize ]
+
+        Helper.LibCall(com, "Int32", "pown", t, args, ?loc = r) |> Some
+    | "PowInteger", [ ExprType(Number(BigInt, _)); _ ] ->
+        Helper.LibCall(com, "BigInt", "pown", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "PowInteger", [ ExprType(Number(BigIntegers kind, _)); _ ] ->
+        let bits, signed = getBigIntegerParams kind
+        let args = makeIntConst bits :: args @ [ makeBoolConst signed ]
+
+        Helper.LibCall(com, "BigInt", "pownIntN", t, args, ?loc = r) |> Some
     | "Pow", _
     | "PowInteger", _
     | "op_Exponentiation", _ ->
@@ -1890,8 +1913,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | ExprType(Number(Decimal, _)) :: _ ->
             Helper.LibCall(com, "Decimal", "abs", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
+        | ExprType(Number((Int64 | NativeInt | Int128 as kind), _)) :: _ ->
+            let bits, _ = getBigIntegerParams kind
+
+            Helper.LibCall(com, "BigInt", "absIntN", t, makeIntConst bits :: args, ?loc = r)
+            |> Some
         | ExprType(Number(BigIntegers _, _)) :: _ ->
             Helper.LibCall(com, "BigInt", "abs", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | ExprType(Number((Int8 | Int16 | Int32 as kind), _)) :: _ ->
+            let _, _, _, bitsize = getParseParams kind
+
+            Helper.LibCall(com, "Int32", "abs", t, args @ [ makeIntConst bitsize ], ?loc = r)
             |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | ("Acos" | "Asin" | "Atan" | "Atan2" | "Cos" | "Cosh" | "Exp" | "Log" | "Log2" | "Log10" | "Sin" | "Sinh" | "Sqrt" | "Tan" | "Tanh"),

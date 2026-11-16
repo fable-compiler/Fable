@@ -1,8 +1,8 @@
 import { FSharpRef } from "./Types.ts";
-import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
+import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64, absOverflow } from "./Int32.ts";
 import { decimal, fromParts, truncate } from "./Decimal.ts";
 import { Exception, bigintHash } from "./Util.ts";
-import { ArgumentNullException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentNullException_$ctor_Z721C83C5, DivideByZeroException_$ctor, FormatException_$ctor_Z721C83C5, OverflowException_$ctor } from "./System.ts";
 
 const isBigEndian = false;
 
@@ -39,6 +39,16 @@ export function compare(x: bigint, y: bigint): int32 {
 }
 
 export function abs(x: bigint): bigint { return x < zero ? -x : x; }
+export function absIntN(bits: number, x: bigint): bigint {
+    if (x >= zero) {
+        return x;
+    }
+    const r = -x;
+    if (BigInt.asIntN(bits, r) !== r) {
+        throw absOverflow();
+    }
+    return r;
+}
 export function sign(x: bigint): int32 { return x < zero ? -1 : x > zero ? 1 : 0; }
 
 export function max(x: bigint, y: bigint): bigint { return x > y ? x : y; }
@@ -221,6 +231,38 @@ export function parse(s: string): bigint {
 
 export function pow(x: bigint, n: int32): bigint {
     return x ** BigInt(n);
+}
+
+export function pown(x: bigint, n: int32): bigint {
+    return n < 0 ? one / x ** BigInt(-n) : x ** BigInt(n);
+}
+
+export function pownIntN(bits: number, x: bigint, n: int32, signed: boolean): bigint {
+    const mul = (a: bigint, b: bigint) => {
+        const r = a * b;
+        if ((signed ? BigInt.asIntN(bits, r) : BigInt.asUintN(bits, r)) !== r) {
+            throw OverflowException_$ctor();
+        }
+        return r;
+    };
+    let res = one;
+    let e = Math.abs(n);
+    while (e > 0) {
+        if (e % 2 === 1) {
+            res = mul(res, x);
+        }
+        e = Math.floor(e / 2);
+        if (e > 0) {
+            x = mul(x, x);
+        }
+    }
+    if (n >= 0) {
+        return res;
+    }
+    if (res === zero) {
+        throw DivideByZeroException_$ctor();
+    }
+    return one / res;
 }
 
 export function modPow(x: bigint, e: bigint, m: bigint): bigint {
