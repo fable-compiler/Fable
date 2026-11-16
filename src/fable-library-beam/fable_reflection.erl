@@ -79,20 +79,35 @@ full_name(TypeInfo) ->
     maps:get(fullname, TypeInfo).
 
 namespace(TypeInfo) ->
-    FullName = maps:get(fullname, TypeInfo),
-    case binary:match(FullName, <<".">>) of
-        nomatch ->
-            <<>>;
-        _ ->
-            Parts = binary:split(FullName, <<".">>, [global]),
-            iolist_to_binary(lists:join(<<".">>, lists:droplast(Parts)))
+    case get_element_type(TypeInfo) of
+        undefined ->
+            FullName = maps:get(fullname, TypeInfo),
+            case is_anon_record_name(FullName) orelse binary:match(FullName, <<".">>) =:= nomatch of
+                true ->
+                    <<>>;
+                false ->
+                    Parts = binary:split(FullName, <<".">>, [global]),
+                    iolist_to_binary(lists:join(<<".">>, lists:droplast(Parts)))
+            end;
+        ElemType ->
+            namespace(ElemType)
     end.
 
 %% Type.Name — extract last part of FullName (after last dot)
 name(TypeInfo) ->
-    FullName = maps:get(fullname, TypeInfo),
-    Parts = binary:split(FullName, <<".">>, [global]),
-    lists:last(Parts).
+    case get_element_type(TypeInfo) of
+        undefined ->
+            FullName = maps:get(fullname, TypeInfo),
+            case is_anon_record_name(FullName) of
+                true -> FullName;
+                false -> lists:last(binary:split(FullName, <<".">>, [global]))
+            end;
+        ElemType ->
+            <<(name(ElemType))/binary, "[]">>
+    end.
+
+is_anon_record_name(FullName) ->
+    starts_with(FullName, <<"<>f__">>).
 
 is_generic_type(TypeInfo) ->
     maps:get(generics, TypeInfo) =/= [].

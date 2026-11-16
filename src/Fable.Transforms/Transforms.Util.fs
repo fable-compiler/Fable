@@ -1619,6 +1619,30 @@ module AST =
         | Measure _, Measure _ -> true
         | _ -> false
 
+    let getAnonymousRecordName (fieldNames: string array) isStruct =
+        let escape (fieldName: string) =
+            fieldName
+            |> String.collect (fun c ->
+                match c with
+                | '\\'
+                | ','
+                | '<'
+                | '>'
+                | '['
+                | ']'
+                | '`' -> "\\" + string<char> c
+                | c -> string<char> c
+            )
+
+        let prefix =
+            if isStruct then
+                "<>f__ValueAnonymousType"
+            else
+                "<>f__AnonymousType"
+
+        let escapedNames = fieldNames |> Array.map escape |> String.concat ","
+        $"%s{prefix}<%s{escapedNames}>`%d{fieldNames.Length}"
+
     let rec getEntityFullName prettify (entRef: EntityRef) gen =
         let fullname = entRef.FullName
 
@@ -1667,7 +1691,27 @@ module AST =
     and getTypeFullName prettify t =
         match t with
         | Measure fullname -> fullname
-        | AnonymousRecordType _ -> ""
+        | AnonymousRecordType(fieldNames, genArgs, isStruct) ->
+            let genArgs = List.map (getTypeFullName prettify) genArgs
+
+            if prettify then
+                let fields =
+                    List.zip (List.ofArray fieldNames) genArgs
+                    |> List.map (fun (fieldName, fieldType) -> fieldName + ": " + fieldType)
+                    |> String.concat "; "
+
+                (if isStruct then
+                     "struct "
+                 else
+                     "")
+                + "{| "
+                + fields
+                + " |}"
+            else
+                getAnonymousRecordName fieldNames isStruct
+                + "["
+                + String.concat "," genArgs
+                + "]"
         | GenericParam(name = name) -> "'" + name
         | Regex -> Types.regex
         | MetaType -> Types.type_
@@ -1676,6 +1720,7 @@ module AST =
         | Char -> Types.char
         | String -> Types.string
         | Any -> Types.object
+        | Number(kind, NumberInfo.IsMeasure _) when not prettify -> getNumberFullName prettify kind NumberInfo.Empty
         | Number(kind, info) -> getNumberFullName prettify kind info
         | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType

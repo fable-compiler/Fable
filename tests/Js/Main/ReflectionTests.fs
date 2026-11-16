@@ -328,6 +328,11 @@ type B() = member _.Value = 10
 type AnonRec1 = {| name: string; child: {| name: string |} |}
 type AnonRec2 = {| numbers: int list |}
 
+let inline anonRecordFullName<'T> () = typeof<{| A: 'T |}>.FullName
+let inline anonRecordName<'T> () = typeof<{| A: 'T |}>.Name
+let runtimeType (t: System.Type) = if System.DateTime.Now.Year > 1900 then t else null
+[<Measure>] type anonRecordMeasure
+
 type RecordGetValueType = {
     Firstname : string
     Age : int
@@ -453,6 +458,92 @@ let reflectionTests = [
       let generic = typeof<Result<AnonRec2, string>>
       generic = typeof<Result<AnonRec1, string>> |> equal false
       generic = typeof<Result<{| numbers: int list |}, string>> |> equal true
+
+  testCase "Anonymous record types have a distinct name per shape" <| fun () ->
+      let outer = {| A = {| B = "content" |} |}.GetType()
+      let inner = (FSharpType.GetRecordFields outer).[0].PropertyType
+      System.String.IsNullOrEmpty outer.FullName |> equal false
+      System.String.IsNullOrEmpty inner.FullName |> equal false
+      outer.FullName = inner.FullName |> equal false
+      inner.FullName = typeof<{| B: string |}>.FullName |> equal true
+      inner.Name = typeof<{| B: string |}>.Name |> equal true
+
+      let intA = typeof<{| a: int |}>
+      System.String.IsNullOrEmpty intA.Name |> equal false
+      System.String.IsNullOrEmpty (string intA) |> equal false
+      intA.FullName = typeof<{| a: string |}>.FullName |> equal false
+      intA.FullName = typeof<{| b: int |}>.FullName |> equal false
+      intA.FullName = typeof<{| a: int; b: int |}>.FullName |> equal false
+      intA.Name = typeof<{| b: int |}>.Name |> equal false
+      intA.FullName.StartsWith(intA.Name, System.StringComparison.Ordinal) |> equal true
+
+      typeof<{| a: int |}[]>.FullName = intA.FullName + "[]" |> equal true
+      typeof<{| a: int |}[]>.Name = intA.Name + "[]" |> equal true
+      typeof<{| a: int |} list>.FullName = typeof<{| a: string |} list>.FullName |> equal false
+      typeof<{| a: int |} list>.FullName.Contains(intA.Name) |> equal true
+      typeof<{| a: int |} list>.Name = typeof<int list>.Name |> equal true
+
+      let commaFirst = typeof<{| ``a,b``: int; c: int |}>
+      let commaLast = typeof<{| a: int; ``b,c``: int |}>
+      commaFirst.FullName = commaLast.FullName |> equal false
+      commaFirst.Name = commaLast.Name |> equal false
+      typeof<{| ``a>`1``: int |}>.Name = typeof<{| a: int |}>.Name |> equal false
+
+      let structA = typeof<struct {| A: int |}>
+      let refA = typeof<{| A: int |}>
+      structA = refA |> equal false
+      structA.Name = refA.Name |> equal false
+      structA.FullName = refA.FullName |> equal false
+
+      let structValue = struct {| A = 1 |}
+      structValue.GetType() = structA |> equal true
+      structValue.GetType().Name = structA.Name |> equal true
+
+      anonRecordFullName<int> () = refA.FullName |> equal true
+      anonRecordFullName<int> () = anonRecordFullName<string> () |> equal false
+      anonRecordName<int> () = anonRecordName<string> () |> equal true
+      anonRecordName<int> () = refA.Name |> equal true
+
+  testCase "Anonymous record generic type definition keeps the record shape" <| fun () ->
+      let definition = (runtimeType typeof<{| A: int |}>).GetGenericTypeDefinition()
+      FSharpType.IsRecord definition |> equal true
+      FSharpType.GetRecordFields definition |> Array.map (fun f -> f.Name) |> equal [| "A" |]
+      definition = typeof<{| A: int |}>.GetGenericTypeDefinition() |> equal true
+      definition.FullName = typeof<{| A: int |}>.GetGenericTypeDefinition().FullName |> equal true
+      definition = (runtimeType typeof<{| A: string |}>).GetGenericTypeDefinition() |> equal true
+      typeof<{| A: int |}>.GetGenericTypeDefinition() = typeof<{| A: string |}>.GetGenericTypeDefinition() |> equal true
+      definition = runtimeType typeof<{| A: int |}> |> equal false
+      typeof<{| A: int |}>.GetGenericTypeDefinition() = typeof<{| A: int |}> |> equal false
+      definition.Name = typeof<{| A: int |}>.Name |> equal true
+
+      let stringA = definition.MakeGenericType([| typeof<string> |])
+      FSharpType.IsRecord stringA |> equal true
+      stringA = typeof<{| A: string |}> |> equal true
+      stringA.FullName = typeof<{| A: string |}>.FullName |> equal true
+      (FSharpType.GetRecordFields stringA).[0].PropertyType = typeof<string> |> equal true
+      FSharpValue.MakeRecord(stringA, [| box "s" |]) |> unbox<{| A: string |}> |> equal {| A = "s" |}
+
+  testCase "Anonymous record type names are not split at dots" <| fun () ->
+      let dotted = runtimeType typeof<{| ``a.b``: int |}>
+      dotted.Name = typeof<{| ``a.b``: int |}>.Name |> equal true
+      System.String.IsNullOrEmpty dotted.Namespace |> equal true
+      dotted.GetGenericTypeDefinition().Name = dotted.Name |> equal true
+      System.String.IsNullOrEmpty (dotted.GetGenericTypeDefinition().Namespace) |> equal true
+
+      let intArray = runtimeType typeof<{| a: int |}[]>
+      intArray.Name = typeof<{| a: int |}>.Name + "[]" |> equal true
+      System.String.IsNullOrEmpty intArray.Namespace |> equal true
+      intArray.FullName = typeof<{| a: int |}[]>.FullName |> equal true
+      intArray.FullName = (runtimeType typeof<{| a: string |}[]>).FullName |> equal false
+      let dottedArray = runtimeType typeof<{| ``a.b``: int |}[]>
+      dottedArray.Name = dotted.Name + "[]" |> equal true
+      System.String.IsNullOrEmpty dottedArray.Namespace |> equal true
+
+  testCase "Anonymous record type names ignore units of measure" <| fun () ->
+      typeof<{| A: int<anonRecordMeasure> |}>.FullName = typeof<{| A: int |}>.FullName |> equal true
+      (runtimeType typeof<{| A: int<anonRecordMeasure> |}>).FullName = typeof<{| A: int |}>.FullName |> equal true
+      typeof<int<anonRecordMeasure>>.FullName |> equal "System.Int32"
+      typeof<float<anonRecordMeasure>>.FullName |> equal "System.Double"
 
   testCase "FSharp.Reflection: Anonymous Record" <| fun () ->
     let typ = typeof<{| String: string; Int: int |}>
