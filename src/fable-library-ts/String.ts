@@ -53,12 +53,35 @@ function cmp(x: string, y: string, ic: boolean | StringComparison) {
   if (y == null) { return 1; } // everything is bigger than null
 
   if (isOrdinal(ic)) {
-    if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
+    if (isIgnoreCase(ic)) { x = ordinalUpper(x); y = ordinalUpper(y); }
     return (x === y) ? 0 : (x < y ? -1 : 1);
+  } else if (isIgnoreCase(ic)) {
+    return x.localeCompare(y, undefined, { sensitivity: "accent" });
   } else {
-    if (isIgnoreCase(ic)) { x = x.toLocaleLowerCase(); y = y.toLocaleLowerCase(); }
     return x.localeCompare(y);
   }
+}
+
+// .NET OrdinalIgnoreCase maps each code point to its simple uppercase and leaves U+0131 and U+017F unchanged.
+function ordinalUpper(str: string) {
+  if (/^[\x00-\x7F]*$/.test(str)) {
+    return str.toUpperCase();
+  }
+  let res = "";
+  for (const ch of str) {
+    if (ch === "ı" || ch === "ſ") {
+      res += ch;
+      continue;
+    }
+    const upper = ch.toUpperCase();
+    if ([...upper].length === 1) {
+      res += upper;
+      continue;
+    }
+    const lower = ch.toLowerCase();
+    res += [...lower].length === 1 ? lower : ch;
+  }
+  return res;
 }
 
 export function compare(...args: any[]): number {

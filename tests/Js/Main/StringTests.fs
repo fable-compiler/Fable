@@ -1166,6 +1166,16 @@ let tests = testList "Strings" [
         ("a" + emoji + "b").Replace(high, "x", StringComparison.OrdinalIgnoreCase) |> equal ("ax" + low + "b")
         "\U00010400".Replace("\U00010428", "x", StringComparison.OrdinalIgnoreCase) |> equal "x"
 
+    testCase "String comparisons that ignore case fold characters like .NET" <| fun () ->
+        "K".Replace("k", "x", StringComparison.OrdinalIgnoreCase) |> equal "K"
+        "Å".Replace("å", "x", StringComparison.OrdinalIgnoreCase) |> equal "Å"
+        "ı".Replace("i", "x", StringComparison.OrdinalIgnoreCase) |> equal "ı"
+        "ſ".Replace("s", "x", StringComparison.OrdinalIgnoreCase) |> equal "ſ"
+        "ς".Replace("σ", "x", StringComparison.OrdinalIgnoreCase) |> equal "x"
+        "ᾀ".Replace("ᾈ", "x", StringComparison.OrdinalIgnoreCase) |> equal "x"
+        "ς".Replace("Σ", "x", true, CultureInfo.InvariantCulture) |> equal "x"
+        sign (String.Compare("_", "a", StringComparison.OrdinalIgnoreCase)) |> equal 1
+
     testCase "Access char by index works" <| fun () ->
         let c = "abcd".[2]
         equal 'c' c
