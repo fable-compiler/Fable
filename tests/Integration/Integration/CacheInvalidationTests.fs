@@ -99,4 +99,94 @@ let tests =
                             (File.Exists(Path.Combine(outDir, "Scalars.js")))
                             "The file added through the imported .props should have been generated"
                     )
+
+            testCase "A run after a compilation that failed with an F# error is not skipped"
+            <| fun () ->
+                withTempProject
+                    "fsharp-error"
+                    (fun dir outDir ->
+                        let mainPath = Path.Combine(dir, "Main.fs")
+                        File.WriteAllText(mainPath, "module Main\n\nlet run (x: int) : int = Undefined.thing x\n")
+
+                        Expect.equal (compile dir outDir) 1 "First compilation should fail"
+                        Expect.equal (compile dir outDir) 1 "Second compilation should fail too"
+
+                        writeNewer mainPath "module Main\n\nlet run () = printfn \"%s\" Lib.greeting\n"
+
+                        Expect.equal (compile dir outDir) 0 "Compilation should succeed once the error is fixed"
+                    )
+
+            testCase "A run after a compilation that failed with a Fable error is not skipped"
+            <| fun () ->
+                withTempProject
+                    "fable-error"
+                    (fun dir outDir ->
+                        File.WriteAllText(
+                            Path.Combine(dir, "Main.fs"),
+                            "module Main\n\nlet run () = System.Exception().GetType().Name\n"
+                        )
+
+                        Expect.equal (compile dir outDir) 1 "First compilation should fail"
+                        Expect.equal (compile dir outDir) 1 "Second compilation should fail too"
+                    )
+
+            testCase "A run after a successful compilation is skipped"
+            <| fun () ->
+                withTempProject
+                    "skipped"
+                    (fun dir outDir ->
+                        let mainPath = Path.Combine(dir, "Main.fs")
+                        let outPath = Path.Combine(outDir, "Main.js")
+                        File.WriteAllText(mainPath, "module Main\n\nlet run (x: int) : int = Undefined.thing x\n")
+
+                        Expect.equal (compile dir outDir) 1 "First compilation should fail"
+
+                        writeNewer mainPath "module Main\n\nlet run () = printfn \"%s\" Lib.greeting\n"
+                        Expect.equal (compile dir outDir) 0 "Compilation should succeed once the error is fixed"
+
+                        File.SetLastWriteTime(outPath, DateTime.Now.AddSeconds(4.0))
+                        let timestamp = File.GetLastWriteTime(outPath)
+
+                        Expect.equal (compile dir outDir) 0 "Next compilation should succeed"
+
+                        Expect.equal
+                            (File.GetLastWriteTime(outPath))
+                            timestamp
+                            "The output file should not have been written again"
+                    )
+
+            testCase "A run after an interrupted compilation is not skipped"
+            <| fun () ->
+                withTempProject
+                    "interrupted"
+                    (fun dir outDir ->
+                        let outPath = Path.Combine(outDir, "Main.js")
+                        let marker = Path.Combine(outDir, "fable_modules", "compilation_unfinished")
+
+                        Expect.equal (compile dir outDir) 0 "First compilation should succeed"
+                        Expect.isFalse (File.Exists marker) "A successful compilation should leave no marker"
+
+                        File.WriteAllText(marker, "")
+                        File.SetLastWriteTime(outPath, DateTime.Now.AddSeconds(4.0))
+                        let timestamp = File.GetLastWriteTime(outPath)
+
+                        Expect.equal (compile dir outDir) 0 "Compilation after the interrupted one should succeed"
+
+                        Expect.notEqual
+                            (File.GetLastWriteTime(outPath))
+                            timestamp
+                            "The output file should have been written again"
+
+                        Expect.isFalse (File.Exists marker) "The marker should have been removed"
+
+                        File.SetLastWriteTime(outPath, DateTime.Now.AddSeconds(4.0))
+                        let timestamp = File.GetLastWriteTime(outPath)
+
+                        Expect.equal (compile dir outDir) 0 "Next compilation should succeed"
+
+                        Expect.equal
+                            (File.GetLastWriteTime(outPath))
+                            timestamp
+                            "The output file should not have been written again"
+                    )
         ]

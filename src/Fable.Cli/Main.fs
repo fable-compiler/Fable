@@ -1143,6 +1143,25 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
         Log.warning ("Cannot check timestamp of compiled files: " + er.Message)
         false
 
+let private unfinishedCompilationMarker (projCracked: ProjectCracked) =
+    IO.Path.Combine(projCracked.FableModulesDir, "compilation_unfinished")
+
+let private setUnfinishedCompilation (projCracked: ProjectCracked) (isUnfinished: bool) =
+    let marker = unfinishedCompilationMarker projCracked
+
+    try
+        if isUnfinished then
+            IO.File.WriteAllText(marker, "")
+        else
+            IO.File.Delete(marker)
+    with er ->
+        Log.verbose (lazy $"Cannot update {File.relPathToCurDir marker}: {er.Message}")
+
+let private canSkipCompilation (state: State) (projCracked: ProjectCracked) (filesToCompile: string[]) =
+    projCracked.CanReuseCompiledFiles
+    && not (IO.File.Exists(unfinishedCompilationMarker projCracked))
+    && areCompiledFilesUpToDate state filesToCompile
+
 // Library .erl files now live in src/ subdirectories (rebar3 convention).
 let private erlLibSrcRelDir =
     IO.Path.Combine("fable_modules", "fable-library-beam", "src")
@@ -1562,8 +1581,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
         // NOTE: Don't skip Fable compilation in watch mode because we need to calculate watch dependencies
         if
             Option.isNone state.Watcher
-            && projCracked.CanReuseCompiledFiles
-            && areCompiledFilesUpToDate state filesToCompile
+            && canSkipCompilation state projCracked filesToCompile
         then
             Log.always "Skipped compilation because all generated files are up-to-date!"
 
@@ -1582,10 +1600,9 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                 match cliArgs.RunProcess with
                 | Some runProc when
                     Option.isSome state.Watcher
-                    && projCracked.CanReuseCompiledFiles
                     && not runProc.IsWatch
                     && runProc.ExeFile <> Naming.placeholder
-                    && areCompiledFilesUpToDate state filesToCompile
+                    && canSkipCompilation state projCracked filesToCompile
                     ->
                     let cliArgs = runProcessAndForget cliArgs runProc
 
@@ -1629,6 +1646,8 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     )
                 )
                 |> Array.map snd
+
+            setUnfinishedCompilation projCracked true
 
             let! fsharpLogs, fableResults =
                 fableCompiler.StartCompilation(
@@ -1789,6 +1808,9 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                                 return 0
                     | _ -> return 0
                 }
+
+            if not hasError && exitCode = 0 then
+                setUnfinishedCompilation projCracked false
 
             // Generate rebar3 scaffold for BEAM target after successful compilation
             if cliArgs.CompilerOptions.Language = Beam && not hasError then
