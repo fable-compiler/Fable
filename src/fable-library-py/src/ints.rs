@@ -133,6 +133,20 @@ enum OtherType {
     Float(f64),
 }
 
+const OVERFLOW_MESSAGE: &str = "Arithmetic operation resulted in an overflow.";
+
+fn overflow_error(py: Python<'_>) -> PyErr {
+    let exception = py
+        .import("fable_library.system")
+        .and_then(|module| module.getattr("OverflowException"))
+        .and_then(|class| class.call1((OVERFLOW_MESSAGE,)));
+
+    match exception {
+        Ok(exception) => PyErr::from_value(exception),
+        Err(_) => PyErr::new::<exceptions::PyOverflowError, _>(OVERFLOW_MESSAGE),
+    }
+}
+
 /// Macro for generating integer wrapper types with full Python integration.
 ///
 /// This macro generates a complete integer wrapper type that:
@@ -215,6 +229,37 @@ macro_rules! integer_variant {
             #[inline]
             fn deref(&self) -> &Self::Target {
                 &self.0
+            }
+        }
+
+        impl $name {
+            // .NET divides int8 and int16 as int32 and truncates; int32 and int64 overflow.
+            const WRAPS_ON_DIVISION_OVERFLOW: bool = $bitsize < 32;
+
+            fn quotient(py: Python<'_>, dividend: $type, divisor: $type) -> PyResult<$type> {
+                if divisor == 0 {
+                    return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                        "Cannot divide by zero",
+                    ));
+                }
+                match dividend.checked_div(divisor) {
+                    Some(quotient) => Ok(quotient),
+                    None if Self::WRAPS_ON_DIVISION_OVERFLOW => Ok(dividend.wrapping_div(divisor)),
+                    None => Err(overflow_error(py)),
+                }
+            }
+
+            fn remainder(py: Python<'_>, dividend: $type, divisor: $type) -> PyResult<$type> {
+                if divisor == 0 {
+                    return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                        "Cannot modulo by zero",
+                    ));
+                }
+                match dividend.checked_rem(divisor) {
+                    Some(remainder) => Ok(remainder),
+                    None if Self::WRAPS_ON_DIVISION_OVERFLOW => Ok(dividend.wrapping_rem(divisor)),
+                    None => Err(overflow_error(py)),
+                }
             }
         }
 
@@ -480,23 +525,12 @@ macro_rules! integer_variant {
                 // __int__ hop of the OtherType extract, and the float-fallback
                 // precision loss for large/negative operands.
                 if let Ok(other_val) = other.cast::<$name>() {
-                    let divisor = other_val.get().0;
-                    if divisor == 0 {
-                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
-                            "Cannot divide by zero",
-                        ));
-                    }
-                    return Ok($name(self.0 / divisor));
+                    return Self::quotient(other.py(), self.0, other_val.get().0).map($name);
                 }
                 let value = other.extract::<OtherType>();
                 match value {
                     Ok(OtherType::Int(value)) => {
-                        if value == 0 {
-                            return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
-                                "Cannot divide by zero",
-                            ));
-                        }
-                        Ok($name(self.0 as $type / value as $type))
+                        Self::quotient(other.py(), self.0, value as $type).map($name)
                     }
                     Ok(OtherType::Float(value)) => {
                         if value == 0.0 {
@@ -524,12 +558,7 @@ macro_rules! integer_variant {
             pub fn __floordiv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 // Fast path: other is same type
                 if let Ok(other_val) = other.extract::<$name>() {
-                    if other_val.0 == 0 {
-                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
-                            "Cannot divide by zero",
-                        ));
-                    }
-                    return Ok($name(self.0 / other_val.0));
+                    return Self::quotient(other.py(), self.0, other_val.0).map($name);
                 }
                 // Slow path: extract as primitive
                 let other_val = other.extract::<$type>().map_err(|_| {
@@ -538,12 +567,7 @@ macro_rules! integer_variant {
                         stringify!($name)
                     ))
                 })?;
-                if other_val == 0 {
-                    return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
-                        "Cannot divide by zero",
-                    ));
-                }
-                Ok($name(self.0 / other_val))
+                Self::quotient(other.py(), self.0, other_val).map($name)
             }
 
             /// Right-hand floor division operator.
@@ -561,12 +585,7 @@ macro_rules! integer_variant {
             pub fn __mod__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
                 // Fast path: other is same type
                 if let Ok(other_val) = other.extract::<$name>() {
-                    if other_val.0 == 0 {
-                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
-                            "Cannot modulo by zero",
-                        ));
-                    }
-                    return Ok($name(self.0 % other_val.0));
+                    return Self::remainder(other.py(), self.0, other_val.0).map($name);
                 }
                 // Slow path: extract as primitive
                 let other_val = other.extract::<$type>().map_err(|_| {
@@ -575,12 +594,7 @@ macro_rules! integer_variant {
                         stringify!($name)
                     ))
                 })?;
-                if other_val == 0 {
-                    return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
-                        "Cannot modulo by zero",
-                    ));
-                }
-                Ok($name(self.0 % other_val))
+                Self::remainder(other.py(), self.0, other_val).map($name)
             }
 
             /// Right-hand modulo operator.
