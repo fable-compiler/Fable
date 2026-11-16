@@ -1201,6 +1201,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             | Number(UInt32, _) -> "Range", "range_uint32", addStep args
             | Number(Int64, _) -> "Range", "range_int64", addStep args
             | Number(UInt64, _) -> "Range", "range_uint64", addStep args
+            | Number(Float32, _) -> "Range", "rangeSingle", addStep args
+            | Number(Float64, _) -> "Range", "rangeFloat", addStep args
             | _ -> "Range", "rangeDouble", addStep args
 
         Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
@@ -2734,10 +2736,14 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
     // Type: RangeDouble: float -> float -> float -> float seq
     // Usage: RangeDouble start step stop
-    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeSingle" | "RangeDouble"),
-      None,
-      args ->
+    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32"), None, args ->
         Helper.LibCall(com, "range", "rangeDouble", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeSingle", None, args ->
+        Helper.LibCall(com, "range", "rangeSingle", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeDouble", None, args ->
+        Helper.LibCall(com, "range", "rangeFloat", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "RangeInt64", None, args ->
         Helper.LibCall(com, "range", "rangeInt64", t, args, i.SignatureArgTypes, ?loc = r)

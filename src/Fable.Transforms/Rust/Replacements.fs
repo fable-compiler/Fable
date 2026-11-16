@@ -1156,6 +1156,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let meth, args =
             match genArg with
             | Char -> "rangeChar", args
+            | Number(Float32, _) -> "rangeSingle", addStep args
+            | Number(Float64, _) -> "rangeFloat", addStep args
             | _ -> "rangeNumeric", addStep args
 
         makeLibCall com r t i "Range" meth args |> Some
@@ -2321,9 +2323,11 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
     // Type: RangeDouble: float -> float -> float -> float seq
     // Usage: RangeDouble start step stop
-    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeInt64" | "RangeUInt64" | "RangeSingle" | "RangeDouble"),
+    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeInt64" | "RangeUInt64"),
       None,
       args -> makeLibCall com r t i "Range" "rangeNumeric" args |> Some
+    | "RangeSingle", None, args -> makeLibCall com r t i "Range" "rangeSingle" args |> Some
+    | "RangeDouble", None, args -> makeLibCall com r t i "Range" "rangeFloat" args |> Some
     | _ -> None
 
 let runtimeHelpers (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =

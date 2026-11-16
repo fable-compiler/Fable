@@ -1228,6 +1228,42 @@ let tests() =
         raisedExceptionType (fun () -> [|1L .. 0L .. 5L|]) |> equal "ArgumentException"
         raisedExceptionType (fun () -> [1. .. 0. .. 5.]) |> equal "ArgumentException"
 
+    testCase "Float ranges with a step have the same elements as .NET" <| fun () -> // See #2946
+        let expected =
+            [ 0.5; 0.55; 0.6; 0.65; 0.7; 0.75; 0.8; 0.8500000000000001; 0.9; 0.95; 1.0
+              1.05; 1.1; 1.15; 1.2000000000000002; 1.25; 1.3; 1.35; 1.4; 1.4500000000000002; 1.5 ]
+        [ 0.5 .. 0.05 .. 1.5 ] |> equal expected
+        [ 1.0 .. -0.1 .. 0.0 ]
+        |> equal [ 1.0; 0.9; 0.8; 0.7; 0.6; 0.5; 0.3999999999999999; 0.29999999999999993; 0.19999999999999996; 0.09999999999999998; 0.0 ]
+
+    testCase "Float ranges handle steps that do not divide the interval" <| fun () ->
+        [ 0.0 .. 0.3 .. 1.0 ] |> equal [ 0.0; 0.3; 0.6; 0.8999999999999999 ]
+        seq { 0.0 .. 0.1 .. 1e10 } |> Seq.item 10 |> equal 0.9999999999999999
+        seq { 1e16 .. 1.0 .. 1e16 + 10.0 } |> Seq.length |> equal 11
+
+    testCase "Float ranges handle NaN and infinity like .NET" <| fun () ->
+        raisedExceptionType (fun () -> seq { System.Double.NaN .. 1.0 .. 2.0 } |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> seq { 0.0 .. System.Double.NaN .. 2.0 } |> Seq.toList) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> seq { 0.0 .. 1.0 .. System.Double.NaN } |> Seq.toList) |> equal "ArgumentException"
+        seq { 0.0 .. System.Double.PositiveInfinity .. System.Double.PositiveInfinity } |> Seq.toList |> equal [ 0.0; System.Double.PositiveInfinity ]
+        seq { System.Double.NegativeInfinity .. 1.0 .. 0.0 } |> Seq.toList |> equal [ System.Double.NegativeInfinity ]
+        seq { System.Double.PositiveInfinity .. 1.0 .. System.Double.PositiveInfinity } |> Seq.toList |> equal [ System.Double.PositiveInfinity ]
+
+    testCase "Float ranges check their arguments when enumerated" <| fun () ->
+        let zeroStep = seq { 1.0 .. 0.0 .. 2.0 }
+        let zeroStep32 = seq { 1.0f .. 0.0f .. 2.0f }
+        raisedExceptionType (fun () -> Seq.toList zeroStep) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Seq.toList zeroStep32) |> equal "ArgumentException"
+        raisedExceptionType (fun () -> seq { 1 .. 0 .. 2 }) |> equal "ArgumentException"
+
+    testCase "Float32 ranges with a step have the same elements as .NET" <| fun () ->
+        [ 0.5f .. 0.05f .. 1.5f ]
+        |> equal
+            [ 0.5f; 0.55f; 0.6f; 0.65f; 0.7f; 0.75f; 0.8f; 0.85f; 0.9f; 0.95000005f; 1.0f
+              1.05f; 1.1f; 1.1500001f; 1.2f; 1.25f; 1.3f; 1.35f; 1.4000001f; 1.45f; 1.5f ]
+        seq { 16777216f .. 1f .. 16777226f } |> Seq.toList
+        |> equal [ 16777216f; 16777216f; 16777218f; 16777220f; 16777220f; 16777220f; 16777222f; 16777224f; 16777224f; 16777224f; 16777226f ]
+
     testCase "Seq.init, Seq.replicate and Seq.take with a negative count raise when called" <| fun () ->
         raisedExceptionType (fun () -> Seq.init -1 id) |> equal "ArgumentException"
         raisedExceptionType (fun () -> Seq.replicate -1 "a") |> equal "ArgumentOutOfRangeException"

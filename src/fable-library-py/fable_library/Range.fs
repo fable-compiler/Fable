@@ -32,6 +32,72 @@ let rangeDecimal start step stop =
 let rangeDouble start step stop =
     integralRangeStep start step stop 0.0 (+)
 
+let private floatingRangeStep (round: float -> float) (start: float) (step: float) (stop: float) =
+    if start <> start then
+        invalidArg "n" "The start of a range cannot be NaN."
+
+    if step <> step then
+        invalidArg "step" "The step of a range cannot be NaN."
+
+    if stop <> stop then
+        invalidArg "m" "The end of a range cannot be NaN."
+
+    if start = stop then
+        Seq.singleton start
+    else
+        let up = start < stop
+
+        if (up && step < 0.0) || (not up && step > 0.0) then
+            Seq.empty
+        else
+            let before (a: float) (b: float) =
+                if up then
+                    a < b
+                else
+                    a > b
+
+            let stepFn (x: float voption) =
+                match x with
+                | ValueNone -> None
+                | ValueSome x ->
+                    let next = round (x + step)
+
+                    if next <> x && ((before x next && before next stop) || next = stop) then
+                        Some(x, ValueSome next)
+                    else
+                        Some(x, ValueNone)
+
+            Seq.unfold stepFn (ValueSome start)
+
+let private floatingRange (round: float -> float) (start: float) (step: float) (stop: float) =
+    Seq.delay (fun () ->
+        if step = 0.0 then
+            invalidArg "step" "The step of a range cannot be zero."
+
+        let numSteps = round (round (stop - start) / step)
+
+        if
+            -2147483648.0 <= numSteps
+            && numSteps <= 2147483647.0
+            && System.Math.Floor numSteps = numSteps
+        then
+            let stepFn (i: float) =
+                if i <= numSteps then
+                    Some(round (start + round (round i * step)), i + 1.0)
+                else
+                    None
+
+            Seq.unfold stepFn 0.0
+        else
+            floatingRangeStep round start step stop
+    )
+
+let rangeFloat (start: float) (step: float) (stop: float) : seq<float> = floatingRange id start step stop
+
+let rangeSingle (start: float32) (step: float32) (stop: float32) : seq<float32> =
+    floatingRange (fun x -> float (float32 x)) (float start) (float step) (float stop)
+    |> Seq.map float32
+
 let rangeInt32 start step stop = integralRangeStep start step stop 0 (+)
 
 let rangeUInt32 start step stop =
