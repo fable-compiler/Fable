@@ -121,10 +121,35 @@ DateTime.Parse("2026-01-01") |> ignore
         """
 open System
 open System.Globalization
-Int32.Parse("1", NumberStyles.Currency, CultureInfo.InvariantCulture) |> ignore
+Double.Parse("1", NumberStyles.HexNumber, CultureInfo.InvariantCulture) |> ignore
 """
       compile source
       |> Assert.Code.warning "FABLE0103"
+      |> ignore
+
+    testCase "A supported NumberStyles on an integer is not reported" <| fun _ ->
+      let source =
+        """
+open System
+open System.Globalization
+Int32.Parse("1", NumberStyles.Currency, CultureInfo.InvariantCulture) |> ignore
+Int64.Parse("1", NumberStyles.Any, CultureInfo.InvariantCulture) |> ignore
+Byte.Parse("1", NumberStyles.BinaryNumber, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0103"
+      |> ignore
+
+    testCase "A NumberStyles an integer rejects at run time is not reported" <| fun _ ->
+      let source =
+        """
+open System
+open System.Globalization
+Int32.Parse("1", enum<NumberStyles> 519, CultureInfo.InvariantCulture) |> ignore
+Int64.Parse("1", enum<NumberStyles> 0x800, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0103"
       |> ignore
 
     testCase "A supported NumberStyles on a float is not reported" <| fun _ ->

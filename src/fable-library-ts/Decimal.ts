@@ -172,16 +172,14 @@ function parseWithStyle(str: string, style: number): Decimal | undefined {
 }
 
 export function tryParse(str: string, style: number, defValue: FSharpRef<Decimal>): boolean {
+  let d: Decimal | undefined;
   try {
-    const d = parseWithStyle(str, style);
-    if (d === undefined) {
-      return false;
-    }
-    defValue.contents = d;
-    return true;
+    d = parseWithStyle(str, style);
   } catch {
-    return false;
+    d = undefined;
   }
+  defValue.contents = d ?? get_Zero;
+  return d !== undefined;
 }
 
 export function parse(str: string, style: number = NumberStyles.Number): Decimal {

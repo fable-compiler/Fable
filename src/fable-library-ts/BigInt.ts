@@ -3,7 +3,7 @@ import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64, a
 import { decimal, fromParts, truncate } from "./Decimal.ts";
 import { Exception, bigintHash } from "./Util.ts";
 import { ArgumentException_$ctor_Z721C83C5, ArgumentNullException_$ctor_Z721C83C5, DivideByZeroException_$ctor, FormatException_$ctor_Z721C83C5, OverflowException_$ctor, OverflowException_$ctor_Z721C83C5 } from "./System.ts";
-import { NumberStyles, splitNumber, trimEndChars } from "./NumberStyles.ts";
+import { NumberStyles, invalidStyleMessage, splitNumber, trimEndChars } from "./NumberStyles.ts";
 
 const isBigEndian = false;
 
@@ -22,8 +22,6 @@ const zero: bigint = 0n;
 const one: bigint = 1n;
 const two: bigint = 2n;
 const minusOne: bigint = -1n;
-
-const allNumberStyles = 0x7ff;
 
 // V8 caps a BigInt at 2^30 bits and 10^323228497 is the first power of ten above that
 const maxDecimalScale = 323228496;
@@ -213,11 +211,9 @@ export function toChar(x: bigint): string {
 export function toString(x: bigint): string { return x.toString(); }
 
 function checkStyle(style: int32): void {
-    if (style & ~allNumberStyles) {
-        throw ArgumentException_$ctor_Z721C83C5("An undefined NumberStyles value is being used.");
-    }
-    if (style & NumberStyles.AllowHexSpecifier && style & ~NumberStyles.HexNumber) {
-        throw ArgumentException_$ctor_Z721C83C5("With the AllowHexSpecifier bit set in the enum bit field, the only other valid bits that can be combined into the enum value must be a subset of those in HexNumber.");
+    const message = invalidStyleMessage(style, false);
+    if (message !== undefined) {
+        throw ArgumentException_$ctor_Z721C83C5(message);
     }
 }
 
