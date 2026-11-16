@@ -1,7 +1,7 @@
 import { toString as dateToString } from "./Date.ts";
 import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toExponentialHalfEven, toFixed, toFixedHalfEven, toHex, toPrecision, toPrecisionHalfEven, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
-import { ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentException_$ctor_Z384F8060, ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 import { toString } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
@@ -53,12 +53,35 @@ function cmp(x: string, y: string, ic: boolean | StringComparison) {
   if (y == null) { return 1; } // everything is bigger than null
 
   if (isOrdinal(ic)) {
-    if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
+    if (isIgnoreCase(ic)) { x = ordinalUpper(x); y = ordinalUpper(y); }
     return (x === y) ? 0 : (x < y ? -1 : 1);
+  } else if (isIgnoreCase(ic)) {
+    return x.localeCompare(y, undefined, { sensitivity: "accent" });
   } else {
-    if (isIgnoreCase(ic)) { x = x.toLocaleLowerCase(); y = y.toLocaleLowerCase(); }
     return x.localeCompare(y);
   }
+}
+
+// .NET OrdinalIgnoreCase maps each code point to its simple uppercase and leaves U+0131 and U+017F unchanged.
+function ordinalUpper(str: string) {
+  if (/^[\x00-\x7F]*$/.test(str)) {
+    return str.toUpperCase();
+  }
+  let res = "";
+  for (const ch of str) {
+    if (ch === "ı" || ch === "ſ") {
+      res += ch;
+      continue;
+    }
+    const upper = ch.toUpperCase();
+    if ([...upper].length === 1) {
+      res += upper;
+      continue;
+    }
+    const lower = ch.toLowerCase();
+    res += [...lower].length === 1 ? lower : ch;
+  }
+  return res;
 }
 
 export function compare(...args: any[]): number {
@@ -114,7 +137,7 @@ export function contains(str: string, pattern: string, ic: boolean | StringCompa
   return false;
 }
 
-export function indexOf(str: string, searchValue: string, comparison: StringComparison, startIndex: number = 0): number {
+export function indexOf(str: string, searchValue: string, comparison: boolean | StringComparison, startIndex: number = 0): number {
   if (comparison === StringComparison.Ordinal) { // fast path
     return str.indexOf(searchValue, startIndex);
   }
@@ -788,8 +811,23 @@ export function remove(str: string, startIndex: number, count?: number) {
   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
 }
 
-export function replace(str: string, search: string, replace: string) {
-  return str.replace(new RegExp(escape(search), "g"), replace);
+export function replace(str: string, search: string, replacement: string, comparison: boolean | number = StringComparison.Ordinal, _culture?: unknown) {
+  if (search == null) {
+    throw ArgumentNullException_$ctor_Z721C83C5("oldValue");
+  }
+  if (search.length === 0) {
+    throw ArgumentException_$ctor_Z384F8060("The value cannot be an empty string.", "oldValue");
+  }
+  const comp = comparison as boolean | StringComparison;
+  let result = "";
+  let start = 0;
+  let match = indexOf(str, search, comp);
+  while (match >= 0) {
+    result += str.slice(start, match) + (replacement ?? "");
+    start = match + search.length;
+    match = indexOf(str, search, comp, start);
+  }
+  return result + str.slice(start);
 }
 
 export function replicate(n: number, x: string) {
