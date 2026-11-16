@@ -921,6 +921,22 @@ let ``Seq.cast works`` () =
     ys |> Seq.toArray |> equal [|1; 2; 3|]
 
 [<Fact>]
+let ``Seq.groupBy keeps each NaN key in its own group`` () =
+    let grouped = Seq.groupBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+
+    grouped
+    |> Seq.map (fun (k, v) -> System.Double.IsNaN k, Seq.length v)
+    |> Seq.toList
+    |> equal [ true, 1; true, 1; false, 2 ]
+
+[<Fact>]
+let ``Seq.countBy counts each NaN key separately`` () =
+    Seq.countBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+    |> Seq.map (fun (k, n) -> System.Double.IsNaN k, n)
+    |> Seq.toList
+    |> equal [ true, 1; true, 1; false, 2 ]
+
+[<Fact>]
 let ``Seq.countBy works`` () =
     let xs = [1; 2; 3; 4]
     let ys = xs |> Seq.countBy (fun x -> x % 2)

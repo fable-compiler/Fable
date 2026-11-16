@@ -1385,17 +1385,19 @@ let countBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 
     delay (fun () ->
         let dict = Dictionary<'Key, int>()
         let keys = ResizeArray<'Key>()
+        let counts = ResizeArray<int>()
 
         for x in xs do
             let key = projection x
 
             match dict.TryGetValue(key) with
-            | true, prev -> dict[key] <- prev + 1
+            | true, index -> counts[index] <- counts[index] + 1
             | false, _ ->
-                dict[key] <- 1
+                dict[key] <- keys.Count
                 keys.Add(key)
+                counts.Add(1)
 
-        keys |> asArray |> Array.map (fun key -> key, dict[key]) |> ofArray
+        keys |> asArray |> Array.mapi (fun index key -> key, counts[index]) |> ofArray
     )
 
 let groupBy<'T, 'Key when 'Key: equality and 'Key: not null>
@@ -1405,7 +1407,7 @@ let groupBy<'T, 'Key when 'Key: equality and 'Key: not null>
     =
     delay (fun () ->
         let dict = Dictionary<'Key, ResizeArray<'T>>()
-        let keys = ResizeArray<'Key>()
+        let groups = ResizeArray<'Key * ResizeArray<'T>>()
 
         for x in xs do
             let key = projection x
@@ -1413,12 +1415,13 @@ let groupBy<'T, 'Key when 'Key: equality and 'Key: not null>
             match dict.TryGetValue(key) with
             | true, prev -> prev.Add(x)
             | false, _ ->
-                dict.Add(key, ResizeArray [| x |])
-                keys.Add(key)
+                let group = ResizeArray [| x |]
+                dict.Add(key, group)
+                groups.Add((key, group))
 
-        keys
+        groups
         |> asArray
-        |> Array.map (fun key -> key, dict[key] |> asArray |> ofArray)
+        |> Array.map (fun (key, group) -> key, group |> asArray |> ofArray)
         |> ofArray
     )
 

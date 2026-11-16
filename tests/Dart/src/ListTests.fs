@@ -771,6 +771,16 @@ let tests() =
         List.tryLast xs |> equal (Some 4.)
         List.tryLast [] |> equal None
 
+    testCase "List.groupBy keeps each NaN key in its own group" <| fun () ->
+        List.groupBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+        |> List.map (fun (k, v) -> System.Double.IsNaN k, List.length v)
+        |> equal [ true, 1; true, 1; false, 2 ]
+
+    testCase "List.countBy counts each NaN key separately" <| fun () ->
+        List.countBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+        |> List.map (fun (k, n) -> System.Double.IsNaN k, n)
+        |> equal [ true, 1; true, 1; false, 2 ]
+
     testCase "List.countBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
         xs |> List.countBy (fun x -> x % 2)

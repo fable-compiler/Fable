@@ -686,6 +686,18 @@ let ``Array.iteri2 works`` () =
     total |> equal 40.
 
 [<Fact>]
+let ``Array.groupBy keeps each NaN key in its own group`` () =
+    Array.groupBy id [| System.Double.NaN; System.Double.NaN; 1.0; 1.0 |]
+    |> Array.map (fun (k, v) -> System.Double.IsNaN k, Array.length v)
+    |> equal [| true, 1; true, 1; false, 2 |]
+
+[<Fact>]
+let ``Array.countBy counts each NaN key separately`` () =
+    Array.countBy id [| System.Double.NaN; System.Double.NaN; 1.0; 1.0 |]
+    |> Array.map (fun (k, n) -> System.Double.IsNaN k, n)
+    |> equal [| true, 1; true, 1; false, 2 |]
+
+[<Fact>]
 let ``Array.countBy works`` () =
     let xs = [|1; 2; 3; 4|]
     let ys = xs |> Array.countBy (fun x -> x % 2)

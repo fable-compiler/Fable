@@ -761,6 +761,20 @@ let tests =
         Seq.compareWith (-) xs ys |> equal -1
         Seq.compareWith (-) xs zs |> equal 1
 
+    testCase "Seq.groupBy keeps each NaN key in its own group" <| fun () ->
+        let grouped = Seq.groupBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+
+        grouped
+        |> Seq.map (fun (k, v) -> System.Double.IsNaN k, Seq.length v)
+        |> Seq.toList
+        |> equal [ true, 1; true, 1; false, 2 ]
+
+    testCase "Seq.countBy counts each NaN key separately" <| fun () ->
+        Seq.countBy id [ System.Double.NaN; System.Double.NaN; 1.0; 1.0 ]
+        |> Seq.map (fun (k, n) -> System.Double.IsNaN k, n)
+        |> Seq.toList
+        |> equal [ true, 1; true, 1; false, 2 ]
+
     testCase "Seq.countBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.countBy (fun x -> x % 2)
