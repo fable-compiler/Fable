@@ -8,7 +8,12 @@ type Comparer<'T when 'T: comparison and 'T: null>(comparison: 'T -> 'T -> int) 
 
     static member Default = Comparer<'T>(LanguagePrimitives.GenericComparison)
 
-    static member Create(comparison) = Comparer<'T>(comparison)
+    // Same overload suffix as System.Comparison<'T>, which is what callers of Comparer.Create pass
+    static member Create(comparison: System.Func<'T, 'T, int>) =
+        Comparer<'T>(fun x y -> comparison.Invoke(x, y))
+
+    // Exported for Python output compiled by older Fable versions
+    static member Create(comparison: 'T -> 'T -> int) = Comparer<'T>(comparison)
 
     member _.Compare(x, y) = comparison x y
 
@@ -25,7 +30,11 @@ type EqualityComparer<'T when 'T: equality and 'T: null>(equals: 'T -> 'T -> boo
     static member Default =
         EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
 
-    static member Create(equals, getHashCode) =
+    static member Create(equals: System.Func<'T, 'T, bool>, getHashCode: System.Func<'T, int>) =
+        EqualityComparer<'T>((fun x y -> equals.Invoke(x, y)), (fun x -> getHashCode.Invoke x))
+
+    // Exported for Python output compiled by older Fable versions
+    static member Create(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
         EqualityComparer<'T>(equals, getHashCode)
 
     member _.Equals(x, y) = equals x y

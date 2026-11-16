@@ -1166,6 +1166,26 @@ module private PythonExceptionBases =
     [<Global("TimeoutError")>]
     type TimeoutError() = inherit Exception()
 
+module private LegacyLibraryExports =
+    open Fable.Core.PyInterop
+
+    let comparerCreate: Func<Func<int, int, int>, System.Collections.Generic.IComparer<int>> =
+        import "Comparer_1_Create_47C913C" "fable_library.system_collections_generic"
+
+    let equalityComparerCreate: Func<Func<int, int, bool>, Func<int, int>, System.Collections.Generic.IEqualityComparer<int>> =
+        import "EqualityComparer_1_Create_Z6EE254AB" "fable_library.system_collections_generic"
+
+[<Fact>]
+let ``test Comparer.Create exports used by older compilers still work`` () =
+    let comparer = LegacyLibraryExports.comparerCreate.Invoke(Func<int, int, int>(fun x y -> compare y x))
+    comparer.Compare(1, 2) |> equal 1
+
+    let equalityComparer =
+        LegacyLibraryExports.equalityComparerCreate.Invoke(Func<int, int, bool>(fun x y -> x <> y), Func<int, int>(fun x -> x + 1))
+
+    equalityComparer.Equals(1, 1) |> equal false
+    equalityComparer.GetHashCode(1) |> equal 2
+
 [<Fact>]
 let ``test Python ExceptionBase compatibility import preserves class identity`` () =
     obj.ReferenceEquals(PythonExceptionBases.exceptionBase, PythonExceptionBases.legacyExceptionBase) |> equal true
