@@ -4627,8 +4627,8 @@ let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option
         //        `m.Groups.[0]` `m.Groups.["name"]`
         match (args |> List.head).Type with
         | String ->
-            // name, `groups` only exists when the regex has named groups
-            emitExpr r t [ thisArg.Value; args.Head ] "$0.groups?.[$1]" |> Some
+            Helper.LibCall(com, "RegExp", "groupByName", t, [ thisArg.Value; args.Head ], ?loc = r)
+            |> Some
         | _ ->
             // index
             getExpr r t thisArg.Value args.Head |> Some
@@ -4637,6 +4637,14 @@ let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option
         |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "get_Name" ->
+        if isGroup then
+            "Accessing name of Regex groups is not supported"
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
+        else
+            makeStrConst "0" |> Some
+    | "Count"
     | "IsMatch"
     | "Match"
     | "Matches" as meth ->
@@ -4653,11 +4661,26 @@ let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option
             [ reg; input ] |> Some
         | _ -> None
         |> Option.map (fun args -> Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, argTypes, ?loc = r))
-    | meth ->
-        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
-
-        Helper.LibCall(com, "RegExp", meth, t, args, argTypes, ?thisArg = thisArg, ?loc = r)
+    | "Escape"
+    | "Unescape"
+    | "Replace"
+    | "Split"
+    | "NextMatch"
+    | "Result"
+    | "GetGroupNames"
+    | "GroupNameFromNumber"
+    | "GroupNumberFromName" as meth ->
+        Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, argTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
+    | "GetGroupNumbers" ->
+        let expr =
+            Helper.LibCall(com, "RegExp", "getGroupNumbers", t, args, argTypes, ?thisArg = thisArg, ?loc = r)
+
+        if com.Options.TypedArrays then
+            expr |> Some
+        else
+            toArray r t expr |> Some
+    | _ -> None
 
 let regex (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let timeouts =

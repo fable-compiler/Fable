@@ -1,5 +1,5 @@
 import { Exception } from "./Util.ts";
-import { ArgumentOutOfRangeException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentOutOfRangeException_$ctor_Z721C83C5, NotSupportedException_$ctor_Z721C83C5 } from "./System.ts";
 
 export type MatchEvaluator = (match: any) => string;
 
@@ -57,6 +57,120 @@ function setMatchRegex<M extends RegExpExecArray | null>(m: M, reg: RegExp): M {
   return m;
 }
 
+interface GroupInfo {
+  unnamed: number[];
+  names: string[];
+  reordered: boolean;
+}
+
+const groupInfosByRegex = new WeakMap<RegExp, GroupInfo>();
+const groupInfosBySource = new Map<string, GroupInfo>();
+
+function scanGroups(source: string): [GroupInfo, number] {
+  const info: GroupInfo = { unnamed: [], names: [], reordered: false };
+  let index = 0;
+  let inClass = false;
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === "\\") {
+      i++;
+    } else if (inClass) {
+      inClass = c !== "]";
+    } else if (c === "[") {
+      inClass = true;
+    } else if (c === "(") {
+      if (source[i + 1] !== "?") {
+        info.unnamed.push(++index);
+        info.reordered ||= info.names.length > 0;
+      } else if (source[i + 2] === "<" && source[i + 3] !== "=" && source[i + 3] !== "!") {
+        index++;
+        const name = source.substring(i + 3, source.indexOf(">", i));
+        if (info.names.includes(name)) {
+          info.reordered = true;
+        } else {
+          info.names.push(name);
+        }
+      }
+    }
+  }
+  return [info, index];
+}
+
+function checkedGroupInfo(reg: RegExp): GroupInfo {
+  const [scanned, count] = scanGroups(reg.source);
+  const probe = new RegExp("(?:" + reg.source + ")|", reg.flags).exec("")!;
+  const names = Object.keys(probe.groups ?? {});
+  if (count === probe.length - 1 && scanned.names.join(">") === names.join(">")) {
+    return scanned;
+  }
+  return { unnamed: Array.from({ length: probe.length - 1 - names.length }, (_, i) => i + 1), names, reordered: false };
+}
+
+function getGroupInfo(reg: RegExp): GroupInfo {
+  let info = groupInfosByRegex.get(reg);
+  if (info == null) {
+    info = groupInfosBySource.get(reg.source);
+    if (info == null) {
+      info = checkedGroupInfo(reg);
+      if (groupInfosBySource.size >= 256) {
+        groupInfosBySource.clear();
+      }
+      groupInfosBySource.set(reg.source, info);
+      groupInfosByRegex.set(reg, info);
+    }
+  }
+  return info;
+}
+
+// .NET numbers the unnamed groups first and then the named groups, JS numbers all the groups in pattern order
+function toNetGroups(m: RegExpExecArray, reg: RegExp): RegExpExecArray {
+  // `exec` sets `groups` only when the regex has named groups
+  if (m.groups === undefined) {
+    return m;
+  }
+  const info = getGroupInfo(reg);
+  if (!info.reordered) {
+    return m;
+  }
+  const { unnamed, names } = info;
+  const res = new Array(1 + unnamed.length + names.length) as MatchWithRegex;
+  res[0] = m[0];
+  for (let k = 0; k < unnamed.length; k++) {
+    res[k + 1] = m[unnamed[k]];
+  }
+  for (let k = 0; k < names.length; k++) {
+    res[k + 1 + unnamed.length] = m.groups[names[k]];
+  }
+  res.index = m.index;
+  res.input = m.input;
+  res.groups = m.groups;
+  res[matchRegex] = reg;
+  return res;
+}
+
+export function getGroupNames(reg: RegExp): string[] {
+  const info = getGroupInfo(reg);
+  return ["0", ...info.unnamed.map((_, i) => String(i + 1)), ...info.names];
+}
+
+export function getGroupNumbers(reg: RegExp): Int32Array {
+  const info = getGroupInfo(reg);
+  return Int32Array.from({ length: 1 + info.unnamed.length + info.names.length }, (_, i) => i);
+}
+
+export function groupNameFromNumber(reg: RegExp, i: number): string {
+  return getGroupNames(reg)[i] ?? "";
+}
+
+export function groupNumberFromName(reg: RegExp, name: string): number {
+  const info = getGroupInfo(reg);
+  if (info.names.length > 0) {
+    return getGroupNames(reg).indexOf(name);
+  }
+  const i = /^\d+$/.test(name) ? Number(name) : -1;
+  return i <= info.unnamed.length ? i : -1;
+}
+
 export function match(reg: RegExp, input: string, startAt = 0) {
   reg.lastIndex = startAt;
   return setMatchRegex(reg.exec(input), reg);
@@ -82,7 +196,24 @@ export function nextMatch(m: RegExpExecArray | null) {
 }
 
 export function groups(m: RegExpExecArray | null): RegExpExecArray {
-  return m ?? (Object.assign([undefined], { index: 0, input: "" }) as unknown as RegExpExecArray);
+  if (m == null) {
+    return Object.assign([undefined], { index: 0, input: "" }) as unknown as RegExpExecArray;
+  }
+  if (m.groups === undefined) {
+    return m;
+  }
+  const reg = (m as MatchWithRegex)[matchRegex];
+  return reg == null ? m : toNetGroups(m, reg);
+}
+
+export function groupByName(groups: RegExpExecArray, name: string): string | undefined {
+  const value = groups.groups?.[name];
+  const reg = (groups as MatchWithRegex)[matchRegex];
+  if (value !== undefined || reg == null || !/^\d+$/.test(name)) {
+    return value;
+  }
+  const i = groupNumberFromName(reg, name);
+  return i < 0 ? undefined : groups[i];
 }
 
 export function matchAt(matches: RegExpExecArray[], i: number): RegExpExecArray {
@@ -115,11 +246,47 @@ export function matches(reg: RegExp, input: string, startAt = 0) {
   return matches;
 }
 
+export function count(reg: RegExp, input: string): number {
+  return matches(reg, input).length;
+}
+
 export function options(reg: RegExp) {
   let options = 256; // ECMAScript
   options |= reg.ignoreCase ? 1 : 0;
   options |= reg.multiline ? 2 : 0;
   return options;
+}
+
+// .NET replacement patterns cannot be rewritten as JS replacement strings unambiguously
+// (e.g. `$$0` must stay literal "$0", `$0` doesn't work with JS regex (see #1155), and
+// `${1}` followed by a digit must not become `$1` + digit), so interpret them
+// honoring the `$$` escape left-to-right
+function expandReplacement(rep: string, match: RegExpExecArray, reg: RegExp): string {
+  const groups = toNetGroups(match, reg);
+  return rep.replace(/\$(?:(\$)|(&)|(`)|(')|(\d+)|\{(\d+)\}|\{([^}]+)\})/g,
+    (s, dollar?: string, and?: string, before?: string, after?: string, num?: string, numBraced?: string, name?: string) => {
+      if (dollar != null) { return "$"; }
+      if (and != null) { return match[0]; }
+      if (before != null) { return match.input.substring(0, match.index); }
+      if (after != null) { return match.input.substring(match.index + match[0].length); }
+      const n = num ?? numBraced;
+      if (n != null) {
+        const i = parseInt(n, 10);
+        // Same as .NET: an unmatched group is replaced by an empty string,
+        // a nonexistent group number keeps the substitution pattern literally
+        return i < groups.length ? (groups[i] ?? "") : s;
+      }
+      // Named groups are `${name}` in .NET (in regex: groups are `(?<name>...)` in both)
+      return match.groups != null && (name as string) in match.groups ? (match.groups[name as string] ?? "") : s;
+    });
+}
+
+export function result(m: RegExpExecArray | null, replacement: string): string {
+  const reg = (m as MatchWithRegex | null)?.[matchRegex];
+  if (m == null || reg == null) {
+    throw NotSupportedException_$ctor_Z721C83C5("Result cannot be called on a failed Match.");
+  }
+  return expandReplacement(replacement, m, reg);
 }
 
 export function replace(
@@ -164,27 +331,7 @@ export function replace(
   }
   if (typeof replacement === "string") {
     const rep = replacement as string;
-    // .NET replacement patterns cannot be rewritten as JS replacement strings unambiguously
-    // (e.g. `$$0` must stay literal "$0", `$0` doesn't work with JS regex (see #1155), and
-    // `${1}` followed by a digit must not become `$1` + digit), so interpret them with an
-    // evaluator instead, honoring the `$$` escape left-to-right
-    replacement = (match: any): string =>
-      rep.replace(/\$(?:(\$)|(&)|(`)|(')|(\d+)|\{(\d+)\}|\{([^}]+)\})/g,
-        (s, dollar?: string, and?: string, before?: string, after?: string, num?: string, numBraced?: string, name?: string) => {
-          if (dollar != null) { return "$"; }
-          if (and != null) { return match[0]; }
-          if (before != null) { return match.input.substring(0, match.index); }
-          if (after != null) { return match.input.substring(match.index + match[0].length); }
-          const n = num ?? numBraced;
-          if (n != null) {
-            const i = parseInt(n, 10);
-            // Same as .NET: an unmatched group is replaced by an empty string,
-            // a nonexistent group number keeps the substitution pattern literally
-            return i < match.length ? (match[i] ?? "") : s;
-          }
-          // Named groups are `${name}` in .NET (in regex: groups are `(?<name>...)` in both)
-          return match.groups != null && (name as string) in match.groups ? (match.groups[name as string] ?? "") : s;
-        });
+    replacement = (match: any): string => expandReplacement(rep, match, reg as RegExp);
   }
   limit = limit == null ? -1 : limit;
   return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
@@ -210,9 +357,10 @@ export function split(reg: string | RegExp, input: string, limit?: number, offse
     }
     result.push(input.substring(prev, m.index));
     prev = m.index + m[0].length;
-    for (let i = 1; i < m.length; i++) {
-      if (m[i] !== undefined) {
-        result.push(m[i]);
+    const groups = toNetGroups(m, reg as RegExp);
+    for (let i = 1; i < groups.length; i++) {
+      if (groups[i] !== undefined) {
+        result.push(groups[i]);
       }
     }
     count--;
