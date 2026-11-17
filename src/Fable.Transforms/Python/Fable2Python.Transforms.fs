@@ -2784,13 +2784,6 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
         // printfn "members: %A" (members, typ)
         transformObjectExpr com ctx members typ baseCall
 
-    | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "has" }, _, _), info, _, _range) ->
-        Expression.withStmts {
-            let! left = com.TransformAsExpr(ctx, info.Args.Head)
-            let! value = com.TransformAsExpr(ctx, expr)
-            return Expression.compare (left, [ ComparisonOperator.In ], [ value ])
-        }
-
     | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "slice" }, _, _), info, _, _range) ->
         transformAsSlice com ctx expr info
 

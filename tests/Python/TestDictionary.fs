@@ -218,6 +218,16 @@ let ``test Dictionary.ContainsKey works`` () =
     dic.ContainsKey("C") |> equal false
 
 [<Fact>]
+let ``test Dictionary.ContainsKey works in return position`` () =
+    let hasKey key =
+        let dic = Dictionary<string, int>()
+        dic.Add("A", 1)
+        dic.ContainsKey key
+
+    hasKey "A" |> equal true
+    hasKey "B" |> equal false
+
+[<Fact>]
 let ``test Dictionary.ContainsValue works`` () =
     let dic = Dictionary<_, _>()
     dic.Add("A", "Hello")

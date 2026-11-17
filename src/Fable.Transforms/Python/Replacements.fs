@@ -2836,7 +2836,8 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
         Helper.LibCall(com, "util", "to_enumerable", t, [ valuesCall ], ?loc = r)
         |> Some
-    | ReplaceName [ "set_Item", "set"; "ContainsKey", "has"; "Clear", "clear" ] methName, Some c ->
+    | "ContainsKey", Some c -> emitExpr r t [ c; args.Head ] "$1 in $0" |> Some
+    | ReplaceName [ "set_Item", "set"; "Clear", "clear" ] methName, Some c ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
