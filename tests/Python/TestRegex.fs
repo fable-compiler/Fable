@@ -287,6 +287,67 @@ let ``test Match.NextMatch works`` () =
     Regex("z").Match("ab").NextMatch().Success |> equal false
 
 [<Fact>]
+let ``test Members of a failed Match work`` () =
+    let m = Regex("^test/(?<name>.*?)$").Match("test")
+    isNull m |> equal false
+    (Option.ofObj m).IsSome |> equal true
+    m.Value |> equal ""
+    m.Index |> equal 0
+    m.Length |> equal 0
+    m.ToString() |> equal ""
+    string m |> equal ""
+    m.Groups.Count |> equal 1
+    m.Groups.[0].Success |> equal false
+    m.Groups.[0].Value |> equal ""
+    m.Groups.[1].Success |> equal false
+    m.Groups.[1].Value |> equal ""
+    m.Groups.[1].Length |> equal 0
+    [ for g in m.Groups -> g.Success ] |> equal [ false ]
+    let startAt = Regex("a").Match("ab", 1)
+    isNull startAt |> equal false
+    startAt.Index |> equal 0
+    $"{m}" |> equal ""
+    sprintf "%A" m |> equal ""
+
+[<Fact>]
+let ``test A failed Match seen as a Group is not a success`` () =
+    let tryGroup (g: Group) = if g.Success then Some g.Value else None
+    let m = Regex("(a)(?<name>b)").Match("xyz")
+    tryGroup m |> equal None
+    (m :> Group).Success |> equal false
+    (m :> Group).Value.Length |> equal 0
+    (m :> Group).Length |> equal 0
+    [ m ] |> Seq.cast<Group> |> Seq.map (fun g -> g.Success) |> Seq.toList |> equal [ false ]
+
+[<Fact>]
+let ``test A successful Match seen as a Group gives its value`` () =
+    let g = Regex("a").Match("xa") :> Group
+    "[" + g.ToString() + "]" |> equal "[a]"
+    "[" + string g + "]" |> equal "[a]"
+    g.Value.Length |> equal 1
+    g.Length |> equal 1
+
+[<Fact>]
+let ``test Match.NextMatch returns a failed Match after the last match`` () =
+    let last = Regex("(a)").Match("a").NextMatch()
+    isNull last |> equal false
+    last.Index |> equal 0
+    last.Value |> equal ""
+    last.Groups.Count |> equal 1
+    last.Groups.[1].Success |> equal false
+    let next = last.NextMatch()
+    isNull next |> equal false
+
+[<Fact>]
+let ``test Match.ToString returns the matched text`` () =
+    let m = Regex("(a)(b)?").Match("xa")
+    m.ToString() |> equal "a"
+    string m |> equal "a"
+    string m.Groups.[2] |> equal ""
+    m.Groups.[2].Length |> equal 0
+    m.Groups.[5].Success |> equal false
+
+[<Fact>]
 let ``test Match.NextMatch gives the same matches as Regex.Matches`` () =
     let test (input: string) (pattern: string) expected =
         Regex(pattern).Match(input) |> allMatches |> equal expected

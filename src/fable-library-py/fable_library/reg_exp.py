@@ -13,12 +13,34 @@ from .util import UNIT, Enumerator, Unit
 MatchEvaluator = Callable[[Match[str]], str]
 
 
+class EmptyMatch:
+    """A failed match, like .NET's Match.Empty."""
+
+    def start(self) -> int:
+        return 0
+
+    def end(self) -> int:
+        return 0
+
+    def __getitem__(self, group: int | str) -> str:
+        return ""
+
+    def __bool__(self) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return ""
+
+
+EMPTY_MATCH = EmptyMatch()
+
+
 class GroupCollection:
-    def __init__(self, groups: list[str], named_groups: dict[str, str]) -> None:
+    def __init__(self, groups: list[str | None], named_groups: dict[str, str | None]) -> None:
         self.named_groups = named_groups
         self.groups = groups
 
-    def values(self) -> list[str]:
+    def values(self) -> list[str | None]:
         return list(self.groups)
 
     def __len__(self) -> int:
@@ -30,10 +52,10 @@ class GroupCollection:
         else:
             return self.named_groups.get(key)
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterator[str | None]:
         return iter(self.groups)
 
-    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[str]:
+    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[str | None]:
         return Enumerator(iter(self.groups))
 
 
@@ -109,6 +131,17 @@ def next_match(m: Match[str] | None) -> Match[str] | None:
     return m.re.search(m.string, pos=end + 1)
 
 
+def match_or_empty(reg: Pattern[str], input: str, start_at: int = 0) -> Match[str] | EmptyMatch:
+    return reg.search(input, pos=start_at) or EMPTY_MATCH
+
+
+def next_match_or_empty(m: Match[str] | EmptyMatch) -> Match[str] | EmptyMatch:
+    if isinstance(m, EmptyMatch):
+        return m
+
+    return next_match(m) or EMPTY_MATCH
+
+
 def matches(reg: Pattern[str], input: str, start_at: int = 0) -> MatchCollection:
     return MatchCollection(list(reg.finditer(input, pos=start_at)))
 
@@ -121,12 +154,31 @@ def groups(m: Match[str] | None) -> GroupCollection:
     if m is None:
         return GroupCollection(named_groups={}, groups=[])
 
-    named_groups: dict[str, str] = m.groupdict()
+    named_groups: dict[str, str | None] = m.groupdict()
 
     # .NET adds the whole capture as group 0
-    groups_ = [m.group(0), *m.groups()]
+    groups_: list[str | None] = [m.group(0), *m.groups()]
 
     return GroupCollection(named_groups=named_groups, groups=groups_)
+
+
+def match_groups(m: Match[str] | EmptyMatch) -> GroupCollection:
+    if isinstance(m, EmptyMatch):
+        return GroupCollection(named_groups={}, groups=[None])
+
+    return GroupCollection(named_groups=m.groupdict(), groups=[m.group(0), *m.groups()])
+
+
+def group_success(g: str | Match[str] | EmptyMatch | None) -> bool:
+    return g is not None and g is not EMPTY_MATCH
+
+
+def group_value(g: str | Match[str] | EmptyMatch | None) -> str:
+    if isinstance(g, str):
+        return g
+    if isinstance(g, Match):
+        return g.group(0)
+    return ""
 
 
 def options(reg: Pattern[str]) -> int:
@@ -175,16 +227,31 @@ def get_item(groups: GroupCollection, index: str | int) -> str | None:
     return groups[index]
 
 
+def get_group(groups: GroupCollection, index: str | int) -> str | None:
+    if isinstance(index, str):
+        return groups.named_groups.get(index)
+
+    return groups.groups[index] if 0 <= index < len(groups.groups) else None
+
+
 __all__ = [
+    "EMPTY_MATCH",
+    "EmptyMatch",
     "MatchCollection",
     "create",
     "escape",
+    "get_group",
     "get_item",
+    "group_success",
+    "group_value",
     "groups",
     "is_match",
     "match",
+    "match_groups",
+    "match_or_empty",
     "matches",
     "next_match",
+    "next_match_or_empty",
     "options",
     "replace",
     "split",

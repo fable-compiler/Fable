@@ -477,6 +477,9 @@ let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
         | Array _
         | List _ -> Helper.LibCall(com, "Types", "seqToString", String, [ head ], ?loc = r)
+        | DeclaredTypeFullName Types.regexMatch -> emitExpr r String [ head ] "$0?.[0] ?? \"\""
+        | DeclaredTypeFullName Types.regexGroup ->
+            Helper.LibCall(com, "RegExp", "groupValue", String, [ head ], ?loc = r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
@@ -4614,23 +4617,25 @@ let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
     | "get_Value" ->
-        if
-            isGroup
-        // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then
-            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r)
+        if isGroup then
+            Helper.LibCall(com, "RegExp", "groupValue", t, [ thisArg.Value ], ?loc = r)
             |> Some
         else
             emitExpr r t [ thisArg.Value ] "$0?.[0] ?? \"\"" |> Some
     | "get_Length" ->
         if isGroup then
-            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, String, None)
+            Helper.LibCall(com, "RegExp", "groupValue", String, [ thisArg.Value ])
             |> propStr "length"
             |> Some
         else
             emitExpr r t [ thisArg.Value ] "($0?.[0] ?? \"\").length" |> Some
     // Group
-    | "get_Success" -> nullCheck r false thisArg.Value |> Some
+    | "get_Success" ->
+        if isGroup then
+            Helper.LibCall(com, "RegExp", "groupSuccess", t, [ thisArg.Value ], ?loc = r)
+            |> Some
+        else
+            emitExpr r t [ thisArg.Value ] "$0?.[0] != null" |> Some
     // Match
     | "get_Groups" -> Helper.LibCall(com, "RegExp", "groups", t, [ thisArg.Value ], ?loc = r) |> Some
     // MatchCollection & GroupCollection

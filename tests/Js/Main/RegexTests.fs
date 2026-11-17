@@ -212,6 +212,34 @@ let tests =
         m.Groups.["name"].Success |> equal false
         [ for g in m.Groups -> g.Success ] |> equal [ false ]
 
+    testCase "A failed Match is not null" <| fun _ ->
+        let m = Regex("(a)(?<name>b)").Match("xyz")
+        isNull m |> equal false
+        (Option.ofObj m).IsSome |> equal true
+        m.ToString() |> equal ""
+        let startAt = Regex("a").Match("ab", 1)
+        isNull startAt |> equal false
+
+    testCase "A failed Match seen as a Group is not a success" <| fun _ ->
+        let tryGroup (g: Group) = if g.Success then Some g.Value else None
+        let m = Regex("(a)(?<name>b)").Match("xyz")
+        tryGroup m |> equal None
+        (m :> Group).Success |> equal false
+        (m :> Group).Value.Length |> equal 0
+        (m :> Group).Length |> equal 0
+        [ m ] |> Seq.cast<Group> |> Seq.map (fun g -> g.Success) |> Seq.toList |> equal [ false ]
+
+    testCase "Match.NextMatch returns a failed Match after the last match" <| fun _ ->
+        let last = Regex("(a)").Match("a").NextMatch()
+        isNull last |> equal false
+        let next = last.NextMatch()
+        isNull next |> equal false
+
+    testCase "Match.ToString returns the matched text" <| fun _ ->
+        let m = Regex("(a)(b)?").Match("xa")
+        m.ToString() |> equal "a"
+        string m |> equal "a"
+
     testCase "Members of an unmatched Group work" <| fun _ ->
         let m = Regex("(a)|(b)").Match("b")
         m.Groups.[1].Success |> equal false

@@ -193,8 +193,15 @@ export function groupNumberFromName(reg: RegExp, name: string): number {
   return i <= info.unnamed.length ? i : -1;
 }
 
-export function match(reg: RegExp, input: string, startAt = 0) {
+// .NET returns the same `Match.Empty` for every failed match
+const emptyMatch = Object.assign([undefined], { index: 0, input: "" }) as unknown as RegExpExecArray;
+
+function matchOrNull(reg: RegExp, input: string, startAt: number) {
   return setMatchRegex(execFrom(reg, input, startAt), reg);
+}
+
+export function match(reg: RegExp, input: string, startAt = 0): RegExpExecArray {
+  return matchOrNull(reg, input, startAt) ?? emptyMatch;
 }
 
 function nextStartAt(reg: RegExp, m: RegExpExecArray) {
@@ -206,9 +213,9 @@ function nextStartAt(reg: RegExp, m: RegExpExecArray) {
   return startAt + (reg.unicode && (m.input.codePointAt(startAt) ?? 0) > 0xFFFF ? 2 : 1);
 }
 
-export function nextMatch(m: RegExpExecArray | null) {
-  if (m == null) {
-    return null;
+export function nextMatch(m: RegExpExecArray | null): RegExpExecArray {
+  if (m == null || m[0] == null) {
+    return emptyMatch;
   }
   const reg = (m as MatchWithRegex)[matchRegex];
   if (reg == null) {
@@ -222,7 +229,7 @@ export function nextMatch(m: RegExpExecArray | null) {
 
 export function groups(m: RegExpExecArray | null): RegExpExecArray {
   if (m == null) {
-    return Object.assign([undefined], { index: 0, input: "" }) as unknown as RegExpExecArray;
+    return emptyMatch;
   }
   if (m.groups === undefined) {
     return m;
@@ -241,6 +248,15 @@ export function groupByName(groups: RegExpExecArray, name: string): string | und
   return i < 0 ? undefined : groups[i];
 }
 
+// A `Match` seen as a `Group` is still the array returned by `exec`
+export function groupValue(g: string | RegExpExecArray | null | undefined): string {
+  return (Array.isArray(g) ? g[0] : g) ?? "";
+}
+
+export function groupSuccess(g: string | RegExpExecArray | null | undefined): boolean {
+  return (Array.isArray(g) ? g[0] : g) != null;
+}
+
 export function matchAt(matches: RegExpExecArray[], i: number): RegExpExecArray {
   if (i < 0 || i >= matches.length) {
     throw ArgumentOutOfRangeException_$ctor_Z721C83C5("i");
@@ -253,7 +269,7 @@ function* matchesFrom(reg: RegExp, input: string, startAt: number) {
     throw new Exception("Non-global RegExp"); // lastIndex is ignored
   }
   let m: RegExpExecArray | null;
-  while ((m = match(reg, input, startAt)) != null) {
+  while ((m = matchOrNull(reg, input, startAt)) != null) {
     yield m;
     startAt = nextStartAt(reg, m);
   }

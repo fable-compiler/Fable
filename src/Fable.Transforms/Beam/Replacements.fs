@@ -3705,6 +3705,9 @@ let private regex
     | "get_Groups", Some callee, _ ->
         Helper.LibCall(com, "fable_regex", "get_groups", t, [ callee ], ?loc = r)
         |> Some
+    | "get_Item", Some callee, [ idx ] when info.DeclaringEntityFullName = Types.regexGroupCollection ->
+        Helper.LibCall(com, "fable_regex", "get_group", t, [ callee; idx ], ?loc = r)
+        |> Some
     // Collection indexer (MatchCollection, GroupCollection)
     | "get_Item", Some callee, [ idx ] ->
         Helper.LibCall(com, "fable_regex", "get_item", t, [ callee; idx ], ?loc = r)
