@@ -3610,6 +3610,9 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     let createRegex r t args =
         Helper.LibCall(com, "reg_exp", "create", t, args, ?loc = r)
 
+    let createUnicodeRegex args =
+        Helper.LibCall(com, "reg_exp", "create_unicode", Any, args)
+
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
     | ".ctor" ->
@@ -3700,9 +3703,32 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             let meth =
                 match meth with
                 | "Match" -> "match_or_empty"
+                | "Matches" -> "matches_from"
                 | meth -> Naming.lowerFirst meth
 
             Helper.LibCall(com, "reg_exp", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        )
+    | "Replace"
+    | "Split" as meth ->
+        let args =
+            match thisArg, meth, args with
+            | Some thisArg, _, args -> thisArg :: args |> Some
+            | None, "Replace", input :: pattern :: replacement :: options ->
+                [ createUnicodeRegex (pattern :: List.truncate 1 options); input; replacement ]
+                |> Some
+            | None, "Split", input :: pattern :: options ->
+                [ createUnicodeRegex (pattern :: List.truncate 1 options); input ] |> Some
+            | _ -> None
+
+        args
+        |> Option.map (fun args ->
+            let meth =
+                if meth = "Replace" then
+                    "replace_from"
+                else
+                    "split_from"
+
+            Helper.LibCall(com, "reg_exp", meth, t, args, ?loc = r)
         )
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
