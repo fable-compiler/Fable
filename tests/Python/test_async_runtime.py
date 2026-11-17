@@ -3,17 +3,32 @@ from collections.abc import Callable
 from threading import Barrier, Condition, Event, Thread
 
 import pytest
-from fable_library.async_ import await_event, await_task_with_cancellation, sleep, start_with_continuations
+from fable_library.array_ import Array
+from fable_library.async_ import (
+    await_event,
+    await_task_with_cancellation,
+    from_continuations,
+    parallel_with_cancellation,
+    sleep,
+    start_as_task,
+    start_with_continuations,
+)
 from fable_library.async_builder import (
     Async,
     CancellationCallbackError,
     CancellationToken,
+    Continuations,
     IAsyncContext,
     OperationCanceledError,
     TaskCanceledError,
     Trampoline,
+    protected_bind,
+    protected_cont,
+    protected_return,
+    singleton,
 )
 from fable_library.event import Event as FableEvent
+from fable_library.util import to_enumerable
 
 
 def test_registration_handle_and_disposal():
@@ -615,3 +630,246 @@ def test_post_and_async_reply_ignores_a_second_reply() -> None:
     channels[0].reply(1)
     channels[0].reply(2)
     assert calls == [1]
+
+
+def _observe_parallel(work: Async[Array[object]], token: CancellationToken) -> list[tuple[str, object]]:
+    # run_in_loop closes the run's loop on return, so a later signal from the test completes the run inline
+    calls: list[tuple[str, object]] = []
+    start_with_continuations(
+        work,
+        lambda value: calls.append(("success", list(value))),
+        lambda error: calls.append(("error", error)),
+        lambda error: calls.append(("cancel", error)),
+        token,
+    )
+    return calls
+
+
+def test_parallel_cancels_children_when_the_parent_is_cancelled() -> None:
+    parent = CancellationToken()
+    cancelled: list[int] = []
+
+    def wait_for_cancellation(index: int) -> Async[object]:
+        def run(ctx: IAsyncContext[object]) -> None:
+            def cancel() -> None:
+                cancelled.append(index)
+                ctx.on_cancel(OperationCanceledError())
+
+            ctx.cancel_token.add_listener(cancel)
+
+        return run
+
+    calls = _observe_parallel(
+        parallel_with_cancellation(to_enumerable([wait_for_cancellation(i) for i in range(2)])), parent
+    )
+    assert calls == []
+    parent.cancel()
+    assert sorted(cancelled) == [0, 1]
+    assert [channel for channel, _ in calls] == ["cancel"]
+    assert not parent.listeners
+
+
+def test_parallel_reports_a_failed_cancellation_callback_as_the_error() -> None:
+    parent = CancellationToken()
+
+    def wait_for_cancellation(ctx: IAsyncContext[object]) -> None:
+        def cancel() -> None:
+            ctx.on_cancel(OperationCanceledError())
+            raise ValueError("callback")
+
+        ctx.cancel_token.add_listener(cancel)
+
+    def fail(ctx: IAsyncContext[object]) -> None:
+        ctx.on_error(ValueError("boom"))
+
+    calls = _observe_parallel(parallel_with_cancellation(to_enumerable([wait_for_cancellation, fail])), parent)
+    assert len(calls) == 1
+    channel, error = calls[0]
+    assert channel == "error"
+    assert isinstance(error, CancellationCallbackError)
+    assert [str(inner) for inner in error.exceptions] == ["callback"]
+    assert not parent.listeners
+
+
+def test_parallel_with_a_limit_runs_many_synchronous_computations() -> None:
+    count = 5000
+
+    def child(value: int) -> Async[object]:
+        return lambda ctx: ctx.on_success(value)
+
+    computations = [child(i) for i in range(count)]
+    calls = _observe_parallel(parallel_with_cancellation(to_enumerable(computations), 1), CancellationToken())
+    assert calls == [("success", list(range(count)))]
+
+
+def test_parallel_with_a_limit_does_not_start_queued_computations_after_a_failure() -> None:
+    started: list[int] = []
+
+    def work(index: int) -> Async[object]:
+        def run(ctx: IAsyncContext[object]) -> None:
+            started.append(index)
+            if index == 0:
+                ctx.on_error(ValueError("boom"))
+            else:
+                ctx.on_success(index)
+
+        return run
+
+    calls = _observe_parallel(
+        parallel_with_cancellation(to_enumerable([work(i) for i in range(3)]), 1), CancellationToken()
+    )
+    assert started == [0]
+    assert [channel for channel, _ in calls] == ["error"]
+
+
+def _run_on_loop[T](work: Async[T]) -> tuple[str, object]:
+    async def run() -> tuple[str, object]:
+        result: asyncio.Future[tuple[str, object]] = asyncio.get_running_loop().create_future()
+        start_with_continuations(
+            work,
+            lambda value: result.set_result(("success", value)),
+            lambda error: result.set_result(("error", error)),
+            lambda error: result.set_result(("cancel", error)),
+        )
+        return await asyncio.wait_for(result, 5)
+
+    return asyncio.run(run())
+
+
+def test_parallel_in_a_recursive_loop_does_not_grow_the_stack() -> None:
+    def step(value: int) -> Async[int]:
+        return singleton.Delay(lambda: singleton.Return(value + 1))
+
+    def child(value: int) -> Async[int]:
+        return singleton.Delay(
+            lambda: singleton.Bind(
+                step(value), lambda a: singleton.Bind(step(a), lambda b: singleton.Bind(step(b), singleton.Return))
+            )
+        )
+
+    def loop(remaining: int) -> Async[str]:
+        def body() -> Async[str]:
+            if remaining == 0:
+                return singleton.Return("done")
+            return singleton.Bind(
+                parallel_with_cancellation(to_enumerable([child(1), child(2)])), lambda _: loop(remaining - 1)
+            )
+
+        return singleton.Delay(body)
+
+    assert _run_on_loop(loop(100)) == ("success", "done")
+
+
+def _on_another_thread(action: Callable[[], None]) -> None:
+    worker = Thread(target=action)
+    worker.start()
+    worker.join(5)
+    assert not worker.is_alive()
+
+
+def test_parallel_continues_on_the_owner_loop_when_a_child_settles_on_another_thread() -> None:
+    async def run() -> None:
+        owner = asyncio.get_running_loop()
+        continuations: list[Callable[[object], None]] = []
+        child: Async[object] = from_continuations(lambda conts: continuations.append(conts[0]))
+
+        def after(values: Array[object]) -> Async[list[object]]:
+            def resume(ctx: IAsyncContext[list[object]]) -> None:
+                assert asyncio.get_running_loop() is owner
+                ctx.on_success(list(values))
+
+            return protected_cont(resume)
+
+        task = start_as_task(protected_bind(parallel_with_cancellation(to_enumerable([child])), after))
+        _on_another_thread(lambda: continuations[0](1))
+        assert await asyncio.wait_for(task, 5) == [1]
+
+    asyncio.run(run())
+
+
+def test_parallel_starts_a_queued_child_on_the_owner_loop_after_a_settle_on_another_thread() -> None:
+    async def run() -> None:
+        owner = asyncio.get_running_loop()
+        continuations: list[Callable[[object], None]] = []
+        loops: list[asyncio.AbstractEventLoop | None] = []
+        first: Async[object] = from_continuations(lambda conts: continuations.append(conts[0]))
+
+        def second(ctx: IAsyncContext[object]) -> None:
+            try:
+                loops.append(asyncio.get_running_loop())
+            except RuntimeError:
+                loops.append(None)
+            ctx.on_success(2)
+
+        task = start_as_task(parallel_with_cancellation(to_enumerable([first, second]), 1))
+        _on_another_thread(lambda: continuations[0](1))
+        assert list(await asyncio.wait_for(task, 5)) == [1, 2]
+        assert loops == [owner]
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(("channel", "duplicate_first"), [("success", True), ("success", False), ("error", False)])
+def test_parallel_ignores_a_second_signal_from_one_child(channel: str, duplicate_first: bool) -> None:
+    continuations: list[Callable[[object], None]] = []
+    pending: Async[object] = from_continuations(lambda conts: continuations.append(conts[0]))
+    error = ValueError("boom")
+
+    def duplicate(ctx: IAsyncContext[object]) -> None:
+        for _ in range(2):
+            if channel == "success":
+                ctx.on_success(1)
+            else:
+                ctx.on_error(error)
+
+    children = [duplicate, pending] if duplicate_first else [pending, duplicate]
+    calls = _observe_parallel(parallel_with_cancellation(to_enumerable(children)), CancellationToken())
+    assert calls == []
+    continuations[0](2)
+    if channel == "success":
+        assert calls == [("success", [1, 2] if duplicate_first else [2, 1])]
+    else:
+        assert calls == [("error", error)]
+
+
+def test_parallel_with_a_limit_runs_many_protected_computations_on_a_running_loop() -> None:
+    count = 5000
+    computations = [protected_return(i) for i in range(count)]
+    channel, values = _run_on_loop(parallel_with_cancellation(to_enumerable(computations), 1))
+    assert channel == "success"
+    assert isinstance(values, Array)
+    assert list(values) == list(range(count))
+
+
+def test_parallel_reports_the_first_failure_when_it_settles_on_another_thread() -> None:
+    async def run() -> None:
+        errors: list[Callable[[Exception], None]] = []
+        child: Async[object] = from_continuations(lambda conts: errors.append(conts[1]))
+        task = start_as_task(parallel_with_cancellation(to_enumerable([child, child])))
+        _on_another_thread(lambda: errors[0](ValueError("first")))
+        errors[1](ValueError("second"))
+        with pytest.raises(ValueError, match="^first$"):
+            await asyncio.wait_for(task, 5)
+
+    asyncio.run(run())
+
+
+def test_parallel_does_not_start_a_queued_child_after_a_failure_on_another_thread() -> None:
+    async def run() -> None:
+        started: list[int] = []
+
+        def first(conts: Continuations[object]) -> None:
+            started.append(0)
+            _on_another_thread(lambda: conts[1](ValueError("first")))
+
+        def second(ctx: IAsyncContext[object]) -> None:
+            started.append(1)
+            ctx.on_success(1)
+
+        children: list[Async[object]] = [from_continuations(first), protected_cont(second)]
+        task = start_as_task(parallel_with_cancellation(to_enumerable(children), 2))
+        with pytest.raises(ValueError, match="^first$"):
+            await asyncio.wait_for(task, 5)
+        assert started == [0]
+
+    asyncio.run(run())
