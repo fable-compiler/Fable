@@ -208,11 +208,13 @@ def _running_loop() -> asyncio.AbstractEventLoop | None:
 
 class _ParallelRun[T]:
     __slots__ = (
+        "cancel_pending",
         "computations",
         "ctx",
         "failure",
         "gate",
         "limit",
+        "limited",
         "loop",
         "next",
         "parent_listener",
@@ -226,6 +228,8 @@ class _ParallelRun[T]:
     def __init__(self, computations: list[Async[T]], limit: int | None, ctx: IAsyncContext[Array[T]]) -> None:
         self.computations = computations
         self.limit = len(computations) if limit is None else limit
+        # without a limit, FSharp.Core starts every child even after a failure or cancellation
+        self.limited = self.limit < len(computations)
         self.ctx = ctx
         self.loop = _running_loop()
         self.gate = Lock()
@@ -235,6 +239,7 @@ class _ParallelRun[T]:
         self.running = 0
         self.pumping = False
         self.failure: Callable[[], None] | None = None
+        self.cancel_pending = False
         self.token = CancellationToken()
         self.parent_listener = ctx.cancel_token.add_listener(self.token.cancel)
 
@@ -252,10 +257,12 @@ class _ParallelRun[T]:
         # invariant: a loop, not recursion, starts the children, so synchronous children do not grow the stack
         while (index := self.claim_next()) is not None:
             self.start_child(index)
+        self.cancel_if_pending()
 
     def claim_next(self) -> int | None:
         with self.gate:
-            if self.failure is not None or self.next >= len(self.computations) or self.running >= self.limit:
+            stopped = self.limited and self.failure is not None
+            if stopped or self.next >= len(self.computations) or self.running >= self.limit:
                 self.pumping = False
                 return None
             index = self.next
@@ -273,8 +280,7 @@ class _ParallelRun[T]:
         def on_cancel(error: OperationCanceledError) -> None:
             self.fail(index, lambda: self.ctx.on_cancel(error))
 
-        # FSharp.Core skips a cancelled start only when the limit is below the count
-        if self.limit < len(self.computations) and self.token.is_cancelled:
+        if self.limited and self.token.is_cancelled:
             on_cancel(OperationCanceledError())
             return
         # invariant: children share the parent trampoline, so it bounds the stack across consecutive runs
@@ -297,16 +303,34 @@ class _ParallelRun[T]:
                 return
             self.settled.add(index)
             first = self.failure is None
+            deferred = False
             if first:
                 self.failure = report
-        if first:
+                # FSharp.Core queues every child before any runs when there is no limit, so the cancel waits for the start loop
+                deferred = self.pumping and not self.limited
+                self.cancel_pending = deferred
+        if first and not deferred:
             # invariant: this child still counts as running, so no other child can finish the run during cancel
-            try:
-                self.token.cancel()
-            except CancellationCallbackError as error:
-                with self.gate:
-                    self.failure = self.report_error(error)
+            self.cancel_children()
         self.complete_on_owner_loop()
+
+    def cancel_children(self) -> None:
+        try:
+            self.token.cancel()
+        except CancellationCallbackError as error:
+            with self.gate:
+                self.failure = self.report_error(error)
+
+    def cancel_if_pending(self) -> None:
+        with self.gate:
+            pending = self.cancel_pending and len(self.settled) < len(self.computations)
+            self.cancel_pending = False
+            if pending:
+                self.running += 1
+        if pending:
+            # invariant: the extra running count keeps the run open until the cancel returns
+            self.cancel_children()
+            self.complete_on_owner_loop()
 
     def complete_on_owner_loop(self) -> None:
         if self.loop is None:
@@ -318,7 +342,8 @@ class _ParallelRun[T]:
     def complete(self) -> None:
         with self.gate:
             self.running -= 1
-            done = self.running == 0 and (self.failure is not None or self.next == len(self.computations))
+            stopped = self.limited and self.failure is not None
+            done = self.running == 0 and (stopped or self.next == len(self.computations))
         if done:
             self.finish()
         else:

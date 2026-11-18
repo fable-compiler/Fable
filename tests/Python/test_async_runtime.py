@@ -868,7 +868,7 @@ def test_parallel_does_not_start_a_queued_child_after_a_failure_on_another_threa
             ctx.on_success(1)
 
         children: list[Async[object]] = [from_continuations(first), protected_cont(second)]
-        task = start_as_task(parallel_with_cancellation(to_enumerable(children), 2))
+        task = start_as_task(parallel_with_cancellation(to_enumerable(children), 1))
         with pytest.raises(ValueError, match="^first$"):
             await asyncio.wait_for(task, 5)
         assert started == [0]

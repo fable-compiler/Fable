@@ -674,6 +674,20 @@ let ``test Async.Parallel does not start queued computations after a failure`` (
     } |> Async.RunSynchronously
 
 [<Fact>]
+let ``test Async.Parallel without a limit starts every computation after a failure`` () =
+    async {
+        let started = StartCounter()
+        let work i = async {
+            started.Increment()
+            if i = 0 then failwith "boom"
+            return i
+        }
+        let! result = Async.Parallel [ for i in 0..2 -> work i ] |> Async.Catch
+        expectFailure "boom" result
+        equal 3 started.Count
+    } |> Async.RunSynchronously
+
+[<Fact>]
 let ``test Async.Parallel with an empty sequence and a limit returns an empty array`` () =
     async {
         let! results = Async.Parallel(([]: Async<int> list), maxDegreeOfParallelism = 2)
