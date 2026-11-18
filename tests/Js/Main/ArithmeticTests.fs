@@ -43,6 +43,15 @@ let tests =
             ]
         result |> equal [5.0]
 
+    testCase "Negating a negative zero float literal works" <| fun () -> // #5280
+        let x = -(-0.0)
+        x |> equal 0.0
+        1.0 / x |> equal positiveInfinity
+        let f (x: float) = -x
+        1.0 / f -0.0 |> equal positiveInfinity
+        let y = -(-0.0f)
+        1.0f / y |> equal infinityf
+
     testCase "Unary negation with integer MinValue works" <| fun () ->
         -(-128y) |> equal SByte.MinValue
         -(-32768s) |> equal Int16.MinValue
