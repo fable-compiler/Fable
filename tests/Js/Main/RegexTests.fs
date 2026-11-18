@@ -222,6 +222,63 @@ let tests =
         gs.[2].Value |> equal "b"
         gs.[5].Success |> equal false
 
+    testCase "Match.Groups numbers unnamed groups before named groups" <| fun _ ->
+        let m = Regex("(?<n>a)(b)").Match("ab")
+        m.Groups.[1].Value |> equal "b"
+        m.Groups.[2].Value |> equal "a"
+        m.Groups.["1"].Value |> equal "b"
+        m.Groups.["2"].Success |> equal false
+        [ for g in m.Groups -> g.Value ] |> equal [ "ab"; "b"; "a" ]
+        let m = Regex(@"(a)(?<x>b)(c)(?<y>d)(?:e)(?=[(])[(]\((?<!z)").Match("abcde((")
+        [ for g in m.Groups -> g.Value ] |> equal [ "abcde(("; "a"; "c"; "b"; "d" ]
+
+    testCase "Regex.Replace and Regex.Split number unnamed groups before named groups" <| fun _ ->
+        let r = Regex("(?<n>a)(b)")
+        r.Replace("ab", "$2$1") |> equal "ab"
+        r.Replace("ab", fun (m: Match) -> m.Groups.[1].Value + m.Groups.[2].Value) |> equal "ba"
+        r.Split("xaby") |> equal [| "x"; "b"; "a"; "y" |]
+
+    testCase "Regex.GetGroupNames and Regex.GetGroupNumbers work" <| fun _ ->
+        Regex("abc").GetGroupNames() |> equal [| "0" |]
+        Regex("(a)(b)?").GetGroupNames() |> equal [| "0"; "1"; "2" |]
+        let r = Regex(@"(a)(?<x>b)(c)(?<y>d)(?:e)(?=[(])[(]\((?<!z)")
+        r.GetGroupNames() |> equal [| "0"; "1"; "2"; "x"; "y" |]
+        r.GetGroupNumbers() |> equal [| 0; 1; 2; 3; 4 |]
+
+    testCase "Regex.GroupNameFromNumber and Regex.GroupNumberFromName work" <| fun _ ->
+        let r = Regex("(?<n>a)(b)")
+        [ 0; 1; 2; 3; -1 ] |> List.map r.GroupNameFromNumber |> equal [ "0"; "1"; "n"; ""; "" ]
+        [ "0"; "1"; "n"; "2"; "zz"; "N" ] |> List.map r.GroupNumberFromName |> equal [ 0; 1; 2; -1; -1; -1 ]
+
+    testCase "Group names made of digits are parsed as numbers without named groups" <| fun _ ->
+        let r = Regex("(a)(b)")
+        let m = r.Match("ab")
+        m.Groups.["1"].Value |> equal "a"
+        m.Groups.["01"].Value |> equal "a"
+        m.Groups.["002"].Value |> equal "b"
+        m.Groups.["03"].Success |> equal false
+        m.Groups.["+1"].Success |> equal false
+        [ "01"; "00"; "002"; "03"; "+1"; " 1"; "-1"; "" ] |> List.map r.GroupNumberFromName |> equal [ 1; 0; 2; -1; -1; -1; -1; -1 ]
+        let r = Regex("(?<n>a)(b)")
+        r.GroupNumberFromName "01" |> equal -1
+        r.Match("ab").Groups.["01"].Success |> equal false
+
+    testCase "Regex.Count works" <| fun _ ->
+        Regex("a").Count("banana") |> equal 3
+        Regex("x*").Count("axb") |> equal 4
+        Regex.Count("banana", "A") |> equal 0
+        Regex.Count("banana", "A", RegexOptions.IgnoreCase) |> equal 3
+
+    testCase "Match.Result works" <| fun _ ->
+        let r = Regex("(?<n>a)(b)")
+        r.Match("ab").Result("$2-$1-${n}-$0-$$-$3") |> equal "a-b-a-ab-$-$3"
+        Regex("(a)(b)?").Match("xay").Result("[$2][$1][$`][$'][$&]") |> equal "[][a][x][y][a]"
+        r.Matches("abab").[1].Result("$1") |> equal "b"
+        throwsAnyError (fun () -> r.Match("zz").Result("$1"))
+
+    testCase "Match.Name works" <| fun _ ->
+        Regex("(a)").Match("a").Name |> equal "0"
+
     testCase "Regex.Matches indexer throws when out of range" <| fun _ ->
         let ms = Regex("\\d").Matches("1a2")
         ms.[1].Value |> equal "2"
