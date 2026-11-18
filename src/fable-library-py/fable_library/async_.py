@@ -4,7 +4,7 @@ import asyncio
 from asyncio import Future, ensure_future
 from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from threading import RLock, Timer
+from threading import Lock, RLock, Timer
 from typing import (
     Any,
     cast,
@@ -13,6 +13,7 @@ from typing import (
 from .array_ import Array
 from .async_builder import (
     Async,
+    CancellationCallbackError,
     CancellationToken,
     Continuations,
     IAsyncContext,
@@ -34,10 +35,15 @@ from .choice import (
 )
 from .event import IEvent_2
 from .protocols import IEnumerable_1
-from .system import InvalidOperationException__ctor_Z721C83C5, TimeoutException__ctor
+from .system import (
+    ArgumentException__ctor_Z384F8060,
+    InvalidOperationException__ctor_Z721C83C5,
+    TimeoutException__ctor,
+)
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
+from .util import to_iterable
 
 
 def cancellation_token() -> Async[CancellationToken]:
@@ -191,6 +197,178 @@ def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
         return protected_bind(await_task(all), to_array)
 
     return delay(delayed)
+
+
+def _running_loop() -> asyncio.AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
+class _ParallelRun[T]:
+    __slots__ = (
+        "cancel_pending",
+        "computations",
+        "ctx",
+        "failure",
+        "gate",
+        "limit",
+        "limited",
+        "loop",
+        "next",
+        "parent_listener",
+        "pumping",
+        "results",
+        "running",
+        "settled",
+        "token",
+    )
+
+    def __init__(self, computations: list[Async[T]], limit: int | None, ctx: IAsyncContext[Array[T]]) -> None:
+        self.computations = computations
+        self.limit = len(computations) if limit is None else limit
+        # without a limit, FSharp.Core starts every child even after a failure or cancellation
+        self.limited = self.limit < len(computations)
+        self.ctx = ctx
+        self.loop = _running_loop()
+        self.gate = Lock()
+        self.results: dict[int, T] = {}
+        self.settled: set[int] = set()
+        self.next = 0
+        self.running = 0
+        self.pumping = False
+        self.failure: Callable[[], None] | None = None
+        self.cancel_pending = False
+        self.token = CancellationToken()
+        self.parent_listener = ctx.cancel_token.add_listener(self.token.cancel)
+
+    def start(self) -> None:
+        if not self.computations:
+            self.finish()
+            return
+        self.pump()
+
+    def pump(self) -> None:
+        with self.gate:
+            if self.pumping:
+                return
+            self.pumping = True
+        # invariant: a loop, not recursion, starts the children, so synchronous children do not grow the stack
+        while (index := self.claim_next()) is not None:
+            self.start_child(index)
+        self.cancel_if_pending()
+
+    def claim_next(self) -> int | None:
+        with self.gate:
+            stopped = self.limited and self.failure is not None
+            if stopped or self.next >= len(self.computations) or self.running >= self.limit:
+                self.pumping = False
+                return None
+            index = self.next
+            self.next += 1
+            self.running += 1
+            return index
+
+    def start_child(self, index: int) -> None:
+        def on_success(value: T) -> None:
+            self.succeed(index, value)
+
+        def on_error(error: Exception) -> None:
+            self.fail(index, self.report_error(error))
+
+        def on_cancel(error: OperationCanceledError) -> None:
+            self.fail(index, lambda: self.ctx.on_cancel(error))
+
+        if self.limited and self.token.is_cancelled:
+            on_cancel(OperationCanceledError())
+            return
+        # invariant: children share the parent trampoline, so it bounds the stack across consecutive runs
+        self.computations[index](IAsyncContext.create(self.ctx.trampoline, self.token, on_success, on_error, on_cancel))
+
+    def succeed(self, index: int, value: T) -> None:
+        with self.gate:
+            if index in self.settled:
+                return
+            self.settled.add(index)
+            self.results[index] = value
+        self.complete_on_owner_loop()
+
+    def report_error(self, error: Exception) -> Callable[[], None]:
+        return lambda: self.ctx.on_error(error)
+
+    def fail(self, index: int, report: Callable[[], None]) -> None:
+        with self.gate:
+            if index in self.settled:
+                return
+            self.settled.add(index)
+            first = self.failure is None
+            deferred = False
+            if first:
+                self.failure = report
+                # FSharp.Core queues every child before any runs when there is no limit, so the cancel waits for the start loop
+                deferred = self.pumping and not self.limited
+                self.cancel_pending = deferred
+        if first and not deferred:
+            # invariant: this child still counts as running, so no other child can finish the run during cancel
+            self.cancel_children()
+        self.complete_on_owner_loop()
+
+    def cancel_children(self) -> None:
+        try:
+            self.token.cancel()
+        except CancellationCallbackError as error:
+            with self.gate:
+                self.failure = self.report_error(error)
+
+    def cancel_if_pending(self) -> None:
+        with self.gate:
+            pending = self.cancel_pending and len(self.settled) < len(self.computations)
+            self.cancel_pending = False
+            if pending:
+                self.running += 1
+        if pending:
+            # invariant: the extra running count keeps the run open until the cancel returns
+            self.cancel_children()
+            self.complete_on_owner_loop()
+
+    def complete_on_owner_loop(self) -> None:
+        if self.loop is None:
+            self.complete()
+            return
+        # invariant: while the owner loop runs, a child that settles on another thread continues the run on it
+        call_on_owner_loop(self.loop, self.complete)
+
+    def complete(self) -> None:
+        with self.gate:
+            self.running -= 1
+            stopped = self.limited and self.failure is not None
+            done = self.running == 0 and (stopped or self.next == len(self.computations))
+        if done:
+            self.finish()
+        else:
+            self.pump()
+
+    def finish(self) -> None:
+        self.ctx.cancel_token.remove_listener(self.parent_listener)
+        if self.failure is not None:
+            self.failure()
+            return
+        self.ctx.on_success(Array[T]([self.results[index] for index in range(len(self.computations))]))
+
+
+def parallel_with_cancellation[T](
+    computations: IEnumerable_1[Async[T]], max_degree_of_parallelism: int | None = None
+) -> Async[Array[T]]:
+    if max_degree_of_parallelism is not None and max_degree_of_parallelism < 1:
+        raise ArgumentException__ctor_Z384F8060(
+            f"maxDegreeOfParallelism must be positive, was {max_degree_of_parallelism}", "maxDegreeOfParallelism"
+        )
+
+    def cont(ctx: IAsyncContext[Array[T]]) -> None:
+        _ParallelRun(list(to_iterable(computations)), max_degree_of_parallelism, ctx).start()
+
+    return protected_cont(cont)
 
 
 def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
@@ -538,6 +716,7 @@ __all__ = [
     "ignore",
     "is_cancellation_requested",
     "parallel",
+    "parallel_with_cancellation",
     "sequential",
     "sleep",
     "start",

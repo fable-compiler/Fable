@@ -548,6 +548,162 @@ let ``test Async.Parallel is lazy`` () =
         equal 3 x
     } |> Async.RunSynchronously
 
+type private StartCounter() =
+    let sync = obj ()
+    let mutable count = 0
+    let mutable waiters: (int * (unit -> unit)) list = []
+
+    member _.Count = lock sync (fun () -> count)
+
+    member _.Increment() =
+        let ready =
+            lock sync (fun () ->
+                count <- count + 1
+                let ready, waiting = waiters |> List.partition (fun (target, _) -> count >= target)
+                waiters <- waiting
+                ready)
+        for _, resume in ready do
+            resume ()
+
+    member _.WaitFor(target: int) : Async<unit> =
+        Async.FromContinuations(fun (resume, _, _) ->
+            let reached =
+                lock sync (fun () ->
+                    if count >= target then
+                        true
+                    else
+                        waiters <- (target, resume) :: waiters
+                        false)
+            if reached then resume ())
+
+type private GatedComputations(size: int) =
+    let sync = obj ()
+    let started = StartCounter()
+    let releases: (unit -> unit) array = Array.create size ignore
+
+    member _.Started = started
+
+    member _.Computations: Async<int> list = [
+        for i in 0 .. size - 1 ->
+            async {
+                do! Async.FromContinuations(fun (resume, _, _) ->
+                    lock sync (fun () -> releases[i] <- resume)
+                    started.Increment())
+                return i + 1
+            }
+    ]
+
+    member _.Release(index: int) =
+        let resume = lock sync (fun () -> releases[index])
+        resume ()
+
+let private expectFailure message (result: Choice<'T, exn>) =
+    match result with
+    | Choice1Of2 value -> failwithf "Expected Async.Parallel to fail with %s, but it returned %A" message value
+    | Choice2Of2 error -> equal message error.Message
+
+[<Fact>]
+let ``test Async.Parallel respects maxDegreeOfParallelism`` () =
+    async {
+        let gated = GatedComputations 4
+        let! running = Async.StartChild(Async.Parallel(gated.Computations, maxDegreeOfParallelism = 2))
+        do! gated.Started.WaitFor 2
+        equal 2 gated.Started.Count
+        gated.Release 0
+        do! gated.Started.WaitFor 3
+        equal 3 gated.Started.Count
+        gated.Release 1
+        do! gated.Started.WaitFor 4
+        gated.Release 2
+        gated.Release 3
+        let! results = running
+        equal [| 1; 2; 3; 4 |] results
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel keeps the input order when computations complete in reverse`` () =
+    async {
+        let gated = GatedComputations 3
+        let! running = Async.StartChild(Async.Parallel gated.Computations)
+        do! gated.Started.WaitFor 3
+        gated.Release 2
+        gated.Release 1
+        gated.Release 0
+        let! results = running
+        equal [| 1; 2; 3 |] results
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel cancels the other computations when one fails`` () =
+    async {
+        let registered = StartCounter()
+        let cancellations = StartCounter()
+        let completed = ref false
+        let waitForCancellation = async {
+            let! token = Async.CancellationToken
+            do! Async.FromContinuations(fun (_, _, onCancel) ->
+                token.Register(fun () ->
+                    cancellations.Increment()
+                    onCancel (OperationCanceledException()))
+                |> ignore
+                registered.Increment())
+            completed.Value <- true
+        }
+        let failing = async {
+            do! registered.WaitFor 2
+            failwith "boom"
+        }
+        let! result = Async.Parallel [ waitForCancellation; waitForCancellation; failing ] |> Async.Catch
+        expectFailure "boom" result
+        equal 2 cancellations.Count
+        equal false completed.Value
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel does not start queued computations after a failure`` () =
+    async {
+        let started = StartCounter()
+        let work i = async {
+            started.Increment()
+            if i = 0 then failwith "boom"
+            return i
+        }
+        let! result = Async.Parallel([ for i in 0..2 -> work i ], maxDegreeOfParallelism = 1) |> Async.Catch
+        expectFailure "boom" result
+        equal 1 started.Count
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel without a limit starts every computation after a failure`` () =
+    async {
+        let started = StartCounter()
+        let work i = async {
+            started.Increment()
+            if i = 0 then failwith "boom"
+            return i
+        }
+        let! result = Async.Parallel [ for i in 0..2 -> work i ] |> Async.Catch
+        expectFailure "boom" result
+        equal 3 started.Count
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel with an empty sequence and a limit returns an empty array`` () =
+    async {
+        let! results = Async.Parallel(([]: Async<int> list), maxDegreeOfParallelism = 2)
+        equal 0 results.Length
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.Parallel rejects a maxDegreeOfParallelism below 1`` () =
+    for limit in [ 0; -1 ] do
+        let mutable raised = false
+        try
+            Async.Parallel([ async { return 1 } ], maxDegreeOfParallelism = limit) |> ignore
+        with :? ArgumentException ->
+            raised <- true
+        equal true raised
+
 [<Fact>]
 let ``test Async.Sequential works`` () =
     async {
