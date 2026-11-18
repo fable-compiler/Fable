@@ -7,12 +7,12 @@
     "testEnvironment": "jsdom"
   },
   "dependencies": {
-    "@babel/plugin-transform-modules-commonjs": "^7.29.7",
+    "@babel/plugin-transform-modules-commonjs": "^7.29.14",
     "@babel/plugin-transform-react-jsx": "^7.29.7",
     "@fluentui/react": "^8.125.10",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.8",
+    "@testing-library/user-event": "^14.6.10",
     "jest": "^30",
     "jest-environment-jsdom": "^30",
     "react": "^18",
