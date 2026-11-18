@@ -407,6 +407,18 @@ let tests =
         test 0 "ab3ab2ab3abcabcabCCCcabcabc"
         test 10 "abcCcabCCab3ab1ab1abCCCcabcabc"
 
+    testCase "Regex static methods with a timeout work" <| fun _ ->
+        let timeout = System.TimeSpan.FromSeconds 1.
+        Regex.Replace("abab", "b", "X", RegexOptions.None, timeout) |> equal "aXaX"
+        Regex.Replace("abab", "b", (fun (m: Match) -> string m.Index), RegexOptions.None, timeout) |> equal "a1a3"
+        Regex.Split("abab", "b", RegexOptions.None, timeout) |> equal [| "a"; "a"; "" |]
+        let mutable calls = 0
+        let countedTimeout () =
+            calls <- calls + 1
+            timeout
+        Regex.IsMatch("abab", "b", RegexOptions.None, countedTimeout ()) |> equal true
+        calls |> equal 1
+
     testCase "Replacing with $0 works" <| fun _ -> // See #1155
         let s = Regex.Replace("1234567890", ".{2}", "$0-")
         equal "12-34-56-78-90-" s

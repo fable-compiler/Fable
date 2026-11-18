@@ -4553,9 +4553,17 @@ let activator (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.LibCall(com, "Reflection", "createInstance", t, args, ?loc = r) |> Some
     | _ -> None
 
-let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let private isTimeSpan =
+    function
+    | DeclaredTypeFullName Types.timespan -> true
+    | _ -> false
+
+let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let propInt p callee = getExpr r t callee (makeIntConst p)
     let propStr p callee = getExpr r t callee (makeStrConst p)
+
+    let args = args |> List.filter (fun arg -> not (isTimeSpan arg.Type))
+    let argTypes = i.SignatureArgTypes |> List.filter (isTimeSpan >> not)
 
     checkRegexOptions
         com
@@ -4644,14 +4652,25 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 
             [ reg; input ] |> Some
         | _ -> None
-        |> Option.map (fun args ->
-            Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        )
+        |> Option.map (fun args -> Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, argTypes, ?loc = r))
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
-        Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, "RegExp", meth, t, args, argTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
+
+let regex (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let timeouts =
+        args
+        |> List.filter (fun arg -> isTimeSpan arg.Type && canHaveSideEffects com arg)
+
+    regexCall com ctx r t i thisArg args
+    |> Option.map (fun call ->
+        if List.isEmpty timeouts then
+            call
+        else
+            Sequential(timeouts @ [ call ])
+    )
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args.Length with
