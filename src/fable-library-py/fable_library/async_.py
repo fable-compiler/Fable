@@ -273,6 +273,10 @@ class _ParallelRun[T]:
         def on_cancel(error: OperationCanceledError) -> None:
             self.fail(index, lambda: self.ctx.on_cancel(error))
 
+        # FSharp.Core skips a cancelled start only when the limit is below the count
+        if self.limit < len(self.computations) and self.token.is_cancelled:
+            on_cancel(OperationCanceledError())
+            return
         # invariant: children share the parent trampoline, so it bounds the stack across consecutive runs
         self.computations[index](IAsyncContext.create(self.ctx.trampoline, self.token, on_success, on_error, on_cancel))
 

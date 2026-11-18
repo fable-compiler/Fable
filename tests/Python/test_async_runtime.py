@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from threading import Barrier, Condition, Event, Thread
 
 import pytest
@@ -12,6 +12,7 @@ from fable_library.async_ import (
     sleep,
     start_as_task,
     start_with_continuations,
+    try_cancelled,
 )
 from fable_library.async_builder import (
     Async,
@@ -873,3 +874,44 @@ def test_parallel_does_not_start_a_queued_child_after_a_failure_on_another_threa
         assert started == [0]
 
     asyncio.run(run())
+
+
+def test_parallel_does_not_start_a_queued_child_after_the_parent_is_cancelled() -> None:
+    parent = CancellationToken()
+    started: list[str] = []
+
+    def ignores_cancellation(ctx: IAsyncContext[object]) -> None:
+        started.append("first")
+        ctx.cancel_token.add_listener(lambda: ctx.on_success(1))
+
+    def queued(ctx: IAsyncContext[object]) -> None:
+        started.append("queued")
+        ctx.on_success(2)
+
+    children: list[Async[object]] = [ignores_cancellation, queued]
+    calls = _observe_parallel(parallel_with_cancellation(to_enumerable(children), 1), parent)
+    assert calls == []
+    parent.cancel()
+    assert started == ["first"]
+    assert [channel for channel, _ in calls] == ["cancel"]
+
+
+# Expected values come from FSharp.Core: it checks the token before a start only when the limit is below the count.
+@pytest.mark.parametrize(("count", "limit", "compensated"), [(1, None, [0]), (1, 1, [0]), (1, 2, [0]), (2, 1, [])])
+def test_parallel_runs_try_cancelled_compensation_as_fsharp_core_does(
+    count: int, limit: int | None, compensated: list[int]
+) -> None:
+    parent = CancellationToken()
+    handlers: list[int] = []
+
+    def child(index: int) -> Async[object]:
+        return try_cancelled(protected_return(index), lambda _: handlers.append(index))
+
+    def children() -> Iterator[Async[object]]:
+        parent.cancel()
+        for index in range(count):
+            yield child(index)
+
+    calls = _observe_parallel(parallel_with_cancellation(to_enumerable(children()), limit), parent)
+    assert handlers == compensated
+    assert [channel for channel, _ in calls] == ["cancel"]
