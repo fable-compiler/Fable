@@ -61,3 +61,18 @@ let ``test for-in step range other than one still works`` () =
     for i in 9 .. -2 .. 0 do
         result <- result + string i
     result |> equal "97531"
+
+[<Fact>]
+let ``test for-in over a mutable array reassigned in the body iterates the array held at loop start`` () =
+    let mutable a = [| 1; 2; 3 |]
+    let mutable sum = 0
+    for x in a do
+        a <- [| 100 |]
+        sum <- sum + x
+    sum |> equal 6
+    let mutable pairs = [| (1, 2); (3, 4) |]
+    let mutable total = 0
+    for (x, y) in pairs do
+        pairs <- [| (100, 100) |]
+        total <- total + x + y
+    total |> equal 10

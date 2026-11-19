@@ -82,6 +82,8 @@ type Context =
         File: string
         ModuleName: string // Emitting Erlang module name (namespaces module-level mutable state keys)
         UsedNames: Set<string>
+        // invariant: holds every name already bound in the file, because Erlang variables are single-assignment
+        UsedNamesInFile: System.Collections.Generic.HashSet<string>
         DecisionTargets: (Ident list * Expr) list
         RecursiveBindings: Set<string>
         MutualRecBindings: Map<string, string * string> // name -> (bundleVarName, atomTag)
@@ -1083,6 +1085,20 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 Beam.ErlExpr.Match(Beam.PVar loopName, loopFun)
                 Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, [])
             ]
+
+    | ForLoop(ident, start, limit, body, isUp, range) when
+        not (
+            isStableForLoopLimit limit
+            || isReReadForLoopLimitWith com tryGetArrayOfLength isUp limit
+        )
+        ->
+        let getUniqueName name =
+            let name = Fable.Naming.preventConflicts ctx.UsedNamesInFile.Contains name
+            ctx.UsedNamesInFile.Add(name) |> ignore
+            name
+
+        makeForLoopWithBoundLimit getUniqueName range isUp ident start limit body
+        |> transformExpr com ctx
 
     | ForLoop(ident, start, limit, body, isUp, _range) ->
         // Transform for loop to a tail-recursive named fun:
@@ -3790,6 +3806,13 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             File = com.CurrentFile
             ModuleName = moduleName
             UsedNames = file.UsedNamesInRootScope
+            UsedNamesInFile =
+                let names = System.Collections.Generic.HashSet(file.UsedNamesInRootScope)
+
+                for decl in file.Declarations do
+                    names.UnionWith(decl.UsedNames)
+
+                names
             DecisionTargets = []
             RecursiveBindings = Set.empty
             MutualRecBindings = Map.empty

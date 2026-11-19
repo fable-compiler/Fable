@@ -9,6 +9,16 @@ open Fable.Beam
 let toErlangVar (ident: Ident) =
     Naming.capitalizeFirst ident.Name |> Naming.sanitizeErlangVar
 
+let tryGetArrayOfLength (expr: Expr) =
+    match expr with
+    | Emit({
+               Macro = "erlang:length(erlang:get($0))" | "fable_utils:byte_array_length($0)"
+               CallInfo = { Args = [ arr ] }
+           },
+           _,
+           _) -> Some arr
+    | _ -> None
+
 /// Test the existing DU representation without inspecting payload types.
 let makeUnionTypeTest (cases: UnionCase list) (expr: Beam.ErlExpr) =
     // decision: Match emitted case tags and arities because DU values carry no nominal type or generic argument metadata.
