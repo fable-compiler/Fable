@@ -2082,11 +2082,24 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "ToLower"
     | "ToLowerInvariant" ->
         let methName = Naming.lowerFirst i.CompiledName
-        // ToUpper/ToLower(c, culture): the culture is ignored, as before
-        let args = List.truncate 1 args
 
-        Helper.LibCall(com, "Char", methName, t, args, List.truncate 1 i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | [ c ] -> Helper.LibCall(com, "Char", methName, t, [ c ], [ c.Type ], ?loc = r) |> Some
+        | [ c; culture ] ->
+            // Fable can only build CultureInfo.InvariantCulture, so use the invariant mapping
+            let call =
+                Helper.LibCall(com, "Char", methName + "Invariant", t, [ c ], [ c.Type ], ?loc = r)
+
+            match culture with
+            | InvariantCulture -> Some call
+            | _ ->
+                WarningCodes.cultureInfoIgnored |> addWarningWithCode com ctx.InlinePath r
+
+                if canHaveSideEffects com culture then
+                    Sequential [ culture; call ] |> Some
+                else
+                    Some call
+        | _ -> None
     | "ToString" -> toString com ctx r args |> Some
     | "GetUnicodeCategory"
     | "IsControl"

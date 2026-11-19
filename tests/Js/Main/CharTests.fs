@@ -41,6 +41,8 @@ let tests =
             Char.ToUpperInvariant('ᾳ') |> equal 'ᾼ'
             Char.ToUpperInvariant('ῃ') |> equal 'ῌ'
             Char.ToUpperInvariant('ῳ') |> equal 'ῼ'
+            Char.ToUpperInvariant('ı') |> equal 'ı'
+            Char.ToUpper('ı', CultureInfo.InvariantCulture) |> equal 'ı'
 
         testCase "Char.ToLowerInvariant keeps a char with no one-char lowercase" <| fun () ->
             Char.ToLowerInvariant('İ') |> equal 'İ'

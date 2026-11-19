@@ -240,7 +240,8 @@ export function toUpper(c: string) {
 }
 
 export function toUpperInvariant(c: string) {
-  return simpleCase(c, c.toUpperCase());
+  // .NET keeps the dotless i (U+0131) under the invariant culture
+  return c === "ı" ? c : simpleCase(c, c.toUpperCase());
 }
 
 export function toLower(c: string) {
