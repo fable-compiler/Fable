@@ -41,6 +41,8 @@ let suppressionBlockWithoutCode =
 
 /// `String.StartsWith`/`EndsWith` with a `CultureInfo` argument: the comparison always runs
 /// with the target's default culture rules, the argument is accepted but has no effect.
+/// `Char.ToUpper`/`ToLower` with a `CultureInfo` other than `InvariantCulture`: the
+/// invariant mapping is used.
 /// Used in both the JS/TS and Python replacements.
 let cultureInfoIgnored = "FABLE0100", "CultureInfo argument is ignored"
 

@@ -23,6 +23,31 @@ let tests =
         testCase "Char.ToLowerInvariant works" <| fun () ->
             Char.ToLowerInvariant('B') |> equal 'b'
 
+        testCase "Char.ToUpper keeps a char with no one-char uppercase" <| fun () ->
+            Char.ToUpper('ß') |> equal 'ß'
+            Char.ToUpper('ŉ') |> equal 'ŉ'
+            int (Char.ToUpper('ŉ')) |> equal 329
+
+        testCase "Char.ToUpperInvariant uses the simple uppercase mapping" <| fun () ->
+            Char.ToUpperInvariant('ß') |> equal 'ß'
+            string (Char.ToUpperInvariant('ß')) |> equal "ß"
+            int (Char.ToUpperInvariant('ß')) |> equal 223
+            Char.ToUpperInvariant('ǰ') |> equal 'ǰ'
+            Char.ToUpperInvariant('ﬁ') |> equal 'ﬁ'
+            Char.ToUpperInvariant('ᾈ') |> equal 'ᾈ'
+            int (Char.ToUpperInvariant('ᾈ')) |> equal 8072
+            Char.ToUpperInvariant('ᾀ') |> equal 'ᾈ'
+            Char.ToUpperInvariant('ᾧ') |> equal 'ᾯ'
+            Char.ToUpperInvariant('ᾳ') |> equal 'ᾼ'
+            Char.ToUpperInvariant('ῃ') |> equal 'ῌ'
+            Char.ToUpperInvariant('ῳ') |> equal 'ῼ'
+            Char.ToUpperInvariant('ı') |> equal 'ı'
+            Char.ToUpper('ı', CultureInfo.InvariantCulture) |> equal 'ı'
+
+        testCase "Char.ToLowerInvariant keeps a char with no one-char lowercase" <| fun () ->
+            Char.ToLowerInvariant('İ') |> equal 'İ'
+            int (Char.ToLowerInvariant('İ')) |> equal 304
+
         testCase "Char.ToString works" <| fun () ->
             Char.ToString('b') |> equal "b"
 

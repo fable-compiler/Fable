@@ -216,6 +216,42 @@ export function isSurrogatePair(s: string, index: string | number) {
     : isHighSurrogate(s) && isLowSurrogate(index);
 }
 
+// .NET maps a char with simple case mapping: the result is always one char.
+// JS applies the full mapping, which turns some chars into two or three
+// (ß -> SS, ŉ -> ʼN, ᾀ -> ἈΙ, İ -> i̇). For those, keep the char as is,
+// except the Greek letters with ypogegrammeni, whose simple uppercase is
+// the titlecase letter with prosgegrammeni (ᾀ -> ᾈ, ᾳ -> ᾼ).
+function simpleCase(c: string, mapped: string): string {
+  if (mapped.length === 1 || c.length !== 1) {
+    return mapped;
+  }
+  const code = c.charCodeAt(0);
+  if (code >= 0x1f80 && code <= 0x1faf && (code & 0xf) < 8) {
+    return String.fromCharCode(code + 8);
+  }
+  if (code === 0x1fb3 || code === 0x1fc3 || code === 0x1ff3) {
+    return String.fromCharCode(code + 9);
+  }
+  return c;
+}
+
+export function toUpper(c: string) {
+  return simpleCase(c, c.toLocaleUpperCase());
+}
+
+export function toUpperInvariant(c: string) {
+  // .NET keeps the dotless i (U+0131) under the invariant culture
+  return c === "ı" ? c : simpleCase(c, c.toUpperCase());
+}
+
+export function toLower(c: string) {
+  return simpleCase(c, c.toLocaleLowerCase());
+}
+
+export function toLowerInvariant(c: string) {
+  return simpleCase(c, c.toLowerCase());
+}
+
 export function parse(input: string) {
   if (input.length === 1) {
     return input[0];

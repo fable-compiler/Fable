@@ -2076,18 +2076,30 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | _ -> None
 
 let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let icall r t args argTypes memb =
-        match args, argTypes with
-        | thisArg :: args, _ :: argTypes ->
-            let info = makeCallInfo None args argTypes
-            getField thisArg memb |> makeCall r t info |> Some
-        | _ -> None
-
     match i.CompiledName with
-    | "ToUpper" -> icall r t args i.SignatureArgTypes "toLocaleUpperCase"
-    | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "toUpperCase"
-    | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
-    | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "toLowerCase"
+    | "ToUpper"
+    | "ToUpperInvariant"
+    | "ToLower"
+    | "ToLowerInvariant" ->
+        let methName = Naming.lowerFirst i.CompiledName
+
+        match args with
+        | [ c ] -> Helper.LibCall(com, "Char", methName, t, [ c ], [ c.Type ], ?loc = r) |> Some
+        | [ c; culture ] ->
+            // Fable can only build CultureInfo.InvariantCulture, so use the invariant mapping
+            let call =
+                Helper.LibCall(com, "Char", methName + "Invariant", t, [ c ], [ c.Type ], ?loc = r)
+
+            match culture with
+            | InvariantCulture -> Some call
+            | _ ->
+                WarningCodes.cultureInfoIgnored |> addWarningWithCode com ctx.InlinePath r
+
+                if canHaveSideEffects com culture then
+                    Sequential [ culture; call ] |> Some
+                else
+                    Some call
+        | _ -> None
     | "ToString" -> toString com ctx r args |> Some
     | "GetUnicodeCategory"
     | "IsControl"
