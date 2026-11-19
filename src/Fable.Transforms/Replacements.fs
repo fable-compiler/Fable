@@ -2076,18 +2076,17 @@ let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | _ -> None
 
 let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let icall r t args argTypes memb =
-        match args, argTypes with
-        | thisArg :: args, _ :: argTypes ->
-            let info = makeCallInfo None args argTypes
-            getField thisArg memb |> makeCall r t info |> Some
-        | _ -> None
-
     match i.CompiledName with
-    | "ToUpper" -> icall r t args i.SignatureArgTypes "toLocaleUpperCase"
-    | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "toUpperCase"
-    | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
-    | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "toLowerCase"
+    | "ToUpper"
+    | "ToUpperInvariant"
+    | "ToLower"
+    | "ToLowerInvariant" ->
+        let methName = Naming.lowerFirst i.CompiledName
+        // ToUpper/ToLower(c, culture): the culture is ignored, as before
+        let args = List.truncate 1 args
+
+        Helper.LibCall(com, "Char", methName, t, args, List.truncate 1 i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "GetUnicodeCategory"
     | "IsControl"
