@@ -40,7 +40,29 @@ export function unescape(str: string) {
   return str.replace(/\\([$()*+.?[\\\^{|}\]])/g, "$1");
 }
 
+function startsInsideSurrogatePair(reg: RegExp, input: string, startAt: number) {
+  return startAt > 0 && reg.unicode && (input.charCodeAt(startAt) & 0xFC00) === 0xDC00 && (input.charCodeAt(startAt - 1) & 0xFC00) === 0xD800;
+}
+
+function execFrom(reg: RegExp, input: string, startAt: number) {
+  if (startsInsideSurrogatePair(reg, input, startAt)) {
+    // A unicode regex moves a lastIndex set inside a surrogate pair back to the start of the pair
+    reg.lastIndex = startAt;
+    const m = reg.exec(input.substring(0, startAt - 1) + "\uFFFD" + input.substring(startAt));
+    if (m != null && m.index === startAt) {
+      m.input = input;
+      return m;
+    }
+    startAt++;
+  }
+  reg.lastIndex = startAt;
+  return reg.exec(input);
+}
+
 export function isMatch(reg: RegExp, input: string, startAt = 0) {
+  if (startsInsideSurrogatePair(reg, input, startAt)) {
+    return execFrom(reg, input, startAt) != null;
+  }
   reg.lastIndex = startAt;
   return reg.test(input);
 }
@@ -172,8 +194,16 @@ export function groupNumberFromName(reg: RegExp, name: string): number {
 }
 
 export function match(reg: RegExp, input: string, startAt = 0) {
-  reg.lastIndex = startAt;
-  return setMatchRegex(reg.exec(input), reg);
+  return setMatchRegex(execFrom(reg, input, startAt), reg);
+}
+
+function nextStartAt(reg: RegExp, m: RegExpExecArray) {
+  const startAt = m.index + m[0].length;
+  if (m[0].length > 0) {
+    return startAt;
+  }
+  // A unicode regex moves a lastIndex set inside a surrogate pair back to the start of the pair
+  return startAt + (reg.unicode && (m.input.codePointAt(startAt) ?? 0) > 0xFFFF ? 2 : 1);
 }
 
 export function nextMatch(m: RegExpExecArray | null) {
@@ -187,12 +217,7 @@ export function nextMatch(m: RegExpExecArray | null) {
   if (!reg.global) {
     throw new Exception("Non-global RegExp"); // lastIndex is ignored
   }
-  let startAt = m.index + m[0].length;
-  if (m[0].length === 0) {
-    // A unicode regex moves a lastIndex set inside a surrogate pair back to the start of the pair
-    startAt += reg.unicode && (m.input.codePointAt(startAt) ?? 0) > 0xFFFF ? 2 : 1;
-  }
-  return match(reg, m.input, startAt);
+  return match(reg, m.input, nextStartAt(reg, m));
 }
 
 export function groups(m: RegExpExecArray | null): RegExpExecArray {
@@ -223,27 +248,22 @@ export function matchAt(matches: RegExpExecArray[], i: number): RegExpExecArray 
   return matches[i];
 }
 
+function* matchesFrom(reg: RegExp, input: string, startAt: number) {
+  if (!reg.global) {
+    throw new Exception("Non-global RegExp"); // lastIndex is ignored
+  }
+  let m: RegExpExecArray | null;
+  while ((m = match(reg, input, startAt)) != null) {
+    yield m;
+    startAt = nextStartAt(reg, m);
+  }
+}
+
 export function matches(reg: RegExp, input: string, startAt = 0) {
   if (input == null) {
     throw new Exception("Input cannot ve null");
   }
-  if (!reg.global) {
-    throw new Exception("Non-global RegExp"); // Prevent infinite loop
-  }
-  reg.lastIndex = startAt;
-  const matches: RegExpExecArray[] = [];
-  let m: RegExpExecArray | null;
-  let lastMatchIndex = -1;
-  while ((m = reg.exec(input)) != null) {
-    // It can happen even global regex get stuck, see #2845
-    if (m.index === lastMatchIndex) {
-      reg.lastIndex++
-    } else {
-      lastMatchIndex = m.index;
-      matches.push(setMatchRegex(m, reg));
-    }
-  }
-  return matches;
+  return Array.from(matchesFrom(reg, input, startAt));
 }
 
 export function count(reg: RegExp, input: string): number {
@@ -293,36 +313,6 @@ export function replace(
   reg: string | RegExp, input: string,
   replacement: string | MatchEvaluator,
   limit?: number, offset: number = 0): string {
-  function replacer() {
-    let res = arguments[0];
-    if (limit) {
-      limit--;
-      const match: any = [];
-      const len = arguments.length;
-      // arguments: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_function_as_a_parameter
-      // * match: matched substring
-      // * p1, p2, ...: nth capture group string
-      // * offset: offset of matched substring
-      // * string: whole string examined
-      // * groups: named capturing groups
-      //           ONLY if regex contains a named capture group AND browser supports named groups
-      // -> last element can be groups OR input string
-      // -> check if last element is string
-      const withGroups = typeof arguments[len - 1] !== "string"
-      let pLast = withGroups ? len - 3 : len - 2;
-      for (let i = 0; i < pLast; i++) {
-        match.push(arguments[i])
-      }
-      match.index = arguments[pLast++];
-      match.input = arguments[pLast++];
-      if (withGroups) {
-        match.groups = arguments[pLast];
-      }
-      match[matchRegex] = reg;
-      res = (replacement as MatchEvaluator)(match);
-    }
-    return res;
-  }
   if (typeof reg === "string") {
     const tmp = reg as string;
     reg = create(input, limit ?? 0);
@@ -333,8 +323,18 @@ export function replace(
     const rep = replacement as string;
     replacement = (match: any): string => expandReplacement(rep, match, reg as RegExp);
   }
-  limit = limit == null ? -1 : limit;
-  return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
+  let result = "";
+  let prev = 0;
+  let count = limit ?? -1;
+  for (const m of matchesFrom(reg as RegExp, input, offset)) {
+    if (count === 0) {
+      break;
+    }
+    result += input.substring(prev, m.index) + (replacement as MatchEvaluator)(m);
+    prev = m.index + m[0].length;
+    count--;
+  }
+  return result + input.substring(prev);
 }
 
 export function split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {

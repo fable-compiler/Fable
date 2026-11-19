@@ -332,6 +332,17 @@ let tests =
         test "a\" \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\ \" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
         test "a\" \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f\"" pattern ["a"; " \\\\\" \\\"\"\"a\\sdf\\  '\"' \\' A\"Sd \\af\\aef '\\ a ' ''\\\\\\\\\"\"\" \"\"\" \" \" |\"\" |\" \"\"\"\" \"\" \\\\ \\ \\\\\"\" \\\"\"\"b \\\"c\" de\"f"]
 
+    testCase "Regex.Matches and Regex.Split move past a surrogate pair after an empty match" <| fun _ ->
+        let lastIndex (ms: MatchCollection) = ms.[ms.Count - 1].Index
+        Regex("").Matches("\U0001F600!") |> lastIndex |> equal 3
+        Regex.Matches("a\U0001F600b", "x*") |> lastIndex |> equal 4
+#if FABLE_COMPILER
+        // A JS regex with the u flag cannot match between the two halves of a surrogate pair, .NET can
+        Regex("").Split("\U0001F600!") |> equal [| ""; "\U0001F600"; "!"; "" |]
+#else
+        Regex("").Split("\U0001F600!") |> equal [| ""; string (char 0xD83D); string (char 0xDE00); "!"; "" |]
+#endif
+
     testCase "Match.NextMatch works" <| fun _ ->
         let next = Regex("a").Match("aa").NextMatch()
         next.Success |> equal true
@@ -475,6 +486,22 @@ let tests =
             timeout
         Regex.IsMatch("abab", "b", RegexOptions.None, countedTimeout ()) |> equal true
         calls |> equal 1
+
+    testCase "Regex.Replace with offset matches on the whole input" <| fun _ ->
+        Regex("b").Replace("abcabcabc", (fun (m: Match) -> string m.Index), 2, 3) |> equal "abca4ca7c"
+        Regex("(?<=a)b").Replace("abab", "X", 5, 1) |> equal "aXaX"
+        Regex("^b").Replace("abab", "X", 5, 1) |> equal "abab"
+        Regex("b").Replace("abab", "[$`|$']", 5, 2) |> equal "aba[aba|]"
+        Regex("b").Replace("abab", MatchEvaluator(fun m -> let n = m.NextMatch() in if n.Success then string n.Index else "-"), 1, 1) |> equal "a3ab"
+
+    testCase "Regex methods with startat inside a surrogate pair do not match before startat" <| fun _ ->
+        let high, low = string (char 0xD83D), string (char 0xDE00)
+        Regex(".").Replace("\U0001F600a", "X", 1, 1) |> equal (high + "Xa")
+        Regex("").Replace("\U0001F600", "X", -1, 1) |> equal (high + "X" + low + "X")
+        Regex(".").Match("\U0001F600a", 1).Index |> equal 1
+        Regex(".").Matches("\U0001F600a", 1) |> Seq.cast<Match> |> Seq.map _.Index |> Seq.toList |> equal [1; 2]
+        Regex("^.").IsMatch("\U0001F600a", 1) |> equal false
+        Regex("\U0001F600").Split("\U0001F600x\U0001F600", 0, 1) |> equal [| "\U0001F600x"; "" |]
 
     testCase "Replacing with $0 works" <| fun _ -> // See #1155
         let s = Regex.Replace("1234567890", ".{2}", "$0-")
