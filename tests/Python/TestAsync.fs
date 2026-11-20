@@ -679,7 +679,9 @@ let ``test Async.Parallel without a limit starts every computation after a failu
         let started = StartCounter()
         let work i = async {
             started.Increment()
-            if i = 0 then failwith "boom"
+            if i = 0 then
+                do! started.WaitFor 3
+                failwith "boom"
             return i
         }
         let! result = Async.Parallel [ for i in 0..2 -> work i ] |> Async.Catch
