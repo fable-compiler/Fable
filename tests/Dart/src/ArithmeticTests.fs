@@ -475,6 +475,10 @@ let tests () =
     testCase "sqrt works" <| fun () ->
         sqrt 4.5 |> checkTo3dp 2121.
 
+    testCase "nan and infinity operators work" <| fun () ->
+        isNaN nan |> equal true
+        infinity |> equal Double.PositiveInfinity
+
     // As per https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
     testCase "sqrt matches .net core implementation" <| fun () ->
         checkTo3dp 1732. (sqrt 3.0)

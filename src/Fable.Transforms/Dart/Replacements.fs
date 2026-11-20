@@ -1182,8 +1182,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.LibCall(com, "Types", "divRem", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // Numbers
-    | ("Infinity" | "InfinitySingle"), _ -> Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc = r) |> Some
-    | ("NaN" | "NaNSingle"), _ -> Helper.GlobalIdent("Number", "NaN", t, ?loc = r) |> Some
+    | ("Infinity" | "InfinitySingle"), _ -> makeFloatConst System.Double.PositiveInfinity |> Some
+    | ("NaN" | "NaNSingle"), _ -> makeFloatConst System.Double.NaN |> Some
     | "Fst", [ tup ] -> Get(tup, TupleIndex 0, t, r) |> Some
     | "Snd", [ tup ] -> Get(tup, TupleIndex 1, t, r) |> Some
     // Reference
