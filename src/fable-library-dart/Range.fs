@@ -101,8 +101,41 @@ let private fround (x: float) : float = Fable.Core.Util.nativeOnly
 let rangeSingle (start: float32) (step: float32) (stop: float32) : seq<float32> =
     floatingRange fround (float start) (float step) (float stop) |> Seq.map float32
 
-let rangeInt start step stop =
-    integralRangeStep start step stop 0 (+) compare
+let inline private integerRange (start: ^T) (step: ^T) (stop: ^T) : seq< ^T > =
+    let zero: ^T = LanguagePrimitives.GenericZero
+
+    if step = zero then
+        invalidArg "step" "The step of a range cannot be zero."
+
+    let up = step > zero
+
+    // No operation here leaves the range of ^T: stop - x is only computed when x has the sign of the step, x + step when it has not.
+    let hasNext (x: ^T) =
+        if up then
+            if x >= zero then
+                stop - x >= step
+            else
+                x + step <= stop
+        else if x <= zero then
+            stop - x <= step
+        else
+            x + step >= stop
+
+    let stepFn (x: ^T voption) =
+        match x with
+        | ValueNone -> None
+        | ValueSome x ->
+            if hasNext x then
+                Some(x, ValueSome(x + step))
+            else
+                Some(x, ValueNone)
+
+    if (up && start <= stop) || (not up && start >= stop) then
+        Seq.unfold stepFn (ValueSome start)
+    else
+        Seq.empty
+
+let rangeInt (start: int) (step: int) (stop: int) : seq<int> = integerRange start step stop
 //let rangeBigInt start step stop = integralRangeStep start step stop 0I (+) compare
 //let rangeDecimal start step stop = integralRangeStep start step stop 0m (+) compare
 
