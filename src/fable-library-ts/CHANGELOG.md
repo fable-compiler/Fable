@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
+last_commit_released: 1b98e05f7319e14827edfa6a1c27db52e99ac766
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.13.1 - 2026-11-20
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass defaults for DefaultValue fields to ctors (#5267) ([cc94c9cc](https://github.com/fable-compiler/Fable/commit/cc94c9ccba1100c39f9764e8511040bbb34be249))
+* *(all)* `groupBy` and `countBy` with NaN keys (#5307) ([d422d3d2](https://github.com/fable-compiler/Fable/commit/d422d3d2bca6279b0fe34aa7adcceb58124a3de0))
+* *(all)* Match .NET for float ranges with a step (#5310) ([2b5aa6e3](https://github.com/fable-compiler/Fable/commit/2b5aa6e31781f75689d368020fe3e2b161572c1c))
+* *(all)* Distinguish delegates in overload suffixes (#5274) ([40bd93ca](https://github.com/fable-compiler/Fable/commit/40bd93ca169488aeebcaf3d75e16d70261ceea51))
+* *(all)* Name anonymous record types in reflection (#5322) ([bb8f745e](https://github.com/fable-compiler/Fable/commit/bb8f745eb94c32296adcb8fc86431d7ccd9be830))
+* *(all)* Stop integer ranges at the bounds of their type (#5324) ([e9c68b6b](https://github.com/fable-compiler/Fable/commit/e9c68b6bebe59019b54a3355ebd45cebc8c60807))
+* *(js/ts)* Keep TimeSpan.Ticks exact for big values (#5250) ([3c1cea99](https://github.com/fable-compiler/Fable/commit/3c1cea99d30edc2cf3fa5dbeb3a3e6a00e97235a))
+* *(js/ts)* `IReadOnlyList` indexer and failed `Regex` match members (#5301) ([0adb969d](https://github.com/fable-compiler/Fable/commit/0adb969d86f610b3557346ab4745cd461c066414))
+* *(js/ts)* `string` and `ToString()` on `DateTimeOffset` like .NET (#5308) ([4f1c7016](https://github.com/fable-compiler/Fable/commit/4f1c7016834531d0de0b81322180dc72e6fe36d1))
+* *(js/ts)* Throw `OverflowException` in `abs` and `pown` (#5309) ([e7333e81](https://github.com/fable-compiler/Fable/commit/e7333e8194d1ec5c0da14dce43ec32e9cd0f9904))
+* *(js/ts)* Make `String.Replace` and ignore-case comparisons match .NET (#5283) ([a29dbb69](https://github.com/fable-compiler/Fable/commit/a29dbb69bdd9db3418c9386a42a21d0d4fb26d5c))
+* *(js/ts)* Reject integer formats .NET rejects (#5273) ([f6144e89](https://github.com/fable-compiler/Fable/commit/f6144e89f8004935f083eb58f2c3fabcb4910a52))
+* *(js/ts)* Support NumberStyles in BigInteger parsing (#5276) ([e3a5cc50](https://github.com/fable-compiler/Fable/commit/e3a5cc50adff708ee17052628b5d6e684e040295))
+* *(js/ts)* Follow `NumberStyles` in integer `Parse` and `Convert` (#5313) ([0506b4b5](https://github.com/fable-compiler/Fable/commit/0506b4b5dbff4acc609dea9b552039941a9ae015))
+* *(js/ts)* Add `Regex` group members, .NET group order (#5314) ([103875f6](https://github.com/fable-compiler/Fable/commit/103875f6f91ed13a590590a86fde7ee88f684284))
+* *(js/ts)* `Regex.Matches`/`Split` hang and `startat` like .NET (#5320) ([a62efd32](https://github.com/fable-compiler/Fable/commit/a62efd32e11cec2659dfffc621242a02ffa19d2f))
+* *(js/ts)* Keep Char.ToUpper/ToLower to one char like .NET (#5319) ([235bb0ff](https://github.com/fable-compiler/Fable/commit/235bb0ffcfc580873aecb28eb19c192f430ee5fc))
+* *(js/ts/python)* Handle cyclic records in formatting (#5298) ([78a006a5](https://github.com/fable-compiler/Fable/commit/78a006a58ed4f3032e9fa8923e0d31676af88f6a))
+* *(js/ts/python)* Support `Option.count` and `Match.NextMatch` (#5300) ([22a8ee46](https://github.com/fable-compiler/Fable/commit/22a8ee4628db78b0afed5a270e0f39f34d94029b))
+* *(js/ts/python/beam)* Make a failed `Regex.Match` behave like `Match.Empty` (#5321) ([1644eeb7](https://github.com/fable-compiler/Fable/commit/1644eeb717295a905b4d8cdb3fcf4e3bd25e134f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7d46c71405542c6d6e4a0204251f4b704efac847..1b98e05f7319e14827edfa6a1c27db52e99ac766)</small></strong>
 
 ## 2.13.0 - 2026-11-03
 

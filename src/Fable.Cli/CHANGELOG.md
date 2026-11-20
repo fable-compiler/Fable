@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7d46c71405542c6d6e4a0204251f4b704efac847
+last_commit_released: 1b98e05f7319e14827edfa6a1c27db52e99ac766
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,56 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.28.0 - 2026-11-20
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass defaults for DefaultValue fields to ctors (#5267) ([cc94c9cc](https://github.com/fable-compiler/Fable/commit/cc94c9ccba1100c39f9764e8511040bbb34be249))
+* *(all)* Copy mutable struct records by value (#5270) ([f9657ad3](https://github.com/fable-compiler/Fable/commit/f9657ad304803ff00c9a2ada398b5f586ad74e53))
+* *(all)* `groupBy` and `countBy` with NaN keys (#5307) ([d422d3d2](https://github.com/fable-compiler/Fable/commit/d422d3d2bca6279b0fe34aa7adcceb58124a3de0))
+* *(all)* Recompile after a failed compilation (#5311) ([0ffee8ed](https://github.com/fable-compiler/Fable/commit/0ffee8ed568ed9249bee1c7787c4b48a0d31dd8f))
+* *(all)* Match .NET for float ranges with a step (#5310) ([2b5aa6e3](https://github.com/fable-compiler/Fable/commit/2b5aa6e31781f75689d368020fe3e2b161572c1c))
+* *(all)* Distinguish delegates in overload suffixes (#5274) ([40bd93ca](https://github.com/fable-compiler/Fable/commit/40bd93ca169488aeebcaf3d75e16d70261ceea51))
+* *(all)* Read more `for` loop bounds once like .NET (#5287) ([1d9fe050](https://github.com/fable-compiler/Fable/commit/1d9fe050fb8f0a08c9b791f902d4035ddcb11c92))
+* *(all)* Name anonymous record types in reflection (#5322) ([bb8f745e](https://github.com/fable-compiler/Fable/commit/bb8f745eb94c32296adcb8fc86431d7ccd9be830))
+* *(all)* Stop integer ranges at the bounds of their type (#5324) ([e9c68b6b](https://github.com/fable-compiler/Fable/commit/e9c68b6bebe59019b54a3355ebd45cebc8c60807))
+* *(dart)* Compile `nan` and `infinity` to Dart constants (#5325) ([93e0ce70](https://github.com/fable-compiler/Fable/commit/93e0ce703cafdd4bb54f409a954693c3afa616e6))
+* *(js/ts)* Keep TimeSpan.Ticks exact for big values (#5250) ([3c1cea99](https://github.com/fable-compiler/Fable/commit/3c1cea99d30edc2cf3fa5dbeb3a3e6a00e97235a))
+* *(js/ts)* Evaluate the Array.create count once ([66ace468](https://github.com/fable-compiler/Fable/commit/66ace46864b628dd4a5b8b71f121c282892f2e0e))
+* *(js/ts)* Evaluate for loop bound once (#5282) ([62378c8b](https://github.com/fable-compiler/Fable/commit/62378c8bd5bfdaed907df11619a3362b86dd522b))
+* *(js/ts)* Truncate 8/16-bit bitwise results and mask shift counts (#5302) ([eea3ef98](https://github.com/fable-compiler/Fable/commit/eea3ef980b3223dfacb8ca4a3549ecb622a26c8c))
+* *(js/ts)* `IReadOnlyList` indexer and failed `Regex` match members (#5301) ([0adb969d](https://github.com/fable-compiler/Fable/commit/0adb969d86f610b3557346ab4745cd461c066414))
+* *(js/ts)* Wrap integer arithmetic like .NET (#5304) ([e453d983](https://github.com/fable-compiler/Fable/commit/e453d983cd2c695de572eb547705397459e64a04))
+* *(js/ts)* Print valid regex literal for `Regex("")` (#5306) ([a0b15375](https://github.com/fable-compiler/Fable/commit/a0b15375e23d1354ee2443f7e8e727bc330be3ee))
+* *(js/ts)* `string` and `ToString()` on `DateTimeOffset` like .NET (#5308) ([4f1c7016](https://github.com/fable-compiler/Fable/commit/4f1c7016834531d0de0b81322180dc72e6fe36d1))
+* *(js/ts)* Throw `OverflowException` in `abs` and `pown` (#5309) ([e7333e81](https://github.com/fable-compiler/Fable/commit/e7333e8194d1ec5c0da14dce43ec32e9cd0f9904))
+* *(js/ts)* Make `String.Replace` and ignore-case comparisons match .NET (#5283) ([a29dbb69](https://github.com/fable-compiler/Fable/commit/a29dbb69bdd9db3418c9386a42a21d0d4fb26d5c))
+* *(js/ts)* Reject integer formats .NET rejects (#5273) ([f6144e89](https://github.com/fable-compiler/Fable/commit/f6144e89f8004935f083eb58f2c3fabcb4910a52))
+* *(js/ts)* Support NumberStyles in BigInteger parsing (#5276) ([e3a5cc50](https://github.com/fable-compiler/Fable/commit/e3a5cc50adff708ee17052628b5d6e684e040295))
+* *(js/ts)* Follow `NumberStyles` in integer `Parse` and `Convert` (#5313) ([0506b4b5](https://github.com/fable-compiler/Fable/commit/0506b4b5dbff4acc609dea9b552039941a9ae015))
+* *(js/ts)* Ignore `matchTimeout` in static `Regex` calls ([9dbc68bb](https://github.com/fable-compiler/Fable/commit/9dbc68bbc68c5da36d5b2bddb685acb3fad94d37))
+* *(js/ts)* Wrap -0.0 in parens when negated (#5296) ([13f1f621](https://github.com/fable-compiler/Fable/commit/13f1f621d1870deff925fc71fbec29e8e0525021))
+* *(js/ts)* Add `Regex` group members, .NET group order (#5314) ([103875f6](https://github.com/fable-compiler/Fable/commit/103875f6f91ed13a590590a86fde7ee88f684284))
+* *(js/ts)* `Regex.Matches`/`Split` hang and `startat` like .NET (#5320) ([a62efd32](https://github.com/fable-compiler/Fable/commit/a62efd32e11cec2659dfffc621242a02ffa19d2f))
+* *(js/ts)* Keep Char.ToUpper/ToLower to one char like .NET (#5319) ([235bb0ff](https://github.com/fable-compiler/Fable/commit/235bb0ffcfc580873aecb28eb19c192f430ee5fc))
+* *(js/ts/python)* Support explicit constructors with as and then (#5235) ([f8bfce33](https://github.com/fable-compiler/Fable/commit/f8bfce3393da131243c3e3daebad015ec18cf42f))
+* *(js/ts/python)* Handle cyclic records in formatting (#5298) ([78a006a5](https://github.com/fable-compiler/Fable/commit/78a006a58ed4f3032e9fa8923e0d31676af88f6a))
+* *(js/ts/python)* Support `Option.count` and `Match.NextMatch` (#5300) ([22a8ee46](https://github.com/fable-compiler/Fable/commit/22a8ee4628db78b0afed5a270e0f39f34d94029b))
+* *(js/ts/python/beam)* Make a failed `Regex.Match` behave like `Match.Empty` (#5321) ([1644eeb7](https://github.com/fable-compiler/Fable/commit/1644eeb717295a905b4d8cdb3fcf4e3bd25e134f))
+* *(python)* Handle `MinValue / -1` on sized integers (#5312) ([2110d797](https://github.com/fable-compiler/Fable/commit/2110d7974f30e958c6162100028a963b7d790de7))
+* *(python)* Respect maxDegreeOfParallelism and cancel on failure in Async.Parallel (#5316) ([d512a7c2](https://github.com/fable-compiler/Fable/commit/d512a7c245da583a1413651dd8c4c53e185a33b9))
+* *(python)* Compile `ContainsKey` to `in` in any position (#5326) ([1b98e05f](https://github.com/fable-compiler/Fable/commit/1b98e05f7319e14827edfa6a1c27db52e99ac766))
+* *(rust)* Wrap async test bodies with runSynchronously (#5289) ([f51333f4](https://github.com/fable-compiler/Fable/commit/f51333f48b8f7d05b15b9b50fd58fb9283cc04a7))
+* *(rust)* Mask shift counts like .NET (#5303) ([c353f703](https://github.com/fable-compiler/Fable/commit/c353f703decdaf656b1bdabc4563fedf8a1523c4))
+* *(rust)* Return empty group for out of range `Groups` index (#5305) ([a15ceb17](https://github.com/fable-compiler/Fable/commit/a15ceb17b2474e9c46b2e26876b1eb541553745a))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Read arrays at the call site (#5264) ([dd668b28](https://github.com/fable-compiler/Fable/commit/dd668b28234708ef2bc04b9056d1548f92552dcb))
+* *(js/ts)* Read string chars at the call site ([07a38e76](https://github.com/fable-compiler/Fable/commit/07a38e764b1dd8fb79b4374df2aa22c18e0b7fce))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7d46c71405542c6d6e4a0204251f4b704efac847..1b98e05f7319e14827edfa6a1c27db52e99ac766)</small></strong>
 
 ## 5.27.0 - 2026-11-03
 
