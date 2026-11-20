@@ -711,6 +711,8 @@ module ToString =
                 Helper.LibCall(com, "fable_date", "to_string", t, [ arg ], ?loc = r) |> Some
             | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
                 Helper.LibCall(com, "fable_uri", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = Types.regexMatch || ent.FullName = Types.regexGroup ->
+                Helper.LibCall(com, "fable_regex", "get_value", t, [ arg ], ?loc = r) |> Some
             | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
                 // StringBuilder.ToString() → iolist_to_binary(get(maps:get(field_buf, get(Sb))))
                 emitExpr r t [ arg ] "iolist_to_binary(get(maps:get(field_buf, get($0))))"

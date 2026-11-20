@@ -424,6 +424,9 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Number _ -> Helper.LibCall(com, "exceptions", "to_string", String, [ head ], ?loc = r)
         | Array _
         | List _ -> Helper.LibCall(com, "exceptions", "seq_to_string", String, [ head ], ?loc = r)
+        | DeclaredTypeFullName Types.regexMatch -> getExpr r String head (makeIntConst 0)
+        | DeclaredTypeFullName Types.regexGroup ->
+            Helper.LibCall(com, "reg_exp", "group_value", String, [ head ], ?loc = r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
@@ -3630,8 +3633,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         thisArg
         |> Option.map (fun thisArg ->
             if isGroup then
-                // In JS Regex group values can be undefined, ensure they're empty strings #838
-                Operation(Logical(LogicalOr, thisArg, makeStrConst ""), Tags.empty, t, r)
+                Helper.LibCall(com, "reg_exp", "group_value", t, [ thisArg ], ?loc = r)
             else
                 propInt 0 thisArg
         )
@@ -3639,18 +3641,35 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         thisArg
         |> Option.map (fun thisArg ->
             if isGroup then
-                Helper.GlobalCall("len", t, [ thisArg ], [ t ], ?loc = r)
+                let value = Helper.LibCall(com, "reg_exp", "group_value", String, [ thisArg ])
+
+                Helper.GlobalCall("len", t, [ value ], [ t ], ?loc = r)
             else
                 let prop = propInt 0 thisArg
                 Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r)
         )
     // Group
-    | "get_Success" -> thisArg |> Option.map (fun thisArg -> nullCheck r false thisArg)
+    | "get_Success" ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            if isGroup then
+                Helper.LibCall(com, "reg_exp", "group_success", t, [ thisArg ], ?loc = r)
+            else
+                let emptyMatch = makeImportLib com Any "EMPTY_MATCH" "reg_exp"
+                emitExpr r t [ thisArg; emptyMatch ] "$0 is not $1"
+        )
+    // Match
+    | "get_Groups" ->
+        thisArg
+        |> Option.map (fun thisArg -> Helper.LibCall(com, "reg_exp", "match_groups", t, [ thisArg ], ?loc = r))
+    | "NextMatch" ->
+        thisArg
+        |> Option.map (fun thisArg -> Helper.LibCall(com, "reg_exp", "next_match_or_empty", t, [ thisArg ], ?loc = r))
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
         thisArg
         |> Option.map (fun thisArg ->
-            Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg; args.Head ], [ thisArg.Type ], ?loc = r)
+            Helper.LibCall(com, "reg_exp", "get_group", t, [ thisArg; args.Head ], [ thisArg.Type ], ?loc = r)
         )
     | "get_Item" -> thisArg |> Option.map (fun thisArg -> getExpr r t thisArg args.Head)
     | "get_Count" ->
@@ -3677,7 +3696,12 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             [ reg; input ] |> Some
         | _ -> None
         |> Option.map (fun args ->
-            Helper.LibCall(com, "RegExp", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+            let meth =
+                match meth with
+                | "Match" -> "match_or_empty"
+                | meth -> Naming.lowerFirst meth
+
+            Helper.LibCall(com, "reg_exp", meth, t, args, i.SignatureArgTypes, ?loc = r)
         )
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst

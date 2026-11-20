@@ -15,6 +15,7 @@
     get_success/1,
     get_groups/1,
     get_item/2,
+    get_group/2,
     get_count/1,
     get_options/1
 ]).
@@ -44,6 +45,7 @@
 -spec get_success(map()) -> boolean().
 -spec get_groups(map()) -> list().
 -spec get_item(list(), non_neg_integer()) -> term().
+-spec get_group(list() | tuple(), non_neg_integer() | binary()) -> map().
 -spec get_count(list()) -> non_neg_integer().
 -spec get_options(map()) -> integer().
 
@@ -138,8 +140,7 @@ match_impl(Input, #{compiled := MP} = Regex, Offset) ->
         {match, Captured} ->
             build_match(Input, Captured, Regex);
         nomatch ->
-            NumGroups = count_groups(Regex),
-            failed_match(NumGroups)
+            failed_match()
     end.
 
 %% --- Matches ---
@@ -441,6 +442,18 @@ get_item({group_collection, Items, _Names}, Index) when is_integer(Index) ->
 get_item(Collection, Index) when is_list(Collection) ->
     lists:nth(Index + 1, Collection).
 
+get_group({group_collection, Items, Names}, Name) when is_binary(Name) ->
+    case maps:find(Name, Names) of
+        {ok, Idx} -> get_group(Items, Idx);
+        error -> failed_group()
+    end;
+get_group({group_collection, Items, _Names}, Index) ->
+    get_group(Items, Index);
+get_group(Items, Index) when is_integer(Index), Index >= 0, Index < length(Items) ->
+    lists:nth(Index + 1, Items);
+get_group(_Items, _Index) ->
+    failed_group().
+
 get_count({group_collection, Items, _Names}) ->
     length(Items);
 get_count(Collection) when is_list(Collection) ->
@@ -530,7 +543,7 @@ build_match(Input, Captured, Regex) ->
 build_groups(_Input, []) ->
     [];
 build_groups(Input, [{-1, 0} | Rest]) ->
-    [#{success => false, value => <<>>, index => -1, length => 0} | build_groups(Input, Rest)];
+    [failed_group() | build_groups(Input, Rest)];
 build_groups(Input, [{Start, Len} | Rest]) ->
     Value =
         case Len of
@@ -550,8 +563,7 @@ pad_groups(Groups, ExpectedCount) ->
         true ->
             Groups;
         false ->
-            FailedGroup = #{success => false, value => <<>>, index => -1, length => 0},
-            Groups ++ lists:duplicate(ExpectedCount - Len, FailedGroup)
+            Groups ++ lists:duplicate(ExpectedCount - Len, failed_group())
     end.
 
 count_parens(<<>>, Count, _Escaped) ->
@@ -592,15 +604,16 @@ char_index(Input, BytePos) ->
     Prefix = binary:part(Input, 0, BytePos),
     string:length(Prefix).
 
-failed_match(NumGroups) ->
-    FailedGroup = #{success => false, value => <<>>, index => -1, length => 0},
-    Groups = lists:duplicate(NumGroups + 1, FailedGroup),
+failed_group() ->
+    #{success => false, value => <<>>, index => 0, length => 0}.
+
+failed_match() ->
     #{
         success => false,
         value => <<>>,
-        index => -1,
+        index => 0,
         length => 0,
-        groups => Groups,
+        groups => [failed_group()],
         group_names => #{},
         input => <<>>
     }.

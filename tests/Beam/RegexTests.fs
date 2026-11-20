@@ -259,6 +259,35 @@ let ``test doesn't succeed when unmatched`` () =
     m.Success |> equal false
 
 [<Fact>]
+let ``test Members of a failed Match work`` () =
+    let m = Regex("^test/(?<name>.*?)$").Match("test")
+    m.Index |> equal 0
+    m.ToString() |> equal ""
+    string m |> equal ""
+    m.Groups.Count |> equal 1
+    m.Groups.[1].Index |> equal 0
+    m.Groups.["name"].Success |> equal false
+    m.Groups.["name"].Value |> equal ""
+    [ for g in m.Groups -> g.Success ] |> equal [ false ]
+    let startAt = Regex("a").Match("ab", 1)
+    startAt.Index |> equal 0
+
+[<Fact>]
+let ``test Match.ToString returns the matched text`` () =
+    let m = Regex("(a)(b)?").Match("xa")
+    m.ToString() |> equal "a"
+    string m |> equal "a"
+    m.Groups.[1].ToString() |> equal "a"
+    string m.Groups.[2] |> equal ""
+
+[<Fact>]
+let ``test Members of an unmatched Group work`` () =
+    let m = Regex("(a)(b)?").Match("xa")
+    m.Groups.[2].Index |> equal 0
+    m.Groups.[5].Success |> equal false
+    m.Groups.["nope"].Success |> equal false
+
+[<Fact>]
 let ``test can get value of existing group`` () =
     let r = Regex "(?<number>\\d+)"
     let m = r.Match "Number 12345 is positive"
