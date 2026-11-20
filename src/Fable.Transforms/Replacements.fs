@@ -5193,7 +5193,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         | None -> Value(Null t, r)
                 )
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
-            | "get_Namespace" -> getTypeFullName false exprType |> splitFullName |> fst |> returnString r
+            | "get_Namespace" -> getTypeNamespace exprType |> returnString r
             | "get_IsArray" ->
                 match exprType with
                 | Array _ -> true
@@ -5236,6 +5236,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         DelegateType(argTypes, returnType)
                     | Tuple(_, isStruct) -> Tuple(newGen, isStruct)
                     | DeclaredType(ent, _) -> DeclaredType(ent, newGen)
+                    | AnonymousRecordType(fieldNames, _, isStruct) -> AnonymousRecordType(fieldNames, newGen, isStruct)
                     | t -> t
 
                 makeTypeInfo (changeRangeToCallSite ctx.InlinePath exprRange) exprType |> Some

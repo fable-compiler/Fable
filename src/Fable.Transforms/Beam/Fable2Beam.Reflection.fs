@@ -235,7 +235,8 @@ let rec private transformTypeInfoRec
         makeTypeInfoMap "Microsoft.FSharp.Collections.FSharpList`1" resolved
     | Fable.Regex -> makeTypeInfoMap Types.regex []
     | Fable.MetaType -> makeTypeInfoMap Types.type_ []
-    | Fable.AnonymousRecordType _ -> makeTypeInfoMap "" []
+    | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
+        makeTypeInfoMap (AST.getAnonymousRecordName fieldNames isStruct) (resolveGenerics genArgs)
     | Fable.DeclaredType(entRef, generics) ->
         let resolved = resolveGenerics generics
 

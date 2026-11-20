@@ -421,7 +421,14 @@ let rec getTypeName com (ctx: Context) r t =
         name
     | Array(elemType, _) -> // TODO: check kind
         getTypeName com ctx r elemType + "[]"
+    | AnonymousRecordType(fieldNames, _, isStruct) -> getAnonymousRecordName fieldNames isStruct
     | _ -> getTypeFullName false t |> splitFullName |> snd
+
+let rec getTypeNamespace t =
+    match t with
+    | Array(elemType, _) -> getTypeNamespace elemType
+    | AnonymousRecordType _ -> ""
+    | _ -> getTypeFullName false t |> splitFullName |> fst
 
 let makeDeclaredType assemblyName genArgs fullName =
     let entRef: EntityRef =

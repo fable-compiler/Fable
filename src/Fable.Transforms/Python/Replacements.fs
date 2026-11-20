@@ -4119,12 +4119,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         | None -> Value(Null t, r)
                 )
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
-            | "get_Namespace" ->
-                let fullname = getTypeFullName false exprType
-
-                match fullname.LastIndexOf(".", StringComparison.Ordinal) with
-                | -1 -> "" |> returnString r
-                | i -> fullname.Substring(0, i) |> returnString r
+            | "get_Namespace" -> getTypeNamespace exprType |> returnString r
             | "get_IsArray" ->
                 match exprType with
                 | Array _ -> true
@@ -4165,6 +4160,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         DelegateType(argTypes, returnType)
                     | Tuple(_, isStruct) -> Tuple(newGen, isStruct)
                     | DeclaredType(ent, _) -> DeclaredType(ent, newGen)
+                    | AnonymousRecordType(fieldNames, _, isStruct) -> AnonymousRecordType(fieldNames, newGen, isStruct)
                     | t -> t
 
                 makeTypeInfo exprRange exprType |> Some

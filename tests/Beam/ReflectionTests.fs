@@ -898,3 +898,43 @@ let ``test union case tags escape quotes and backslashes`` () =
     let case, fields = FSharpValue.GetUnionFields(box value, typeof<EscapedTagUnion>)
     case.Name |> equal "Backslash"
     fields |> equal [| box 7 |]
+
+[<Fact>]
+let ``test Anonymous record types have a distinct name per field names`` () =
+    let intA = typeof<{| a: int |}>
+    System.String.IsNullOrEmpty intA.Name |> equal false
+    System.String.IsNullOrEmpty intA.FullName |> equal false
+    intA.Name = typeof<{| b: int |}>.Name |> equal false
+    intA.Name = typeof<{| a: string |}>.Name |> equal true
+    intA.FullName.StartsWith(intA.Name, System.StringComparison.Ordinal) |> equal true
+    intA = typeof<{| a: int |}> |> equal true
+    intA = typeof<{| a: string |}> |> equal false
+    intA = typeof<{| b: int |}> |> equal false
+    typeof<struct {| a: int |}> = intA |> equal false
+    typeof<struct {| a: int |}>.Name = intA.Name |> equal false
+    let value = {| a = 1 |}
+    value.GetType() = intA |> equal true
+    value.GetType().Name = intA.Name |> equal true
+
+[<Measure>]
+type anonRecordMeasure
+
+let runtimeType (t: System.Type) =
+    if System.DateTime.Now.Year > 1900 then
+        t
+    else
+        null
+
+[<Fact>]
+let ``test Anonymous record type names are not split at dots`` () =
+    let intArray = runtimeType typeof<{| a: int |}[]>
+    intArray.Name = typeof<{| a: int |}>.Name + "[]" |> equal true
+    System.String.IsNullOrEmpty intArray.Namespace |> equal true
+    let dotted = runtimeType typeof<{| ``a.b``: int |}>
+    dotted.Name.StartsWith("<>f__AnonymousType", System.StringComparison.Ordinal) |> equal true
+    System.String.IsNullOrEmpty dotted.Namespace |> equal true
+    dotted.GetGenericTypeDefinition().Name = dotted.Name |> equal true
+    let dottedArray = runtimeType typeof<{| ``a.b``: int |}[]>
+    dottedArray.Name = dotted.Name + "[]" |> equal true
+    System.String.IsNullOrEmpty dottedArray.Namespace |> equal true
+    typeof<int<anonRecordMeasure>[]>.FullName |> equal "System.Int32[]"

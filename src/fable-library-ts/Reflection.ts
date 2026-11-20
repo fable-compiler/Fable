@@ -100,6 +100,10 @@ export function getGenerics(t: TypeInfo): TypeInfo[] {
   return t.generics != null ? t.generics : [];
 }
 
+function isAnonRecord(t: TypeInfo): boolean {
+  return t.fields != null && t.fullname.startsWith("<>f__");
+}
+
 export function getHashCode(t: TypeInfo) {
   const fullnameHash = stringHash(t.fullname);
   const genHashes: number[] = getGenerics(t).map(getHashCode);
@@ -107,15 +111,8 @@ export function getHashCode(t: TypeInfo) {
 }
 
 export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
-  if (t1.fullname === "") { // Anonymous records
-    return t2.fullname === ""
-      && equalArraysWith(getRecordElements(t1),
-        getRecordElements(t2),
-        ([k1, v1], [k2, v2]) => k1 === k2 && equals(v1, v2));
-  } else {
-    return t1.fullname === t2.fullname
-      && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
-  }
+  return t1.fullname === t2.fullname
+    && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
 }
 
 export function class_type(
@@ -134,8 +131,8 @@ export function record_type(
   return new TypeInfo(fullname, generics, construct, undefined, fields);
 }
 
-export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
-  return new TypeInfo("", undefined, undefined, undefined, () => fields);
+export function anonRecord_type(name: string, ...fields: FieldInfo[]): TypeInfo {
+  return new TypeInfo(name, fields.map(([, fieldType]) => fieldType), undefined, undefined, () => fields);
 }
 
 export function union_type(
@@ -238,6 +235,8 @@ export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string
     const elemType = getElementType(info);
     if (elemType != null) {
       return name(elemType) + "[]";
+    } else if (isAnonRecord(info)) {
+      return info.fullname;
     } else {
       const i = info.fullname.lastIndexOf(".");
       return i === -1 ? info.fullname : info.fullname.slice(i + 1);
@@ -262,6 +261,8 @@ export function namespace(t: TypeInfo): string {
   const elemType = getElementType(t);
   if (elemType != null) {
     return namespace(elemType);
+  } else if (isAnonRecord(t)) {
+    return "";
   } else {
     const i = t.fullname.lastIndexOf(".");
     return i === -1 ? "" : t.fullname.slice(0, i);
@@ -342,7 +343,11 @@ export function isInstanceOfType(t: TypeInfo, o: any) {
  * but it should be enough for type comparison purposes
  */
 export function getGenericTypeDefinition(t: TypeInfo) {
-  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj_type));
+  if (t.generics == null) {
+    return t;
+  }
+  const generics = t.generics.map(() => obj_type);
+  return isAnonRecord(t) ? makeGenericType(t, generics) : new TypeInfo(t.fullname, generics);
 }
 
 export function getEnumUnderlyingType(t: TypeInfo) {
@@ -558,6 +563,10 @@ export function makeTuple(values: MutableArray<any>, _t: TypeInfo): any {
 }
 
 export function makeGenericType(t: TypeInfo, generics: TypeInfo[]): TypeInfo {
+  if (isAnonRecord(t)) {
+    const fields = getRecordElements(t).map(([key], i): FieldInfo => [key, generics[i]]);
+    return anonRecord_type(t.fullname, ...fields);
+  }
   return new TypeInfo(
     t.fullname,
     generics,

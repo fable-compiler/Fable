@@ -14,6 +14,8 @@ type TestRecord = { String: string; Int: int }
 type OtherRecord = { Z: int }
 type UnprimedRecord = { Value: int }
 
+[<Measure>] type anonRecordMeasure
+
 type SampleUnion =
     | CaseA
     | CaseB of int
@@ -133,3 +135,20 @@ let ``obj.GetType resolves an unregistered primitive`` () =
     let typeForName = (box 1).GetType()
     (typeForEquality = typeof<int>) |> equal true
     typeForName.FullName |> equal "System.Int32"
+
+[<Fact>]
+let ``Anonymous record types have a distinct name per shape`` () =
+    System.String.IsNullOrEmpty typeof<{| a: int |}>.Name |> equal false
+    typeof<{| a: int |}>.FullName = typeof<{| a: int |}>.FullName |> equal true
+    typeof<{| a: int |}>.FullName = typeof<{| a: string |}>.FullName |> equal false
+    typeof<{| a: int |}>.FullName = typeof<{| a: int; b: int |}>.FullName |> equal false
+    typeof<{| a: int |}>.Name = typeof<{| a: string |}>.Name |> equal true
+    typeof<{| a: int |}>.Name = typeof<{| b: int |}>.Name |> equal false
+    typeof<struct {| a: int |}>.Name = typeof<{| a: int |}>.Name |> equal false
+    typeof<{| a: int |}[]>.Name = typeof<{| a: int |}>.Name + "[]" |> equal true
+    typeof<{| a: int |} list>.FullName = typeof<{| a: string |} list>.FullName |> equal false
+    typeof<{| a: int |} list>.Name = typeof<int list>.Name |> equal true
+    typeof<{| ``a,b``: int; c: int |}>.Name = typeof<{| a: int; ``b,c``: int |}>.Name |> equal false
+    typeof<{| a: int |}>.GetGenericTypeDefinition().FullName = typeof<{| a: string |}>.GetGenericTypeDefinition().FullName |> equal true
+    typeof<{| a: int |}>.GetGenericTypeDefinition().FullName = typeof<{| a: int |}>.FullName |> equal false
+    typeof<{| a: int<anonRecordMeasure> |}>.FullName = typeof<{| a: int |}>.FullName |> equal true

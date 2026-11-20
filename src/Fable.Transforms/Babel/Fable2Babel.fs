@@ -346,11 +346,14 @@ module Reflection =
         | Fable.List genArg -> genericTypeInfo "list" [ genArg ]
         | Fable.Regex -> nonGenericTypeInfo Types.regex
         | Fable.MetaType -> nonGenericTypeInfo Types.type_
-        | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
+        | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
             let genArgs = resolveGenerics genArgs
 
-            List.zip (fieldNames |> Array.toList) genArgs
-            |> List.map (fun (k, t) -> Expression.arrayExpression [| Expression.stringLiteral (k); t |])
+            let fields =
+                List.zip (fieldNames |> Array.toList) genArgs
+                |> List.map (fun (k, t) -> Expression.arrayExpression [| Expression.stringLiteral (k); t |])
+
+            Expression.stringLiteral (getAnonymousRecordName fieldNames isStruct) :: fields
             |> libReflectionCall com ctx None "anonRecord"
         | Fable.DeclaredType(entRef, genArgs) ->
             let fullName = entRef.FullName

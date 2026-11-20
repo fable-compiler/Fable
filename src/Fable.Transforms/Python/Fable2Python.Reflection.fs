@@ -197,12 +197,15 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
     | Fable.List genArg -> genericTypeInfo "list" [| genArg |]
     | Fable.Regex -> nonGenericTypeInfo Types.regex, []
     | Fable.MetaType -> nonGenericTypeInfo Types.type_, []
-    | Fable.AnonymousRecordType(fieldNames, genArgs, _isStruct) ->
+    | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) ->
         let genArgs, stmts = resolveGenerics (List.toArray genArgs)
 
-        List.zip (List.ofArray fieldNames) genArgs
-        |> List.map (fun (k, t) -> Expression.tuple [ Expression.stringConstant k; t ])
-        |> libReflectionCall com ctx None "anonRecord",
+        let fields =
+            List.zip (List.ofArray fieldNames) genArgs
+            |> List.map (fun (k, t) -> Expression.tuple [ Expression.stringConstant k; t ])
+
+        Expression.stringConstant (getAnonymousRecordName fieldNames isStruct) :: fields
+        |> libCall com ctx None "reflection" "anon_record_type_named",
         stmts
     | Fable.DeclaredType(entRef, generics) ->
         let fullName = entRef.FullName

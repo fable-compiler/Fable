@@ -122,6 +122,14 @@ def anon_record_type(*fields: FieldInfo) -> TypeInfo:
     return TypeInfo("", None, None, None, lambda: list(fields))
 
 
+def anon_record_type_named(name: str, *fields: FieldInfo) -> TypeInfo:
+    return TypeInfo(name, Array([field[1] for field in fields]), None, None, lambda: list(fields))
+
+
+def _is_anon_record(t: TypeInfo) -> bool:
+    return t.fields is not None and t.fullname.startswith("<>f__")
+
+
 def option_type(generic: TypeInfo) -> TypeInfo:
     t = TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", Array([generic]))
     t.cases = lambda: [
@@ -184,14 +192,26 @@ def is_generic_type(t: TypeInfo) -> bool:
 
 
 def get_generic_type_definition(t: TypeInfo):
-    return t if t.generics is None else TypeInfo(t.fullname, Array(map(lambda _: obj_type, t.generics)))
+    if t.generics is None:
+        return t
+
+    generics = Array(map(lambda _: obj_type, t.generics))
+    return make_generic_type(t, generics) if _is_anon_record(t) else TypeInfo(t.fullname, generics)
 
 
 def get_generics(t: TypeInfo) -> Array[TypeInfo]:
     return Array[TypeInfo](t.generics) if t.generics else Array[TypeInfo]()
 
 
+def _with_field_type(field: FieldInfo, field_type: TypeInfo) -> FieldInfo:
+    return (field[0], field_type, field[2]) if len(field) == 3 else (field[0], field_type)
+
+
 def make_generic_type(t: TypeInfo, generics: Array[TypeInfo]) -> TypeInfo:
+    if _is_anon_record(t):
+        fields = [_with_field_type(field, generic) for field, generic in zip(get_record_elements(t), generics)]
+        return anon_record_type_named(t.fullname, *fields)
+
     return TypeInfo(t.fullname, generics, t.construct, t.parent, t.fields, t.cases)
 
 
@@ -213,6 +233,13 @@ def name(info: FieldInfo | (TypeInfo | CaseInfo)) -> str:
         return info[0]
 
     elif isinstance(info, TypeInfo):
+        elem_type = get_element_type(info)
+        if elem_type is not None:
+            return name(elem_type) + "[]"
+
+        if _is_anon_record(info):
+            return info.fullname
+
         i = info.fullname.rfind(".")
         return info.fullname if i == -1 else info.fullname[i + 1 :]
     else:
@@ -220,16 +247,25 @@ def name(info: FieldInfo | (TypeInfo | CaseInfo)) -> str:
 
 
 def full_name(t: TypeInfo) -> str:
-    gen = t.generics if t.generics and not is_array(t) else []
-    if len(gen):
-        gen_ = ",".join([full_name(x) for x in gen])
-        return f"{t.fullname}[{gen_}]"
+    elem_type = get_element_type(t)
+    if elem_type is not None:
+        return full_name(elem_type) + "[]"
 
-    else:
+    if not t.generics:
         return t.fullname
+
+    gen = ",".join([full_name(x) for x in t.generics])
+    return f"{t.fullname}[{gen}]"
 
 
 def namespace(t: TypeInfo) -> str:
+    elem_type = get_element_type(t)
+    if elem_type is not None:
+        return namespace(elem_type)
+
+    if _is_anon_record(t):
+        return ""
+
     i = t.fullname.rfind(".")
     return "" if i == -1 else t.fullname[0:i]
 
@@ -512,6 +548,7 @@ __all__ = [
     "PropertyInfo",
     "TypeInfo",
     "anon_record_type",
+    "anon_record_type_named",
     "array_type",
     "assert_union",
     "bigint_type",
