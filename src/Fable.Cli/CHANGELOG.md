@@ -1,5 +1,5 @@
 ---
-last_commit_released: 1b98e05f7319e14827edfa6a1c27db52e99ac766
+last_commit_released: 85127aff55e57813ee4ec3b39bf1ea1cfb32174d
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.28.1 - 2026-11-21
+
+### 🐞 Bug Fixes
+
+* *(ts)* Enable `isolatedModules`, `noPropertyAccessFromIndexSignature` and `noUncheckedSideEffectImports` ([ee8bf736](https://github.com/fable-compiler/Fable/commit/ee8bf7360be86fcb43727f13d7f914773a20bd6a))
+* *(ts)* Enable `exactOptionalPropertyTypes` ([85127aff](https://github.com/fable-compiler/Fable/commit/85127aff55e57813ee4ec3b39bf1ea1cfb32174d))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/1b98e05f7319e14827edfa6a1c27db52e99ac766..85127aff55e57813ee4ec3b39bf1ea1cfb32174d)</small></strong>
 
 ## 5.28.0 - 2026-11-20
 
