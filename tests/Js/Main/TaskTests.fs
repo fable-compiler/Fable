@@ -3,6 +3,7 @@ module Fable.Tests.Task
 open System
 open System.Threading.Tasks
 open Util.Testing
+open Fable.Tests.Util
 
 type DisposableAction(f) =
     interface IDisposable with
@@ -10,6 +11,14 @@ type DisposableAction(f) =
 
 // Bridge pattern: works on .NET (Async.AwaitTask wraps Task) and JS (awaitPromise wraps Promise)
 let awaitTask (t: Task<'T>) = Async.AwaitTask t
+
+let cancellationMessage (t: Task) =
+    task {
+        try
+            do! t
+            return "completed"
+        with :? TaskCanceledException as e -> return e.Message
+    } |> Async.AwaitTask
 
 let tests =
   testList "Task" [
@@ -173,6 +182,165 @@ let tests =
             tcs.SetResult(42)
             let! result = awaitTask tcs.Task
             equal 42 result
+        }
+
+    testCaseAsync "TaskCompletionSource.SetCanceled works" <| fun () ->
+        async {
+            let tcs = TaskCompletionSource<int>()
+            tcs.SetCanceled()
+            let! result = awaitTask (task {
+                try
+                    let! _ = tcs.Task
+                    return "completed"
+                with :? OperationCanceledException -> return "cancelled"
+            })
+            equal "cancelled" result
+            let! awaited = Async.Catch(awaitTask tcs.Task)
+            match awaited with
+            | Choice2Of2 (:? TaskCanceledException) -> ()
+            | _ -> failwith "Expected TaskCanceledException through the error continuation"
+        }
+
+    testCaseAsync "TaskCompletionSource.TrySet methods return whether they completed the task" <| fun () ->
+        async {
+            let tcs = TaskCompletionSource<int>()
+            equal true (tcs.TrySetResult 1)
+            equal false (tcs.TrySetResult 2)
+            equal false (tcs.TrySetException(Exception "late"))
+            equal false (tcs.TrySetCanceled())
+            let! result = awaitTask tcs.Task
+            equal 1 result
+            let failed = TaskCompletionSource<int>()
+            equal true (failed.TrySetException(Exception "bad"))
+            equal false (failed.TrySetResult 3)
+            let cancelled = TaskCompletionSource<int>()
+            equal true (cancelled.TrySetCanceled())
+            equal false (cancelled.TrySetCanceled())
+        }
+
+    testCase "TaskCompletionSource raises InvalidOperationException when completed twice" <| fun () ->
+        let message = "An attempt was made to transition a task to a final state when it had already completed."
+        let tcs = TaskCompletionSource<int>()
+        tcs.SetResult 1
+        raisedExceptionType (fun () -> tcs.SetResult 2) |> equal "InvalidOperationException"
+        throwsError message (fun () -> tcs.SetException(Exception "x"))
+        throwsError message (fun () -> tcs.SetCanceled())
+        let tried = TaskCompletionSource<int>()
+        tried.TrySetCanceled() |> ignore
+        throwsError message (fun () -> tried.SetResult 1)
+
+    testCaseAsync "TaskCompletionSource.SetException with a sequence faults with the first exception" <| fun () ->
+        async {
+            let tcs = TaskCompletionSource<int>()
+            tcs.SetException([ Exception "a"; Exception "b" ])
+            equal false (tcs.TrySetException([ Exception "c" ]))
+            let! result = awaitTask (task {
+                try
+                    let! _ = tcs.Task
+                    return "completed"
+                with e -> return e.Message
+            })
+            equal "a" result
+            let empty = TaskCompletionSource<int>()
+            raisedExceptionType (fun () -> empty.SetException(List.empty<exn>)) |> equal "ArgumentException"
+            raisedExceptionType (fun () -> empty.TrySetException([ Exception "a"; null ])) |> equal "ArgumentException"
+            equal true (empty.TrySetResult 1)
+        }
+
+    testCaseAsync "Non-generic TaskCompletionSource works" <| fun () ->
+        async {
+            let tcs = TaskCompletionSource()
+            equal true (tcs.TrySetResult())
+            equal false (tcs.TrySetResult())
+            do! Async.AwaitTask tcs.Task
+            let cancelled = TaskCompletionSource()
+            cancelled.SetCanceled()
+            let! result = awaitTask (task {
+                try
+                    do! cancelled.Task
+                    return "completed"
+                with :? OperationCanceledException -> return "cancelled"
+            })
+            equal "cancelled" result
+        }
+
+    testCaseAsync "Task.Run works" <| fun () ->
+        async {
+            let! a = awaitTask (Task.Run(fun () -> 41 + 1))
+            equal 42 a
+            let! b = awaitTask (Task.Run<int>(Func<Task<int>>(fun () -> task { return 7 })))
+            equal 7 b
+            let mutable ran = 0
+            do! Async.AwaitTask(Task.Run(fun () -> ran <- ran + 1))
+            do! Async.AwaitTask(Task.Run(fun () -> (task { ran <- ran + 1 } : Task)))
+            equal 2 ran
+            let cts = new System.Threading.CancellationTokenSource()
+            let! c = awaitTask (Task.Run((fun () -> 5), cts.Token))
+            equal 5 c
+        }
+
+    testCaseAsync "Task.Run with a cancelled token gives a cancelled task" <| fun () ->
+        async {
+            let cts = new System.Threading.CancellationTokenSource()
+            cts.Cancel()
+            let mutable ran = false
+            let t = Task.Run((fun () -> ran <- true; 1), cts.Token)
+            let! result = awaitTask (task {
+                try
+                    let! _ = t
+                    return "completed"
+                with :? OperationCanceledException -> return "cancelled"
+            })
+            equal "cancelled" result
+            equal false ran
+        }
+
+    testCaseAsync "Task.Run faults with the exception of the function" <| fun () ->
+        async {
+            let t = Task.Run(fun () -> failwith "boom"; 1)
+            let! result = awaitTask (task {
+                try
+                    let! _ = t
+                    return "completed"
+                with e -> return e.Message
+            })
+            equal "boom" result
+        }
+
+    testCaseAsync "Awaiting a cancelled task in a task raises TaskCanceledException" <| fun () ->
+        async {
+            let tcs = TaskCompletionSource<int>()
+            tcs.SetCanceled()
+            let cancelled = new System.Threading.CancellationTokenSource()
+            cancelled.Cancel()
+            let cts = new System.Threading.CancellationTokenSource()
+            let started = Async.StartAsTask(Async.Sleep 1000, cancellationToken = cts.Token)
+            cts.Cancel()
+            let! a = cancellationMessage tcs.Task
+            let! b = cancellationMessage (Task.Run((fun () -> ()), cancelled.Token))
+            let! c = cancellationMessage (Task.Delay(1000, cancelled.Token))
+            let! d = cancellationMessage started
+            equal [ "A task was canceled."; "A task was canceled."; "A task was canceled."; "A task was canceled." ] [ a; b; c; d ]
+        }
+
+    testCaseAsync "Faulted and cancelled tasks that nothing awaits are not errors" <| fun () ->
+        async {
+            let failed = TaskCompletionSource<int>()
+            failed.SetException(Exception "unobserved")
+            let cancelled = TaskCompletionSource<int>()
+            cancelled.SetCanceled()
+            let cts = new System.Threading.CancellationTokenSource()
+            Task.Delay(1000, cts.Token) |> ignore
+            cts.Cancel()
+            Task.Run(fun () -> failwith "unobserved"; 1) |> ignore
+            do! Async.Sleep 20
+            let! result = awaitTask (task {
+                try
+                    let! _ = failed.Task
+                    return "completed"
+                with e -> return e.Message
+            })
+            equal "unobserved" result
         }
 
     testCaseAsync "Task.Delay works" <| fun () ->

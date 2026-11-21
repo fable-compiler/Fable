@@ -62,7 +62,10 @@ export class CancellationToken implements IDisposable {
   public register(f: (state?: any) => void, state?: any) {
     const $ = this;
     const id = this.addListener(state == null ? f : () => f(state));
-    return { Dispose() { $.removeListener(id); } };
+    return {
+      Dispose() { $.removeListener(id); },
+      Unregister() { return $.removeListener(id); },
+    };
   }
   public Dispose() {
     // Implement IDisposable for compatibility but do nothing
@@ -72,9 +75,15 @@ export class CancellationToken implements IDisposable {
 }
 
 export class OperationCanceledException extends Exception {
-  constructor(msg?: string) {
-    super(msg ?? "The operation was canceled");
+  constructor(msg?: string, innerException?: Exception) {
+    super(msg ?? "The operation was canceled.", innerException);
     // Object.setPrototypeOf(this, OperationCanceledException.prototype);
+  }
+}
+
+export class TaskCanceledException extends OperationCanceledException {
+  constructor(msg?: string, innerException?: Exception) {
+    super(msg ?? "A task was canceled.", innerException);
   }
 }
 
