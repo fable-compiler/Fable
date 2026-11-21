@@ -85,6 +85,23 @@ type Status =
 type MyClass(v) =
     member val Value: int = v with get, set
 
+type RankedValue(rank: int, label: string) =
+    member _.Rank = rank
+    member _.Label = label
+
+    override _.Equals(other) =
+        match other with
+        | :? RankedValue as other -> rank = other.Rank
+        | _ -> false
+
+    override _.GetHashCode() = rank
+
+    interface System.IComparable with
+        member _.CompareTo(other) =
+            match other with
+            | :? RankedValue as other -> compare rank other.Rank
+            | _ -> invalidArg "other" "cannot compare values of different types"
+
 [<CustomEquality; NoComparison>]
 type FuzzyInt =
     | FuzzyInt of int
@@ -389,6 +406,21 @@ let tests() =
         let c1 = Test(5)
         let c2 = Test(5)
         Object.ReferenceEquals(min c1 c2, c2) |> equal true
+
+    testCase "max and min of equal values return the same argument as .NET" <| fun () ->
+        let x = RankedValue(0, "x")
+        let y = RankedValue(0, "y")
+        (max x y).Label |> equal "x"
+        (min x y).Label |> equal "y"
+
+    testCase "List, Array and Seq min and max keep the first of equal values" <| fun () ->
+        let xs = [ RankedValue(1, "a"); RankedValue(0, "b"); RankedValue(0, "c"); RankedValue(1, "d") ]
+        (List.min xs).Label |> equal "b"
+        (Array.min (List.toArray xs)).Label |> equal "b"
+        (Seq.min xs).Label |> equal "b"
+        (List.max xs).Label |> equal "a"
+        (Array.max (List.toArray xs)).Label |> equal "a"
+        (Seq.max xs).Label |> equal "a"
 
     // TODO: More tests, also with longs and decimals
     testCase "clamp works" <| fun () ->
