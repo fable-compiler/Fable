@@ -20,3 +20,8 @@ let ``Environment.GetEnvironmentVariable returns null for a missing variable`` (
 let ``Environment.CurrentDirectory works`` () =
     Environment.CurrentDirectory.Length > 0
     |> equal true
+
+[<Fact>]
+let ``Console.Out and Error.WriteLine work`` () =
+    Console.Error.WriteLine("Rust stderr")
+    Console.Out.WriteLine("Rust stdout")
