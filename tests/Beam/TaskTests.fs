@@ -9,6 +9,35 @@ let ``test task return works`` () =
     tsk.Result |> equal 42
 
 [<Fact>]
+let ``test Task.Delay and async binding work`` () =
+    let work = async {
+        do! Async.Sleep 10
+        return 41
+    }
+    let tsk = task {
+        do! System.Threading.Tasks.Task.Delay 10
+        do! System.Threading.Tasks.Task.Delay(System.TimeSpan.FromMilliseconds 10.0)
+        let! value = work
+        return value + 1
+    }
+    tsk.Result |> equal 42
+    let returned = task { return! async { return 42 } }
+    returned.Result |> equal 42
+
+[<Fact>]
+let ``test Task.Delay observes cancellation`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let delayed = System.Threading.Tasks.Task.Delay(1_000, source.Token)
+    source.Cancel()
+    let tsk = task {
+        try
+            do! delayed
+            return false
+        with _ -> return true
+    }
+    tsk.Result |> equal true
+
+[<Fact>]
 let ``test task let bang works`` () =
     let tsk = task {
         let! x = task { return 10 }
