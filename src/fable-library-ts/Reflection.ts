@@ -13,7 +13,7 @@ export class CaseInfo {
   public declaringType: TypeInfo;
   public tag: number;
   public name: string;
-  public fields?: FieldInfo[];
+  public fields: FieldInfo[] | undefined;
 
   constructor(
     declaringType: TypeInfo,
@@ -48,13 +48,13 @@ export class MethodInfo {
 
 export class TypeInfo implements IEquatable<TypeInfo> {
   public fullname: string;
-  public generics?: TypeInfo[];
-  public construct?: Constructor;
+  public generics: TypeInfo[] | undefined;
+  public construct: Constructor | undefined;
   // A thunk when the base type's generic arguments can refer back to this type, see #3607
-  private lazyParent?: TypeInfo | (() => TypeInfo);
-  public fields?: () => FieldInfo[];
-  public cases?: () => CaseInfo[];
-  public enumCases?: EnumCase[];
+  private lazyParent: TypeInfo | (() => TypeInfo) | undefined;
+  public fields: (() => FieldInfo[]) | undefined;
+  public cases: (() => CaseInfo[]) | undefined;
+  public enumCases: EnumCase[] | undefined;
 
   constructor(
     fullname: string,
