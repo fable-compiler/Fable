@@ -370,6 +370,52 @@ let ``test Match.NextMatch starts one position after an empty match`` () =
     Regex("|a").Match("a") |> allMatches |> equal [ 0, ""; 1, "" ]
     Regex("x*").Match("") |> allMatches |> equal [ 0, "" ]
 
+let private matchList (ms: MatchCollection) =
+    ms |> Seq.cast<Match> |> Seq.map (fun m -> m.Index, m.Value) |> Seq.toList
+
+[<Fact>]
+let ``test Regex.Matches starts one position after an empty match`` () =
+    Regex("|a").Matches("a") |> matchList |> equal [ 0, ""; 1, "" ]
+
+[<Fact>]
+let ``test Regex.Replace starts one position after an empty match`` () =
+    Regex("|a").Replace("a", "[$0]") |> equal "[]a[]"
+
+[<Fact>]
+let ``test Regex.Split starts one position after an empty match`` () =
+    Regex("|a").Split("a") |> equal [| ""; "a"; "" |]
+
+[<Fact>]
+let ``test Regex.Replace with offset matches on the whole input`` () =
+    Regex("b").Replace("abcabcabc", (fun (m: Match) -> string m.Index), 2, 3) |> equal "abca4ca7c"
+
+[<Fact>]
+let ``test Regex.Replace with a count of 0 or -1 works`` () =
+    Regex("b").Replace("abab", "X", 0) |> equal "abab"
+    Regex("b").Replace("abab", "X", -1) |> equal "aXaX"
+
+[<Fact>]
+let ``test Regex.Replace and Regex.Split static methods with options work`` () =
+    Regex.Replace("abAB", "b", "X", RegexOptions.IgnoreCase) |> equal "aXAX"
+    Regex.Split("aBAb", "b", RegexOptions.IgnoreCase) |> equal [| "a"; "A"; "" |]
+
+[<Fact>]
+let ``test Regex.Replace and Regex.Split static methods match Unicode characters`` () =
+    Regex.Replace("\u00c9COLE", "\u00e9", "e", RegexOptions.IgnoreCase) |> equal "eCOLE"
+    Regex.Replace("caf\u00e9", @"\w+", "X", RegexOptions.ECMAScript) |> equal "X\u00e9"
+
+[<Fact>]
+let ``test Regex.Replace and Regex.Split throw on a negative count`` () =
+    Util.raisedExceptionType (fun () -> Regex("b").Replace("abab", "X", -2)) |> equal "ArgumentOutOfRangeException"
+    Util.raisedExceptionType (fun () -> Regex("b").Split("abab", -1)) |> equal "ArgumentOutOfRangeException"
+
+[<Fact>]
+let ``test Regex.Replace substitutions work`` () =
+    Regex("(a)(b)?(c)").Replace("zacz", "[$1|$2|$3|${1}|$$|$&|$_|$4|${y}|$`|$'|$+|$]")
+    |> equal "z[a||c|a|$|ac|zacz|$4|${y}|z|z|c|$]z"
+    Regex("(?<x>a)").Replace("zaz", "[${x}|${y}]") |> equal "z[a|${y}]z"
+    Regex("(a)").Replace("zaz", "[$10|$1a|$01|\\n|\\1|\\\\|$ 1]") |> equal "z[$10|aa|a|\\n|\\1|\\\\|$ 1]z"
+
 // [<Fact>]
 // let ``test Regex.Matches doesn't fall in infinite loop`` () = // See #2845
 //     let test input pattern expected =
@@ -412,6 +458,20 @@ let ``test Regex.Split with limit and offset works`` () =
     let r = Regex(" ")
     r.Split(s, 10, 0).Length |> equal 6
     r.Split(s, 10, 20).Length |> equal 3
+
+[<Fact>]
+let ``test Regex.Split with offset matches on the whole input`` () =
+    Regex("b").Split("abcabcabc", 2, 3) |> equal [| "abca"; "cabc" |]
+
+[<Fact>]
+let ``test Regex.Split keeps the rest of the input in the last item`` () =
+    Regex("b").Split("abcabcabc", 0) |> equal [| "a"; "ca"; "ca"; "c" |]
+    Regex("b").Split("abcabcabc", 2) |> equal [| "a"; "cabcabc" |]
+
+[<Fact>]
+let ``test Regex.Split adds the captured groups`` () =
+    Regex("(b)|(c)").Split("abcabc") |> equal [| "a"; "b"; ""; "c"; "a"; "b"; ""; "c"; "" |]
+    Regex("()|a").Split("aa") |> equal [| ""; ""; "a"; ""; "a"; ""; "" |]
 
 [<Fact>]
 let ``test Regex.Replace works`` () =
