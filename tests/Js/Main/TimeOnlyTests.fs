@@ -299,6 +299,17 @@ let tests =
             equal true (Map.containsKey (TimeOnly(20, 1, 1).AddMinutes(4.)) m)
             equal false (Map.containsKey (TimeOnly (20, 1, 1)) m)
 
+        testCase "Equals and CompareTo work" <| fun () ->
+            let t1 = TimeOnly (1, 2, 3)
+            let t2 = TimeOnly (1, 2, 3)
+            let t3 = TimeOnly (1, 2, 4)
+            t1.Equals(t2) |> equal true
+            t1.Equals(t3) |> equal false
+            t1.Equals(box t2) |> equal true
+            t1.CompareTo(t2) |> equal 0
+            t1.CompareTo(t3) |> equal -1
+            t3.CompareTo(t1) |> equal 1
+
 // See the note in DateTimeTests.fs: tick precision only holds on .NET and on the
 // Temporal representation.
 #if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
