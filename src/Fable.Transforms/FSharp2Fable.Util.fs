@@ -348,7 +348,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 type FsEnt(maybeAbbrevEnt: FSharpEntity) =
     let ent = Helpers.nonAbbreviatedDefinition maybeAbbrevEnt
 
-    let members = lazy (ent.TryGetMembersFunctionsAndValues())
+    let members = lazy (Helpers.getMembersFunctionsAndValues ent)
 
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
@@ -596,6 +596,33 @@ module Helpers =
                 ent
         else
             ent
+
+    // FCS returns the property symbols of an entity in an order that changes between runs
+    let getMembersFunctionsAndValues (ent: FSharpEntity) : FSharpMemberOrFunctionOrValue[] =
+        let members = ent.TryGetMembersFunctionsAndValues() |> Seq.toArray
+
+        let located =
+            members
+            |> Array.indexed
+            |> Array.choose (fun (i, m) ->
+                if m.IsProperty then
+                    (m :> FSharpSymbol).DeclarationLocation |> Option.map (fun r -> i, r, m)
+                else
+                    None
+            )
+
+        if located.Length > 1 then
+            let sorted =
+                located
+                |> Array.sortBy (fun (_, r, m) -> r.StartLine, r.StartColumn, m.CompiledName, m.IsInstanceMember)
+
+            located
+            |> Array.iteri (fun n (i, _, _) ->
+                let _, _, m = sorted[n]
+                members[i] <- m
+            )
+
+        members
 
     let rec nonAbbreviatedType (t: FSharpType) : FSharpType =
         let isSameType (t1: FSharpType) (t2: FSharpType) =
@@ -1043,7 +1070,7 @@ module Helpers =
 
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
         seq {
-            yield! ent.MembersFunctionsAndValues
+            yield! getMembersFunctionsAndValues ent
 
             for parent in ent.DeclaredInterfaces do
                 match tryDefinition parent with
