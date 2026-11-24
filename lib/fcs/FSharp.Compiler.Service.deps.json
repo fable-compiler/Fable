@@ -7,17 +7,17 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/43.11.200-dev": {
+      "FSharp.Compiler.Service/43.14.200-dev": {
         "dependencies": {
-          "FSharp.Core": "10.0.200-dev",
-          "FSharp.DependencyManager.Nuget": "10.0.200-dev",
-          "System.Buffers": "4.6.0",
-          "System.Collections.Immutable": "9.0.0",
-          "System.Diagnostics.DiagnosticSource": "9.0.0",
-          "System.Memory": "4.6.0",
+          "FSharp.Core": "11.0.200-dev",
+          "FSharp.DependencyManager.Nuget": "11.0.200-dev",
+          "System.Buffers": "4.6.1",
+          "System.Collections.Immutable": "10.0.14",
+          "System.Diagnostics.DiagnosticSource": "10.0.14",
+          "System.Memory": "4.6.3",
           "System.Reflection.Emit": "4.7.0",
-          "System.Reflection.Metadata": "9.0.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
+          "System.Reflection.Metadata": "10.0.14",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.2"
         },
         "runtime": {
           "FSharp.Compiler.Service.dll": {}
@@ -64,56 +64,61 @@
           }
         }
       },
-      "System.Buffers/4.6.0": {
+      "System.Buffers/4.6.1": {
         "runtime": {
           "lib/netstandard2.0/System.Buffers.dll": {
             "assemblyVersion": "4.0.2.0",
-            "fileVersion": "4.600.24.56208"
+            "fileVersion": "4.600.125.16908",
+            "localPath": "System.Buffers.dll"
           }
         }
       },
-      "System.Collections.Immutable/9.0.0": {
+      "System.Collections.Immutable/10.0.14": {
         "dependencies": {
-          "System.Memory": "4.6.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
+          "System.Memory": "4.6.3",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.2"
         },
         "runtime": {
           "lib/netstandard2.0/System.Collections.Immutable.dll": {
-            "assemblyVersion": "9.0.0.0",
-            "fileVersion": "9.0.24.52809"
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.1426.52326",
+            "localPath": "System.Collections.Immutable.dll"
           }
         }
       },
-      "System.Diagnostics.DiagnosticSource/9.0.0": {
+      "System.Diagnostics.DiagnosticSource/10.0.14": {
         "dependencies": {
-          "System.Memory": "4.6.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
+          "System.Memory": "4.6.3",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.2"
         },
         "runtime": {
           "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll": {
-            "assemblyVersion": "9.0.0.0",
-            "fileVersion": "9.0.24.52809"
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.1426.52326",
+            "localPath": "System.Diagnostics.DiagnosticSource.dll"
           }
         }
       },
-      "System.Memory/4.6.0": {
+      "System.Memory/4.6.3": {
         "dependencies": {
-          "System.Buffers": "4.6.0",
-          "System.Numerics.Vectors": "4.6.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
+          "System.Buffers": "4.6.1",
+          "System.Numerics.Vectors": "4.6.1",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.2"
         },
         "runtime": {
           "lib/netstandard2.0/System.Memory.dll": {
             "assemblyVersion": "4.0.2.0",
-            "fileVersion": "4.600.24.56208"
+            "fileVersion": "4.600.325.20307",
+            "localPath": "System.Memory.dll"
           }
         }
       },
-      "System.Numerics.Vectors/4.6.0": {
+      "System.Numerics.Vectors/4.6.1": {
         "runtime": {
           "lib/netstandard2.0/System.Numerics.Vectors.dll": {
             "assemblyVersion": "4.1.3.0",
-            "fileVersion": "4.600.24.56208"
+            "fileVersion": "4.600.125.16908",
+            "localPath": "System.Numerics.Vectors.dll"
           }
         }
       },
@@ -124,7 +129,8 @@
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Emit.dll": {
             "assemblyVersion": "4.0.0.0",
-            "fileVersion": "4.700.19.56404"
+            "fileVersion": "4.700.19.56404",
+            "localPath": "System.Reflection.Emit.dll"
           }
         }
       },
@@ -132,43 +138,45 @@
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Emit.ILGeneration.dll": {
             "assemblyVersion": "4.0.0.0",
-            "fileVersion": "4.700.19.56404"
+            "fileVersion": "4.700.19.56404",
+            "localPath": "System.Reflection.Emit.ILGeneration.dll"
           }
         }
       },
-      "System.Reflection.Metadata/9.0.0": {
+      "System.Reflection.Metadata/10.0.14": {
         "dependencies": {
-          "System.Collections.Immutable": "9.0.0",
-          "System.Memory": "4.6.0"
+          "System.Collections.Immutable": "10.0.14"
         },
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Metadata.dll": {
-            "assemblyVersion": "9.0.0.0",
-            "fileVersion": "9.0.24.52809"
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.1426.52326",
+            "localPath": "System.Reflection.Metadata.dll"
           }
         }
       },
-      "System.Runtime.CompilerServices.Unsafe/6.1.0": {
+      "System.Runtime.CompilerServices.Unsafe/6.1.2": {
         "runtime": {
           "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
             "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.100.24.56208"
+            "fileVersion": "6.100.225.20307",
+            "localPath": "System.Runtime.CompilerServices.Unsafe.dll"
           }
         }
       },
-      "FSharp.Core/10.0.200-dev": {
+      "FSharp.Core/11.0.200-dev": {
         "runtime": {
           "FSharp.Core.dll": {
-            "assemblyVersion": "10.0.0.0",
+            "assemblyVersion": "11.0.0.0",
             "fileVersion": "42.42.42.42424"
           }
         },
         "resources": {
-          "zh-Hans/FSharp.Core.resources.dll": {
-            "locale": "zh-Hans"
+          "cs/FSharp.Core.resources.dll": {
+            "locale": "cs"
           },
-          "pt-BR/FSharp.Core.resources.dll": {
-            "locale": "pt-BR"
+          "de/FSharp.Core.resources.dll": {
+            "locale": "de"
           },
           "es/FSharp.Core.resources.dll": {
             "locale": "es"
@@ -176,54 +184,51 @@
           "fr/FSharp.Core.resources.dll": {
             "locale": "fr"
           },
-          "zh-Hant/FSharp.Core.resources.dll": {
-            "locale": "zh-Hant"
-          },
-          "de/FSharp.Core.resources.dll": {
-            "locale": "de"
+          "it/FSharp.Core.resources.dll": {
+            "locale": "it"
           },
           "ja/FSharp.Core.resources.dll": {
             "locale": "ja"
           },
-          "cs/FSharp.Core.resources.dll": {
-            "locale": "cs"
-          },
-          "tr/FSharp.Core.resources.dll": {
-            "locale": "tr"
-          },
-          "it/FSharp.Core.resources.dll": {
-            "locale": "it"
+          "ko/FSharp.Core.resources.dll": {
+            "locale": "ko"
           },
           "pl/FSharp.Core.resources.dll": {
             "locale": "pl"
           },
+          "pt-BR/FSharp.Core.resources.dll": {
+            "locale": "pt-BR"
+          },
           "ru/FSharp.Core.resources.dll": {
             "locale": "ru"
           },
-          "ko/FSharp.Core.resources.dll": {
-            "locale": "ko"
+          "tr/FSharp.Core.resources.dll": {
+            "locale": "tr"
+          },
+          "zh-Hans/FSharp.Core.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "zh-Hant/FSharp.Core.resources.dll": {
+            "locale": "zh-Hant"
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/10.0.200-dev": {
+      "FSharp.DependencyManager.Nuget/11.0.200-dev": {
         "dependencies": {
-          "FSharp.Core": "10.0.200-dev",
-          "System.Reflection.Emit": "4.7.0",
-          "System.Reflection.Metadata": "9.0.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
+          "FSharp.Core": "11.0.200-dev"
         },
         "runtime": {
           "FSharp.DependencyManager.Nuget.dll": {
-            "assemblyVersion": "10.0.200.0",
+            "assemblyVersion": "11.0.200.0",
             "fileVersion": "42.42.42.42424"
           }
         },
         "resources": {
-          "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "zh-Hans"
+          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "cs"
           },
-          "pt-BR/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "pt-BR"
+          "de/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "de"
           },
           "es/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "es"
@@ -231,77 +236,77 @@
           "fr/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "fr"
           },
-          "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "zh-Hant"
-          },
-          "de/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "de"
+          "it/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "it"
           },
           "ja/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "ja"
           },
-          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "cs"
-          },
-          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "tr"
-          },
-          "it/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "it"
+          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ko"
           },
           "pl/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "pl"
           },
+          "pt-BR/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "pt-BR"
+          },
           "ru/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "ru"
           },
-          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ko"
+          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "tr"
+          },
+          "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "zh-Hant"
           }
         }
       }
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/43.11.200-dev": {
+    "FSharp.Compiler.Service/43.14.200-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "System.Buffers/4.6.0": {
+    "System.Buffers/4.6.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-lN6tZi7Q46zFzAbRYXTIvfXcyvQQgxnY7Xm6C6xQ9784dEL1amjM6S6Iw4ZpsvesAKnRVsM4scrDQaDqSClkjA==",
-      "path": "system.buffers/4.6.0",
-      "hashPath": "system.buffers.4.6.0.nupkg.sha512"
+      "sha512": "sha512-N8GXpmiLMtljq7gwvyS+1QvKT/W2J8sNAvx+HVg4NGmsG/H+2k/y9QI23auLJRterrzCiDH+IWAw4V/GPwsMlw==",
+      "path": "system.buffers/4.6.1",
+      "hashPath": "system.buffers.4.6.1.nupkg.sha512"
     },
-    "System.Collections.Immutable/9.0.0": {
+    "System.Collections.Immutable/10.0.14": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-QhkXUl2gNrQtvPmtBTQHb0YsUrDiDQ2QS09YbtTTiSjGcf7NBqtYbrG/BE06zcBPCKEwQGzIv13IVdXNOSub2w==",
-      "path": "system.collections.immutable/9.0.0",
-      "hashPath": "system.collections.immutable.9.0.0.nupkg.sha512"
+      "sha512": "sha512-7kqcjP+kmcr4zaPDi+VjaImd8ESFGGPYbr9wJo5ddRrtX9JQ9p2DJlUBBvdjJmeC0KBZxYi6L5UIKcXlaq/FDw==",
+      "path": "system.collections.immutable/10.0.14",
+      "hashPath": "system.collections.immutable.10.0.14.nupkg.sha512"
     },
-    "System.Diagnostics.DiagnosticSource/9.0.0": {
+    "System.Diagnostics.DiagnosticSource/10.0.14": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ddppcFpnbohLWdYKr/ZeLZHmmI+DXFgZ3Snq+/E7SwcdW4UnvxmaugkwGywvGVWkHPGCSZjCP+MLzu23AL5SDw==",
-      "path": "system.diagnostics.diagnosticsource/9.0.0",
-      "hashPath": "system.diagnostics.diagnosticsource.9.0.0.nupkg.sha512"
+      "sha512": "sha512-9rC+iZCotdVntRirhuf+pjW1kmeJCsdLIkSBuLdYGX8PY483gnQXbLa4BG6PVilhPD52uv0RycuwkuOJFyw0tw==",
+      "path": "system.diagnostics.diagnosticsource/10.0.14",
+      "hashPath": "system.diagnostics.diagnosticsource.10.0.14.nupkg.sha512"
     },
-    "System.Memory/4.6.0": {
+    "System.Memory/4.6.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-OEkbBQoklHngJ8UD8ez2AERSk2g+/qpAaSWWCBFbpH727HxDq5ydVkuncBaKcKfwRqXGWx64dS6G1SUScMsitg==",
-      "path": "system.memory/4.6.0",
-      "hashPath": "system.memory.4.6.0.nupkg.sha512"
+      "sha512": "sha512-qdcDOgnFZY40+Q9876JUHnlHu7bosOHX8XISRoH94fwk6hgaeQGSgfZd8srWRZNt5bV9ZW2TljcegDNxsf+96A==",
+      "path": "system.memory/4.6.3",
+      "hashPath": "system.memory.4.6.3.nupkg.sha512"
     },
-    "System.Numerics.Vectors/4.6.0": {
+    "System.Numerics.Vectors/4.6.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-t+SoieZsRuEyiw/J+qXUbolyO219tKQQI0+2/YI+Qv7YdGValA6WiuokrNKqjrTNsy5ABWU11bdKOzUdheteXg==",
-      "path": "system.numerics.vectors/4.6.0",
-      "hashPath": "system.numerics.vectors.4.6.0.nupkg.sha512"
+      "sha512": "sha512-sQxefTnhagrhoq2ReR0D/6K0zJcr9Hrd6kikeXsA1I8kOCboTavcUC4r7TSfpKFeE163uMuxZcyfO1mGO3EN8Q==",
+      "path": "system.numerics.vectors/4.6.1",
+      "hashPath": "system.numerics.vectors.4.6.1.nupkg.sha512"
     },
     "System.Reflection.Emit/4.7.0": {
       "type": "package",
@@ -317,26 +322,26 @@
       "path": "system.reflection.emit.ilgeneration/4.7.0",
       "hashPath": "system.reflection.emit.ilgeneration.4.7.0.nupkg.sha512"
     },
-    "System.Reflection.Metadata/9.0.0": {
+    "System.Reflection.Metadata/10.0.14": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ANiqLu3DxW9kol/hMmTWbt3414t9ftdIuiIU7j80okq2YzAueo120M442xk1kDJWtmZTqWQn7wHDvMRipVOEOQ==",
-      "path": "system.reflection.metadata/9.0.0",
-      "hashPath": "system.reflection.metadata.9.0.0.nupkg.sha512"
+      "sha512": "sha512-FdxZ2h1tgX+np5HKupjYCdiq+OqEwX9EV9Qm6ajY0VQ0EOCuRHQAlx6OOitoRRNQncieWUjWDyi193tfl/7xGA==",
+      "path": "system.reflection.metadata/10.0.14",
+      "hashPath": "system.reflection.metadata.10.0.14.nupkg.sha512"
     },
-    "System.Runtime.CompilerServices.Unsafe/6.1.0": {
+    "System.Runtime.CompilerServices.Unsafe/6.1.2": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-5o/HZxx6RVqYlhKSq8/zronDkALJZUT2Vz0hx43f0gwe8mwlM0y2nYlqdBwLMzr262Bwvpikeb/yEwkAa5PADg==",
-      "path": "system.runtime.compilerservices.unsafe/6.1.0",
-      "hashPath": "system.runtime.compilerservices.unsafe.6.1.0.nupkg.sha512"
+      "sha512": "sha512-2hBr6zdbIBTDE3EhK7NSVNdX58uTK6iHW/P/Axmm9sl1xoGSLqDvMtpecn226TNwHByFokYwJmt/aQQNlO5CRw==",
+      "path": "system.runtime.compilerservices.unsafe/6.1.2",
+      "hashPath": "system.runtime.compilerservices.unsafe.6.1.2.nupkg.sha512"
     },
-    "FSharp.Core/10.0.200-dev": {
+    "FSharp.Core/11.0.200-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/10.0.200-dev": {
+    "FSharp.DependencyManager.Nuget/11.0.200-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
