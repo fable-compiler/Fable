@@ -130,7 +130,7 @@ let wrapIntExpression typ (e: Expression) =
 let wrapExprInBlockWithReturn (e, stmts) = stmts @ [ Statement.return' e ]
 
 let makeArrowFunctionExpression
-    com
+    (com: IPythonCompiler)
     ctx
     (name: string option)
     (bodyType: Fable.Type option)
@@ -194,7 +194,7 @@ let makeArrowFunctionExpression
         let ident =
             name
             |> Option.map Identifier
-            |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
+            |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier com ctx "_arrow")
 
         let func =
             if isAsync then
@@ -264,7 +264,7 @@ let makeFunctionExpression
     let name =
         name
         |> Option.map (fun name -> com.GetIdentifier(ctx, name))
-        |> Option.defaultValue (Helpers.getUniqueIdentifier "_expr")
+        |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier com ctx "_expr")
 
     let func = makeFunction name (args, body, decoratorList, returnType)
     Expression.name name, [ func ]
@@ -758,7 +758,7 @@ let transformObjectExpr
         | [] -> [ Pass ]
         | _ -> classMembers
 
-    let name = Helpers.getUniqueIdentifier "ObjectExpr"
+    let name = Helpers.getUniqueIdentifier com ctx "ObjectExpr"
 
     let stmt = Statement.classDef (name, body = classBody, bases = interfaces)
 
@@ -2698,7 +2698,7 @@ let transformSequenceExpr (com: IPythonCompiler) ctx (exprs: Fable.Expr list) : 
         )
         |> transformBody com ctx None
 
-    let name = Helpers.getUniqueIdentifier "_expr"
+    let name = Helpers.getUniqueIdentifier com ctx "_expr"
 
     let func =
         Statement.functionDef (name = name, args = Arguments.arguments [], body = body)
@@ -2707,7 +2707,7 @@ let transformSequenceExpr (com: IPythonCompiler) ctx (exprs: Fable.Expr list) : 
     Expression.call name, [ func ]
 
 let transformSequenceExpr'
-    (_com: IPythonCompiler)
+    (com: IPythonCompiler)
     ctx
     (exprs: Expression list)
     (stmts: Statement list)
@@ -2727,7 +2727,7 @@ let transformSequenceExpr'
                 exprAsStatement ctx expr
         )
 
-    let name = Helpers.getUniqueIdentifier "_expr"
+    let name = Helpers.getUniqueIdentifier com ctx "_expr"
 
     let func =
         Statement.functionDef (name = name, args = Arguments.arguments [], body = body)
