@@ -1,0 +1,66 @@
+
+import { class_type } from "./fable_modules/fable-library-js.5.28.0/Reflection.js";
+import { someNull, value, some } from "./fable_modules/fable-library-js.5.28.0/Option.js";
+
+export class Anl {
+    constructor(x) {
+        this.x = (x | 0);
+    }
+}
+
+export function Anl_$reflection() {
+    return class_type("OptionCheckNulls.Anl", undefined, Anl);
+}
+
+export function Anl_$ctor_Z524259A4(x) {
+    return new Anl(x);
+}
+
+export function Anl__get_X(_) {
+    return _.x | 0;
+}
+
+export function makeSome(x) {
+    return some(x);
+}
+
+export function anlValue(opt) {
+    return value(opt);
+}
+
+export function anlMatch(opt) {
+    if (opt == null) {
+        return false;
+    }
+    else {
+        return ((opt === someNull) ? null : opt) == null;
+    }
+}
+
+export function anlMadeValue() {
+    return value(makeSome(null));
+}
+
+export function stringValue(opt) {
+    return value(opt);
+}
+
+export function stringMatch(opt) {
+    if (opt == null) {
+        return 0;
+    }
+    else {
+        const v = opt;
+        return v.length | 0;
+    }
+}
+
+export function nullableStringMatch(opt) {
+    if (opt == null) {
+        return false;
+    }
+    else {
+        return ((typeof opt === "string") ? opt : value(opt)) == null;
+    }
+}
+

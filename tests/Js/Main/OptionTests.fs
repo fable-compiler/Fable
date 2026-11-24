@@ -3,6 +3,7 @@ module Fable.Tests.Option
 open System
 open Fable.Core.JsInterop
 open Util.Testing
+open Fable.Tests.Util
 
 type Tree =
     | Leaf of int
@@ -32,6 +33,15 @@ type OptTest = OptTest of int option
 
 let makeSome (x: 'a): 'a option =
     Some x
+
+let makeValueSome (x: 'a): 'a voption =
+    ValueSome x
+
+[<AllowNullLiteral>]
+type NullableClass(x: int) =
+    member _.X = x
+
+type OptionFields = { Text: string option; Cls: NullableClass option }
 
 let tests =
   testList "Option" [
@@ -288,6 +298,38 @@ let tests =
     testCase "Option.toValueOption works" <| fun () ->
         Some 42 |> Option.toValueOption |> ValueOption.get |> equal 42
         None |> Option.toValueOption |> ValueOption.isNone |> equal true
+
+    testCase "Some null made by generic code can be read as a string option" <| fun () ->
+        let text: string option = makeSome null
+        text.IsSome |> equal true
+        isNull text.Value |> equal true
+        isNull (Option.get text) |> equal true
+        (match text with Some v -> isNull v | None -> false) |> equal true
+        (match makeSome (null: string) with Some v -> isNull v | None -> false) |> equal true
+
+    testCase "Some null made by generic code can be read as a class, an array and a ValueOption" <| fun () ->
+        let cls: NullableClass option = makeSome null
+        let arr: int[] option = makeSome null
+        let text: string voption = makeValueSome null
+        cls.IsSome |> equal true
+        (match cls with Some v -> isNull v | None -> false) |> equal true
+        (match makeSome (null: NullableClass) with Some v -> isNull v | None -> false) |> equal true
+        arr.IsSome |> equal true
+        (match arr with Some v -> isNull v | None -> false) |> equal true
+        text.IsSome |> equal true
+        (match text with ValueSome v -> isNull v | ValueNone -> false) |> equal true
+
+    testCase "Some null made by generic code can be read in a nested pattern" <| fun () ->
+        let texts = [ makeSome (null: string); Some "a" ]
+        let classes = [ makeSome (null: NullableClass); Some (NullableClass 3) ]
+        let textArray = [| makeSome (null: string); Some "a" |]
+        let fields = { Text = makeSome null; Cls = makeSome null }
+        (match texts with Some v :: _ -> isNull v | _ -> false) |> equal true
+        (match texts with _ :: Some v :: _ -> v = "a" | _ -> false) |> equal true
+        (match classes with Some v :: _ -> isNull v | _ -> false) |> equal true
+        (match classes with _ :: Some v :: _ -> v.X = 3 | _ -> false) |> equal true
+        (match textArray with [| Some a; Some b |] -> isNull a && b = "a" | _ -> false) |> equal true
+        (match fields with { Text = Some a; Cls = Some b } -> isNull a && isNull b | _ -> false) |> equal true
 
     // https://github.com/fable-compiler/Fable/issues/1136
     testCase "Calling Some with side-effects works" <| fun () ->

@@ -5,6 +5,9 @@ open System
 [<RequireQualifiedAccess>]
 module Atts =
     [<Literal>]
+    let allowNullLiteral = "Microsoft.FSharp.Core.AllowNullLiteralAttribute" // typeof<AllowNullLiteralAttribute>.FullName
+
+    [<Literal>]
     let noEquality = "Microsoft.FSharp.Core.NoEqualityAttribute" // typeof<NoEqualityAttribute>.FullName
 
     [<Literal>]
@@ -1061,6 +1064,28 @@ module AST =
         | Unit
         | GenericParam _
         | Option _ -> true
+        | _ -> false
+
+    let canOptionValueBeNull (com: Compiler) (t: Type) =
+        match t with
+        | Nullable _ -> true
+        | DeclaredType(entRef, _) ->
+            match com.TryGetEntity entRef, entRef.Path with
+            | Some ent, _ when ent.IsValueType -> false
+            | Some ent, _ when
+                ent.Attributes
+                |> Seq.exists (fun att -> att.Entity.FullName = Atts.allowNullLiteral)
+                ->
+                true
+            | _ when Compiler.CheckNulls -> false
+            | _, CoreAssemblyName name -> name <> "FSharp.Core" && name <> "Fable.Core"
+            | _ -> false
+        | _ when Compiler.CheckNulls -> false
+        | String
+        | Regex
+        | MetaType
+        | Array _
+        | DelegateType _ -> true
         | _ -> false
 
     let rec containsFunctionType (t: Type) =
