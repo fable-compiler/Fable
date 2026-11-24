@@ -205,6 +205,28 @@ let tests =
         d3.Second + d5.Millisecond
         |> equal 530
 
+    testCase "DateTimeOffset constructor with microseconds works" <| fun () ->
+        let offset = TimeSpan.FromHours 2.0
+        let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, 250, offset)
+        d.Offset |> equal offset
+        d.Millisecond |> equal 500
+        d.Ticks / 10_000L |> equal 63548457810500L
+        d.UtcTicks / 10_000L |> equal 63548450610500L
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+        d.Ticks |> equal 635484578105002500L
+#endif
+        Util.throwsAnyError (fun () -> DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, 1000, offset))
+
+    testCase "DateTimeOffset from Year 1 to 99 works when the offset changes the UTC day" <| fun () ->
+        let d = DateTimeOffset(99, 6, 15, 1, 2, 3, TimeSpan.FromHours 2.0)
+        (d.Year, d.Month, d.Day, d.Hour) |> equal (99, 6, 15, 1)
+        d.Ticks |> equal 31068613230000000L
+        d.UtcTicks |> equal 31068541230000000L
+        let d = DateTimeOffset(1, 12, 31, 23, 30, 0, 6, TimeSpan.FromHours -5.0)
+        (d.Year, d.Month, d.Day, d.Hour) |> equal (1, 12, 31, 23)
+        d.Ticks |> equal 315342000060000L
+        d.UtcTicks |> equal 315522000060000L
+
     testCase "DateTimeOffset constructor from DateOnly and TimeOnly works" <| fun () ->
         let d = DateOnly(2014, 10, 9)
         let t = TimeOnly(13, 23, 30, 500)

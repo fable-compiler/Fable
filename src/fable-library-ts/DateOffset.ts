@@ -131,15 +131,25 @@ export function create(
     ms = 0;
   }
   checkOffsetInRange(offset);
-  let date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms) - offset);
+  const date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
   if (year <= 99) {
     date.setUTCFullYear(year, month - 1, day);
   }
-  const dateValue = date.getTime();
+  const dateValue = date.getTime() - offset;
   if (isNaN(dateValue)) {
     throw new Exception("The parameters describe an unrepresentable Date");
   }
   return DateTimeOffset(dateValue, offset);
+}
+
+export function createWithMicroseconds(
+  year: number, month: number, day: number,
+  h: number, m: number, s: number,
+  ms: number, us: number, offset: number) {
+  if (us < 0 || us > 999) {
+    throw new Exception("Valid values are between 0 and 999, inclusive. (Parameter 'microsecond')");
+  }
+  return create(year, month, day, h, m, s, ms, offset);
 }
 
 export function now() {

@@ -722,6 +722,16 @@ export function create(
   return DateTime(dateValue, kind);
 }
 
+export function createWithMicroseconds(
+  year: number, month: number, day: number,
+  h: number, m: number, s: number,
+  ms: number, us: number, kind?: DateTimeKind) {
+  if (us < 0 || us > 999) {
+    throw new Exception("Valid values are between 0 and 999, inclusive. (Parameter 'microsecond')");
+  }
+  return create(year, month, day, h, m, s, ms, kind);
+}
+
 export function now() {
   return DateTime(Date.now(), DateTimeKind.Local);
 }
