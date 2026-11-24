@@ -662,7 +662,13 @@ let reduceBack f (xs: 'T list) =
     if xs.IsEmpty then
         invalidArg "list" SR.inputWasEmpty
     else
-        foldBack f (tail xs) (head xs)
+        let arr = toArray xs
+        let mutable acc = arr.[arr.Length - 1]
+
+        for i = arr.Length - 2 downto 0 do
+            acc <- f arr.[i] acc
+
+        acc
 
 let forAll f xs = fold (fun acc x -> acc && f x) true xs
 

@@ -631,6 +631,10 @@ let tests =
         xs |> Seq.reduce (+)
         |> equal 3.
 
+    testCase "Seq.reduceBack applies the reduction from the last element" <| fun () ->
+        Seq.reduceBack (-) [1; 2; 4] |> equal 3
+        Seq.reduceBack (+) ["a"; "b"; "c"] |> equal "abc"
+
     testCase "Seq.scan works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         let ys = xs |> Seq.scan (+) 0.

@@ -341,6 +341,11 @@ let tests =
         xs |> List.reduceBack (+)
         |> equal 3
 
+    testCase "List.reduceBack applies the reduction from the last element" <| fun () ->
+        List.reduceBack (-) [1; 2; 4] |> equal 3
+        List.reduceBack (+) ["a"; "b"; "c"] |> equal "abc"
+        List.reduceBack (-) [7] |> equal 7
+
     testCase "List.replicate works" <| fun () ->
         List.replicate 3 3
         |> List.sum |> equal 9
