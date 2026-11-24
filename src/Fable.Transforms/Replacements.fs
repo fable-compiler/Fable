@@ -3955,8 +3955,53 @@ let ignoreFormatProvider com (ctx: Context) r meth args =
         [ input; defVal ]
     | _ -> args
 
+let private warnOnSubMillisecondPrecisionLoss
+    (com: ICompiler)
+    (ctx: Context)
+    r
+    (typeName: string)
+    (i: CallInfo)
+    (args: Expr list)
+    =
+    let ticksPerMillisecond = 10000L
+    let microsecondsPerMillisecond = 1000L
+
+    let isInt32 (e: Expr) =
+        match e.Type with
+        | Number(Int32, NumberInfo.Empty) -> true
+        | _ -> false
+
+    let lossyArg =
+        match typeName, i.CompiledName, args with
+        | ("DateTime" | "DateTimeOffset"), ".ctor", (ExprType(Number(Int64, _)) as ticks) :: _
+        | ("DateTime" | "DateTimeOffset"), "AddTicks", [ ticks ]
+        | "TimeSpan", (".ctor" | "FromTicks"), [ ticks ]
+        | "TimeOnly", ".ctor", [ ExprType(Number(Int64, _)) as ticks ] -> Some(ticks, ticksPerMillisecond)
+        | ("DateTime" | "DateTimeOffset"), ".ctor", _ :: _ :: _ :: _ :: _ :: _ :: _ :: us :: _ when isInt32 us ->
+            Some(us, microsecondsPerMillisecond)
+        | "TimeSpan", ".ctor", [ _; _; _; _; _; us ]
+        | "TimeOnly", ".ctor", [ _; _; _; _; us ] -> Some(us, microsecondsPerMillisecond)
+        | _ -> None
+
+    match lossyArg with
+    | _ when com.Options.JsTemporal -> ()
+    | None -> ()
+    | Some(MaybeCasted(Call(Import({ Selector = "getTicks" }, _, _), _, _, _)), _) -> ()
+    | Some(Value(NumberConstant(NumberValue.Int64 value, _), _), unitsPerMillisecond) when
+        value % unitsPerMillisecond = 0L
+        ->
+        ()
+    | Some(Value(NumberConstant(NumberValue.Int32 value, _), _), unitsPerMillisecond) when
+        int64 value % unitsPerMillisecond = 0L
+        ->
+        ()
+    | Some _ ->
+        WarningCodes.subMillisecondPrecisionDropped typeName
+        |> addWarningWithCode com ctx.InlinePath r
+
 let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName = dateTimeModule com
+    warnOnSubMillisecondPrecisionLoss com ctx r "DateTime" i args
 
     match i.CompiledName with
     | ".ctor" ->
@@ -4040,6 +4085,7 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName = dateTimeOffsetModule com
+    warnOnSubMillisecondPrecisionLoss com ctx r "DateTimeOffset" i args
 
     match i.CompiledName with
     | ".ctor" ->
@@ -4215,6 +4261,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName = timeSpanModule com
+    warnOnSubMillisecondPrecisionLoss com ctx r "TimeSpan" i args
 
     let timeSpanLibCall meth args =
         let args = ignoreFormatProvider com ctx r meth args
@@ -4302,6 +4349,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let moduleName = timeOnlyModule com
+    warnOnSubMillisecondPrecisionLoss com ctx r "TimeOnly" i args
 
     match i.CompiledName with
     | ".ctor" ->

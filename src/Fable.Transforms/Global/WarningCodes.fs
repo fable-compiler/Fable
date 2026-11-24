@@ -136,6 +136,12 @@ let regexFlagUnsupported (flag: string) =
 let duplicateCompiledName (unionName: string) (caseName: string) (otherCaseName: string) (compiledName: string) =
     "FABLE0121", $"Cases '%s{caseName}' and '%s{otherCaseName}' of '%s{unionName}' both compile to '%s{compiledName}'"
 
+/// JS/TS without Temporal: a ticks or microseconds argument given to a `DateTime`, `DateTimeOffset`,
+/// `TimeSpan` or `TimeOnly` API that truncates it to whole milliseconds.
+let subMillisecondPrecisionDropped (typeName: string) =
+    "FABLE0122",
+    $"%s{typeName} precision is limited to milliseconds, the sub-millisecond part is dropped. Use --test:js-temporal to keep it."
+
 /// Every code the compiler can emit, both bands. A directive naming anything else is reported as
 /// a typo, so a new warning MUST be added to this list as well as defined above.
 let knownCodes =
@@ -166,6 +172,7 @@ let knownCodes =
         staticDoBindingsDisabled
         regexFlagUnsupported ""
         duplicateCompiledName "" "" "" ""
+        subMillisecondPrecisionDropped ""
     ]
     |> List.map fst
     |> Set.ofList
