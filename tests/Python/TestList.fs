@@ -485,6 +485,26 @@ let ``test List.minBy works`` () =
     |> equal 2
 
 [<Fact>]
+let ``test List.minBy and List.maxBy keep the first of tied elements`` () =
+    let xs = [ "a", 1; "b", 0; "c", 0; "d", 1 ]
+    xs |> List.minBy snd |> equal ("b", 0)
+    xs |> List.maxBy snd |> equal ("a", 1)
+    xs |> List.minBy (fun _ -> 0) |> equal ("a", 1)
+
+[<Fact>]
+let ``test List.minBy and List.maxBy call the projection once per element`` () =
+    let mutable calls = 0
+    let f x = calls <- calls + 1; x
+    [ 5; 3; 8; 1; 9 ] |> List.minBy f |> equal 1
+    [ 5; 3; 8; 1; 9 ] |> List.maxBy f |> equal 9
+    calls |> equal 10
+
+[<Fact>]
+let ``test List.min and List.max keep the first of equal elements`` () =
+    1. / List.min [ -0.; 0. ] |> equal System.Double.NegativeInfinity
+    1. / List.max [ 0.; -0. ] |> equal System.Double.PositiveInfinity
+
+[<Fact>]
 let ``test List.sum works`` () =
     [1; 2] |> List.sum
     |> equal 3

@@ -2557,6 +2557,7 @@ module Util =
 
             libCall com ctx (numType Int32) "Util" "compareNullable" [ left; right; fn ]
         | Boolean -> libCall com ctx (numType Int32) "Util" "compareBool" [ left; right ]
+        | Double -> libCall com ctx (numType Int32) "Util" "compareDouble" [ left; right ]
         | Dynamic
         | Generic _ -> libCall com ctx (numType Int32) "Util" "compareDynamic" [ left; right ]
         | _ -> Expression.invocationExpression (left, "compareTo", [ right ], Integer)

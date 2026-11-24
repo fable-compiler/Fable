@@ -85,6 +85,33 @@ type Status =
 type MyClass(v) =
     member val Value: int = v with get, set
 
+type RankedValue(rank: int, label: string) =
+    member _.Rank = rank
+    member _.Label = label
+
+    override _.Equals(other) =
+        match other with
+        | :? RankedValue as other -> rank = other.Rank
+        | _ -> false
+
+    override _.GetHashCode() = rank
+
+    interface System.IComparable with
+        member _.CompareTo(other) =
+            match other with
+            | :? RankedValue as other -> compare rank other.Rank
+            | _ -> invalidArg "other" "cannot compare values of different types"
+
+let negate (x: float) = -x
+
+let negateSingle (x: float32) = -x
+
+let isNegativeZero (x: float) = x = 0.0 && 1.0 / x < 0.0
+
+type FloatRecord = { FloatField: float; Tag: int }
+
+type FloatUnion = FloatCase of float * int
+
 [<CustomEquality; NoComparison>]
 type FuzzyInt =
     | FuzzyInt of int
@@ -389,6 +416,61 @@ let tests() =
         let c1 = Test(5)
         let c2 = Test(5)
         Object.ReferenceEquals(min c1 c2, c2) |> equal true
+
+    testCase "max and min of equal values return the same argument as .NET" <| fun () ->
+        let x = RankedValue(0, "x")
+        let y = RankedValue(0, "y")
+        (max x y).Label |> equal "x"
+        (min x y).Label |> equal "y"
+
+    testCase "List, Array and Seq min and max keep the first of equal values" <| fun () ->
+        let xs = [ RankedValue(1, "a"); RankedValue(0, "b"); RankedValue(0, "c"); RankedValue(1, "d") ]
+        (List.min xs).Label |> equal "b"
+        (Array.min (List.toArray xs)).Label |> equal "b"
+        (Seq.min xs).Label |> equal "b"
+        (List.max xs).Label |> equal "a"
+        (Array.max (List.toArray xs)).Label |> equal "a"
+        (Seq.max xs).Label |> equal "a"
+
+    testCase "List, Array and Seq min and max treat 0.0 and -0.0 as equal" <| fun () ->
+        let nz = negate 0.0
+        List.max [ nz; 0.0 ] |> isNegativeZero |> equal true
+        List.max [ 0.0; nz ] |> isNegativeZero |> equal false
+        List.min [ 0.0; nz ] |> isNegativeZero |> equal false
+        List.min [ nz; 0.0 ] |> isNegativeZero |> equal true
+        Array.max [| nz; 0.0 |] |> isNegativeZero |> equal true
+        Array.min [| 0.0; nz |] |> isNegativeZero |> equal false
+        Seq.max (seq { nz; 0.0 }) |> isNegativeZero |> equal true
+        Seq.min (seq { 0.0; nz }) |> isNegativeZero |> equal false
+        List.maxBy id [ nz; 0.0 ] |> isNegativeZero |> equal true
+        List.minBy id [ 0.0; nz ] |> isNegativeZero |> equal false
+        Array.maxBy id [| nz; 0.0 |] |> isNegativeZero |> equal true
+        Seq.minBy id (seq { 0.0; nz }) |> isNegativeZero |> equal false
+        List.max [ negateSingle 0.0f; 0.0f ] |> float |> isNegativeZero |> equal true
+        List.min [ 0.0f; negateSingle 0.0f ] |> float |> isNegativeZero |> equal false
+
+    testCase "max and min of tuples treat 0.0 and -0.0 as equal" <| fun () ->
+        let nz = negate 0.0
+        List.max [ (nz, 1); (0.0, 1) ] |> fst |> isNegativeZero |> equal true
+        List.min [ (0.0, 1); (nz, 1) ] |> fst |> isNegativeZero |> equal false
+        max (nz, 1) (0.0, 1) |> fst |> isNegativeZero |> equal true
+        min (nz, 1) (0.0, 1) |> fst |> isNegativeZero |> equal false
+        compare 0.0 nz |> equal 0
+        compare (0.0, 1) (nz, 1) |> equal 0
+
+    testCase "records and unions with float fields treat 0.0 and -0.0 as equal" <| fun () ->
+        let nz = negate 0.0
+        compare { FloatField = 0.0; Tag = 1 } { FloatField = nz; Tag = 1 } |> equal 0
+        compare (FloatCase(0.0, 1)) (FloatCase(nz, 1)) |> equal 0
+        Set.ofList [ { FloatField = 0.0; Tag = 1 }; { FloatField = nz; Tag = 1 } ] |> Set.count |> equal 1
+        { FloatField = nz; Tag = 1 } < { FloatField = 0.0; Tag = 1 } |> equal false
+        (max { FloatField = nz; Tag = 1 } { FloatField = 0.0; Tag = 1 }).FloatField |> isNegativeZero |> equal true
+
+    testCase "boxed float CompareTo treats 0.0 and -0.0 as equal" <| fun () ->
+        let nz = negate 0.0
+        (box 0.0 :?> System.IComparable).CompareTo(box nz) |> equal 0
+        (box nz :?> System.IComparable).CompareTo(box 0.0) |> equal 0
+        (box 1.0 :?> System.IComparable).CompareTo(box 2.0) |> equal -1
 
     // TODO: More tests, also with longs and decimals
     testCase "clamp works" <| fun () ->

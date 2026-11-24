@@ -286,6 +286,45 @@ let ``test min works with records`` () =
     let r2 = {a=1; b=2}
     min r1 r2 |> equal r1
 
+let negate (x: float) = -x
+
+let negateSingle (x: float32) = -x
+
+let isNegativeZero (x: float) = System.BitConverter.DoubleToInt64Bits x = System.Int64.MinValue
+
+type FloatUnion = FloatCase of float * int
+
+[<Fact>]
+let ``test max and min of 0.0 and -0.0 return the same zero as .NET`` () =
+    let nz = negate 0.0
+    max 0.0 nz |> isNegativeZero |> equal false
+    max nz 0.0 |> isNegativeZero |> equal false
+    min 0.0 nz |> isNegativeZero |> equal true
+    min nz 0.0 |> isNegativeZero |> equal true
+    max 0.0f (negateSingle 0.0f) |> float |> isNegativeZero |> equal false
+    max (negateSingle 0.0f) 0.0f |> float |> isNegativeZero |> equal false
+    min 0.0f (negateSingle 0.0f) |> float |> isNegativeZero |> equal true
+    min (negateSingle 0.0f) 0.0f |> float |> isNegativeZero |> equal true
+    List.reduce max [ 0.0; nz ] |> isNegativeZero |> equal false
+    List.reduce max [ nz; 0.0 ] |> isNegativeZero |> equal false
+    List.reduce min [ 0.0; nz ] |> isNegativeZero |> equal true
+    List.reduce min [ nz; 0.0 ] |> isNegativeZero |> equal true
+    System.Math.Max(nz, 0.0) |> isNegativeZero |> equal false
+    System.Math.Min(0.0, nz) |> isNegativeZero |> equal true
+
+[<Fact>]
+let ``test max and min of equal values return the same argument as .NET`` () =
+    let nz = negate 0.0
+    max (0.0, 1) (nz, 1) |> fst |> isNegativeZero |> equal false
+    max (nz, 1) (0.0, 1) |> fst |> isNegativeZero |> equal true
+    min (0.0, 1) (nz, 1) |> fst |> isNegativeZero |> equal true
+    min (nz, 1) (0.0, 1) |> fst |> isNegativeZero |> equal false
+    let value (FloatCase(x, _)) = x
+    max (FloatCase(0.0, 1)) (FloatCase(nz, 1)) |> value |> isNegativeZero |> equal false
+    max (FloatCase(nz, 1)) (FloatCase(0.0, 1)) |> value |> isNegativeZero |> equal true
+    min (FloatCase(0.0, 1)) (FloatCase(nz, 1)) |> value |> isNegativeZero |> equal true
+    min (FloatCase(nz, 1)) (FloatCase(0.0, 1)) |> value |> isNegativeZero |> equal false
+
 [<Fact>]
 let ``test nullArg works`` () =
     try

@@ -1296,6 +1296,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | Char
         | String -> math r t args i.SignatureArgTypes i.CompiledName |> Some
         | Number(Decimal, _) -> libCall com r t "Decimal" (Naming.lowerFirst meth) args |> Some
+        | Number((Float16 | Float32 | Float64), _) ->
+            libCall com r t "Numeric" (Naming.lowerFirst meth + "Float") args |> Some
         | Number _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
         | _ -> libCall com r t "Native" (Naming.lowerFirst meth) args |> Some
     | ("MinMagnitude" | "MaxMagnitude") as meth, _ ->

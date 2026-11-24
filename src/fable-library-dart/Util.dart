@@ -981,8 +981,15 @@ int compareNullable<T>(T? x, T? y, int Function(T, T) comparer) {
   }
 }
 
+int compareDouble(double a, double b) {
+  // double.compareTo orders -0.0 before 0.0
+  return a == b ? 0 : a.compareTo(b);
+}
+
 int compareDynamic(dynamic a, dynamic b) {
-  if (a is Comparable) {
+  if (a is double && b is double) {
+    return compareDouble(a, b);
+  } else if (a is Comparable) {
     return a.compareTo(b);
   } else if (a is List) {
     compareList(a, b);
@@ -998,7 +1005,7 @@ T min<T>(int Function(T, T) comparer, T x, T y) {
 }
 
 T max<T>(int Function(T, T) comparer, T x, T y) {
-  return comparer(x, y) > 0 ? x : y;
+  return comparer(x, y) < 0 ? y : x;
 }
 
 T clamp<T>(int Function(T, T) comparer, T value, T min, T max) {
