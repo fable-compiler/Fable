@@ -1,5 +1,5 @@
 import { Exception } from "./Util.ts";
-import { ArgumentOutOfRangeException_$ctor_Z721C83C5, NotSupportedException_$ctor_Z721C83C5 } from "./System.ts";
+import { ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, NotSupportedException_$ctor_Z721C83C5 } from "./System.ts";
 
 export type MatchEvaluator = (match: any) => string;
 
@@ -40,6 +40,25 @@ export function unescape(str: string) {
   return str.replace(/\\([$()*+.?[\\\^{|}\]])/g, "$1");
 }
 
+// .NET accepts Regex.InfiniteMatchTimeout (-1 ms) and 0 < timeout <= Int32.MaxValue - 1 ms
+export function checkMatchTimeout(ms: number) {
+  if (ms !== -1 && !(ms > 0 && ms <= 2147483646)) {
+    throw ArgumentOutOfRangeException_$ctor_Z721C83C5("matchTimeout");
+  }
+}
+
+function checkStartAt(input: string, startAt: number) {
+  if (startAt !== 0 && (startAt < 0 || startAt > input.length)) {
+    throw ArgumentOutOfRangeException_$ctor_Z384F8060("startat", "Start index cannot be less than 0 or greater than input length.");
+  }
+}
+
+function checkCount(count: number | undefined, min: number) {
+  if (count != null && count < min) {
+    throw ArgumentOutOfRangeException_$ctor_Z384F8060("count", "Count cannot be less than -1.");
+  }
+}
+
 function startsInsideSurrogatePair(reg: RegExp, input: string, startAt: number) {
   return startAt > 0 && reg.unicode && (input.charCodeAt(startAt) & 0xFC00) === 0xDC00 && (input.charCodeAt(startAt - 1) & 0xFC00) === 0xD800;
 }
@@ -60,6 +79,7 @@ function execFrom(reg: RegExp, input: string, startAt: number) {
 }
 
 export function isMatch(reg: RegExp, input: string, startAt = 0) {
+  checkStartAt(input, startAt);
   if (startsInsideSurrogatePair(reg, input, startAt)) {
     return execFrom(reg, input, startAt) != null;
   }
@@ -201,6 +221,7 @@ function matchOrNull(reg: RegExp, input: string, startAt: number) {
 }
 
 export function match(reg: RegExp, input: string, startAt = 0): RegExpExecArray {
+  checkStartAt(input, startAt);
   return matchOrNull(reg, input, startAt) ?? emptyMatch;
 }
 
@@ -224,7 +245,7 @@ export function nextMatch(m: RegExpExecArray | null): RegExpExecArray {
   if (!reg.global) {
     throw new Exception("Non-global RegExp"); // lastIndex is ignored
   }
-  return match(reg, m.input, nextStartAt(reg, m));
+  return matchOrNull(reg, m.input, nextStartAt(reg, m)) ?? emptyMatch;
 }
 
 export function groups(m: RegExpExecArray | null): RegExpExecArray {
@@ -279,6 +300,7 @@ export function matches(reg: RegExp, input: string, startAt = 0) {
   if (input == null) {
     throw new Exception("Input cannot ve null");
   }
+  checkStartAt(input, startAt);
   return Array.from(matchesFrom(reg, input, startAt));
 }
 
@@ -335,6 +357,8 @@ export function replace(
     input = tmp;
     limit = undefined;
   }
+  checkCount(limit, -1);
+  checkStartAt(input, offset);
   if (typeof replacement === "string") {
     const rep = replacement as string;
     replacement = (match: any): string => expandReplacement(rep, match, reg as RegExp);
@@ -346,7 +370,7 @@ export function replace(
     if (count === 0) {
       break;
     }
-    result += input.substring(prev, m.index) + (replacement as MatchEvaluator)(m);
+    result += input.substring(prev, m.index) + ((replacement as MatchEvaluator)(m) ?? "");
     prev = m.index + m[0].length;
     count--;
   }
@@ -360,6 +384,8 @@ export function split(reg: string | RegExp, input: string, limit?: number, offse
     input = tmp;
     limit = undefined;
   }
+  checkCount(limit, 0);
+  checkStartAt(input, offset);
   // JS String.split(regex, limit) truncates the result and discards the remainder,
   // whereas .NET keeps it in the last element (`limit` is the max number of elements),
   // keeps the text before `offset` in the first element and includes the values of
