@@ -101,6 +101,13 @@ export function create(
   return dateTime(new Temporal.PlainDateTime(year, month, day, h, m, s, ms), kind);
 }
 
+export function createWithMicroseconds(
+  year: number, month: number, day: number,
+  h: number, m: number, s: number,
+  ms: number, us: number, kind?: DateTimeKind): DateTime {
+  return dateTime(new Temporal.PlainDateTime(year, month, day, h, m, s, ms, us), kind);
+}
+
 export function fromTicks(ticks: number | bigint, kind?: DateTimeKind): DateTime {
   return dateTime(minDateTime.add(TimeSpan_fromTicks(ticks)), kind);
 }

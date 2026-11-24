@@ -96,10 +96,20 @@ export function create(
     offset = ms as TimeSpan;
     ms = 0;
   }
+  return createWithMicroseconds(year, month, day, h, m, s, ms as number, 0, offset);
+}
+
+export function createWithMicroseconds(
+  year: number, month: number, day: number,
+  h: number, m: number, s: number,
+  ms: number, us: number, offset: TimeSpan): DateTimeOffset {
+  if (us < 0 || us > 999) {
+    throw new Exception("Valid values are between 0 and 999, inclusive. (Parameter 'microsecond')");
+  }
   const offsetNs = offsetToNanoseconds(offset);
   checkOffsetInRange(offsetNs);
   return Temporal.ZonedDateTime.from({
-    year, month, day, hour: h, minute: m, second: s, millisecond: ms as number,
+    year, month, day, hour: h, minute: m, second: s, millisecond: ms, microsecond: us,
     timeZone: offsetNanosecondsToZoneString(offsetNs),
   });
 }

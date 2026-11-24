@@ -587,6 +587,40 @@ let tests =
         date.Minute |> equal 4
         date.Second |> equal 5
 
+    testCase "DateTime constructors with microseconds work" <| fun () ->
+        let fields (d: DateTime) =
+            d.Year, d.Month, d.Day, d.Hour, d.Minute, d.Second, d.Millisecond
+
+        let d = DateTime(2014, 10, 9, 13, 23, 30, 500, 250)
+        d.Kind |> equal DateTimeKind.Unspecified
+        fields d |> equal (2014, 10, 9, 13, 23, 30, 500)
+
+        for kind in [ DateTimeKind.Utc; DateTimeKind.Local; DateTimeKind.Unspecified ] do
+            let d = DateTime(2014, 10, 9, 13, 23, 30, 500, 250, kind)
+            d.Kind |> equal kind
+            fields d |> equal (2014, 10, 9, 13, 23, 30, 500)
+            d.Ticks / 10_000L |> equal 63548457810500L
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+            d.Ticks |> equal 635484578105002500L
+#endif
+
+    testCase "DateTime constructor with microseconds works from Year 1 to 99" <| fun () ->
+        let d = DateTime(1, 1, 1, 0, 0, 0, 0, 99, DateTimeKind.Utc)
+        d.Kind |> equal DateTimeKind.Utc
+        d.Year |> equal 1
+        d.Ticks / 10_000L |> equal 0L
+        let d2 = DateTime(99, 1, 2, 3, 4, 5, 6, 5, DateTimeKind.Utc)
+        d2.Year |> equal 99
+        d2.Ticks / 10_000L |> equal 3092699045006L
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+        d.Ticks |> equal 990L
+        d2.Ticks |> equal 30926990450060050L
+#endif
+
+    testCase "DateTime constructors reject out of range microseconds" <| fun () ->
+        throwsAnyError (fun () -> DateTime(2014, 10, 9, 13, 23, 30, 500, 1000))
+        throwsAnyError (fun () -> DateTime(2014, 10, 9, 13, 23, 30, 500, -1, DateTimeKind.Utc))
+
     // TODO: These two tests give different values for .NET and JS because DateTime
     // becomes as a plain JS Date object, so I'm just checking the fields get translated
     testCase "DateTime.MaxValue works" <| fun () ->

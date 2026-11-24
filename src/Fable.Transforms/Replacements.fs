@@ -3983,15 +3983,19 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
                 Helper.LibCall(com, moduleName, "create", t, args, argTypes, ?loc = r) |> Some
 
-            // JavaScript Date doesn't support microseconds precision
             | 8, Number(Int32, NumberInfo.Empty) ->
-                "JavaScript Date doesn't support microseconds precision"
-                |> addError com ctx.InlinePath r
-
-                None
-            // | 8, Number(_, NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
-            //     "JavaScript Date doesn't support microseconds precision" |> addError com ctx.InlinePath r
-            //     None
+                Helper.LibCall(com, moduleName, "createWithMicroseconds", t, args, i.SignatureArgTypes, ?loc = r)
+                |> Some
+            | 9, Number(_, NumberInfo.IsEnum ent) when
+                ent.FullName = "System.DateTimeKind"
+                && (
+                    match args[7].Type with
+                    | Number(Int32, NumberInfo.Empty) -> true
+                    | _ -> false
+                )
+                ->
+                Helper.LibCall(com, moduleName, "createWithMicroseconds", t, args, i.SignatureArgTypes, ?loc = r)
+                |> Some
 
             | _ ->
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc = r)
@@ -4059,6 +4063,13 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
             | 7
             | 8 ->
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc = r)
+                |> Some
+            | 9 when
+                (match args[7].Type with
+                 | Number(Int32, NumberInfo.Empty) -> true
+                 | _ -> false)
+                ->
+                Helper.LibCall(com, moduleName, "createWithMicroseconds", t, args, i.SignatureArgTypes, ?loc = r)
                 |> Some
             | _ ->
                 "JavaScript Date doesn't support microseconds precision"
