@@ -1499,16 +1499,30 @@ module Helpers =
         |> (fun name -> name.Replace("`", "_"))
         |> Helpers.clean
 
-    let getUniqueIdentifier (name: string) : Identifier =
-        let idx = Naming.getUniqueIndex ()
-
+    let getUniqueIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) : Identifier =
         let deliminator =
             if Char.IsLower name[0] then
                 "_"
             else
                 ""
 
-        Identifier($"%s{name}%s{deliminator}%i{idx}")
+        let usedNames = ctx.UsedNames
+
+        let isUsed (name: string) =
+            usedNames.RootScope.Contains(name)
+            || usedNames.DeclarationScopes.Contains(name)
+            || (not (isNull usedNames.CurrentDeclarationScope)
+                && usedNames.CurrentDeclarationScope.Contains(name))
+
+        let rec nextFreeName () =
+            let candidate = $"%s{name}%s{deliminator}%i{com.IncrementCounter()}"
+
+            if isUsed candidate then
+                nextFreeName ()
+            else
+                candidate
+
+        Identifier(nextFreeName ())
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =

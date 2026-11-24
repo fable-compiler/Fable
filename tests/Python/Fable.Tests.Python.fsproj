@@ -98,5 +98,6 @@
     <Compile Include="TestNonRegression.fs" />
     <Compile Include="TestQuotation.fs" />
     <Compile Include="TestInlineIfLambda.fs" />
+    <Compile Include="TestGeneratedNames.fs" />
   </ItemGroup>
 </Project>

@@ -173,13 +173,6 @@ module Naming =
 
     let reflectionSuffix = "_reflection"
 
-    let mutable private uniqueIndex = 0
-
-    let getUniqueIndex () =
-        let idx = uniqueIndex
-        uniqueIndex <- uniqueIndex + 1
-        idx
-
     let preventConflicts conflicts originalName =
         let rec check originalName n =
             let name =
