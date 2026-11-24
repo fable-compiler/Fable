@@ -4187,6 +4187,8 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             )
             |> Some
         | _ -> None
+    | "Equals"
+    | "CompareTo" -> valueTypes com ctx r t i thisArg args
     | "AddDays"
     | "AddMonths"
     | "AddYears" when not com.Options.JsTemporal ->
@@ -4244,6 +4246,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_TotalMilliseconds" when not com.Options.JsTemporal -> TypeCast(thisArg.Value, t) |> Some
+    | "Equals" -> valueTypes com ctx r t i thisArg args
     | "op_Multiply" ->
         // .NET overloads the operator on both sides: TimeSpan * float and float * TimeSpan
         let args, argTypes =
@@ -4307,6 +4310,8 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
     | "get_MinValue" when not com.Options.JsTemporal -> makeIntConst 0 |> Some
+    | "Equals"
+    | "CompareTo" -> valueTypes com ctx r t i thisArg args
     | "ToTimeSpan" when not com.Options.JsTemporal ->
         // The representation is identical
         thisArg
@@ -5373,6 +5378,24 @@ let tryField com returnTyp ownerTyp fieldName =
         |> Some
     | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, dateTimeOffsetModule com, Naming.lowerFirst fieldName, returnTyp, [])
+        |> Some
+    | Builtin BclTimeSpan, ("MaxValue" | "MinValue") ->
+        let ticks =
+            if fieldName = "MaxValue" then
+                System.Int64.MaxValue
+            else
+                System.Int64.MinValue
+
+        Helper.LibCall(com, timeSpanModule com, "fromTicks", returnTyp, [ makeTypeConst None Int64.Number ticks ])
+        |> Some
+    | Builtin BclDateTime, "UnixEpoch" ->
+        let args = [ makeTypeConst None Int64.Number 621355968000000000L; makeIntConst 1 ]
+
+        Helper.LibCall(com, dateTimeModule com, "fromTicks", returnTyp, args) |> Some
+    | Builtin BclDateTimeOffset, "UnixEpoch" ->
+        let args = [ makeTypeConst None Int64.Number 0L ]
+
+        Helper.LibCall(com, dateTimeOffsetModule com, "fromUnixTimeMilliseconds", returnTyp, args)
         |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         match ent.FullName with

@@ -599,6 +599,12 @@ let tests =
         let d2 = DateTime.MinValue
         d1 < d2 |> equal false
 
+    testCase "DateTime.UnixEpoch works" <| fun () ->
+        let d = DateTime.UnixEpoch
+        d.Ticks |> equal 621355968000000000L
+        d.Kind |> equal DateTimeKind.Utc
+        d |> equal (DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+
     testCase "DateTime.MinValue works in pattern match" <| fun () ->
         let d1 = Some DateTime.Now
         match d1 with

@@ -320,6 +320,51 @@ let tests =
             test 2000. 1000. true
             test -2000. -2000. false
 
+        testCase "TimeSpan.Equals works" <| fun () ->
+            let t1 = TimeSpan.FromSeconds 5.
+            let t2 = TimeSpan.FromMilliseconds 5000.
+            let t3 = TimeSpan.FromSeconds 6.
+            t1.Equals(t2) |> equal true
+            t1.Equals(t3) |> equal false
+            t1.Equals(box t2) |> equal true
+            TimeSpan.Equals(t1, t2) |> equal true
+            TimeSpan.Equals(t1, t3) |> equal false
+
+        testCase "TimeSpan.GetHashCode works" <| fun () ->
+            let t1 = TimeSpan.FromSeconds 5.
+            let t2 = TimeSpan.FromMilliseconds 5000.
+            t1.GetHashCode() |> equal (t2.GetHashCode())
+
+        testCase "TimeSpan.MaxValue works" <| fun () ->
+            let t = TimeSpan.MaxValue
+            t.Days |> equal 10675199
+            t.Hours |> equal 2
+            t.Minutes |> equal 48
+            t.Seconds |> equal 5
+            t.Milliseconds |> equal 477
+            t > TimeSpan.FromDays 10675199. |> equal true
+            t.Equals(TimeSpan.MaxValue) |> equal true
+
+        testCase "TimeSpan.MinValue works" <| fun () ->
+            let t = TimeSpan.MinValue
+            t.Days |> equal -10675199
+            t.Hours |> equal -2
+            t.Minutes |> equal -48
+            t.Seconds |> equal -5
+            t.Milliseconds |> equal -477
+            t < TimeSpan.FromDays -10675199. |> equal true
+            t = TimeSpan.MaxValue |> equal false
+
+        testCase "TimeSpan tick constants work" <| fun () ->
+            TimeSpan.TicksPerDay |> equal 864000000000L
+            TimeSpan.TicksPerHour |> equal 36000000000L
+            TimeSpan.TicksPerMinute |> equal 600000000L
+            TimeSpan.TicksPerSecond |> equal 10000000L
+            TimeSpan.TicksPerMillisecond |> equal 10000L
+            TimeSpan.TicksPerMicrosecond |> equal 10L
+            TimeSpan.NanosecondsPerTick |> equal 100L
+            TimeSpan.Zero.Ticks |> equal 0L
+
     // **************************************************
     // Test Cases From :
     // https://docs.microsoft.com/en-us/dotnet/api/system.timespan.tryparse
@@ -734,5 +779,11 @@ let tests =
             (a - b).Ticks |> equal 1234566L
             (-a).Ticks |> equal -1234567L
             a.Duration().Ticks |> equal 1234567L
+
+        testCase "TimeSpan.MaxValue and TimeSpan.MinValue keep tick precision" <| fun () ->
+            TimeSpan.MaxValue.Ticks |> equal Int64.MaxValue
+            TimeSpan.MinValue.Ticks |> equal Int64.MinValue
+            TimeSpan.MaxValue.ToString() |> equal "10675199.02:48:05.4775807"
+            TimeSpan.MinValue.ToString() |> equal "-10675199.02:48:05.4775808"
 #endif
     ]

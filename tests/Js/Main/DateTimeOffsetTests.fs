@@ -160,6 +160,13 @@ let tests =
         let d2 = DateTimeOffset.MinValue
         d1 < d2 |> equal false
 
+    testCase "DateTimeOffset.UnixEpoch works" <| fun () ->
+        let d = DateTimeOffset.UnixEpoch
+        d.Ticks |> equal 621355968000000000L
+        d.Offset |> equal TimeSpan.Zero
+        d.ToUnixTimeMilliseconds() |> equal 0L
+        d |> equal (DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero))
+
     testCase "DateTimeOffset.MinValue works in pattern match" <| fun () ->
         let d1 = Some DateTimeOffset.Now
         match d1 with
