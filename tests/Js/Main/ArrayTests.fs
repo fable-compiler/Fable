@@ -188,6 +188,32 @@ let tests =
         Array.create (size ()) "a" |> equal [| "a"; "a" |]
         calls |> equal 2
 
+    testCase "Array.zeroCreate fills with the default value" <| fun () ->
+        Array.zeroCreate<bool> 2 |> equal [| false; false |]
+        Array.zeroCreate<char> 2 |> equal [| '\000'; '\000' |]
+        Array.zeroCreate<int> 2 |> equal [| 0; 0 |]
+        Array.zeroCreate<bigint> 2 |> equal [| 0I; 0I |]
+        Array.zeroCreate<obj> 2 |> equal [| null; null |]
+        Array.zeroCreate<int option> 2 |> equal [| None; None |]
+        Array.zeroCreate<string> 0 |> equal [||]
+        Array.zeroCreate<string> 3 |> Array.length |> equal 3
+        Array.zeroCreate<obj> 3 |> Array.fold (fun n _ -> n + 1) 0 |> equal 3
+
+    testCase "Array.create evaluates the count before the value" <| fun () ->
+        let mutable calls = 0
+        let next () =
+            calls <- calls + 1
+            calls
+        Array.create (next ()) (string (next ())) |> equal [| "2" |]
+        Array.create (next ()) (next ()) |> equal [| 4; 4; 4 |]
+
+    testCase "Array.zeroCreate and Array.create throw on negative count" <| fun () ->
+        let count () = -1
+        throwsAnyError (fun () -> Array.zeroCreate<string> (count ()))
+        throwsAnyError (fun () -> Array.zeroCreate<int> (count ()))
+        throwsAnyError (fun () -> Array.create (count ()) "a")
+        throwsAnyError (fun () -> Array.create (count ()) 1)
+
     testCase "Mapping from values to functions works" <| fun () ->
         let a = [| "a"; "b"; "c" |]
         let b = [| 1; 2; 3 |]
