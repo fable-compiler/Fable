@@ -315,6 +315,91 @@ let tests =
         // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dic.["B"] |> ignore)
         throwsAnyError (fun () -> dic.["B"])
 
+    testCase "Dictionary.Add with a duplicate key throws ArgumentException" <| fun () ->
+        let dic = Dictionary<string, int>()
+        dic.Add("A", 65)
+        raisedExceptionType (fun () -> dic.Add("A", 95)) |> equal "ArgumentException"
+        throwsError "An item with the same key has already been added. Key: A" (fun () -> dic.Add("A", 95))
+        let ints = Dictionary<int, int>()
+        ints.Add(1, 1)
+        throwsError "An item with the same key has already been added. Key: 1" (fun () -> ints.Add(1, 2))
+        let floats = Dictionary<float, int>()
+        floats.Add(1.5, 1)
+        throwsError "An item with the same key has already been added. Key: 1.5" (fun () -> floats.Add(1.5, 2))
+        let bools = Dictionary<bool, int>()
+        bools.Add(true, 1)
+        throwsError "An item with the same key has already been added. Key: True" (fun () -> bools.Add(true, 2))
+        dic.Count |> equal 1
+
+    testCase "Dictionary.Add with a duplicate non-primitive key throws ArgumentException" <| fun () ->
+        let dic = Dictionary<R, int>()
+        dic.Add({ i = 1; s = "a" }, 1)
+        raisedExceptionType (fun () -> dic.Add({ i = 1; s = "a" }, 2)) |> equal "ArgumentException"
+        let unions = Dictionary<DictKey, int>()
+        unions.Add(Int 1, 1)
+        throwsError "An item with the same key has already been added. Key: Int 1" (fun () -> unions.Add(Int 1, 2))
+
+    testCase "IDictionary.Add and ICollection.Add with a duplicate key throw ArgumentException" <| fun () ->
+        let dic = Dictionary<int, int>()
+        let idic = dic :> IDictionary<int, int>
+        idic.Add(1, 1)
+        raisedExceptionType (fun () -> idic.Add(1, 2)) |> equal "ArgumentException"
+        let col = dic :> ICollection<KeyValuePair<int, int>>
+        raisedExceptionType (fun () -> col.Add(KeyValuePair(1, 2))) |> equal "ArgumentException"
+        dic.[1] |> equal 1
+
+    testCase "Dictionary constructor with duplicate keys throws ArgumentException" <| fun () ->
+        raisedExceptionType (fun () -> Dictionary<int, int>([ KeyValuePair(1, 1); KeyValuePair(1, 2) ]))
+        |> equal "ArgumentException"
+        raisedExceptionType (fun () -> Dictionary<R, int>([ KeyValuePair({ i = 1; s = "a" }, 1); KeyValuePair({ i = 1; s = "a" }, 2) ]))
+        |> equal "ArgumentException"
+        let dic = Dictionary<string, int>(seq { KeyValuePair("a", 1); KeyValuePair("b", 2) })
+        dic.Count |> equal 2
+        dic.["b"] |> equal 2
+
+    testCase "Dictionary indexer with a missing key throws KeyNotFoundException" <| fun () ->
+        let dic = Dictionary<string, int>()
+        dic.Add("A", 65)
+        raisedExceptionType (fun () -> dic.["B"]) |> equal "KeyNotFoundException"
+        throwsError "The given key 'B' was not present in the dictionary." (fun () -> dic.["B"])
+        let ints = Dictionary<int, int>()
+        throwsError "The given key '1' was not present in the dictionary." (fun () -> ints.[1])
+        let records = Dictionary<R, int>()
+        raisedExceptionType (fun () -> records.[{ i = 1; s = "a" }]) |> equal "KeyNotFoundException"
+        let idic = ints :> IDictionary<int, int>
+        raisedExceptionType (fun () -> idic.[1]) |> equal "KeyNotFoundException"
+
+    testCase "dict and readOnlyDict lookups with a missing key throw KeyNotFoundException" <| fun () ->
+        let dic = dict [ 1, "a" ]
+        raisedExceptionType (fun () -> dic.[2]) |> equal "KeyNotFoundException"
+        let records = dict [ { i = 1; s = "a" }, 1 ]
+        raisedExceptionType (fun () -> records.[{ i = 2; s = "a" }]) |> equal "KeyNotFoundException"
+        let ro = readOnlyDict [ 1, "a" ]
+        raisedExceptionType (fun () -> ro.[2]) |> equal "KeyNotFoundException"
+        let roRecords = readOnlyDict [ { i = 1; s = "a" }, 1 ]
+        raisedExceptionType (fun () -> roRecords.[{ i = 2; s = "a" }]) |> equal "KeyNotFoundException"
+
+    testCase "Dictionary.TryAdd works" <| fun () ->
+        let dic = Dictionary<int, string>()
+        dic.TryAdd(1, "a") |> equal true
+        dic.TryAdd(1, "b") |> equal false
+        dic.TryAdd(2, "c") |> equal true
+        dic.[1] |> equal "a"
+        dic.Count |> equal 2
+
+    testCase "Dictionary.TryAdd works with non-primitive keys" <| fun () ->
+        let dic = Dictionary<R, string>()
+        dic.TryAdd({ i = 1; s = "a" }, "a") |> equal true
+        dic.TryAdd({ i = 1; s = "a" }, "b") |> equal false
+        dic.[{ i = 1; s = "a" }] |> equal "a"
+        dic.Count |> equal 1
+
+    testCase "IDictionary.TryAdd works" <| fun () ->
+        let dic = Dictionary<int, string>() :> IDictionary<int, string>
+        dic.TryAdd(1, "a") |> equal true
+        dic.TryAdd(1, "b") |> equal false
+        dic.[1] |> equal "a"
+
     testCase "conversion from array works" <| fun () ->
         let dic = [| "A",1; "B",2 |] |> dict
         dic.Values.Count

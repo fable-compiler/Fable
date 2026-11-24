@@ -1,5 +1,7 @@
 import { Exception, equals, IMap, IMapOrWeakMap, ISet } from "./Util.ts";
 import { FSharpRef, Union } from "./Types.ts";
+import { ArgumentException_$ctor_Z721C83C5 } from "./System.ts";
+import { KeyNotFoundException_$ctor_Z721C83C5 } from "./System.Collections.Generic.ts";
 
 const CaseRules = {
   None: 0,
@@ -115,18 +117,30 @@ export function tryAddToDict<K, V>(dict: IMapOrWeakMap<K, V>, k: K, v: V) {
   return true;
 }
 
+function keyToString<K>(k: K): string {
+  return typeof k === "boolean" ? (k ? "True" : "False") : String(k);
+}
+
 export function addToDict<K, V>(dict: IMapOrWeakMap<K, V>, k: K, v: V) {
   if (dict.has(k)) {
-    throw new Exception("An item with the same key has already been added. Key: " + k);
+    throw ArgumentException_$ctor_Z721C83C5("An item with the same key has already been added. Key: " + keyToString(k));
   }
   dict.set(k, v);
 }
 
-export function getItemFromDict<K, V>(map: IMap<K, V>, key: K) {
+export function dictionaryOfSeq<K, V>(pairs: Iterable<[K, V]>): Map<K, V> {
+  const dict = new Map<K, V>();
+  for (const [k, v] of pairs) {
+    addToDict(dict, k, v);
+  }
+  return dict;
+}
+
+export function getItemFromDict<K, V = any>(map: IMap<K, V>, key: K) {
   if (map.has(key)) {
     return map.get(key) as V;
   } else {
-    throw new Exception(`The given key '${key}' was not present in the dictionary.`);
+    throw KeyNotFoundException_$ctor_Z721C83C5(`The given key '${keyToString(key)}' was not present in the dictionary.`);
   }
 }
 

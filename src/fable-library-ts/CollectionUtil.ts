@@ -1,4 +1,5 @@
-import { Exception, MutableArray, equals, isArrayLike } from "./Util.ts";
+import { MutableArray, equals, isArrayLike } from "./Util.ts";
+import { addToDict } from "./MapUtil.ts";
 import { ArgumentException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z384F8060 } from "./System.ts";
 
 export function count<T>(col: Iterable<T>): number {
@@ -116,11 +117,7 @@ export function add<T>(col: Iterable<T>, item: T): void {
         if (typeof (col as any).has === "function"
           && typeof (col as any).set === "function"
           && isArrayLike(item)) {
-          if ((col as any).has(item[0]) === false) {
-            (col as any).set(item[0], item[1]); // map
-          } else {
-            throw new Exception("An item with the same key has already been added. Key: " + item[0]);
-          }
+          addToDict(col as any, item[0], item[1]); // map
         } else {
           // TODO: throw for other collections?
         }
