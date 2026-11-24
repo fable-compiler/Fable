@@ -139,5 +139,5 @@ module Helpers =
 
     let inline arrayAccessImpl (index: int) (array: 'T[]) : 'T = emitJsExpr (index, array) "$1[$0]"
 
-    let inline arraySetItemImpl (array: 'T[]) (index: int) (item: 'T) : unit =
-        emitJsExpr (array, index, item) "$0[$1] = $2"
+    [<Emit("$0[$1] = $2")>]
+    let arraySetItemImpl (array: 'T[]) (index: int) (item: 'T) : unit = nativeOnly

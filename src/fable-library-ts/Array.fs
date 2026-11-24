@@ -26,10 +26,10 @@ let append (array1: 'T[]) (array2: 'T[]) ([<OptionalArgument; Inject>] cons: Con
     let newArray = allocateArrayFromCons cons (len1 + len2)
 
     for i = 0 to len1 - 1 do
-        newArray.[i] <- array1.[i]
+        arraySetItemImpl newArray i array1.[i]
 
     for i = 0 to len2 - 1 do
-        newArray.[i + len1] <- array2.[i]
+        arraySetItemImpl newArray (i + len1) array2.[i]
 
     newArray
 
@@ -78,7 +78,7 @@ let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<OptionalArgument; Inject>]
     let target = allocateArrayFromCons cons len
 
     for i = 0 to (len - 1) do
-        target.[i] <- f i source.[i]
+        arraySetItemImpl target i (f i source.[i])
 
     target
 
@@ -87,7 +87,7 @@ let map (f: 'T -> 'U) (source: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'U
     let target = allocateArrayFromCons cons len
 
     for i = 0 to (len - 1) do
-        target.[i] <- f source.[i]
+        arraySetItemImpl target i (f source.[i])
 
     target
 
@@ -104,7 +104,7 @@ let mapIndexed2
     let result = allocateArrayFromCons cons source1.Length
 
     for i = 0 to source1.Length - 1 do
-        result.[i] <- f i source1.[i] source2.[i]
+        arraySetItemImpl result i (f i source1.[i] source2.[i])
 
     result
 
@@ -115,7 +115,7 @@ let map2 (f: 'T1 -> 'T2 -> 'U) (source1: 'T1[]) (source2: 'T2[]) ([<OptionalArgu
     let result = allocateArrayFromCons cons source1.Length
 
     for i = 0 to source1.Length - 1 do
-        result.[i] <- f source1.[i] source2.[i]
+        arraySetItemImpl result i (f source1.[i] source2.[i])
 
     result
 
@@ -133,7 +133,7 @@ let mapIndexed3
     let result = allocateArrayFromCons cons source1.Length
 
     for i = 0 to source1.Length - 1 do
-        result.[i] <- f i source1.[i] source2.[i] source3.[i]
+        arraySetItemImpl result i (f i source1.[i] source2.[i] source3.[i])
 
     result
 
@@ -151,7 +151,7 @@ let map3
     let result = allocateArrayFromCons cons source1.Length
 
     for i = 0 to source1.Length - 1 do
-        result.[i] <- f source1.[i] source2.[i] source3.[i]
+        arraySetItemImpl result i (f source1.[i] source2.[i] source3.[i])
 
     result
 
@@ -169,7 +169,7 @@ let mapFold<'T, 'State, 'Result>
 
         for i = 0 to array.Length - 1 do
             let h, s = mapping acc array.[i]
-            res.[i] <- h
+            arraySetItemImpl res i h
             acc <- s
 
         res, acc
@@ -188,7 +188,7 @@ let mapFoldBack<'T, 'State, 'Result>
 
         for i = array.Length - 1 downto 0 do
             let h, s = mapping array.[i] acc
-            res.[i] <- h
+            arraySetItemImpl res i h
             acc <- s
 
         res, acc
@@ -198,7 +198,7 @@ let indexed (source: 'T[]) =
     let target = allocateArray len
 
     for i = 0 to (len - 1) do
-        target.[i] <- i, source.[i]
+        arraySetItemImpl target i (i, source.[i])
 
     target
 
@@ -227,7 +227,7 @@ let concat (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T
 
         for arr in arrays do
             for j = 0 to (arr.Length - 1) do
-                result.[totalIdx] <- arr.[j]
+                arraySetItemImpl result totalIdx arr.[j]
                 totalIdx <- totalIdx + 1
 
         result
@@ -312,7 +312,7 @@ let empty cons = allocateArrayFromCons cons 0
 
 let singleton value ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     let ar = allocateArrayFromCons cons 1
-    ar.[0] <- value
+    arraySetItemImpl ar 0 value
     ar
 
 let initialize count initializer ([<OptionalArgument; Inject>] cons: Cons<'T>) =
@@ -322,7 +322,7 @@ let initialize count initializer ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     let result = allocateArrayFromCons cons count
 
     for i = 0 to count - 1 do
-        result.[i] <- initializer i
+        arraySetItemImpl result i (initializer i)
 
     result
 
@@ -334,7 +334,7 @@ let pairwise (array: 'T[]) =
         let result = allocateArray count
 
         for i = 0 to count - 1 do
-            result.[i] <- array.[i], array.[i + 1]
+            arraySetItemImpl result i (array.[i], array.[i + 1])
 
         result
 
@@ -346,7 +346,7 @@ let replicate count initial ([<OptionalArgument; Inject>] cons: Cons<'T>) =
     let result: 'T array = allocateArrayFromCons cons count
 
     for i = 0 to result.Length - 1 do
-        result.[i] <- initial
+        arraySetItemImpl result i initial
 
     result
 
@@ -411,19 +411,19 @@ let reverse (array: 'T[]) =
 
 let scan<'T, 'State> folder (state: 'State) (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'State>) =
     let res = allocateArrayFromCons cons (array.Length + 1)
-    res.[0] <- state
+    arraySetItemImpl res 0 state
 
     for i = 0 to array.Length - 1 do
-        res.[i + 1] <- folder res.[i] array.[i]
+        arraySetItemImpl res (i + 1) (folder res.[i] array.[i])
 
     res
 
 let scanBack<'T, 'State> folder (array: 'T[]) (state: 'State) ([<OptionalArgument; Inject>] cons: Cons<'State>) =
     let res = allocateArrayFromCons cons (array.Length + 1)
-    res.[array.Length] <- state
+    arraySetItemImpl res array.Length state
 
     for i = array.Length - 1 downto 0 do
-        res.[i] <- folder array.[i] res.[i + 1]
+        arraySetItemImpl res i (folder array.[i] res.[i + 1])
 
     res
 
@@ -527,10 +527,10 @@ let partition (f: 'T -> bool) (source: 'T[]) ([<OptionalArgument; Inject>] cons:
 
     for i = 0 to len - 1 do
         if f source.[i] then
-            res1.[iTrue] <- source.[i]
+            arraySetItemImpl res1 iTrue source.[i]
             iTrue <- iTrue + 1
         else
-            res2.[iFalse] <- source.[i]
+            arraySetItemImpl res2 iFalse source.[i]
             iFalse <- iFalse + 1
 
     res1 |> truncate iTrue, res2 |> truncate iFalse
@@ -710,8 +710,8 @@ let permute f (array: 'T[]) =
             if j < 0 || j >= size then
                 invalidArg "indexMap" "The function did not compute a permutation."
 
-            res.[j] <- x
-            checkFlags.[j] <- 1
+            arraySetItemImpl res j x
+            arraySetItemImpl checkFlags j 1
         )
         array
 
@@ -770,7 +770,7 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
 
     for i = 0 to xs.Length - 1 do
         for j = 0 to ys.Length - 1 do
-            res.[i * len2 + j] <- (xs.[i], ys.[j])
+            arraySetItemImpl res (i * len2 + j) (xs.[i], ys.[j])
 
     res
 
@@ -795,8 +795,8 @@ let unzip (array: _[]) =
 
     iterateIndexed
         (fun i (item1, item2) ->
-            res1.[i] <- item1
-            res2.[i] <- item2
+            arraySetItemImpl res1 i item1
+            arraySetItemImpl res2 i item2
         )
         array
 
@@ -810,9 +810,9 @@ let unzip3 (array: _[]) =
 
     iterateIndexed
         (fun i (item1, item2, item3) ->
-            res1.[i] <- item1
-            res2.[i] <- item2
-            res3.[i] <- item3
+            arraySetItemImpl res1 i item1
+            arraySetItemImpl res2 i item2
+            arraySetItemImpl res3 i item3
         )
         array
 
@@ -826,7 +826,7 @@ let zip (array1: 'T[]) (array2: 'U[]) =
     let result = allocateArray array1.Length
 
     for i = 0 to array1.Length - 1 do
-        result.[i] <- array1.[i], array2.[i]
+        arraySetItemImpl result i (array1.[i], array2.[i])
 
     result
 
@@ -838,7 +838,7 @@ let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'V[]) =
     let result = allocateArray array1.Length
 
     for i = 0 to array1.Length - 1 do
-        result.[i] <- array1.[i], array2.[i], array3.[i]
+        arraySetItemImpl result i (array1.[i], array2.[i], array3.[i])
 
     result
 
@@ -1183,7 +1183,7 @@ let windowed (windowSize: int) (source: 'T[]) : 'T[][] =
         FSharp.Core.Operators.max 0 (source.Length - windowSize + 1) |> allocateArray
 
     for i = windowSize to source.Length do
-        res.[i - windowSize] <- source.[i - windowSize .. i - 1]
+        arraySetItemImpl res (i - windowSize) (source.[i - windowSize .. i - 1])
 
     res
 
@@ -1233,7 +1233,7 @@ let transpose (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) :
         let result: 'T[][] = allocateArray lenInner
 
         for i in 0 .. lenInner - 1 do
-            result.[i] <- allocateArrayFromCons cons len
+            arraySetItemImpl result i (allocateArrayFromCons cons len)
 
             for j in 0 .. len - 1 do
                 result.[i].[j] <- arrays.[j].[i]
@@ -1249,12 +1249,12 @@ let insertAt (index: int) (y: 'T) (xs: 'T[]) ([<OptionalArgument; Inject>] cons:
     let target = allocateArrayFromCons cons (len + 1)
 
     for i = 0 to (index - 1) do
-        target.[i] <- xs.[i]
+        arraySetItemImpl target i xs.[i]
 
-    target.[index] <- y
+    arraySetItemImpl target index y
 
     for i = index to (len - 1) do
-        target.[i + 1] <- xs.[i]
+        arraySetItemImpl target (i + 1) xs.[i]
 
     target
 
@@ -1269,13 +1269,13 @@ let insertManyAt (index: int) (ys: seq<'T>) (xs: 'T[]) ([<OptionalArgument; Inje
     let target = allocateArrayFromCons cons (len + len2)
 
     for i = 0 to (index - 1) do
-        target.[i] <- xs.[i]
+        arraySetItemImpl target i xs.[i]
 
     for i = 0 to (len2 - 1) do
-        target.[index + i] <- ys.[i]
+        arraySetItemImpl target (index + i) ys.[i]
 
     for i = index to (len - 1) do
-        target.[i + len2] <- xs.[i]
+        arraySetItemImpl target (i + len2) xs.[i]
 
     target
 
@@ -1449,11 +1449,13 @@ let updateAt (index: int) (y: 'T) (xs: 'T[]) ([<OptionalArgument; Inject>] cons:
     let target = allocateArrayFromCons cons len
 
     for i = 0 to (len - 1) do
-        target.[i] <-
-            if i = index then
-                y
-            else
-                xs.[i]
+        arraySetItemImpl
+            target
+            i
+            (if i = index then
+                 y
+             else
+                 xs.[i])
 
     target
 
