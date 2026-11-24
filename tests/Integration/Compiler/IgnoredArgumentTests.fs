@@ -185,6 +185,145 @@ TimeSpan.FromMilliseconds(1L, 0L) |> ignore
       |> Assert.Code.noWarning "FABLE0105"
       |> ignore
 
+    testCase "DateTime from non-constant ticks reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (ticks: int64) = DateTime(ticks)
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "DateTime from constant ticks with a sub-millisecond part reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+DateTime(630822816000012345L, DateTimeKind.Utc) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "DateTime with non-zero microseconds reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+DateTime(2020, 1, 1, 0, 0, 0, 0, 250) |> ignore
+DateTime(2020, 1, 1, 0, 0, 0, 0, 250, DateTimeKind.Utc) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "DateTime.AddTicks with non-constant ticks reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (d: DateTime) (ticks: int64) = d.AddTicks ticks
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "DateTimeOffset from non-constant ticks reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (ticks: int64) = DateTimeOffset(ticks, TimeSpan.Zero)
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "DateTimeOffset with non-constant microseconds reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (us: int) = DateTimeOffset(2020, 1, 1, 0, 0, 0, 0, us, TimeSpan.Zero)
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "DateTimeOffset.AddTicks with a sub-millisecond part reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (d: DateTimeOffset) = d.AddTicks 5L
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "TimeSpan from non-constant ticks reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (ticks: int64) = TimeSpan ticks, TimeSpan.FromTicks ticks
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "TimeSpan with non-zero microseconds reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+TimeSpan(0, 0, 0, 0, 1, 250) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "TimeOnly from non-constant ticks reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+let f (ticks: int64) = TimeOnly ticks
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "TimeOnly with non-zero microseconds reports the dropped precision" <| fun _ ->
+      let source =
+        """
+open System
+TimeOnly(1, 2, 3, 4, 250) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0122"
+      |> ignore
+
+    testCase "Date and time values with no sub-millisecond part are silent" <| fun _ ->
+      let source =
+        """
+open System
+DateTime(630822816000010000L) |> ignore
+DateTime(630822816000010000L, DateTimeKind.Utc) |> ignore
+DateTime(2020, 1, 1, 0, 0, 0, 0, 0) |> ignore
+DateTime(2020, 1, 1, 0, 0, 0, 0, 0, DateTimeKind.Utc) |> ignore
+DateTime(2020, 1, 1, 0, 0, 0, 5, DateTimeKind.Utc) |> ignore
+DateTime(2020, 1, 1).AddTicks(10000L) |> ignore
+DateTimeOffset(630822816000010000L, TimeSpan.Zero) |> ignore
+DateTimeOffset(2020, 1, 1, 0, 0, 0, 0, 0, TimeSpan.Zero) |> ignore
+DateTimeOffset(2020, 1, 1, 0, 0, 0, 5, TimeSpan.Zero) |> ignore
+DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero).AddTicks(-20000L) |> ignore
+TimeSpan(10000L) |> ignore
+TimeSpan.FromTicks(0L) |> ignore
+TimeSpan(0, 0, 0, 0, 1, 0) |> ignore
+TimeSpan(1, 2, 3) |> ignore
+TimeOnly(10000L) |> ignore
+TimeOnly(1, 2, 3, 4, 0) |> ignore
+TimeOnly(1, 2, 3, 4) |> ignore
+let f (ms: int) = DateTime(2020, 1, 1, 0, 0, 0, ms), TimeSpan(0, 0, 0, 0, ms), TimeOnly(1, 2, 3, ms)
+let g (d: DateTime) (o: DateTimeOffset) = DateTime(d.Ticks, DateTimeKind.Utc), DateTimeOffset(o.Ticks, o.Offset)
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0122"
+      |> ignore
+
     testCase "A private-representation flag on FSharpType is reported" <| fun _ ->
       let source =
         """
