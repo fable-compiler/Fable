@@ -515,6 +515,109 @@ let tests =
         Regex.IsMatch("abab", "b", RegexOptions.None, countedTimeout ()) |> equal true
         calls |> equal 1
 
+    testCase "Regex.Replace and Regex.Split throw when count is out of range" <| fun _ ->
+        let r = Regex("b")
+        let msg = "Count cannot be less than -1. (Parameter 'count')"
+        throwsError msg (fun () -> r.Replace("abab", "X", -2))
+        throwsError msg (fun () -> r.Replace("abab", MatchEvaluator(fun _ -> "X"), -2))
+        throwsError msg (fun () -> r.Replace("abab", "X", -2, 9))
+        throwsError msg (fun () -> r.Split("abab", -1))
+        throwsError msg (fun () -> r.Split("abab", -1, 9))
+        r.Replace("abab", "X", -1) |> equal "aXaX"
+        r.Replace("abab", "X", 0) |> equal "abab"
+        r.Split("abab", 0) |> equal [| "a"; "a"; "" |]
+        r.Split("abab", 1) |> equal [| "abab" |]
+
+    testCase "Regex methods throw when startat is out of range" <| fun _ ->
+        let r = Regex("b")
+        let msg = "Start index cannot be less than 0 or greater than input length. (Parameter 'startat')"
+        for startat in [ -1; 5 ] do
+            throwsError msg (fun () -> r.Replace("abab", "X", 1, startat))
+            throwsError msg (fun () -> r.Replace("abab", MatchEvaluator(fun _ -> "X"), 1, startat))
+            throwsError msg (fun () -> r.Replace("abab", "X", 0, startat))
+            throwsError msg (fun () -> r.Split("abab", 2, startat))
+            throwsError msg (fun () -> r.Split("abab", 1, startat))
+            throwsError msg (fun () -> r.Match("abab", startat).Success)
+            throwsError msg (fun () -> r.Matches("abab", startat).Count)
+            throwsError msg (fun () -> r.IsMatch("abab", startat))
+        r.Replace("abab", "X", 1, 4) |> equal "abab"
+        r.Split("abab", 2, 4) |> equal [| "abab" |]
+        r.Match("abab", 4).Success |> equal false
+        r.Matches("abab", 4).Count |> equal 0
+        r.IsMatch("abab", 4) |> equal false
+        Regex("$").IsMatch("abab", 4) |> equal true
+
+    testCase "Regex.Replace inserts nothing when the evaluator returns null" <| fun _ ->
+        let r = Regex("b")
+        r.Replace("abab", MatchEvaluator(fun _ -> null)) |> equal "aa"
+        r.Replace("abab", MatchEvaluator(fun _ -> null), 1) |> equal "aab"
+        r.Replace("abab", MatchEvaluator(fun _ -> null), 5, 2) |> equal "aba"
+        Regex.Replace("abab", "b", MatchEvaluator(fun _ -> null)) |> equal "aa"
+        Regex.Replace("abab", "b", MatchEvaluator(fun m -> if m.Index = 1 then null else "X")) |> equal "aaX"
+
+    testCase "Regex throws when the timeout is out of range" <| fun _ ->
+        let msg = "Specified argument was out of the range of valid values. (Parameter 'matchTimeout')"
+        let fromMs (ms: float) = System.TimeSpan.FromMilliseconds ms
+        for timeout in [ System.TimeSpan.FromSeconds -1.; System.TimeSpan.Zero; fromMs -2.; fromMs 2147483647. ] do
+            throwsError msg (fun () -> Regex("b", RegexOptions.None, timeout))
+            throwsError msg (fun () -> Regex.IsMatch("abab", "b", RegexOptions.None, timeout))
+            throwsError msg (fun () -> Regex.Match("abab", "b", RegexOptions.None, timeout))
+            throwsError msg (fun () -> Regex.Matches("abab", "b", RegexOptions.None, timeout))
+            throwsError msg (fun () -> Regex.Replace("abab", "b", "X", RegexOptions.None, timeout))
+            throwsError msg (fun () -> Regex.Replace("abab", "b", MatchEvaluator(fun _ -> "X"), RegexOptions.None, timeout))
+            throwsError msg (fun () -> Regex.Split("abab", "b", RegexOptions.None, timeout))
+        throwsError msg (fun () -> Regex("b", RegexOptions.None, System.TimeSpan.Zero))
+        throwsError msg (fun () -> Regex.IsMatch("abab", "b", RegexOptions.None, System.TimeSpan.Zero))
+        throwsError msg (fun () -> Regex.Replace("abab", "b", "X", RegexOptions.None, System.TimeSpan.Zero))
+        Regex("b", RegexOptions.None, fromMs -1.).IsMatch("abab") |> equal true
+        Regex("b", RegexOptions.None, fromMs 2147483646.).IsMatch("abab") |> equal true
+        Regex.Replace("abab", "b", "X", RegexOptions.None, fromMs -1.) |> equal "aXaX"
+
+    testCase "Regex.InfiniteMatchTimeout works" <| fun _ ->
+        Regex.InfiniteMatchTimeout.TotalMilliseconds |> equal -1.
+        Regex.InfiniteMatchTimeout |> equal (System.TimeSpan.FromMilliseconds -1.)
+        Regex("b", RegexOptions.None, Regex.InfiniteMatchTimeout).IsMatch("abab") |> equal true
+        Regex.IsMatch("abab", "b", RegexOptions.None, Regex.InfiniteMatchTimeout) |> equal true
+        Regex.Replace("abab", "b", "X", RegexOptions.None, Regex.InfiniteMatchTimeout) |> equal "aXaX"
+        Regex.Split("abab", "b", RegexOptions.None, Regex.InfiniteMatchTimeout) |> equal [| "a"; "a"; "" |]
+        let timeout = Regex.InfiniteMatchTimeout
+        Regex.Matches("abab", "b", RegexOptions.None, timeout).Count |> equal 2
+
+    testCase "Regex evaluates all arguments in order before the timeout check" <| fun _ ->
+        let log = ResizeArray<string>()
+        let logged (name: string) (value: 'T) : 'T =
+            log.Add name
+            value
+        let order () =
+            let res = String.concat "," log
+            log.Clear()
+            res
+        throwsError "inputboom" (fun () -> Regex.IsMatch((failwith "inputboom": string), "b", RegexOptions.None, System.TimeSpan.Zero))
+        throwsError "patternboom" (fun () -> Regex("abab", (failwith "patternboom": RegexOptions), System.TimeSpan.Zero))
+        throwsAnyError (fun () -> Regex.IsMatch(logged "input" "abab", logged "pattern" "b", logged "options" RegexOptions.None, logged "timeout" System.TimeSpan.Zero))
+        order () |> equal "input,pattern,options,timeout"
+        throwsAnyError (fun () -> Regex.Replace(logged "input" "abab", logged "pattern" "b", logged "replacement" "X", RegexOptions.None, System.TimeSpan.Zero))
+        order () |> equal "input,pattern,replacement"
+        throwsAnyError (fun () -> Regex(logged "pattern" "b", logged "options" RegexOptions.None, logged "timeout" System.TimeSpan.Zero))
+        order () |> equal "pattern,options,timeout"
+        let timeout = System.TimeSpan.FromSeconds 1.
+        Regex.IsMatch(logged "input" "abab", logged "pattern" "b", logged "options" RegexOptions.None, logged "timeout" timeout) |> equal true
+        order () |> equal "input,pattern,options,timeout"
+        Regex.Replace(logged "input" "abab", logged "pattern" "b", logged "replacement" "X", logged "options" RegexOptions.None, logged "timeout" timeout) |> equal "aXaX"
+        order () |> equal "input,pattern,replacement,options,timeout"
+        Regex.Split(logged "input" "abab", logged "pattern" "b", logged "options" RegexOptions.None, logged "timeout" timeout) |> equal [| "a"; "a"; "" |]
+        order () |> equal "input,pattern,options,timeout"
+        Regex(logged "pattern" "b", logged "options" RegexOptions.None, logged "timeout" timeout).IsMatch("abab") |> equal true
+        order () |> equal "pattern,options,timeout"
+
+    testCase "Regex.InfiniteMatchTimeout is formatted as a TimeSpan" <| fun _ ->
+        let expected = "-00:00:00.0010000"
+        string Regex.InfiniteMatchTimeout |> equal expected
+        Regex.InfiniteMatchTimeout.ToString() |> equal expected
+        let timeout = Regex.InfiniteMatchTimeout
+        string timeout |> equal expected
+        string System.TimeSpan.Zero |> equal "00:00:00"
+
     testCase "Regex.Replace with offset matches on the whole input" <| fun _ ->
         Regex("b").Replace("abcabcabc", (fun (m: Match) -> string m.Index), 2, 3) |> equal "abca4ca7c"
         Regex("(?<=a)b").Replace("abab", "X", 5, 1) |> equal "aXaX"

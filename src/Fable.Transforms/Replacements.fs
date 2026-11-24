@@ -4570,12 +4570,18 @@ let private isTimeSpan =
     | DeclaredTypeFullName Types.timespan -> true
     | _ -> false
 
-let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let private regexCall
+    com
+    (ctx: Context)
+    r
+    t
+    (i: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    (argTypes: Type list)
+    =
     let propInt p callee = getExpr r t callee (makeIntConst p)
     let propStr p callee = getExpr r t callee (makeStrConst p)
-
-    let args = args |> List.filter (fun arg -> not (isTimeSpan arg.Type))
-    let argTypes = i.SignatureArgTypes |> List.filter (isTimeSpan >> not)
 
     checkRegexOptions
         com
@@ -4697,16 +4703,64 @@ let private regexCall com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option
     | _ -> None
 
 let regex (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let timeouts =
-        args
-        |> List.filter (fun arg -> isTimeSpan arg.Type && canHaveSideEffects com arg)
+    let isTimeout =
+        if args.Length = i.SignatureArgTypes.Length then
+            i.SignatureArgTypes |> List.map isTimeSpan
+        else
+            args |> List.map (fun arg -> isTimeSpan arg.Type)
 
-    regexCall com ctx r t i thisArg args
+    let isInfiniteTimeout =
+        function
+        | TypeCast(Value(NumberConstant(NumberValue.Float64 -1., _), _), _) -> true
+        | _ -> false
+
+    let hasTimeoutCheck =
+        List.zip isTimeout args
+        |> List.exists (fun (isTimeout, arg) -> isTimeout && not (isInfiniteTimeout arg))
+
+    let bindings, args =
+        if hasTimeoutCheck then
+            args
+            |> List.map (fun arg ->
+                if canHaveSideEffects com arg then
+                    let ident = makeUniqueIdent com ctx arg.Type "arg"
+                    Some(ident, arg), IdentExpr ident
+                else
+                    None, arg
+            )
+            |> List.unzip
+        else
+            [], args
+
+    let timeouts, args =
+        List.zip isTimeout args
+        |> List.partition fst
+        |> fun (timeouts, args) -> List.map snd timeouts, List.map snd args
+
+    let argTypes = i.SignatureArgTypes |> List.filter (isTimeSpan >> not)
+
+    let timeoutChecks =
+        timeouts
+        |> List.filter (isInfiniteTimeout >> not)
+        |> List.map (fun timeout ->
+            let ms =
+                if com.Options.JsTemporal then
+                    let t = Number(Float64, NumberInfo.Empty)
+                    Helper.LibCall(com, timeSpanModule com, "totalMilliseconds", t, [ timeout ])
+                else
+                    timeout
+
+            Helper.LibCall(com, "RegExp", "checkMatchTimeout", Unit, [ ms ], ?loc = r)
+        )
+
+    regexCall com ctx r t i thisArg args argTypes
     |> Option.map (fun call ->
-        if List.isEmpty timeouts then
+        if List.isEmpty timeoutChecks then
             call
         else
-            Sequential(timeouts @ [ call ])
+            let body = Sequential(timeoutChecks @ [ call ])
+
+            List.foldBack (fun (ident, value) body -> Let(ident, value, body)) (List.choose id bindings) body
     )
 
 let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -5358,7 +5412,11 @@ let tryField com returnTyp ownerTyp fieldName =
     | Builtin BclGuid, "Empty" -> emptyGuid () |> Some
     | Builtin BclTimeSpan, "Zero" when com.Options.JsTemporal ->
         Helper.LibCall(com, "TimeSpanTemporal", "zero", returnTyp, []) |> Some
-    | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
+    | Builtin BclTimeSpan, "Zero" -> TypeCast(makeIntConst 0, returnTyp) |> Some
+    | Regex, "InfiniteMatchTimeout" when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", "fromMilliseconds", returnTyp, [ makeFloatConst -1. ])
+        |> Some
+    | Regex, "InfiniteMatchTimeout" -> TypeCast(makeFloatConst -1., returnTyp) |> Some
     | Builtin BclDateOnly, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, dateOnlyModule com, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
