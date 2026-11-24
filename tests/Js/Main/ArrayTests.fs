@@ -1129,6 +1129,12 @@ let tests =
         xs |> Array.reduceBack (-)
         |> equal -2.
 
+    testCase "Array.reduceBack applies the reduction from the last element" <| fun () ->
+        Array.reduceBack (-) [|1; 2; 4|] |> equal 3
+        Array.reduceBack (-) [|1.; 2.; 4.|] |> equal 3.
+        Array.reduceBack (+) [|"a"; "b"; "c"|] |> equal "abc"
+        Array.reduceBack (-) [|7|] |> equal 7
+
     testCase "Array.rev works" <| fun () ->
         let xs = [|1.; 2.|]
         let ys = xs |> Array.rev

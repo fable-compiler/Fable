@@ -1149,7 +1149,7 @@ let reduceBack reduction (array: 'T[]) =
     // if isTypedArrayImpl array then
     //     foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
     // else
-    reduceBackImpl reduction array
+    reduceBackImpl (fun acc x -> reduction x acc) array
 
 let forAll2 predicate array1 array2 =
     fold2 (fun acc x y -> acc && predicate x y) true array1 array2
