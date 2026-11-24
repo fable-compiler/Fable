@@ -33,7 +33,28 @@ let append (array1: 'T[]) (array2: 'T[]) ([<OptionalArgument; Inject>] cons: Con
 
     newArray
 
-let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
+let private filterTypedArray (predicate: 'T -> bool) (array: 'T[]) : 'T[] =
+    let matches = ResizeArray<'T>()
+
+    for i = 0 to array.Length - 1 do
+        let x = arrayAccessImpl i array
+
+        if predicate x then
+            pushImpl matches x |> ignore
+
+    let matches = asArray matches
+    let res = allocateArrayFrom array matches.Length
+
+    for i = 0 to matches.Length - 1 do
+        arraySetItemImpl res i (arrayAccessImpl i matches)
+
+    res
+
+let filter (predicate: 'T -> bool) (array: 'T[]) =
+    if isTypedArrayImpl array then
+        filterTypedArray predicate array
+    else
+        filterImpl predicate array
 
 // intentionally returns target instead of unit
 let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T) : 'T[] =
@@ -237,7 +258,7 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<OptionalArgument; Inject>] co
     concat mapped cons
 // collectImpl mapping array // flatMap not widely available yet
 
-let where predicate (array: _[]) = filterImpl predicate array
+let where predicate (array: _[]) = filter predicate array
 
 let indexOf<'T>
     (array: 'T[])
@@ -535,22 +556,43 @@ let partition (f: 'T -> bool) (source: 'T[]) ([<OptionalArgument; Inject>] cons:
 
     res1 |> truncate iTrue, res2 |> truncate iFalse
 
+let private findIndexOrNegative (predicate: 'T -> bool) (array: 'T[]) : int =
+    if isTypedArrayImpl array then
+        let mutable index = -1
+        let mutable i = 0
+
+        while index < 0 && i < array.Length do
+            if predicate array.[i] then
+                index <- i
+
+            i <- i + 1
+
+        index
+    else
+        findIndexImpl predicate array
+
+let tryFind (predicate: 'T -> bool) (array: 'T[]) : 'T option =
+    if isTypedArrayImpl array then
+        match findIndexOrNegative predicate array with
+        | index when index > -1 -> typedArrayAccessAsOptionImpl index array
+        | _ -> None
+    else
+        findImpl predicate array
+
 let find (predicate: 'T -> bool) (array: 'T[]) : 'T =
-    match findImpl predicate array with
+    match tryFind predicate array with
     | Some res -> res
     | None -> indexNotFound ()
 
-let tryFind (predicate: 'T -> bool) (array: 'T[]) : 'T option = findImpl predicate array
-
 let findIndex (predicate: 'T -> bool) (array: 'T[]) : int =
-    match findIndexImpl predicate array with
+    match findIndexOrNegative predicate array with
     | index when index > -1 -> index
     | _ ->
         indexNotFound ()
         -1
 
 let tryFindIndex (predicate: 'T -> bool) (array: 'T[]) : int option =
-    match findIndexImpl predicate array with
+    match findIndexOrNegative predicate array with
     | index when index > -1 -> Some index
     | _ -> None
 
@@ -645,22 +687,26 @@ let choose (chooser: 'T -> 'U option) (array: 'T[]) ([<OptionalArgument; Inject>
     | _ -> map id (res |> asArray) cons
 
 let foldIndexed<'T, 'State> folder (state: 'State) (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let mutable acc = state
-    //     for i = 0 to array.Length - 1 do
-    //         acc <- folder i acc array.[i]
-    //     acc
-    // else
-    foldIndexedImpl (fun acc x i -> folder i acc x) state array
+    if isTypedArrayImpl array then
+        let mutable acc = state
+
+        for i = 0 to array.Length - 1 do
+            acc <- folder i acc (arrayAccessImpl i array)
+
+        acc
+    else
+        foldIndexedImpl (fun acc x i -> folder i acc x) state array
 
 let fold<'T, 'State> folder (state: 'State) (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let mutable acc = state
-    //     for i = 0 to array.Length - 1 do
-    //         acc <- folder acc array.[i]
-    //     acc
-    // else
-    foldImpl folder state array
+    if isTypedArrayImpl array then
+        let mutable acc = state
+
+        for i = 0 to array.Length - 1 do
+            acc <- folder acc (arrayAccessImpl i array)
+
+        acc
+    else
+        foldImpl folder state array
 
 let iterate action (array: 'T[]) =
     for i = 0 to array.Length - 1 do
@@ -687,15 +733,17 @@ let iterateIndexed2 action (array1: 'T1[]) (array2: 'T2[]) =
 let isEmpty (array: 'T[]) = array.Length = 0
 
 let forAll predicate (array: 'T[]) =
-    // if isTypedArrayImpl array then
-    //     let mutable i = 0
-    //     let mutable result = true
-    //     while i < array.Length && result do
-    //         result <- predicate array.[i]
-    //         i <- i + 1
-    //     result
-    // else
-    forAllImpl predicate array
+    if isTypedArrayImpl array then
+        let mutable i = 0
+        let mutable result = true
+
+        while result && i < array.Length do
+            result <- predicate array.[i]
+            i <- i + 1
+
+        result
+    else
+        forAllImpl predicate array
 
 let permute f (array: 'T[]) =
     let size = array.Length
@@ -762,6 +810,26 @@ let sortByDescending (projection: 'a -> 'b) (xs: 'a[]) ([<Inject>] comparer: ICo
     sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyImpl xs)
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]) : 'T[] = sortInPlaceWith comparer (copyImpl xs)
+
+// `comparer` must be the default comparer of an integer type, a typed array then sorts the same way without it
+let sortIntegersInPlace (xs: 'T[]) (comparer: IComparer<'T>) : unit =
+    if isTypedArrayImpl xs then
+        sortInPlaceNumericImpl xs
+    else
+        sortInPlace xs comparer
+
+let sortIntegers (xs: 'T[]) (comparer: IComparer<'T>) : 'T[] =
+    let res = copyImpl xs
+    sortIntegersInPlace res comparer
+    res
+
+let sortIntegersDescending (xs: 'T[]) (comparer: IComparer<'T>) : 'T[] =
+    if isTypedArrayImpl xs then
+        let res = copyImpl xs
+        sortInPlaceNumericImpl res
+        reverseImpl res
+    else
+        sortDescending xs comparer
 
 let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
     let len1 = xs.Length
@@ -1010,20 +1078,26 @@ let tryItem (index: int) (array: 'T[]) : 'T option =
         Some(arrayAccessImpl index array)
 
 let foldBackIndexed<'T, 'State> folder (array: 'T[]) (state: 'State) =
-    // if isTypedArrayImpl array then
-    //     let mutable acc = state
-    //     let size = array.Length
-    //     for i = 1 to size do
-    //         acc <- folder (i-1) array.[size - i] acc
-    //     acc
-    // else
-    foldBackIndexedImpl (fun acc x i -> folder i x acc) state array
+    if isTypedArrayImpl array then
+        let mutable acc = state
+
+        for i = array.Length - 1 downto 0 do
+            acc <- folder i (arrayAccessImpl i array) acc
+
+        acc
+    else
+        foldBackIndexedImpl (fun acc x i -> folder i x acc) state array
 
 let foldBack<'T, 'State> folder (array: 'T[]) (state: 'State) =
-    // if isTypedArrayImpl array then
-    //     foldBackIndexed (fun _ x acc -> folder x acc) array state
-    // else
-    foldBackImpl (fun acc x -> folder x acc) state array
+    if isTypedArrayImpl array then
+        let mutable acc = state
+
+        for i = array.Length - 1 downto 0 do
+            acc <- folder (arrayAccessImpl i array) acc
+
+        acc
+    else
+        foldBackImpl (fun acc x -> folder x acc) state array
 
 let foldIndexed2 folder state (array1: _[]) (array2: _[]) =
     let mutable acc = state
@@ -1058,10 +1132,16 @@ let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State
 let reduce reduction (array: 'T[]) =
     if array.Length = 0 then
         invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-    // if isTypedArrayImpl array then
-    //     foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
-    // else
-    reduceImpl reduction array
+
+    if isTypedArrayImpl array then
+        let mutable acc = arrayAccessImpl 0 array
+
+        for i = 1 to array.Length - 1 do
+            acc <- reduction acc (arrayAccessImpl i array)
+
+        acc
+    else
+        reduceImpl reduction array
 
 let reduceBack reduction (array: 'T[]) =
     if array.Length = 0 then
@@ -1080,7 +1160,15 @@ let rec existsOffset predicate (array: 'T[]) index =
     else
         predicate array.[index] || existsOffset predicate array (index + 1)
 
-let exists predicate array = existsOffset predicate array 0
+let exists predicate (array: 'T[]) =
+    let mutable i = 0
+    let mutable result = false
+
+    while not result && i < array.Length do
+        result <- predicate array.[i]
+        i <- i + 1
+
+    result
 
 let rec existsOffset2 predicate (array1: _[]) (array2: _[]) index =
     if index = array1.Length then

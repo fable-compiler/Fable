@@ -50,7 +50,7 @@ module Helpers =
     [<Emit("new Array($0)")>]
     let allocateArray (len: int) : 'T[] = nativeOnly
 
-    [<Emit("new $0.constructor($1)")>]
+    [<Emit("new ($0.constructor as any)($1)")>]
     let allocateArrayFrom (xs: 'T[]) (len: int) : 'T[] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T> | null) (len: int) : 'T[] =
@@ -137,7 +137,14 @@ module Helpers =
     [<Emit("$1.sort($0)")>]
     let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]) : unit = nativeOnly
 
+    [<Emit("$0.sort()")>]
+    let sortInPlaceNumericImpl (array: 'T[]) : unit = nativeOnly
+
     let inline arrayAccessImpl (index: int) (array: 'T[]) : 'T = emitJsExpr (index, array) "$1[$0]"
+
+    // A typed array element is never null or an option, so it is its own `Some`
+    [<Emit("$1[$0]")>]
+    let typedArrayAccessAsOptionImpl (index: int) (array: 'T[]) : 'T option = nativeOnly
 
     [<Emit("$0[$1] = $2")>]
     let arraySetItemImpl (array: 'T[]) (index: int) (item: 'T) : unit = nativeOnly

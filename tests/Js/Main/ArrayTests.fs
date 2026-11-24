@@ -22,6 +22,12 @@ let typedArrayOr (typedArrayName: string) =
 
 type ExceptFoo = { Bar:string }
 
+type SortEnum =
+    | Low = 1
+    | High = 2
+
+let makeArrayInGenericCode (x: 'T) (y: 'T) (z: 'T) = [| x; y; z |]
+
 let f (x:obj) (y:obj) (z:obj) = (string x) + (string y) + (string z)
 
 let map f ar = Array.map f ar
@@ -2038,5 +2044,116 @@ let tests =
         Array.removeManyAt 0 0 empty |> equal [||]
         Array.removeManyAt 1 2 xs |> equal [|1|]
         Array.removeManyAt 0 2 [|"a"; "b"; "c"|] |> equal [|"c"|]
+
+    testCase "Array folds visit numeric arrays in order" <| fun () ->
+        let xs = [|5; -3; 9|]
+        Array.fold (fun acc x -> acc + string x) "" xs |> equal "5-39"
+        Array.foldBack (fun x acc -> acc + string x) xs "" |> equal "9-35"
+        Array.reduce (fun a b -> a * 2 - b) xs |> equal 17
+        Array.fold (fun acc x -> acc - x) 0L [|1L; 2L|] |> equal -3L
+        Array.foldBack (fun x acc -> acc + string x) [|1.5; 2.5|] "" |> equal "2.51.5"
+        let visited = ResizeArray()
+        xs |> Array.iter visited.Add
+        visited.ToArray() |> equal xs
+
+    testCase "Array predicates stop at the first match on numeric arrays" <| fun () ->
+        let xs = [|5; -3; 9; 0; -3|]
+        let calls = ref 0
+        let isNegative x =
+            calls.Value <- calls.Value + 1
+            x < 0
+        Array.exists isNegative xs |> equal true
+        calls.Value |> equal 2
+        calls.Value <- 0
+        Array.forall (isNegative >> not) xs |> equal false
+        calls.Value |> equal 2
+        calls.Value <- 0
+        Array.tryFind isNegative xs |> equal (Some -3)
+        calls.Value |> equal 2
+        calls.Value <- 0
+        Array.tryFindIndex isNegative xs |> equal (Some 1)
+        calls.Value |> equal 2
+        Array.exists (fun x -> x > 9) xs |> equal false
+        Array.forall (fun x -> x > -4) xs |> equal true
+        Array.tryFind (fun x -> x > 9) xs |> equal None
+        Array.tryFindIndex (fun x -> x > 9) xs |> equal None
+        Array.tryFind (fun x -> x = 0) xs |> equal (Some 0)
+        Array.find (fun x -> x = 0) xs |> equal 0
+        Array.exists (fun x -> x > 0) (Array.empty<int>) |> equal false
+        Array.forall (fun x -> x > 0) (Array.empty<int>) |> equal true
+
+    testCase "Array.filter works with numeric arrays" <| fun () ->
+        let xs = [|5; -3; 9; 0; -3|]
+        xs |> Array.filter (fun x -> x > 0) |> equal [|5; 9|]
+        xs |> Array.where (fun x -> x < 0) |> equal [|-3; -3|]
+        xs |> Array.filter (fun x -> x > 9) |> equal [||]
+        let ys = xs |> Array.filter (fun _ -> true)
+        ys |> equal xs
+        ys.[0] <- 100
+        xs.[0] |> equal 5
+        [|1uy; 200uy; 255uy|] |> Array.filter (fun x -> x > 1uy) |> equal [|200uy; 255uy|]
+        [|1L; -2L; 3L|] |> Array.filter (fun x -> x > 0L) |> equal [|1L; 3L|]
+        [|1.5; -2.5; 3.5|] |> Array.filter (fun x -> x > 0.) |> equal [|1.5; 3.5|]
+
+#if FABLE_COMPILER
+    testCase "Array.filter keeps the array type" <| fun () ->
+        [|1; 2|] |> Array.filter (fun x -> x > 1) |> jsConstructorIs (typedArrayOr "Int32Array") |> equal true
+        [|1; 2|] |> Array.filter (fun x -> x > 2) |> jsConstructorIs (typedArrayOr "Int32Array") |> equal true
+        [|1uy; 2uy|] |> Array.filter (fun x -> x > 1uy) |> jsConstructorIs (typedArrayOr "Uint8Array") |> equal true
+        [|1L; 2L|] |> Array.filter (fun x -> x > 1L) |> jsConstructorIs (typedArrayOr "BigInt64Array") |> equal true
+        [|1.; 2.|] |> Array.where (fun x -> x > 1.) |> jsConstructorIs (typedArrayOr "Float64Array") |> equal true
+        [|"a"; "bb"|] |> Array.filter (fun x -> x.Length > 1) |> jsConstructorIs "Array" |> equal true
+        [|3; 1; 2|] |> Array.sort |> jsConstructorIs (typedArrayOr "Int32Array") |> equal true
+        [|3; 1; 2|] |> Array.sortDescending |> jsConstructorIs (typedArrayOr "Int32Array") |> equal true
+#endif
+
+    testCase "Array.sort works with every integer type" <| fun () ->
+        Array.sort [|10y; -128y; 127y; -1y; 2y|] |> equal [|-128y; -1y; 2y; 10y; 127y|]
+        Array.sort [|10uy; 255uy; 0uy; 100uy; 9uy|] |> equal [|0uy; 9uy; 10uy; 100uy; 255uy|]
+        Array.sort [|10s; -32768s; 32767s; -1s; 9s|] |> equal [|-32768s; -1s; 9s; 10s; 32767s|]
+        Array.sort [|10us; 65535us; 0us; 9us|] |> equal [|0us; 9us; 10us; 65535us|]
+        Array.sort [|10; System.Int32.MinValue; System.Int32.MaxValue; -1; 9|]
+        |> equal [|System.Int32.MinValue; -1; 9; 10; System.Int32.MaxValue|]
+        Array.sort [|10u; System.UInt32.MaxValue; 0u; 9u; 2147483648u|]
+        |> equal [|0u; 9u; 10u; 2147483648u; System.UInt32.MaxValue|]
+        Array.sort [|10L; System.Int64.MinValue; System.Int64.MaxValue; -1L; 9L|]
+        |> equal [|System.Int64.MinValue; -1L; 9L; 10L; System.Int64.MaxValue|]
+        Array.sort [|10UL; System.UInt64.MaxValue; 0UL; 9UL|] |> equal [|0UL; 9UL; 10UL; System.UInt64.MaxValue|]
+        Array.sort [|SortEnum.High; SortEnum.Low|] |> equal [|SortEnum.Low; SortEnum.High|]
+
+    testCase "Array.sortDescending and Array.sortInPlace work with integer types" <| fun () ->
+        Array.sortDescending [|10y; -128y; 127y; -1y; 2y|] |> equal [|127y; 10y; 2y; -1y; -128y|]
+        Array.sortDescending [|10u; System.UInt32.MaxValue; 0u; 9u|] |> equal [|System.UInt32.MaxValue; 10u; 9u; 0u|]
+        Array.sortDescending [|10UL; System.UInt64.MaxValue; 0UL; 9UL|] |> equal [|System.UInt64.MaxValue; 10UL; 9UL; 0UL|]
+        let xs = [|10; -100; 9; -1|]
+        Array.sort xs |> equal [|-100; -1; 9; 10|]
+        Array.sortDescending xs |> equal [|10; 9; -1; -100|]
+        xs |> equal [|10; -100; 9; -1|]
+        Array.sortInPlace xs
+        xs |> equal [|-100; -1; 9; 10|]
+        let ys = [|10L; -100L; 9L|]
+        Array.sortInPlace ys
+        ys |> equal [|-100L; 9L; 10L|]
+
+    testCase "Array.sort works with integer arrays created in generic code" <| fun () ->
+        let xs = makeArrayInGenericCode 10 9 -100
+        Array.sort xs |> equal [|-100; 9; 10|]
+        Array.sortDescending xs |> equal [|10; 9; -100|]
+        xs |> equal [|10; 9; -100|]
+        Array.sortInPlace xs
+        xs |> equal [|-100; 9; 10|]
+        let ys = makeArrayInGenericCode 10 9 -100
+        ys |> Array.filter (fun x -> x > 0) |> equal [|10; 9|]
+        ys |> Array.exists (fun x -> x = 9) |> equal true
+        ys |> Array.forall (fun x -> x = 9) |> equal false
+        ys |> Array.reduce (-) |> equal 101
+
+    testCase "Array.sort puts NaN first" <| fun () ->
+        let xs = Array.sort [|2.; nan; -1.; infinity; -infinity|]
+        System.Double.IsNaN xs.[0] |> equal true
+        xs.[1..] |> equal [|-infinity; -1.; 2.; infinity|]
+        let ys = Array.sortDescending [|2.; nan; -1.|]
+        System.Double.IsNaN ys.[2] |> equal true
+        ys.[..1] |> equal [|2.; -1.|]
 
   ]

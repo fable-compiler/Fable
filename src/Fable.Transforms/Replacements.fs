@@ -2762,6 +2762,20 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
             $"Expecting an array type but got %A{t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
 
+    let isTypedArray (e: Expr) =
+        match e.Type with
+        | Array(elemType, kind) ->
+            match elemType with
+            | TypedArrayCompatible com kind _ -> true
+            | _ -> false
+        | _ -> false
+
+    let isTypedIntegerArray elemType kind =
+        match elemType with
+        | Number((Float32 | Float64), _) -> false
+        | TypedArrayCompatible com kind _ -> true
+        | _ -> false
+
     match i.CompiledName, args with
     | "ToSeq", [ arg ] -> Some arg
     | "OfSeq", [ arg ] -> toArray r t arg |> Some
@@ -2788,7 +2802,20 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
         newArrayAlloc (makeIntConst 0) t |> Some
     | "IsEmpty", [ ar ] -> eq (getFieldWith r (Int32.Number) ar "length") (makeIntConst 0) |> Some
-    | Patterns.DicContains nativeArrayFunctions meth, _ ->
+    | ("Sort" | "SortDescending" | "SortInPlace" as meth), [ ExprType(Array(elemType, kind)) ] when
+        isTypedIntegerArray elemType kind
+        ->
+        let libMeth =
+            match meth with
+            | "Sort" -> "sortIntegers"
+            | "SortDescending" -> "sortIntegersDescending"
+            | _ -> "sortIntegersInPlace"
+
+        let args = injectArg com ctx r "Array" (Naming.lowerFirst meth) i.GenericArgs args
+
+        Helper.LibCall(com, "Array", libMeth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+    | Patterns.DicContains nativeArrayFunctions meth, _ when meth = "sort" || not (isTypedArray (List.last args)) ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
         Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc = r) |> Some
