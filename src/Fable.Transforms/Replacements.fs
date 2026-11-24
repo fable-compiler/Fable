@@ -2665,6 +2665,7 @@ let collectionExtensions
     | "InsertRange", None, [ ar; idx; arg ] ->
         Helper.LibCall(com, "Array", "insertRangeInPlace", t, [ idx; arg; ar ], ?loc = r)
         |> Some
+    | "TryAdd", None, [ _; _; _ ] -> Helper.LibCall(com, "MapUtil", "tryAddToDict", t, args, ?loc = r) |> Some
     | _ -> None
 
 let readOnlySpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3569,7 +3570,11 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             makeComparerFromEqualityComparer eqComp
             |> makeDictionaryWithComparer com r t arg
             |> Some
-        | [ IEnumerable ], [ arg ] -> makeBclDictionary com ctx r t arg |> Some
+        | [ IEnumerable ], [ arg ] ->
+            match t with
+            | DeclaredType(_, [ key; _ ]) when isCompatibleWithNativeComparison com key ->
+                Helper.LibCall(com, "MapUtil", "dictionaryOfSeq", t, [ arg ], ?loc = r) |> Some
+            | _ -> makeBclDictionary com ctx r t arg |> Some
         | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
             makeComparerFromEqualityComparer eqComp
             |> makeDictionaryWithComparer com r t arg
@@ -3592,6 +3597,9 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         |> Some
     | "Add", _ ->
         Helper.LibCall(com, "MapUtil", "addToDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "TryAdd", _ ->
+        Helper.LibCall(com, "MapUtil", "tryAddToDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Item", _ ->
         Helper.LibCall(com, "MapUtil", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
