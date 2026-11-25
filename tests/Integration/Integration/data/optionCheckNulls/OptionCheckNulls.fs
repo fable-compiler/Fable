@@ -20,6 +20,12 @@ let anlMadeValue () = (makeSome (null: Anl)).Value
 
 let stringValue (opt: string option) = opt.Value
 
+let stringGet (opt: string option) = Option.get opt
+
+let arrayValue (opt: int[] option) = opt.Value
+
+let resizeArrayValue (opt: ResizeArray<int> option) = opt.Value
+
 let stringMatch (opt: string option) =
     match opt with
     | Some v -> v.Length

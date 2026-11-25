@@ -669,7 +669,8 @@ module Annotation =
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.IsTypeScript then
             match typ, expr with
-            | Fable.Option _, _ -> makeTypeAnnotation com ctx typ |> Some
+            | Fable.Option _, _
+            | Fable.Any, _ -> makeTypeAnnotation com ctx typ |> Some
             // Use type annotation for NullLiteral and enum cases
             | _, Some(Literal(Literal.StringLiteral _))
             | _, Some(Literal(StringTemplate _))

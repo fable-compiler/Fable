@@ -1,6 +1,7 @@
 
 import { class_type } from "./fable_modules/fable-library-js.5.28.0/Reflection.js";
-import { someNull, value, some } from "./fable_modules/fable-library-js.5.28.0/Option.js";
+import { Some, someNull, value, some } from "./fable_modules/fable-library-js.5.28.0/Option.js";
+import { throwOptionHasNoValue } from "./fable_modules/fable-library-js.5.28.0/Util.js";
 
 export class Anl {
     constructor(x) {
@@ -42,7 +43,55 @@ export function anlMadeValue() {
 }
 
 export function stringValue(opt) {
-    return value(opt);
+    const opt_1 = opt;
+    if (opt_1 == null) {
+        return throwOptionHasNoValue();
+    }
+    else if (opt_1 instanceof Some) {
+        return opt_1.value;
+    }
+    else {
+        return opt_1;
+    }
+}
+
+export function stringGet(opt) {
+    const opt_1 = opt;
+    if (opt_1 == null) {
+        return throwOptionHasNoValue();
+    }
+    else if (opt_1 instanceof Some) {
+        return opt_1.value;
+    }
+    else {
+        return opt_1;
+    }
+}
+
+export function arrayValue(opt) {
+    const opt_1 = opt;
+    if (opt_1 == null) {
+        return throwOptionHasNoValue();
+    }
+    else if (opt_1 instanceof Some) {
+        return opt_1.value;
+    }
+    else {
+        return opt_1;
+    }
+}
+
+export function resizeArrayValue(opt) {
+    const opt_1 = opt;
+    if (opt_1 == null) {
+        return throwOptionHasNoValue();
+    }
+    else if (opt_1 instanceof Some) {
+        return opt_1.value;
+    }
+    else {
+        return opt_1;
+    }
 }
 
 export function stringMatch(opt) {
