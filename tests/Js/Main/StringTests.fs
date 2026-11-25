@@ -33,6 +33,9 @@ type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
 type Test(i: int) =
       override _.ToString() = string(i + i)
 
+type NullToString() =
+    override _.ToString() = null
+
 type B() =
       let mutable a = 5
       override x.ToString() =
@@ -1750,6 +1753,12 @@ let tests = testList "Strings" [
                 sprintf $"a\r\n{x}\rb"
             ]
         f 1 |> equal [ "a{{b1"; "a${1}1"; "a\\\\1%"; "a\r\n1\rb" ]
+
+    testCase "interpolated string formats a null ToString() as empty" <| fun () ->
+        let generic (x: 'T) = $"a{x}b"
+        $"a{NullToString()}b" |> equal "ab"
+        generic (NullToString()) |> equal "ab"
+        string (NullToString()) |> equal ""
 
     testCase "Can create FormattableString" <| fun () ->
         let orderAmount = 100
