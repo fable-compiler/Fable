@@ -38,6 +38,8 @@ let containsInOrder (substrings: string list) (str: string) =
         lastIndex <- i
         success)
 
+let holesFollowedByLetter (x: int) (s: string) = $"a{x}b{s}c", $"{s}_{x}0"
+
 let tests() =
 
     testCase "F# nameof works" <| fun () ->
@@ -1213,6 +1215,9 @@ let tests() =
         $"""{"foo"}{5}""" |> equal "foo5"
         $"""%s{"foo"}%i{5}""" |> equal "foo5"
         $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
+
+    testCase "interpolated string with a hole followed by a letter works" <| fun () ->
+        holesFollowedByLetter 5 "foo" |> equal ("a5bfooc", "foo_50")
 
     // // TODO: FormattableString
     // testCase "Can create FormattableString" <| fun () ->

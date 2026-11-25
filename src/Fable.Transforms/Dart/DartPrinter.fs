@@ -685,8 +685,12 @@ module PrinterExtensions =
                 for i = 0 to parts.Length - 2 do
                     printer.Print(escape parts[i])
 
+                    let isIdentContinued =
+                        let next = parts[i + 1]
+                        next.Length > 0 && (System.Char.IsLetterOrDigit next[0] || next[0] = '_')
+
                     match values[i] with
-                    | IdentExpression i ->
+                    | IdentExpression i when not isIdentContinued ->
                         printer.Print("$")
                         printer.PrintIdent(i)
                         printer.Print("")
