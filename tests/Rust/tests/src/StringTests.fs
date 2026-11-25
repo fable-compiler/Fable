@@ -342,6 +342,70 @@ let ``string interpolation works`` () =
     |> equal "Name: Phillip, Age: 29"
 
 [<Fact>]
+let ``string interpolation evaluates unit holes`` () =
+    let mutable calls = 0
+    let effect () : unit = calls <- calls + 1
+    let x = 1
+    $"A({effect ()}, {x})" |> equal "A(, 1)"
+    calls |> equal 1
+    string (effect ()) |> equal ""
+    calls |> equal 2
+    let log = ResizeArray<int>()
+    let f i = log.Add i; i
+    let u (i: int) : unit = log.Add i
+    let concat3 (a: string) (b: string) (c: string) = a + b + c
+    string (f 1) + string (u 2) + string (f 3) |> equal "13"
+    $"{f 4}{u 5}{f 6}" |> equal "46"
+    concat3 (string (f 7)) (string (u 8)) (string (f 9)) |> equal "79"
+    Seq.toList log |> equal [ 1; 2; 3; 4; 5; 6; 7; 8; 9 ]
+
+type UnitHoleRecord = { mutable G: int }
+
+[<Fact>]
+let ``string evaluates a unit assignment`` () =
+    let local k =
+        let mutable m = 0
+        let s = string (m <- k)
+        s, m
+
+    local 5 |> equal ("", 5)
+
+    let field k =
+        let r = { G = 0 }
+        let s = string (r.G <- k)
+        s, r.G
+
+    field 5 |> equal ("", 5)
+
+    let item k =
+        let arr = [| 0 |]
+        let s = string (arr.[0] <- k)
+        s, arr.[0]
+
+    item 5 |> equal ("", 5)
+
+    let resizeItem k =
+        let ra = ResizeArray [ 0 ]
+        let s = string (ra.[0] <- k)
+        s, ra.[0]
+
+    resizeItem 5 |> equal ("", 5)
+
+    let refCell k =
+        let cell = ref 0
+        let s = string (cell.Value <- k)
+        s, cell.Value
+
+    refCell 5 |> equal ("", 5)
+
+    let hole k =
+        let mutable m = 0
+        let s = $"<{m <- k + 1}>"
+        s, m
+
+    hole 5 |> equal ("<>", 6)
+
+[<Fact>]
 let ``string interpolation works with inline expressions`` () =
     $"I think {3.0 + 0.14} is close to {float32 Math.PI}!"
     |> equal "I think 3.14 is close to 3.1415927!"

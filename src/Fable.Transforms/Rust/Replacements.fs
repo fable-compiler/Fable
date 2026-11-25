@@ -285,7 +285,11 @@ let rec toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
-        | Unit -> makeStrConst ""
+        | Unit ->
+            if canHaveSideEffects com head then
+                Sequential [ head; makeStrConst "" ]
+            else
+                makeStrConst ""
         | String -> head
         | Char -> libCall com r String "String" "ofChar" [ head ]
         | Boolean -> libCall com r String "String" "ofBoolean" [ head ]

@@ -247,7 +247,11 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
-        | Unit -> makeStrConst ""
+        | Unit ->
+            if canHaveSideEffects com head then
+                Sequential [ head; makeStrConst "" ]
+            else
+                makeStrConst ""
         | String -> head
         | Char -> charToString head
         | DeclaredType({ FullName = Types.rune }, _) -> charToString head

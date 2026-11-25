@@ -25,6 +25,67 @@ let ``test String interpolation with expression works`` () =
     $"the answer is {x * 2}" |> equal "the answer is 42"
 
 [<Fact>]
+let ``test String interpolation evaluates unit holes`` () =
+    let mutable calls = 0
+    let effect () : unit = calls <- calls + 1
+    let x = 1
+    $"A({effect ()}, {x})" |> equal "A(, 1)"
+    calls |> equal 1
+    string (effect ()) |> equal ""
+    calls |> equal 2
+    let log = ResizeArray<int>()
+    let f i = log.Add i; i
+    let u (i: int) : unit = log.Add i
+    $"{f 4}{u 5}{f 6}" |> equal "46"
+    Seq.toList log |> equal [ 4; 5; 6 ]
+
+type UnitHoleRecord = { mutable G: int }
+
+[<Fact>]
+let ``test string evaluates a unit assignment`` () =
+    let local k =
+        let mutable m = 0
+        let s = string (m <- k)
+        s, m
+
+    local 5 |> equal ("", 5)
+
+    let field k =
+        let r = { G = 0 }
+        let s = string (r.G <- k)
+        s, r.G
+
+    field 5 |> equal ("", 5)
+
+    let item k =
+        let arr = [| 0 |]
+        let s = string (arr.[0] <- k)
+        s, arr.[0]
+
+    item 5 |> equal ("", 5)
+
+    let resizeItem k =
+        let ra = ResizeArray [ 0 ]
+        let s = string (ra.[0] <- k)
+        s, ra.[0]
+
+    resizeItem 5 |> equal ("", 5)
+
+    let refCell k =
+        let cell = ref 0
+        let s = string (cell.Value <- k)
+        s, cell.Value
+
+    refCell 5 |> equal ("", 5)
+
+    let hole k =
+        let mutable m = 0
+        let s = $"<{m <- k + 1}>"
+        s, m
+
+    hole 5 |> equal ("<>", 6)
+
+[<Fact>]
 let ``test String interpolation with .NET format specifiers works`` () = // See Fable.Python #36
     let i = 123
     $"{i:X4}" |> equal "007B"
