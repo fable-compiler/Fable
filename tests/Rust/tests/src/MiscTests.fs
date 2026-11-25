@@ -504,7 +504,7 @@ let sideEffect() = ()
 
 let inline inlineToString (f: 'T -> string): 'T -> string =
     let unused = f
-    fun a -> sprintf "%A" a
+    fun a -> $"{a}"
 
 type MyIntDelegate = delegate of unit -> int
 
@@ -528,7 +528,8 @@ let ``Passing delegate works`` () = // #3862
 [<Fact>]
 let ``Generic unit args work`` () = // #3584
     let to_str = inlineToString (fun (props: unit) -> "s")
-    to_str () |> equal (sprintf "%A" ())
+    to_str () |> equal $"{()}"
+    sprintf "%A" () |> equal "()"
 
 #if FABLE_COMPILER
 

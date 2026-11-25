@@ -276,7 +276,11 @@ let private transition (state: BlockState) (d: Directive) =
 
 let private computeDirectives (defines: string list) (source: string) =
     let lines = source.Replace("\r\n", "\n").Split('\n')
+#if FABLE_COMPILER // temporary, until fcs-fable is updated
     let sourceTok = FSharpSourceTokenizer(defines, None, None, None)
+#else
+    let sourceTok = FSharpSourceTokenizer(defines, None, None)
+#endif
     let directives = ResizeArray<Directive>()
     let parseDiagnostics = ResizeArray<DirectiveDiagnostic>()
     let mutable state = FSharpTokenizerLexState.Initial

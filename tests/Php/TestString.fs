@@ -263,6 +263,10 @@ let ``StringBuilder index setter works`` () =
         sb[3] <- 'z'
 
 [<Fact>]
+let ``test Conversion unit to string works`` () =
+    string () |> equal ""
+
+[<Fact>]
 let ``test Conversion char to int works`` () =
     equal 97 (int 'a')
     equal 'a' (char 97)

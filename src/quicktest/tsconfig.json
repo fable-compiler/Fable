@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "es2020",
+    "lib": ["es2020", "dom", "esnext.temporal"],
     "module": "es2020",
     "rewriteRelativeImportExtensions": true,
     "erasableSyntaxOnly": true,
@@ -10,6 +11,7 @@
     "allowJs": true,
     "esModuleInterop": true,
     "moduleResolution": "bundler",
+    "types": ["node"],
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,

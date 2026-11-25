@@ -299,6 +299,8 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     }
   } else if (rep instanceof Date || isNetDateFormattable(rep)) {
     rep = formatDateLike(rep, undefined);
+  } else if (format === "A" && rep === undefined) {
+    rep = "()";
   } else if (format === "A" && typeof rep === "string") {
     rep = "\"" + rep + "\"";
   } else if (format === "s" && rep == null) {

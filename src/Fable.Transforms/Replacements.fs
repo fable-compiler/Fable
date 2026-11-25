@@ -490,7 +490,7 @@ let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
                 else
                     "toString"
 
-            Helper.LibCall(com, "Types", funcName, String, [ head ], ?loc = r)
+            Helper.LibCall(com, "Types", funcName, String, [ head ], [ Any ], ?loc = r)
 
 let toString com ctx r args = toStringWith false com ctx r args
 

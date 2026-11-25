@@ -58,8 +58,9 @@ type ILegacyReferenceResolver =
 // Note, two implementations of this are provided, and no further implementations can be added from
 // outside FSharp.Compiler.Service
 #if !FABLE_COMPILER
-[<Class; AllowNullLiteral; Obsolete("This API is obsolete and not for external use")>]
+[<Class; Obsolete("This API is obsolete and not for external use")>]
 #endif
+[<AllowNullLiteral>]
 type LegacyReferenceResolver =
     new: impl: ILegacyReferenceResolver -> LegacyReferenceResolver
     member internal Impl: ILegacyReferenceResolver

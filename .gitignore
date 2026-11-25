@@ -10,6 +10,7 @@ temp*/
 *.fs.ts.map
 *.fs.php
 *.fs.dart
+*.fs.ast
 src/fable-library-ts/*.js
 src/fable-library-ts/BigInt/*.js
 src/quicktest/**/*.js

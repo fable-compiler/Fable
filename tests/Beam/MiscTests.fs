@@ -1206,6 +1206,7 @@ let inline inlineToString (f: 'T -> string): 'T -> string =
 let ``test Generic unit args work`` () =
     let to_str = inlineToString (fun (props: unit) -> "s")
     to_str () |> equal $"{()}"
+    // sprintf "%A" () |> equal "()" // TODO:
 
 // --- Don't inline values that evaluate multiple times ---
 

@@ -482,6 +482,7 @@ let ``test Passing delegate works`` () = // #3862
 let ``test Generic unit args work`` () = // #3584
     let to_str = inlineToString (fun (props: unit) -> "s")
     to_str () |> equal $"{()}"
+    // sprintf "%A" () |> equal "()" // TODO:
 
 [<Fact>]
 let ``test lambdas returning member expression accessing JS object work`` () = // #2311

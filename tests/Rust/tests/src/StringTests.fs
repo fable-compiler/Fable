@@ -372,6 +372,13 @@ let ``string interpolation works with anonymous records`` () =
     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
+// [<Fact>]
+// let ``Printf %A works with anonymous records`` () =
+//     let person  = {| FirstName = "John"; LastName = "Doe" |}
+//     let s = sprintf "%A" person
+//     System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
+//     |> equal """{| FirstName = "John" LastName = "Doe" |}"""
+
 [<Fact>]
 let ``Interpolated strings keep empty lines`` () =
     let s1 = $"""1
@@ -673,6 +680,10 @@ let ``Padding with sprintf works`` () =
 //     String.Format(CultureInfo.InvariantCulture, "{0,-10}", -22)     |> equal "-22       "
 
 // Conversions
+
+[<Fact>]
+let ``Conversion unit to string works`` () =
+    string () |> equal ""
 
 [<Fact>]
 let ``Conversion char to int works`` () =

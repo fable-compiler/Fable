@@ -608,6 +608,7 @@ let tests =
     testCase "Generic unit args work" <| fun _ -> // #3584
         let to_str = inlineToString (fun (props: unit) -> "s")
         to_str () |> equal $"{()}"
+        sprintf "%A" () |> equal "()"
 
 #if FABLE_COMPILER
 #if !FABLE_COMPILER_TYPESCRIPT && !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT

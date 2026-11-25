@@ -409,7 +409,7 @@ let inline z () = y ()
 """
       let source = "let res = Library.z ()"
       compileWithLibrary library source
-      |> Assert.Are.errors 1
+      |> Assert.Are.errors 2
       |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
       |> ignore
 
@@ -426,13 +426,14 @@ let inline z () = w ()
         """
 let a = Library.z ()
 let b = Library.z ()
+let c = Library.z ()
 """
       compileWithLibrary library source
-      |> Assert.Are.errors 1
+      |> Assert.Are.errors 2
       |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
       |> ignore
 
-    testCase "Inline function referencing non-private value from another file succeeds" <| fun _ ->
+    testCase "Inline function referencing non-private value from another file errors" <| fun _ ->
       let library =
         """
 module Library
@@ -444,7 +445,7 @@ let inline z () = y ()
 """
       let source = "let res = Library.z ()"
       compileWithLibrary library source
-      |> Assert.Is.success
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
       |> ignore
 
     testCase "Inline function referencing value hidden by a signature file errors when inlined in another file" <| fun _ ->
@@ -1042,7 +1043,7 @@ let raw (r: Raw) = match r with Obj _ -> "obj" | Text _ -> "text"
       compile source
       |> Assert.Is.strictSuccess
       |> ignore
-  
+
     testCase "TS tagged union case with an interface field compiles when the interface declares the tag" <| fun _ ->
       let source =
         """

@@ -12,6 +12,9 @@
     <Compile Include="Plugins.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="EasyBuild.PackageReleaseNotes.Tasks" Version="2.1.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
