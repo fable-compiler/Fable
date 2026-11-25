@@ -1718,6 +1718,39 @@ let tests = testList "Strings" [
         $"""%s{"foo"}%i{5}""" |> equal "foo5"
         $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
+    testCase "interpolated string keeps its literal text" <| fun () ->
+        let f (x: int) =
+            [
+                $"a{{{{b{x}"
+                $"{x}}}}}z"
+                $"a${{1}}{x}"
+                $"${{{x}}}"
+                $"a\\\\{x}"
+                $"a\\\\\\{x}b\\\\"
+                $"a\r\n{x}\rb"
+                $"`{x}`  "
+            ]
+        f 1 |> equal [
+            "a{{b1"
+            "1}}z"
+            "a${1}1"
+            "${1}"
+            "a\\\\1"
+            "a\\\\\\1b\\\\"
+            "a\r\n1\rb"
+            "`1`  "
+        ]
+
+    testCase "sprintf with an interpolated string keeps its literal text" <| fun () ->
+        let f (x: int) =
+            [
+                sprintf $"a{{{{b{x}"
+                sprintf $"a${{1}}{x}"
+                sprintf $"a\\\\{x}%%"
+                sprintf $"a\r\n{x}\rb"
+            ]
+        f 1 |> equal [ "a{{b1"; "a${1}1"; "a\\\\1%"; "a\r\n1\rb" ]
+
     testCase "Can create FormattableString" <| fun () ->
         let orderAmount = 100
         let convert (s: FormattableString) = s

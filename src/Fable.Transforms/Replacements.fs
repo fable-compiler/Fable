@@ -2469,9 +2469,17 @@ let formattableString
                 |}
             )
 
-        let template = makeStringTemplate tag str holes args |> makeValue r
+        let template =
+            match makeStringTemplate tag str holes args with
+            | StringTemplate(tag, parts, values) ->
+                let parts =
+                    parts |> List.map (fun part -> part.Replace("{{", "{").Replace("}}", "}"))
+
+                StringTemplate(tag, parts, values)
+            | template -> template
+
         // Use a type cast to keep the FormattableString type
-        TypeCast(template, t) |> Some
+        TypeCast(makeValue r template, t) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [ x ], ?loc = r) |> Some
     | "get_ArgumentCount", Some x, _ -> getFieldWith r t (getField x "args") "length" |> Some
     | "GetArgument", Some x, [ idx ] -> getExpr r t (getField x "args") idx |> Some
