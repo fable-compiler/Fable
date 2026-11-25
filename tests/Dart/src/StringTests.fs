@@ -1219,6 +1219,17 @@ let tests() =
     testCase "interpolated string with a hole followed by a letter works" <| fun () ->
         holesFollowedByLetter 5 "foo" |> equal ("a5bfooc", "foo_50")
 
+    testCase "interpolated string keeps its literal text" <| fun () ->
+        let f (x: int) =
+            [
+                $"a\\\\b{x}"
+                $"a\r{x}b"
+                $"a\r\n{x}b"
+                $"\nx{x}"
+                $"a${{1}}'{x}'''"
+            ]
+        f 1 |> equal [ "a\\\\b1"; "a\r1b"; "a\r\n1b"; "\nx1"; "a${1}'1'''" ]
+
     // // TODO: FormattableString
     // testCase "Can create FormattableString" <| fun () ->
     //     let orderAmount = 100

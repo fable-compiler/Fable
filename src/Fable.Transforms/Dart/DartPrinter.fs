@@ -14,6 +14,9 @@ type ListPos =
     | IsSingle
 
 module PrinterExtensions =
+    let private escapeString (str: string) =
+        (Naming.escapeString (fun _ -> false) str).Replace(@"$", @"\$")
+
     type Printer with
 
         member this.AddError(msg, ?range) =
@@ -421,11 +424,8 @@ module PrinterExtensions =
                         "false"
                 )
             | StringLiteral value ->
-                let escape str =
-                    (Naming.escapeString (fun _ -> false) str).Replace(@"$", @"\$")
-
                 printer.Print("'")
-                printer.Print(escape value)
+                printer.Print(escapeString value)
                 printer.Print("'")
             | IntegerLiteral value -> printer.Print(value.ToString())
             | DoubleLiteral value ->
@@ -671,19 +671,10 @@ module PrinterExtensions =
             | Literal kind -> printer.PrintLiteral(kind)
 
             | InterpolationString(parts, values) ->
-                let escape str =
-                    Regex.Replace(str, @"(?<!\\)\\", @"\\").Replace("'", @"\'").Replace("$", @"\$")
-
-                let quotes =
-                    if parts |> List.exists (fun p -> p.Contains("\n")) then
-                        "'''"
-                    else
-                        "'"
-
-                printer.Print(quotes)
+                printer.Print("'")
 
                 for i = 0 to parts.Length - 2 do
-                    printer.Print(escape parts[i])
+                    printer.Print(escapeString parts[i])
 
                     let isIdentContinued =
                         let next = parts[i + 1]
@@ -699,8 +690,8 @@ module PrinterExtensions =
                         printer.Print(v)
                         printer.Print("}")
 
-                printer.Print(List.last parts |> escape)
-                printer.Print(quotes)
+                printer.Print(List.last parts |> escapeString)
+                printer.Print("'")
 
             | TypeLiteral t -> printer.PrintType(t)
 
