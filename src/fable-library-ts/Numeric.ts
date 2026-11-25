@@ -132,6 +132,10 @@ function isLastDigitEven(digits: string) {
 
 // .NET standard numeric formats give an exact midpoint of a double the even digit
 export function toFixedHalfEven(x: Numeric, dp: number) {
+    // Number.prototype.toFixed switches to exponential notation here, where all numbers are integers
+    if (typeof x === "number" && Number.isFinite(x) && Math.abs(x) >= 1e21) {
+        return BigInt(x).toString() + (dp > 0 ? "." + "0".repeat(dp) : "");
+    }
     if (typeof x === "number" && dp < 100 && isExactTie(x, dp)) {
         const truncated = truncateLastDigit(x.toFixed(dp + 1));
         return isLastDigitEven(truncated) ? truncated : x.toFixed(dp);
@@ -151,27 +155,6 @@ export function toExponentialHalfEven(x: Numeric, dp: number) {
         }
     }
     return toExponential(x, dp);
-}
-
-export function toPrecisionHalfEven(x: Numeric, sd: number) {
-    if (typeof x !== "number" || !(sd > 0)) {
-        return toPrecision(x, sd);
-    }
-    const s = toExponentialHalfEven(x, sd - 1);
-    if (s === x.toExponential(sd - 1)) {
-        return x.toPrecision(sd);
-    }
-    // Same notation as Number.prototype.toPrecision
-    const eIdx = s.indexOf("e");
-    const e = Number(s.slice(eIdx + 1));
-    if (e < -6 || e >= sd) {
-        return s;
-    }
-    const sign = s.startsWith("-") ? "-" : "";
-    const digits = s.slice(sign.length, eIdx).replace(".", "");
-    return e < 0
-        ? sign + "0." + "0".repeat(-e - 1) + digits
-        : sign + digits.slice(0, e + 1) + (sd > e + 1 ? "." + digits.slice(e + 1) : "");
 }
 
 export function toRadix(x: Numeric, radix: number) {
