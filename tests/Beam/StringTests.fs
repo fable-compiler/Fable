@@ -25,6 +25,11 @@ let ``test String interpolation with expression works`` () =
     $"the answer is {x * 2}" |> equal "the answer is 42"
 
 [<Fact>]
+let ``test String interpolation formats a null string as empty`` () =
+    let f (s: string) (x: int) = $"a{s}b{x}c", $"a{s}b", string s
+    f null 1 |> equal ("ab1c", "ab", "")
+
+[<Fact>]
 let ``test String interpolation evaluates unit holes`` () =
     let mutable calls = 0
     let effect () : unit = calls <- calls + 1

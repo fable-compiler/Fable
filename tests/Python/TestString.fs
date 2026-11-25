@@ -210,6 +210,11 @@ let ``test string evaluates a unit assignment`` () =
     hole 5 |> equal ("<>", 6)
 
 [<Fact>]
+let ``test string interpolation formats a null string as empty`` () =
+    let f (s: string) (x: int) = $"a{s}b{x}c", $"a{s}b", string s
+    f null 1 |> equal ("ab1c", "ab", "")
+
+[<Fact>]
 let ``test sprintf \"%A\" formats booleans as lowercase`` () =
     // Test that %A formats booleans as lowercase true/false (F# semantics)
     let result = sprintf "%A" true

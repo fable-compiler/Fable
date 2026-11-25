@@ -316,9 +316,17 @@ let private fsFormat
         |> Some
     | _ -> None
 
+let private stringOperator (com: ICompiler) r t (arg: Expr) =
+    match arg with
+    | Value(StringConstant _, _) -> Some arg
+    | ExprType Type.String ->
+        Helper.LibCall(com, "fable_string", "null_to_empty", t, [ arg ], ?loc = r)
+        |> Some
+    | _ -> ToString.toStringByType com r t arg
+
 let formatStringTemplate (com: ICompiler) (_ctx: Context) r parts holes =
     let toString r value =
-        ToString.toStringByType com r String value |> Option.defaultValue value
+        stringOperator com r String value |> Option.defaultValue value
 
     formatStringTemplateWith isNeverNullString (fun _ -> false) toString r parts holes
 
@@ -574,7 +582,7 @@ let private operators
                 |> Some
             | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
-    | "ToString", [ arg ] -> ToString.toStringByType com r _t arg
+    | "ToString", [ arg ] -> stringOperator com r _t arg
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
