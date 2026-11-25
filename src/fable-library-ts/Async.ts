@@ -1,12 +1,13 @@
-import { OperationCanceledException, Trampoline } from "./AsyncBuilder.ts";
+import { OperationCanceledException, TaskCanceledException, Trampoline } from "./AsyncBuilder.ts";
 import { Continuation, Continuations } from "./AsyncBuilder.ts";
 import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
 import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
-import { ArgumentException_$ctor_Z384F8060, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
+import { ArgumentException_$ctor_Z384F8060, ArgumentException_$ctor_Z721C83C5, InvalidOperationException_$ctor_Z721C83C5, TimeoutException_$ctor } from "./System.ts";
 import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
 import type { Option } from "./Option.ts";
+import { markObserved } from "./Task.ts";
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -51,15 +52,40 @@ export function isCancellationRequested(token: CancellationToken) {
 
 export function throwIfCancellationRequested(token: CancellationToken) {
   if (token != null && token.isCancelled) {
-    throw new Exception("Operation is cancelled");
+    throw new OperationCanceledException();
   }
 }
 
-// The parent keeps the listener until unlink is called
+// Like .NET, the parents keep their listener until the linked token is disposed
+class LinkedCancellationToken extends CancellationToken {
+  private readonly _unlink: () => void;
+  constructor(tokens: CancellationToken[]) {
+    super();
+    // A default token is null and never cancelled
+    const parents = tokens.filter((parent) => parent != null);
+    const ids = parents.map((parent) => parent.addListener(() => this.cancel()));
+    this._unlink = () => { parents.forEach((parent, i) => parent.removeListener(ids[i])); };
+  }
+  public Dispose() {
+    this._unlink();
+  }
+}
+
 function createLinkedToken(parent: CancellationToken): [token: CancellationToken, unlink: () => void] {
-  const token = new CancellationToken();
-  const id = parent.addListener(() => token.cancel());
-  return [token, () => { parent.removeListener(id); }];
+  const token = new LinkedCancellationToken([parent]);
+  return [token, () => { token.Dispose(); }];
+}
+
+export function createLinkedTokenSource(tokens: CancellationToken[]): CancellationToken {
+  if (tokens.length === 0) {
+    throw ArgumentException_$ctor_Z721C83C5("No tokens were supplied.");
+  }
+  return new LinkedCancellationToken(tokens);
+}
+
+// A default registration is null
+export function unregister(registration: { Unregister(): boolean } | null | undefined): boolean {
+  return registration != null && registration.Unregister();
 }
 
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
@@ -68,7 +94,7 @@ export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T
     const [childToken, unlink] = timeout === undefined
       ? [ctx.cancelToken, () => { /* NOP */ }]
       : createLinkedToken(ctx.cancelToken);
-    const promise = startAsPromise(computation, childToken);
+    const promise = startChildAsPromise(computation, childToken);
     let settled = false;
     const onSettled = () => { settled = true; unlink(); };
 
@@ -93,8 +119,29 @@ export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T
 
     // JS Promises are hot, computation has already started
     // but we delay returning the result
-    protectedReturn(protectedCont<T>((awaitCtx) => awaitPromise(awaitResult())(awaitCtx)))(ctx);
+    protectedReturn(protectedCont<T>((awaitCtx) => awaitChild(awaitResult())(awaitCtx)))(ctx);
   });
+}
+
+// invariant: only a cancelled child rejects with this, so an OperationCanceledException it raised stays an error
+class ChildCancellation {
+  public readonly error: OperationCanceledException;
+  constructor(error: OperationCanceledException) {
+    this.error = error;
+  }
+}
+
+function startChildAsPromise<T>(computation: Async<T>, cancellationToken: CancellationToken) {
+  return new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
+    startWithContinuations(computation, resolve, reject,
+      (error: OperationCanceledException) => reject(new ChildCancellation(error)), cancellationToken));
+}
+
+function awaitChild<T>(p: Promise<T>) {
+  return fromContinuations((conts: Continuations<T>) =>
+    p.then(conts[0], (err) => {
+      if (err instanceof ChildCancellation) { conts[2](err.error); } else { conts[1](err); }
+    }));
 }
 
 export function awaitPromise<T>(p: Promise<T>) {
@@ -102,6 +149,13 @@ export function awaitPromise<T>(p: Promise<T>) {
     p.then(conts[0]).catch((err) =>
       (err instanceof OperationCanceledException
         ? conts[2] : conts[1])(err)));
+}
+
+// Like .NET, a cancelled task raises TaskCanceledException in the awaiting workflow instead of cancelling it
+export function awaitTask<T>(task: Promise<T>) {
+  return fromContinuations((conts: Continuations<T>) =>
+    task.then(conts[0], (err) =>
+      conts[1](err instanceof OperationCanceledException ? new TaskCanceledException() : err)));
 }
 
 export function awaitEvent<Del extends Function, T>(event: IEvent$2<Del, T>, cancelAction?: () => void): Async<T> {
@@ -188,7 +242,7 @@ export function parallel<T>(computations: Iterable<Async<T>>, maxDegreeOfParalle
       `maxDegreeOfParallelism must be positive, was ${maxDegreeOfParallelism}`, "maxDegreeOfParallelism");
   }
   return protectedCont((ctx: IAsyncContext<T[]>) =>
-    awaitPromise(runParallel(Array.from(computations), maxDegreeOfParallelism, ctx.cancelToken))(ctx));
+    awaitChild(runParallel(Array.from(computations), maxDegreeOfParallelism, ctx.cancelToken))(ctx));
 }
 
 function runParallel<T>(computations: Async<T>[], limit: number | undefined, parentToken: CancellationToken) {
@@ -204,7 +258,7 @@ function runParallel<T>(computations: Async<T>[], limit: number | undefined, par
     const startNext = () => {
       const i = next++;
       running++;
-      startAsPromise(computations[i], token)
+      startChildAsPromise(computations[i], token)
         .then(
           (x) => { results[i] = x; },
           (err) => {
@@ -300,14 +354,14 @@ export function sequential<T>(computations: Iterable<Async<T>>) {
   function _sequential(computations: Iterable<Async<T>>, cancelToken: CancellationToken): Promise<T[]> {
     let pr: Promise<T[]> = Promise.resolve([]);
     for (const c of computations) {
-      pr = pr.then(results => startAsPromise(c, cancelToken).then(r => results.concat([r])))
+      pr = pr.then(results => startChildAsPromise(c, cancelToken).then(r => results.concat([r])))
     }
     return pr;
   }
 
   // Children share the parent's cancellation token, like .NET Async.Sequential
   return protectedCont((ctx: IAsyncContext<T[]>) =>
-    awaitPromise<T[]>(_sequential(computations, ctx.cancelToken))(ctx));
+    awaitChild<T[]>(_sequential(computations, ctx.cancelToken))(ctx));
 }
 
 export function sleep(millisecondsDueTime: number) {
@@ -370,9 +424,12 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
 }
 
 export function startAsTask<T>(computation: Async<T>, _taskCreationOptions?: number, cancellationToken?: CancellationToken) {
-  return startAsPromise(computation, cancellationToken);
+  return startImmediateAsTask(computation, cancellationToken);
 }
 
+// Like .NET, cancelling the computation cancels the task, and awaiting that raises TaskCanceledException
 export function startImmediateAsTask<T>(computation: Async<T>, cancellationToken?: CancellationToken) {
-  return startAsPromise(computation, cancellationToken);
+  return markObserved(new Promise((resolve: Continuation<T>, reject: Continuation<any>) =>
+    startWithContinuations(computation, resolve, reject, () => reject(new TaskCanceledException()),
+      cancellationToken ? cancellationToken : defaultCancellationToken)));
 }
