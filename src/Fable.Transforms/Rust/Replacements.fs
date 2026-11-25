@@ -285,6 +285,7 @@ let rec toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
+        | Unit -> makeStrConst ""
         | String -> head
         | Char -> libCall com r String "String" "ofChar" [ head ]
         | Boolean -> libCall com r String "String" "ofBoolean" [ head ]
@@ -954,6 +955,117 @@ let private mapDotnetSpecToRust (spec: string) =
         | _ -> None
     | _ -> None
 
+let private tryMakeRustCompositeFormat (format: string) argCount =
+    let result = System.Text.StringBuilder()
+    let mutable usedArgs = Set.empty
+    let mutable hasPlaceholder = false
+    let mutable valid = true
+    let mutable position = 0
+
+    let tryParseInt (value: string) =
+        let mutable parsed = 0
+
+        if Int32.TryParse(value.Trim(), &parsed) then
+            Some parsed
+        else
+            None
+
+    let tryParsePlaceholder (placeholder: string) =
+        let colonIndex = placeholder.IndexOf(':')
+
+        let head, formatSpec =
+            if colonIndex < 0 then
+                placeholder, None
+            else
+                placeholder.Substring(0, colonIndex), Some(placeholder.Substring(colonIndex + 1))
+
+        let commaIndex = head.IndexOf(',')
+
+        let indexText, alignment =
+            if commaIndex < 0 then
+                head.Trim(), Some None
+            else
+                head.Substring(0, commaIndex).Trim(), tryParseInt (head.Substring(commaIndex + 1)) |> Option.map Some
+
+        match tryParseInt indexText, alignment with
+        | Some argIndex, Some alignment when argIndex >= 0 && argIndex < argCount ->
+            let spec =
+                match formatSpec with
+                | None
+                | Some "" -> Some("", "", "", "")
+                | Some spec -> mapDotnetSpecToRust spec
+
+            spec
+            |> Option.map (fun (flags, width, precision, typ) ->
+                let flags, width =
+                    match alignment with
+                    | Some value when value <> 0 ->
+                        (if value < 0 then
+                             "<"
+                         else
+                             ">"),
+                        (abs (int64 value) |> string)
+                    | _ -> flags, width
+
+                argIndex, flags + width + precision + typ
+            )
+        | _ -> None
+
+    while position < format.Length && valid do
+        match format.[position] with
+        | '{' when position + 1 < format.Length && format.[position + 1] = '{' ->
+            result.Append("{{") |> ignore
+            position <- position + 2
+        | '}' when position + 1 < format.Length && format.[position + 1] = '}' ->
+            result.Append("}}") |> ignore
+            position <- position + 2
+        | '{' ->
+            let closeIndex = format.IndexOf('}', position + 1)
+
+            if closeIndex < 0 then
+                valid <- false
+            else
+                let placeholder = format.Substring(position + 1, closeIndex - position - 1)
+
+                match tryParsePlaceholder placeholder with
+                | Some(argIndex, spec) ->
+                    result.Append('{').Append(argIndex) |> ignore
+
+                    if not (String.IsNullOrEmpty spec) then
+                        result.Append(':').Append(spec) |> ignore
+
+                    result.Append('}') |> ignore
+                    usedArgs <- Set.add argIndex usedArgs
+                    hasPlaceholder <- true
+                    position <- closeIndex + 1
+                | None -> valid <- false
+        | '}' -> valid <- false
+        | ch ->
+            result.Append(ch) |> ignore
+            position <- position + 1
+
+    let expectedArgs = List.init argCount id |> Set.ofList
+
+    if valid && hasPlaceholder && usedArgs = expectedArgs then
+        Some(result.ToString())
+    else
+        None
+
+let private tryStringFormatTemplate r (args: Expr list) =
+    match args with
+    | StringConst format :: formatArgs ->
+        let values =
+            match formatArgs with
+            | [ Value(NewArray(ArrayValues values, _, _), _) ] -> values
+            | _ -> formatArgs
+
+        tryMakeRustCompositeFormat format (List.length values)
+        |> Option.map (fun rustFormat ->
+            // Keep raw values so Fable beta-reduces them before Rust lowers and unboxes them.
+            StringTemplate(None, [ rustFormat ], values) |> makeValue r
+        )
+    | _ -> None
+
 let makeRustFormatString interpolated (fmt: string) =
     let pattern1 =
         @"(?<pre>[^%]?)%(?<flags>[0+\- ]*)(?<width>\*|\d+)?(?<prec>\.\d+)?(?<type>\w)"
@@ -1503,12 +1615,17 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             libCall com r t "String" "equals2" [ x; y; comparison ] |> Some
         | _ -> None
     | "Format", None, _ ->
+        let emitFormattedString formatArgs =
+            match tryStringFormatTemplate r formatArgs with
+            | Some template -> template
+            | None -> "sprintf!" |> emitFormat com r t formatArgs
+
         match args with
-        | (ExprType String :: _) -> "sprintf!" |> emitFormat com r t args |> Some
+        | (ExprType String :: _) -> emitFormattedString args |> Some
         | (cultureInfo :: restArgs) ->
             WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
-            "sprintf!" |> emitFormat com r t restArgs |> Some
+            emitFormattedString restArgs |> Some
         | _ -> None
     | "GetEnumerator", Some c, _ -> getEnumerator com r t i c |> Some
     | ("IndexOf" | "LastIndexOf" | "IndexOfAny" | "LastIndexOfAny"), Some c, _ ->

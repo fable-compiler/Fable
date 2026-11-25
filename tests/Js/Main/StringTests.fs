@@ -838,6 +838,9 @@ let tests = testList "Strings" [
 
     // Conversions
 
+    testCase "Conversion unit to string works" <| fun () ->
+        string () |> equal ""
+
     testCase "Conversion char to int works" <| fun () ->
         equal 97 (int 'a')
         equal 'a' (char 97)

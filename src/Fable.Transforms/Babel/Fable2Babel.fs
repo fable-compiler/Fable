@@ -2517,6 +2517,14 @@ but thanks to the optimisation done below we get
 
                 let values = values |> List.mapToArray (transformAsExpr com ctx)
                 Expression.jsxTemplate (List.toArray parts, values) |> Some
+            | Replacements.Util.StringJoinTemplate(parts, values) :: _ ->
+                let parts =
+                    match parts with
+                    | head :: tail -> (stripImports com ctx range head) :: tail
+                    | parts -> parts
+
+                let values = values |> List.mapToArray (transformAsExpr com ctx)
+                Expression.jsxTemplate (List.toArray parts, values) |> Some
             | MaybeCasted(Fable.Call(Fable.Import({
                                                       Selector = "concat"
                                                       Path = Naming.EndsWith "/String.js" _
@@ -2604,6 +2612,13 @@ but thanks to the optimisation done below we get
             | MaybeCasted(Fable.IdentExpr id) -> Map.tryFind id.Name ctx.BoundTypes |> Option.defaultValue id.Type
             | _ -> applied.Type
 
+        let rec isTextFormatterExpr =
+            function
+            | MaybeCasted(Fable.Call(Fable.Import({ Selector = "toText" }, _, _), _, _, _)) -> true
+            | MaybeCasted(Fable.CurriedApply(applied, _, _, _)) -> isTextFormatterExpr applied
+            | _ -> false
+
+        let isTextFormatter = isTextFormatterExpr applied
         let applied = com.TransformAsExpr(ctx, applied)
 
         ((applied, appliedType), args)
@@ -2616,6 +2631,10 @@ but thanks to the optimisation done below we get
             let args =
                 match arg, argType with
                 | _, Some argType when argType <> Fable.Unit -> [ com.TransformAsExpr(ctx, arg) ]
+                | (Fable.Value(Fable.UnitConstant, _) as unitArg), _ when isTextFormatter ->
+                    [ com.TransformAsExpr(ctx, unitArg) ]
+                | (Fable.IdentExpr ident as unitArg), _ when isTextFormatter && ident.Type = Fable.Unit ->
+                    [ com.TransformAsExpr(ctx, unitArg) ]
                 // TODO: If arg type is unit but it's an expression with potential
                 // side-effects, we need to extract it and execute it before the call
                 | Fable.Value(Fable.UnitConstant, _), _ -> []

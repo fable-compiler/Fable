@@ -46,6 +46,7 @@ type LexerIfdefStackEntries = (LexerIfdefStackEntry * range) list
 
 type LexerIfdefStack = LexerIfdefStackEntries
 
+[<RequireQualifiedAccess>]
 type LexerEndlineContinuation =
     | Token
     | IfdefSkip of int * range: range

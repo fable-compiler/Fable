@@ -31,6 +31,7 @@ module internal Bytes =
 
 /// A view over bytes.
 /// May be backed by managed or unmanaged memory, or memory mapped file.
+[<Experimental("This FCS API/Type is experimental and subject to change.")>]
 [<AbstractClass>]
 type public ByteMemory =
 
@@ -111,6 +112,7 @@ module internal MemoryMappedFileExtensions =
 #endif //!FABLE_COMPILER
 
 /// Filesystem helpers
+[<RequireQualifiedAccess>]
 module internal FileSystemUtils =
     val checkPathForIllegalChars: (string -> unit)
 

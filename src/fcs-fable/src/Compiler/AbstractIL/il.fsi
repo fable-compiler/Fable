@@ -856,6 +856,7 @@ type ILAttribElem =
 type ILAttributeNamedArg = string * ILType * bool * ILAttribElem
 
 /// Custom attribute.
+[<RequireQualifiedAccess; StructuralEquality; StructuralComparison; StructuredFormatDisplay("{DebugText}")>]
 type ILAttribute =
     /// Attribute with args encoded to a binary blob according to ECMA-335 II.21 and II.23.3.
     /// 'decodeILAttribData' is used to parse the byte[] blob to ILAttribElem's as best as possible.
@@ -945,6 +946,7 @@ type internal ILSecurityAction =
     | InheritanceDemandChoice
     | DemandChoice
 
+[<StructuralEquality; StructuralComparison>]
 type internal ILSecurityDecl = ILSecurityDecl of ILSecurityAction * byte[]
 
 /// Abstract type equivalent to ILSecurityDecl list - use helpers
@@ -1013,6 +1015,7 @@ type MethodBody =
     | NotAvailable
 
 /// Generic parameters.  Formal generic parameter declarations may include the bounds, if any, on the generic parameter.
+[<NoEquality; NoComparison; StructuredFormatDisplay("{DebugText}")>]
 type ILGenericParameterDef =
     {
         Name: string

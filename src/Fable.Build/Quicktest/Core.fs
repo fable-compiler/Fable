@@ -22,6 +22,7 @@ type QuicktestConfig =
 let genericQuicktest (config: QuicktestConfig) (args: string list) =
     let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
+    let printAst = args |> List.contains "--print-ast"
 
     config.FableLibBuilder.Run(forceFableLibrary)
 
@@ -57,6 +58,12 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         |> (fun cmdLine ->
             if isWatch then
                 cmdLine |> CmdLine.appendRaw "--watch"
+            else
+                cmdLine
+        )
+        |> (fun cmdLine ->
+            if printAst then
+                cmdLine |> CmdLine.appendRaw "--printAst"
             else
                 cmdLine
         )

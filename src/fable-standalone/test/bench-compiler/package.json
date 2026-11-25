@@ -9,6 +9,10 @@
     "postbuild-lib-ts": "cp tsconfig.json out-lib-ts && npm run tsc -- -p ./out-lib-ts --outDir ./out-lib-js",
 
     "fable-cli": "dotnet run -c Release --project ../../../Fable.Cli",
+
+    "prebuild-standalone": "npm run clean && FABLE=fable-cli npm run build-lib-ts",
+    "build-standalone": "npm run fable-cli -- ../../src/Fable.Standalone.fsproj --outDir ./out-standalone --fableLib ./out-lib-js",
+
     "prebuild-cli-js": "npm run clean && FABLE=fable-cli npm run build-lib-ts",
     "build-cli-js": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
     "postbuild-cli-js": "npm run rollup-bundle",

@@ -937,6 +937,10 @@ let ``test Conversion string to decimal works`` () =
     (string 5.25m).StartsWith("5.25") |> equal true
 
 [<Fact>]
+let ``test Conversion unit to string works`` () =
+    string () |> equal ""
+
+[<Fact>]
 let ``test Conversion char to int works`` () =
     equal 97 (int 'a')
     equal 'a' (char 97)

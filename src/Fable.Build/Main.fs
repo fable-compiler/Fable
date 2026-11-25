@@ -33,6 +33,7 @@ Available commands:
 
         Options:
             --force-fable-library   Force building fable-library
+            --print-ast             Print the F# AST for compiled files
             --watch                 Watch for changes and re-run the tests
 
     test                            Run the main tests suite

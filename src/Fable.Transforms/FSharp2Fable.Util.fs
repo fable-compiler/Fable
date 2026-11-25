@@ -397,7 +397,15 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
                 match dllName with
                 // When compiling with netcoreapp target, netstandard only contains redirects
                 // We can find the actual assembly name from the entity qualified name
-                | "netstandard" -> ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
+                | "netstandard" ->
+#if FABLE_COMPILER // temporary, until fcs-fable is updated
+                    ent.QualifiedName
+#else
+                    ent.QualifiedName.Value
+#endif
+                        .Split(',')
+                        .[1].Trim()
+                    |> Fable.CoreAssemblyName
                 | Naming.fablePrecompile ->
                     let sourcePath = FsEnt.SourcePath ent
                     Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
@@ -2171,17 +2179,18 @@ module Util =
         match args, argTypes, parameters with
         | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], [ Fable.GenericParam _ ], _ -> args // keep generic unit args
         | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], [ Fable.Unit ], [ p ] when p.Name.IsSome -> args // keep named unit args
+        | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], [ argType ], _ when argType <> Fable.Unit -> args
         | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], _, _ -> []
         | [ Fable.IdentExpr ident ], _, _ when isUnitArg ident -> []
         | _ -> args
 
     let unboxBoxedArgs (args: Fable.Expr list) =
-        args
-        |> List.map (
+        let rec unboxBoxedArg =
             function
-            | Fable.TypeCast(expr, Fable.Any) -> expr // unbox boxed values
+            | Fable.TypeCast(expr, Fable.Any) -> unboxBoxedArg expr
             | arg -> arg
-        )
+
+        args |> List.map unboxBoxedArg
 
     let makeFunctionArgs com ctx (args: FSharpMemberOrFunctionOrValue list) =
         let ctx, args =

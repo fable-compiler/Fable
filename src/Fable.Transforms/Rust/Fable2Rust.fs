@@ -3349,6 +3349,10 @@ module Util =
                 isByRefType com ident2.Type || ident2.IsMutable
                 ->
                 None
+            // Class object expressions lower to a block-local concrete type, so
+            // preserve that type instead of annotating the local with its base type.
+            | Fable.ObjectExpr(_ :: _, Fable.DeclaredType(entRef, _), _) when not (com.GetEntity(entRef).IsInterface) ->
+                None
             | _ ->
                 if isException com ident.Type || hasFuncOrAnyType ident.Type then
                     None
