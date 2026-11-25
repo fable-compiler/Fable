@@ -1361,6 +1361,33 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     let callInfo = makeCallInfo None argExprs argTypes
                     return makeCall r typ callInfo w.Expr
 
+        | StringConcatCall pieces when not ctx.CapturingQuotation ->
+            let parts, holes =
+                (([ "" ], []), pieces)
+                ||> List.fold (fun (parts, holes) piece ->
+                    match piece with
+                    | FSharpExprPatterns.Const(value, _) ->
+                        let text =
+                            match value with
+                            | :? string as text -> text
+                            | _ -> ""
+
+                        (List.head parts + text) :: List.tail parts, holes
+                    | StringOperatorCall hole when piece.Range = fsExpr.Range -> "" :: parts, hole :: holes
+                    | hole -> "" :: parts, hole :: holes
+                )
+
+            let! values = transformExprList com ctx (List.rev holes)
+            let r = makeRangeFrom fsExpr
+
+            match values with
+            | [] -> return Fable.Value(Fable.StringConstant(List.head parts), r)
+            | values -> return Fable.Value(Fable.StringTemplate(None, List.rev parts, values), r)
+
+        | StringOperatorCall hole when not ctx.CapturingQuotation ->
+            let! value = transformExpr com ctx [] hole
+            return Fable.Value(Fable.StringTemplate(None, [ ""; "" ], [ value ]), makeRangeFrom fsExpr)
+
         | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
             let typ = makeType ctx.GenericArgs fsExpr.Type
             let callGenArgs = ownerGenArgs @ membGenArgs |> List.map (makeType ctx.GenericArgs)
@@ -3456,6 +3483,45 @@ let rec attachClassMembers (com: FableCompiler) =
         |> Option.defaultValue classDecl
     | decl -> decl
 
+// Emit templates take the holes of a string template without the conversion of the `string` operator
+let rec private formatStringTemplates (com: IFableCompiler) (ctx: Context) (expr: Fable.Expr) : Fable.Expr =
+    let format = formatStringTemplates com ctx
+
+    match expr with
+    | Fable.Value(Fable.StringTemplate(None, parts, values), r) when
+        not values.IsEmpty && parts.Length = values.Length + 1
+        ->
+        let holes =
+            values
+            |> List.map (
+                function
+                | Fable.Value(Fable.StringTemplate(None, _, _), _) as value -> format value, true
+                | Fable.TypeCast(value, Fable.Any)
+                | value -> format value, false
+            )
+
+        Replacements.Api.formatStringTemplate com ctx r parts holes
+    | Fable.Quote(expr, isTyped, r) -> Fable.Quote(format expr, isTyped, r)
+    | expr -> visit format expr
+
+let rec private formatStringTemplatesInDeclaration (com: IFableCompiler) ctx decl =
+    let format = formatStringTemplates com ctx
+    let formatMember (m: Fable.MemberDecl) = { m with Body = format m.Body }
+
+    match decl with
+    | Fable.ModuleDeclaration decl ->
+        { decl with Members = decl.Members |> List.map (formatStringTemplatesInDeclaration com ctx) }
+        |> Fable.ModuleDeclaration
+    | Fable.ActionDeclaration decl -> { decl with Body = format decl.Body } |> Fable.ActionDeclaration
+    | Fable.MemberDeclaration decl -> formatMember decl |> Fable.MemberDeclaration
+    | Fable.ClassDeclaration decl ->
+        { decl with
+            Constructor = decl.Constructor |> Option.map formatMember
+            BaseCall = decl.BaseCall |> Option.map format
+            AttachedMembers = decl.AttachedMembers |> List.map formatMember
+        }
+        |> Fable.ClassDeclaration
+
 let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration list) =
 
     let rec getInlineExprsInner decls =
@@ -3533,6 +3599,7 @@ let transformFile (com: Compiler) =
     let com = FableCompiler(com)
 
     let rootDecls =
-        transformDeclarations com ctx declarations |> List.map (attachClassMembers com)
+        transformDeclarations com ctx declarations
+        |> List.map (attachClassMembers com >> formatStringTemplatesInDeclaration com ctx)
 
     Fable.File(rootDecls, usedRootNames)

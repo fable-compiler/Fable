@@ -254,6 +254,25 @@ let ``test emitErlExpr works`` () =
 #endif
 
 [<Fact>]
+let ``test emitErlExpr can be used with interpolation`` () =
+#if FABLE_COMPILER
+    let x = 10
+    let y = 20
+    let two: int = emitErlExpr () $"1 + {x}"
+    let three: int = emitErlExpr () $"({x} + 1)"
+    let five: int = emitErlExpr () $"erlang:max({x}, {y})"
+    let single: int = emitErlExpr () $"{x}"
+    let text: int = emitErlExpr () $"byte_size({string x})"
+    equal 11 two
+    equal 11 three
+    equal 20 five
+    equal 10 single
+    equal 2 text
+#else
+    ()
+#endif
+
+[<Fact>]
 let ``test emitErlExpr works without arguments`` () =
 #if FABLE_COMPILER
     let result: int = emitErlExpr () "42"

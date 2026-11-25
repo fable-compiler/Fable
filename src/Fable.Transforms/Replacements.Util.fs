@@ -577,6 +577,53 @@ let makeStringTemplateFromAllowingFormat (com: ICompiler) simpleFormats (values:
         values
         strExpr
 
+let isNeverNullStringWith (isNeverNull: Expr -> bool) (expr: Expr) =
+    let rec check targets expr =
+        match expr with
+        | Value((StringConstant _ | CharConstant _ | StringTemplate(None, _, _)), _) -> true
+        | TypeCast(expr, _) -> check targets expr
+        | Let(_, _, body) -> check targets body
+        | Sequential exprs -> List.tryLast exprs |> Option.exists (check targets)
+        | IfThenElse(_, thenExpr, elseExpr, _) -> check targets thenExpr && check targets elseExpr
+        | DecisionTree(expr, targets) -> check targets expr
+        | DecisionTreeSuccess(index, _, _) -> List.tryItem index targets |> Option.exists (snd >> check [])
+        | expr -> isNeverNull expr
+
+    check [] expr
+
+let isNeverNullString (expr: Expr) =
+    isNeverNullStringWith (fun _ -> false) expr
+
+// The flag of a hole is true when the hole was a string template before it was formatted
+let formatStringTemplateWith
+    (isNeverNullString: Expr -> bool)
+    (isFormattedByTemplate: Expr -> bool)
+    (toString: SourceLocation option -> Expr -> Expr)
+    r
+    (parts: string list)
+    (holes: (Expr * bool) list)
+    =
+    let isString (value: Expr, isTemplate) =
+        isTemplate || (value.Type = String && isNeverNullString value)
+
+    match parts, holes with
+    | [ ""; "" ], [ value, _ as hole ] ->
+        if isString hole then
+            value
+        else
+            toString r value
+    | _ ->
+        let values =
+            holes
+            |> List.map (fun (value, _ as hole) ->
+                if isString hole || isFormattedByTemplate value then
+                    value
+                else
+                    toString None value
+            )
+
+        Value(StringTemplate(None, parts, values), r)
+
 let rec namesof com ctx acc e =
     match acc, e with
     | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop :: acc) e
@@ -1256,48 +1303,12 @@ let rec (|RequireStringConst|) com (ctx: Context) r e =
         addError com ctx.InlinePath r "Expecting string literal"
         ""
 
-// F# lowers interpolated strings to String.Join with ToString wrappers; templates need raw holes.
-[<return: Struct>]
-let (|StringJoinTemplate|_|) =
-    function
-    | MaybeCasted(Call(Import({
-                                  Selector = "join"
-                                  Path = Naming.EndsWith "/String.js" _
-                              },
-                              _,
-                              _),
-                       callInfo,
-                       _,
-                       _)) ->
-        match callInfo.Args with
-        | [ MaybeCasted(Value(StringConstant "", _)); MaybeCasted(Value(NewArray(ArrayValues items, _, _), _)) ] ->
-            let rec collect parts current values =
-                function
-                | [] -> List.rev (current :: parts), List.rev values
-                | MaybeCasted(Value(StringConstant part, _)) :: rest -> collect parts (current + part) values rest
-                | value :: rest ->
-                    let value =
-                        match value with
-                        | MaybeCasted(Call(Import({ Selector = selector }, _, _), { Args = [ value ] }, _, _)) when
-                            selector = "toStringOrEmpty"
-                            || selector.EndsWith("ToString", StringComparison.Ordinal)
-                            ->
-                            value
-                        | value -> value
-
-                    collect (current :: parts) "" (value :: values) rest
-
-            ValueSome(collect [] "" [] items)
-        | _ -> ValueNone
-    | _ -> ValueNone
-
 let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
     match e with
     | MaybeInScopeStringConst ctx s -> [ s ], []
     // If any of the interpolated values can have side effects, beta binding reduction won't work
     // so we don't check interpolation in scope
     | Value(StringTemplate(None, parts, values), _) -> parts, values
-    | StringJoinTemplate template -> template
     | _ ->
         addError com ctx.InlinePath r "Expecting string literal"
         [ "" ], []

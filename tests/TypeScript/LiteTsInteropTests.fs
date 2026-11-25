@@ -96,6 +96,63 @@ let tests =
         { Value = "x" }.Value |> equal "x"
 
     #if FABLE_COMPILER
+    testCase "emitJsExpr can be used with interpolation" <| fun () ->
+        let twoPieces (x: int): int = emitJsExpr () $"1 + {x}"
+        let threePieces (x: int): float = emitJsExpr () $"Math.sqrt({x})"
+        let fourPieces (s: string) (x: int): string = emitJsExpr () $"{s}.repeat({x})"
+        let fivePieces (x: int) (y: float): float = emitJsExpr () $"Math.pow({x}, {y})"
+        let sevenPieces (x: int) (y: int) (z: int): int = emitJsExpr () $"Math.max({x}, {y}, {z})"
+        let floatHole (x: float): string = emitJsExpr () $"typeof {x}"
+        let stringHole (s: string): int = emitJsExpr () $"({s}).length"
+        let boolHole (b: bool): bool = emitJsExpr () $"!{b}"
+        let charHole (c: char): string = emitJsExpr () $"{c} + {c}"
+        twoPieces 1 |> equal 2
+        threePieces 16 |> equal 4.
+        fourPieces "ab" 2 |> equal "abab"
+        fivePieces 2 3. |> equal 8.
+        sevenPieces 1 3 2 |> equal 3
+        floatHole 1.5 |> equal "number"
+        stringHole "abc" |> equal 3
+        boolHole true |> equal false
+        charHole 'a' |> equal "aa"
+
+    testCase "emitJsStatement can be used with a short interpolation" <| fun () ->
+        let f (x: int): int = emitJsStatement () $"return {x} + 1;"
+        f 1 |> equal 2
+
+    testCase "emitJsExpr keeps conversions written in interpolation holes" <| fun () ->
+        let stringOperator (x: int): int = emitJsExpr () $"({string x}).length + {x} * 0"
+        let toStringMethod (x: int): int = emitJsExpr () $"({x.ToString()}).length + {x} * 0"
+        let floatHole (y: float): string = emitJsExpr () $"typeof {string y} + typeof {y}"
+        let optionHole (o: int option): string = emitJsExpr () $"typeof {string o} + typeof {o}"
+        let stringHole (s: string): string = emitJsExpr () $"typeof {string s} + typeof {s}"
+        stringOperator 123 |> equal 3
+        toStringMethod 123 |> equal 3
+        floatHole 1.5 |> equal "stringnumber"
+        optionHole (Some 1) |> equal "stringnumber"
+        stringHole null |> equal "stringobject"
+
+    testCase "emitJsExpr can be used with a single hole interpolation" <| fun () ->
+        let intHole (x: int): int = emitJsExpr () $"{x}"
+        let floatHole (y: float): float = emitJsExpr () $"{y}"
+        let stringHole (s: string): string = emitJsExpr () $"{s}"
+        let charHole (c: char): string = emitJsExpr () $"{c}"
+        let operationHole (x: int): int = emitJsExpr () $"{x + 1}"
+        let conversionHole (x: int): string = emitJsExpr () $"{string x}"
+        intHole 5 |> equal 5
+        floatHole 1.5 |> equal 1.5
+        stringHole "a" |> equal "a"
+        charHole 'a' |> equal "a"
+        operationHole 1 |> equal 2
+        conversionHole 5 |> equal "5"
+
+    testCase "emitJsExpr evaluates unit holes in interpolation" <| fun () ->
+        let mutable calls = 0
+        let effect () : unit = calls <- calls + 1
+        let unitHole (x: int): obj[] = emitJsExpr () $"[{effect ()}, {x}]"
+        unitHole 1 |> Array.length |> equal 2
+        calls |> equal 1
+
     testCase "jsOptions works" <| fun _ ->
         let opts = jsOptions<JsOptions>(fun o ->
             o.foo <- "bar"

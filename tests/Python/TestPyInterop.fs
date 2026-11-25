@@ -277,6 +277,79 @@ let factorial (count : nativeint) : nativeint =
 let ``test emitPyStatement works with parameters`` () =
     factorial 5 |> equal 120
 
+let emitPyTwoPieces (x: int) : int = emitPyExpr () $"1 + {x}"
+let emitPyThreePieces (x: int) : int = emitPyExpr () $"abs({x})"
+let emitPyFourPieces (s: string) (x: int) : string = emitPyExpr () $"{s} * {x}"
+let emitPyFivePieces (x: int) (y: float) : float = emitPyExpr () $"pow({x}, {y})"
+let emitPySevenPieces (x: int) (y: int) (z: int) : int = emitPyExpr () $"max({x}, {y}, {z})"
+let emitPyFloatHole (x: float) : float = emitPyExpr () $"abs({x})"
+let emitPyStringHole (s: string) : int = emitPyExpr () $"len({s})"
+let emitPyBoolHole (b: bool) : bool = emitPyExpr () $"not {b}"
+let emitPyCharHole (c: char) : string = emitPyExpr () $"{c} + {c}"
+let emitPyStatementHole (x: int) : int = emitPyStatement () $"return {x} + 1"
+
+[<Fact>]
+let ``test emitPyExpr can be used with interpolation`` () =
+    emitPyTwoPieces 1 |> equal 2
+    emitPyThreePieces -4 |> equal 4
+    emitPyFourPieces "ab" 2 |> equal "abab"
+    emitPyFivePieces 2 3. |> equal 8.
+    emitPySevenPieces 1 3 2 |> equal 3
+    emitPyFloatHole -1.5 |> equal 1.5
+    emitPyStringHole "abc" |> equal 3
+    emitPyBoolHole true |> equal false
+    emitPyCharHole 'a' |> equal "aa"
+
+[<Fact>]
+let ``test emitPyStatement can be used with interpolation`` () =
+    emitPyStatementHole 1 |> equal 2
+
+let emitPyStringOperator (x: int) : int = emitPyExpr () $"len({string x}) + {x} * 0"
+let emitPyToStringMethod (x: int) : int = emitPyExpr () $"len({x.ToString()}) + {x} * 0"
+let emitPyFloatConversion (y: float) : bool = emitPyExpr () $"isinstance({string y}, str) and isinstance({y}, float)"
+let emitPyOptionConversion (o: int option) : bool = emitPyExpr () $"isinstance({string o}, str) and isinstance({o}, int)"
+
+[<Fact>]
+let ``test emitPyExpr keeps conversions written in interpolation holes`` () =
+    emitPyStringOperator 123 |> equal 3
+    emitPyToStringMethod 123 |> equal 3
+    emitPyFloatConversion 1.5 |> equal true
+    emitPyOptionConversion (Some 1) |> equal true
+
+let emitPySingleIntHole (x: int) : int = emitPyExpr () $"{x}"
+let emitPySingleFloatHole (y: float) : float = emitPyExpr () $"{y}"
+let emitPySingleStringHole (s: string) : string = emitPyExpr () $"{s}"
+let emitPySingleCharHole (c: char) : string = emitPyExpr () $"{c}"
+let emitPySingleOperationHole (x: int) : int = emitPyExpr () $"{x + 1}"
+
+let emitPySingleStatementHole (x: int) : int =
+    emitPyStatement () $"{x}"
+    emitPyStatement () "return x + 1"
+
+let pythonSingleHole (x: int) : int =
+    Py.python $"{x}"
+    Py.python "return x + 1"
+
+[<Fact>]
+let ``test emitPyExpr can be used with a single hole interpolation`` () =
+    emitPySingleIntHole 5 |> equal 5
+    emitPySingleFloatHole 1.5 |> equal 1.5
+    emitPySingleStringHole "a" |> equal "a"
+    emitPySingleCharHole 'a' |> equal "a"
+    emitPySingleOperationHole 1 |> equal 2
+    emitPySingleStatementHole 1 |> equal 2
+    pythonSingleHole 1 |> equal 2
+
+let mutable emitPyUnitHoleCalls = 0
+let emitPyUnitHoleEffect () : unit = emitPyUnitHoleCalls <- emitPyUnitHoleCalls + 1
+let emitPyUnitHole (x: int) : int = emitPyExpr () $"len([{emitPyUnitHoleEffect ()}, {x}])"
+
+[<Fact>]
+let ``test emitPyExpr evaluates unit holes in interpolation`` () =
+    emitPyUnitHoleCalls <- 0
+    emitPyUnitHole 1 |> equal 2
+    emitPyUnitHoleCalls |> equal 1
+
 
 type NativeCode =
     abstract add5: nativeint -> nativeint

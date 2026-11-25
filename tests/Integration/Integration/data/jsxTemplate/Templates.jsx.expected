@@ -1,0 +1,50 @@
+
+import { int32ToString } from "./fable_modules/fable-library-js.5.28.0/Util.js";
+import { toStringOrEmpty } from "./fable_modules/fable-library-js.5.28.0/Types.js";
+
+export function Direct($props) {
+    return <div title={$props.title}>{$props.child}</div>;
+}
+
+export function InlineHelper($props) {
+    return <div title={$props.title}>{$props.child}</div>;
+}
+
+export function NestedInlineHelper($props) {
+    return <div title={$props.title}>{$props.child}</div>;
+}
+
+export function LetBound($props) {
+    return <div title={$props.title}>{$props.child}</div>;
+}
+
+export function LetBoundInlineHelper($props) {
+    return <div title={$props.title}>{$props.child}</div>;
+}
+
+export function Piped($props) {
+    return <div title={$props.title}>{$props.child}</div>;
+}
+
+export function NestedTemplate($props) {
+    return <div title={$props.title}><span>{$props.count}</span></div>;
+}
+
+export function StringHole($props) {
+    return <div title={`${$props.title || ""}: ${$props.count}`}>{$props.count}</div>;
+}
+
+export function ConvertedHole($props) {
+    return <div title={int32ToString($props.count)} id={$props.id}>{$props.value}{$props.items}{toStringOrEmpty($props.value)}{toStringOrEmpty($props.value)}</div>;
+}
+
+export function FunctionHole($props) {
+    return <div onClick={(_arg) => {
+        $props.onClick(1, 2);
+    }} onKeyDown={$props.onClick}>{$props.child}</div>;
+}
+
+export function notJsx(title, value) {
+    return `<div title=${title || ""}>${toStringOrEmpty(value)}</div>`;
+}
+

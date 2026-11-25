@@ -36,6 +36,16 @@ type Test(i: int) =
 type NullToString() =
     override _.ToString() = null
 
+[<System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)>]
+let nullString () : string = null
+
+[<System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)>]
+let opaque (x: 'T) : 'T = x
+
+let inline wrapInTemplate (s: string) = $"<{s}>"
+
+let inline stringOf (s: string) = string s
+
 type B() =
       let mutable a = 5
       override x.ToString() =
@@ -1721,6 +1731,26 @@ let tests = testList "Strings" [
         $"""%s{"foo"}%i{5}""" |> equal "foo5"
         $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
 
+    testCase "interpolated string formats holes like the string operator" <| fun () ->
+        let nullString: string = null
+        let none: int option = None
+        let record = {| A = 1 |}
+        $"[{nullString}]" |> equal "[]"
+        $"[{none}]" |> equal "[]"
+        $"[{()}]" |> equal "[]"
+        $"[{1.0}][{1.5}][{0.1 + 0.2}][{1e21}][{nan}]" |> equal "[1][1.5][0.30000000000000004][1E+21][NaN]"
+        $"[{'a'}][{12L}][{255uy}][{-1}]" |> equal "[a][12][255][-1]"
+        $"[{[ 1; 2 ]}]" |> equal "[[1; 2]]"
+        $"[{record}]" |> equal ("[" + string record + "]")
+
+    testCase "interpolated string evaluates holes once and in order" <| fun () ->
+        let mutable count = 0
+        let next () =
+            count <- count + 1
+            count
+        $"{next ()}-{next ()}-{next ()}" |> equal "1-2-3"
+        count |> equal 3
+
     testCase "interpolated string keeps its literal text" <| fun () ->
         let f (x: int) =
             [
@@ -1754,7 +1784,61 @@ let tests = testList "Strings" [
             ]
         f 1 |> equal [ "a{{b1"; "a${1}1"; "a\\\\1%"; "a\r\n1\rb" ]
 
-    testCase "interpolated string formats a null ToString() as empty" <| fun () ->
+    testCase "string and interpolated string format the sum of two null strings as empty" <| fun () ->
+        let s = nullString ()
+        string (s + s) |> equal ""
+#if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+        // fable-compiler-js does not wrap a single string hole in `string`
+        $"{s + s}" |> equal ""
+#endif
+        $"a{s + s}b" |> equal "ab"
+
+    testCase "string and interpolated string format a conditional of string constants" <| fun () ->
+        let c = opaque true
+        let n = opaque 2
+        $"""x{(if c then "a" else "b")}y""" |> equal "xay"
+        $"""{(if c then "a" else "b")}""" |> equal "a"
+        $"""x{(match n with 1 -> "one" | 2 -> "two" | _ -> "many")}y""" |> equal "xtwoy"
+        $"""x{(match n, c with 1, true -> "one" | 2, _ -> "two" | _, false -> "f" | _ -> "many")}y""" |> equal "xtwoy"
+        $"""x{(if c then (if n = 1 then "a" else "b") else $"{n}")}y""" |> equal "xby"
+        $"""x{(let m = n + 1 in if m > 2 then "a" else "b")}y""" |> equal "xay"
+        wrapInTemplate (if c then "a" else "b") |> equal "<a>"
+        wrapInTemplate "a" |> equal "<a>"
+        String.Concat("a", (if c then "x" else "y")) |> equal "ax"
+        string (if c then "a" else "b") |> equal "a"
+        stringOf (if c then "a" else "b") |> equal "a"
+        stringOf "a" |> equal "a"
+        $"""<{unbox<string> (box "q")}>""" |> equal "<q>"
+        $"""<{(box "q" :?> string)}>""" |> equal "<q>"
+        $"""<{id "q"}>""" |> equal "<q>"
+        $"""<{fst ("q", 1)}>""" |> equal "<q>"
+        String.Concat("<", unbox<string> (box "q")) |> equal "<q"
+        $"""<{(if c then unbox<string> (box "q") else "r")}>""" |> equal "<q>"
+        $"""x{(if c then "a" else string 'b')}y""" |> equal "xay"
+        string (unbox<string> (box "a")) |> equal "a"
+        string (id "q") |> equal "q"
+        string (if c then "" else "a") |> equal ""
+
+    testCase "string and interpolated string format a null branch of a conditional as empty" <| fun () ->
+        let c = opaque true
+        let n = opaque 2
+        let s = nullString ()
+        $"""x{(if c then null else "b")}y""" |> equal "xy"
+        $"""x{(if c then s else "b")}y""" |> equal "xy"
+        $"""x{(if c then "a" else null)}y""" |> equal "xay"
+        $"""x{(match n with 1 -> "one" | 2 -> null | _ -> "many")}y""" |> equal "xy"
+        wrapInTemplate (if c then null else "b") |> equal "<>"
+        string (if c then null else "b") |> equal ""
+        stringOf (if c then s else "b") |> equal ""
+        $"""<{unbox<string> null}>""" |> equal "<>"
+        $"""<{(box null :?> string)}>""" |> equal "<>"
+        $"""<{unbox<string> (box s)}>""" |> equal "<>"
+        $"""<{(box s :?> string)}>""" |> equal "<>"
+        $"""<{(if c then s else unbox<string> (box "q"))}>""" |> equal "<>"
+        string (unbox<string> null) |> equal ""
+        string (box s :?> string) |> equal ""
+        String.Concat("<", unbox<string> (box s)) |> equal "<"
+
         let generic (x: 'T) = $"a{x}b"
         $"a{NullToString()}b" |> equal "ab"
         generic (NullToString()) |> equal "ab"

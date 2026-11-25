@@ -437,6 +437,10 @@ let toString com (ctx: Context) r (args: Expr list) =
         // | DeclaredType(ent, _) ->
         | _ -> Helper.LibCall(com, "exceptions", "to_string", String, [ head ], ?loc = r)
 
+let formatStringTemplate com ctx r parts holes =
+    let toString r value = toString com ctx r [ value ]
+    formatStringTemplateWith isNeverNullString (fun _ -> false) toString r parts holes
+
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->

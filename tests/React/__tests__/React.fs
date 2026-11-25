@@ -91,4 +91,32 @@ Jest.describe("React tests", (fun () ->
         Jest.expect(node).toHaveTextContent("3.142")
     ))
 
+    Jest.test("JSX template passed to an inline helper keeps its holes", (fun () ->
+        let child = Fable.Core.JSX.jsx "<span data-testid=\"inline-helper-child\">inner</span>"
+        let elem = RTL.render(Counter.InlineHelperJSX("tooltip") (child) |> unbox)
+        Jest.expect(elem.getByTestId "inline-helper").toHaveAttribute("title", "tooltip")
+        Jest.expect(elem.getByTestId "inline-helper-child").toHaveTextContent("inner")
+    ))
+
+    Jest.test("JSX template passed to nested inline helpers keeps its holes", (fun () ->
+        let child = Fable.Core.JSX.jsx "<span data-testid=\"nested-inline-helper-child\">inner</span>"
+        let elem = RTL.render(Counter.NestedInlineHelperJSX("tooltip") (child) |> unbox)
+        Jest.expect(elem.getByTestId "nested-inline-helper").toHaveAttribute("title", "tooltip")
+        Jest.expect(elem.getByTestId "nested-inline-helper-child").toHaveTextContent("inner")
+    ))
+
+    Jest.test("JSX template bound with let keeps its holes", (fun () ->
+        let child = Fable.Core.JSX.jsx "<span data-testid=\"let-bound-child\">inner</span>"
+        let elem = RTL.render(Counter.LetBoundJSX("tooltip") (child) |> unbox)
+        Jest.expect(elem.getByTestId "let-bound").toHaveAttribute("title", "tooltip")
+        Jest.expect(elem.getByTestId "let-bound-child").toHaveTextContent("inner")
+    ))
+
+    Jest.test("JSX template piped to an inline helper keeps its holes", (fun () ->
+        let child = Fable.Core.JSX.jsx "<span data-testid=\"piped-child\">inner</span>"
+        let elem = RTL.render(Counter.PipedJSX("tooltip") (child) |> unbox)
+        Jest.expect(elem.getByTestId "piped").toHaveAttribute("title", "tooltip")
+        Jest.expect(elem.getByTestId "piped-child").toHaveTextContent("inner")
+    ))
+
 ))

@@ -450,10 +450,10 @@ let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
     | head :: tail ->
         match head.Type with
         | String ->
-            match head with
-            | Value(StringConstant _, _) -> head
-            | _ when nullAsEmpty -> Operation(Logical(LogicalOr, head, makeStrConst ""), Tags.empty, String, r)
-            | _ -> head
+            if nullAsEmpty && not (isNeverNullString head) then
+                Operation(Logical(LogicalOr, head, makeStrConst ""), Tags.empty, String, r)
+            else
+                head
         | Char -> TypeCast(head, String)
         | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin BclDateOnly -> Helper.LibCall(com, dateOnlyModule com, "toString", String, args)
@@ -496,6 +496,70 @@ let toString com ctx r args = toStringWith false com ctx r args
 
 /// F#'s `string` operator returns an empty string for null
 let stringOperator com ctx r args = toStringWith true com ctx r args
+
+[<Literal>]
+let private formattedHoleTag = "formatted-hole"
+
+let formatStringTemplate com ctx r parts holes =
+    let isNeverNull (expr: Expr) =
+        expr
+        |> isNeverNullStringWith (
+            function
+            | Call(Import({
+                              Path = path
+                              Kind = LibraryImport _
+                          },
+                          _,
+                          _),
+                   _,
+                   String,
+                   _) -> IO.Path.GetFileNameWithoutExtension(path) = "String"
+            | _ -> false
+        )
+
+    let isFormattedByTemplate (value: Expr) =
+        match value.Type with
+        | Char -> true
+        | Number((Float32 | Float64 | Decimal | BigInt), _) -> false
+        | Number _ -> true
+        | _ -> false
+
+    let toString r value = stringOperator com ctx r [ value ]
+
+    match formatStringTemplateWith isNeverNull isFormattedByTemplate toString r parts holes with
+    | Value(StringTemplate(tag, parts, values), r) ->
+        let values =
+            (holes, values)
+            ||> List.map2 (fun (hole, _) value ->
+                if obj.ReferenceEquals(hole, value) then
+                    value
+                else
+                    withTag formattedHoleTag value
+            )
+
+        Value(StringTemplate(tag, parts, values), r)
+    | expr -> expr
+
+// FableTransforms inlines a template into a `JSX.html` call after the template is formatted
+let unformatStringTemplateHole (hole: Expr) =
+    match hole with
+    | Operation(Logical(LogicalOr, value, _), Tags.Contains formattedHoleTag, _, _)
+    | Call(Import({ Kind = LibraryImport _ }, _, _),
+           {
+               Args = value :: _
+               Tags = Tags.Contains formattedHoleTag
+           },
+           _,
+           _)
+    | Emit({
+               CallInfo = {
+                              Args = value :: _
+                              Tags = Tags.Contains formattedHoleTag
+                          }
+           },
+           _,
+           _) -> value
+    | hole -> hole
 
 let round com (args: Expr list) =
     match args.Head.Type with

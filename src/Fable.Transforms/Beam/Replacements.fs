@@ -316,6 +316,12 @@ let private fsFormat
         |> Some
     | _ -> None
 
+let formatStringTemplate (com: ICompiler) (_ctx: Context) r parts holes =
+    let toString r value =
+        ToString.toStringByType com r String value |> Option.defaultValue value
+
+    formatStringTemplateWith isNeverNullString (fun _ -> false) toString r parts holes
+
 let private operators
     (com: ICompiler)
     (ctx: Context)

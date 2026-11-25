@@ -316,6 +316,24 @@ let rec toString com (ctx: Context) r (args: Expr list) =
         // | DeclaredType(ent, _) ->
         | _ -> libCall com r String "String" "toString" [ head ]
 
+let formatStringTemplate com ctx r (parts: string list) (holes: (Expr * bool) list) =
+    match parts, holes with
+    | [ ""; "" ], [ value, _ ] -> toString com ctx r [ value ]
+    | head :: tail, holes ->
+        let pieces =
+            (holes, tail)
+            ||> List.zip
+            |> List.collect (fun ((value, _), part) -> [ toString com ctx None [ value ]; makeStrConst part ])
+            |> List.append [ makeStrConst head ]
+            |> List.filter (
+                function
+                | Value(StringConstant "", _) -> false
+                | _ -> true
+            )
+
+        libCall com r String "String" "concat" [ makeArray String pieces ]
+    | [], _ -> makeStrConst ""
+
 let toRoundInt com (ctx: Context) r t i (args: Expr list) =
     let sourceType = args.Head.Type
 

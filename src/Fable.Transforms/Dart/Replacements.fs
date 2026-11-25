@@ -265,6 +265,17 @@ let toString com (ctx: Context) r (args: Expr list) =
         //        | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         | _ -> Helper.InstanceCall(head, "toString", String, tail)
 
+let formatStringTemplate com ctx r parts holes =
+    let isFormattedByTemplate (value: Expr) =
+        match value.Type with
+        | Unit
+        | Char
+        | DeclaredType({ FullName = Types.rune }, _) -> false
+        | _ -> true
+
+    let toString r value = toString com ctx r [ value ]
+    formatStringTemplateWith isNeverNullString isFormattedByTemplate toString r parts holes
+
 let round com (args: Expr list) =
     match args.Head.Type with
     | Number(Decimal, _) ->
