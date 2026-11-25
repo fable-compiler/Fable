@@ -455,12 +455,7 @@ let private extractUsefulOptionsAndSources
     if line.StartsWith('-') then
         //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
         if line.StartsWith("--langversion:", StringComparison.Ordinal) && isMainProj then
-            let v = line.Substring("--langversion:".Length).ToLowerInvariant()
-
-            if v = "preview" then
-                accSources, line :: accOptions
-            else
-                accSources, accOptions
+            accSources, line :: accOptions
         // Only forward the nullness flag if it is coming from the main project
         elif line.StartsWith("--checknulls+", StringComparison.Ordinal) && isMainProj then
             accSources, line :: accOptions
