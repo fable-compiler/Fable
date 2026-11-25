@@ -1,5 +1,7 @@
 
-import { class_type } from "./fable_modules/fable-library-js.5.0.0-rc.3/Reflection.js";
+import { join } from "./fable_modules/fable-library-js.5.28.0/String.js";
+import { int32ToString } from "./fable_modules/fable-library-js.5.28.0/Util.js";
+import { class_type } from "./fable_modules/fable-library-js.5.28.0/Reflection.js";
 
 /**
  * My superb class with attachments and doc comments
@@ -20,7 +22,7 @@ export class ClassWithAttachmentsAndDoc {
      */
     Greet(name) {
         const _ = this;
-        return `Hello, ${name}! Value is ${_.v}.`;
+        return join("", ["Hello, ", name, "! Value is ", int32ToString(_.v), "."]);
     }
 }
 
