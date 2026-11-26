@@ -893,6 +893,12 @@ module Helpers =
         // (Note: the non-abbreviated type of inref and outref is byref)
         value.IsValue && not value.IsMemberThisValue && isByRefType value.FullType
 
+    // F# reads struct fields through `inputRecord` and `spreadSrc` and never writes through them
+    let isCompilerGeneratedByRefLocal (value: FSharpMemberOrFunctionOrValue) =
+        value.IsCompilerGenerated
+        && (value.CompiledName = "inputRecord" || value.CompiledName = "spreadSrc")
+        && isByRefValue value
+
     let tryFindAttrib fullName (attributes: FSharpAttribute seq) =
         attributes
         |> Seq.tryPick (fun att ->
@@ -3530,8 +3536,29 @@ module Util =
         )
         |> makeCallWithArgInfo com ctx r typ callee memb memberRef
 
+    let isScopeInlineValue (ctx: Context) (var: FSharpMemberOrFunctionOrValue) =
+        isCompilerGeneratedByRefLocal var
+        && ctx.ScopeInlineValues |> List.exists (fun (v, _) -> obj.Equals(v, var))
+
+    let rec tryGetPlaceMutability (expr: FSharpExpr) =
+        match expr with
+        | FSharpExprPatterns.ThisValue _ -> Some false
+        | FSharpExprPatterns.Value v
+        | FSharpExprPatterns.Call(None, v, _, _, []) when v.IsValue -> Some v.IsMutable
+        | FSharpExprPatterns.FSharpFieldGet(None, _, field) -> Some field.IsMutable
+        | FSharpExprPatterns.FSharpFieldGet(Some(IgnoreAddressOf callee), _, field) ->
+            tryGetPlaceMutability callee
+            |> Option.map (fun isMutable -> isMutable || field.IsMutable)
+        | _ -> None
+
+    let isMutablePlace (expr: FSharpExpr) = tryGetPlaceMutability expr = Some true
+
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
-        let typ = makeType ctx.GenericArgs v.FullType
+        let typ =
+            if com.Options.Language <> Rust && isCompilerGeneratedByRefLocal v then
+                makeType ctx.GenericArgs v.FullType.GenericArguments[0]
+            else
+                makeType ctx.GenericArgs v.FullType
 
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit && v.IsCompilerGenerated ->

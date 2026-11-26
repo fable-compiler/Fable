@@ -1470,8 +1470,11 @@ module Util =
     //     | _ -> com.TransformExpr(ctx, expr)
 
     let isTempLocal (ident: Fable.Ident) =
+        // A second local of the same name in a declaration scope gets a `_N` suffix
+        let name = ident.Name.TrimEnd([| '0' .. '9' |]).TrimEnd('_')
+
         ident.IsCompilerGenerated
-        && (ident.Name = "copyOfStruct" || ident.Name = "inputRecord")
+        && (name = "copyOfStruct" || name = "inputRecord" || name = "spreadSrc")
 
     // let isMutableOrByRef (ident: Fable.Ident) =
     //     (ident.IsMutable || isByRefType ident)
