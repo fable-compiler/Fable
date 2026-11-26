@@ -8,6 +8,7 @@ let _imports () =
     importAll "./BitConverter.rs"
     importAll "./Char.rs"
     importAll "./Convert.rs"
+    importAll "./Console.rs"
     importAll "./DateOnly.rs"
     importAll "./DateTime.rs"
     importAll "./DateTimeOffset.rs"
