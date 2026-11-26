@@ -3002,12 +3002,71 @@ let nullableModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_:
             Helper.LibCall(com, "Option", "map", t, [ mapping; value ], ?loc = r) |> Some
     | _ -> None
 
+// `some(undefined)` returns a new `Some`, which only `value` unwraps
+let private canBeSomeUndefined (com: ICompiler) (t: Type) =
+    match t with
+    | String
+    | Nullable(String, _) -> false
+    | _ -> canOptionValueBeNull com t
+
+let private optionValue (com: ICompiler) (ctx: Context) r (t: Type) (opt: Expr) =
+    match opt.Type with
+    | Option(genArg, _) when
+        not (mustWrapOption genArg)
+        && not (com.Options.Language = TypeScript && containsFunctionType genArg)
+        ->
+        let value opt =
+            if canOptionValueBeNull com genArg then
+                Get(opt, OptionValue, genArg, r)
+            else
+                let someCons = Helper.LibValue(com, "Option", "Some", Any)
+
+                IfThenElse(
+                    emitExpr None Boolean [ opt; someCons ] "$0 instanceof $1",
+                    getImmutableFieldWith r genArg opt "value",
+                    Get(opt, OptionValue, genArg, r),
+                    r
+                )
+
+        let unwrap opt =
+            IfThenElse(
+                Test(opt, OptionTest false, None),
+                Helper.LibCall(com, "Util", "throwOptionHasNoValue", genArg, []),
+                value opt,
+                r
+            )
+
+        match opt with
+        | _ when canBeSomeUndefined com genArg ->
+            Helper.LibCall(com, "Option", "value", t, [ opt ], genArgs = [ genArg ], ?loc = r)
+        | IdentExpr _ when canOptionValueBeNull com genArg -> unwrap opt
+        | _ ->
+            // TypeScript narrows an option to its value type, which rejects `instanceof Some`
+            let identType =
+                if canOptionValueBeNull com genArg then
+                    opt.Type
+                else
+                    Any
+
+            let ident = makeUniqueIdent com ctx identType "opt"
+            Let(ident, opt, unwrap (IdentExpr ident))
+    | _ -> Helper.LibCall(com, "Option", "value", t, [ opt ], ?loc = r)
+
 // See fable-library-ts/Option.ts for more info on how options behave in Fable runtime
-let options isStruct (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let options
+    isStruct
+    (com: ICompiler)
+    (ctx: Context)
+    r
+    (t: Type)
+    (i: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
     match i.CompiledName, thisArg with
     | "Some", _ -> NewOption(List.tryHead args, t.Generics.Head, isStruct) |> makeValue r |> Some
     | "get_None", _ -> NewOption(None, t.Generics.Head, isStruct) |> makeValue r |> Some
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
+    | "get_Value", Some c -> optionValue com ctx r t c |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
@@ -3020,7 +3079,7 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
 
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, isStruct) |> makeValue r |> Some
-    | "GetValue", [ c ] -> Helper.LibCall(com, "Option", "value", t, args, ?loc = r) |> Some
+    | "GetValue", [ c ] -> optionValue com ctx r t c |> Some
     | ("OfObj" | "OfNullable"), _ ->
         Helper.LibCall(com, "Option", "ofNullable", t, args, genArgs = i.GenericArgs, ?loc = r)
         |> Some

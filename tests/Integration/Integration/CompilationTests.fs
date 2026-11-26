@@ -99,7 +99,19 @@ let private precompiledBaseTest name fixture shouldCompile =
 let tests =
     Directory.EnumerateDirectories(data)
     |> Seq.map (fun testCaseDir -> //
-        testCaseAsync
+        // Compiler.CheckNulls is process-wide, so a project that sets it must not compile next to another one
+        let sequenceIfCheckNulls test =
+            let enablesCheckNulls =
+                Directory.GetFileSystemEntries(testCaseDir, "*.fsproj")
+                |> Array.exists (fun project -> File.ReadAllText(project).Contains("<Nullable>enable</Nullable>"))
+
+            if enablesCheckNulls then
+                testSequenced test
+            else
+                test
+
+        sequenceIfCheckNulls
+        <| testCaseAsync
             testCaseDir
             (async {
                 let project =

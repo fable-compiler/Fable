@@ -669,7 +669,8 @@ module Annotation =
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.IsTypeScript then
             match typ, expr with
-            | Fable.Option _, _ -> makeTypeAnnotation com ctx typ |> Some
+            | Fable.Option _, _
+            | Fable.Any, _ -> makeTypeAnnotation com ctx typ |> Some
             // Use type annotation for NullLiteral and enum cases
             | _, Some(Literal(Literal.StringLiteral _))
             | _, Some(Literal(StringTemplate _))
@@ -1256,6 +1257,45 @@ module Util =
     let get r left memberName =
         let expr, isComputed = memberFromNameComputeStrings true memberName
         Expression.memberExpression (left, expr, isComputed, ?loc = r)
+
+    let rec isIdentOrMemberAccess (expr: Expression) =
+        match expr with
+        | Expression.Identifier _ -> true
+        | MemberExpression(object, _, false, _)
+        | MemberExpression(object, Literal(NumericLiteral _), true, _) -> isIdentOrMemberAccess object
+        | _ -> false
+
+    let unwrapNullableOptionValue (com: IBabelCompiler) ctx (typ: Fable.Type) (expr: Expression) =
+        match typ with
+        | Fable.String
+        | Fable.Nullable(Fable.String, _) ->
+            ConditionalExpression(
+                BinaryExpression(
+                    UnaryExpression(expr, "typeof", false, None),
+                    Expression.stringLiteral "string",
+                    "===",
+                    None
+                ),
+                expr,
+                libCall com ctx None "Option" "value" [] [ expr ],
+                None
+            )
+        | _ ->
+            let unwrap nullExpr =
+                ConditionalExpression(
+                    BinaryExpression(expr, libValue com ctx "Option" "someNull", "===", None),
+                    nullExpr,
+                    expr,
+                    None
+                )
+
+            if com.IsTypeScript then
+                AsExpression(
+                    unwrap (AsExpression(Expression.nullLiteral (), AnyTypeAnnotation)),
+                    makeTypeAnnotation com ctx typ
+                )
+            else
+                unwrap (Expression.nullLiteral ())
 
     let getExpr r (object: Expression) (expr: Expression) =
         let expr, isComputed =
@@ -1860,6 +1900,7 @@ module Util =
                 if mustWrapOption t then
                     libCall com ctx r "Option" "some" [] [ e ]
                 else
+                    // Unlike .NET, `Some null` is `None` here, and user interop code depends on it (see #5342)
                     e
             | None -> undefined r None
         | Fable.NewRecord(values, ent, genArgs) ->
@@ -2794,6 +2835,11 @@ but thanks to the optimisation done below we get
             // Functions are stored uncurried, so their annotation would not match the value
             if mustWrapOption typ || (com.IsTypeScript && containsFunctionType typ) then
                 libCall com ctx None "Option" "value" [] [ expr ]
+            elif canOptionValueBeNull com typ then
+                if isIdentOrMemberAccess expr && not (canHaveSideEffects com fableExpr) then
+                    unwrapNullableOptionValue com ctx typ expr
+                else
+                    libCall com ctx None "Option" "value" [] [ expr ]
             elif com.IsTypeScript then
                 AsExpression(expr, makeTypeAnnotation com ctx typ)
             else

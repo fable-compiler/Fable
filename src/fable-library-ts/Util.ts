@@ -96,6 +96,10 @@ export class Exception {
   }
 }
 
+export function throwOptionHasNoValue(): never {
+  throw new Exception("Option has no value");
+}
+
 export function isException(x: any) {
   return x instanceof Exception || x instanceof Error;
 }

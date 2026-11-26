@@ -3,6 +3,7 @@ module Fable.Tests.Option
 open System
 open Fable.Core.JsInterop
 open Util.Testing
+open Fable.Tests.Util
 
 type Tree =
     | Leaf of int
@@ -32,6 +33,30 @@ type OptTest = OptTest of int option
 
 let makeSome (x: 'a): 'a option =
     Some x
+
+type ValueRecord = { Name: string }
+
+let makeValueSome (x: 'a): 'a voption =
+    ValueSome x
+
+[<AllowNullLiteral>]
+type NullableClass(x: int) =
+    member _.X = x
+
+let undefinedOrNull<'a when 'a: null> () : 'a =
+#if FABLE_COMPILER
+    !!Fable.Core.JS.undefined
+#else
+    null
+#endif
+
+let defaultOf<'a> () : 'a =
+    Unchecked.defaultof<'a>
+
+[<Fable.Core.Erase>]
+type ErasedName = ErasedName of string
+
+type OptionFields = { Text: string option; Cls: NullableClass option }
 
 let tests =
   testList "Option" [
@@ -288,6 +313,91 @@ let tests =
     testCase "Option.toValueOption works" <| fun () ->
         Some 42 |> Option.toValueOption |> ValueOption.get |> equal 42
         None |> Option.toValueOption |> ValueOption.isNone |> equal true
+
+    testCase "Option.Value, Option.get and ValueOption.get throw on None" <| fun () ->
+        let opt: int option = None
+        let vopt: int voption = ValueNone
+        throwsAnyError (fun () -> opt.Value + 1)
+        throwsAnyError (fun () -> Option.get opt + 1)
+        throwsAnyError (fun () -> vopt.Value + 1)
+        throwsAnyError (fun () -> ValueOption.get vopt + 1)
+#if FABLE_COMPILER
+        throwsError "Option has no value" (fun () -> opt.Value + 1)
+        throwsError "Option has no value" (fun () -> ValueOption.get vopt + 1)
+#endif
+
+    testCase "Option.Value and Option.get evaluate the option expression once" <| fun () ->
+        let mutable count = 0
+        let next () =
+            count <- count + 1
+            Some { Name = string count }
+        let nextValue () =
+            count <- count + 1
+            ValueSome count
+        (next ()).Value.Name |> equal "1"
+        (Option.get (next ())).Name |> equal "2"
+        (nextValue ()).Value + 1 |> equal 4
+        ValueOption.get (nextValue ()) + 1 |> equal 5
+        count |> equal 4
+
+    testCase "Some null made by generic code can be read as a string option" <| fun () ->
+        let text: string option = makeSome null
+        text.IsSome |> equal true
+        isNull text.Value |> equal true
+        isNull (Option.get text) |> equal true
+        (match text with Some v -> isNull v | None -> false) |> equal true
+        (match makeSome (null: string) with Some v -> isNull v | None -> false) |> equal true
+
+    testCase "Some null made by generic code can be read as a class, an array and a ValueOption" <| fun () ->
+        let cls: NullableClass option = makeSome null
+        let arr: int[] option = makeSome null
+        let text: string voption = makeValueSome null
+        cls.IsSome |> equal true
+        (match cls with Some v -> isNull v | None -> false) |> equal true
+        (match makeSome (null: NullableClass) with Some v -> isNull v | None -> false) |> equal true
+        arr.IsSome |> equal true
+        (match arr with Some v -> isNull v | None -> false) |> equal true
+        text.IsSome |> equal true
+        (match text with ValueSome v -> isNull v | ValueNone -> false) |> equal true
+
+    testCase "Option.Value and Option.get unwrap Some undefined made by generic code" <| fun () ->
+        let cls: NullableClass option = makeSome (undefinedOrNull ())
+        let valueCls: NullableClass voption = makeValueSome (undefinedOrNull ())
+        cls.IsSome |> equal true
+        isNull cls.Value |> equal true
+        isNull (Option.get cls) |> equal true
+        isNull valueCls.Value |> equal true
+        isNull (ValueOption.get valueCls) |> equal true
+
+    testCase "Option.Value and Option.get unwrap Some null made by generic code for a record and an int" <| fun () ->
+        let record: ValueRecord option = makeSome (defaultOf ())
+        let valueRecord: ValueRecord voption = makeValueSome (defaultOf ())
+        let number: int option = makeSome (defaultOf ())
+        isNull (box record.Value) |> equal true
+        isNull (box (Option.get record)) |> equal true
+        isNull (box valueRecord.Value) |> equal true
+        isNull (box (ValueOption.get valueRecord)) |> equal true
+        number.Value + 1 |> equal 1
+        Option.get number + 1 |> equal 1
+
+    testCase "Option.Value and Option.get unwrap Some null made by generic code for an erased union" <| fun () ->
+        let name = makeSome (ErasedName null)
+        let (ErasedName value) = name.Value
+        let (ErasedName got) = Option.get name
+        isNull value |> equal true
+        isNull got |> equal true
+
+    testCase "Some null made by generic code can be read in a nested pattern" <| fun () ->
+        let texts = [ makeSome (null: string); Some "a" ]
+        let classes = [ makeSome (null: NullableClass); Some (NullableClass 3) ]
+        let textArray = [| makeSome (null: string); Some "a" |]
+        let fields = { Text = makeSome null; Cls = makeSome null }
+        (match texts with Some v :: _ -> isNull v | _ -> false) |> equal true
+        (match texts with _ :: Some v :: _ -> v = "a" | _ -> false) |> equal true
+        (match classes with Some v :: _ -> isNull v | _ -> false) |> equal true
+        (match classes with _ :: Some v :: _ -> v.X = 3 | _ -> false) |> equal true
+        (match textArray with [| Some a; Some b |] -> isNull a && b = "a" | _ -> false) |> equal true
+        (match fields with { Text = Some a; Cls = Some b } -> isNull a && isNull b | _ -> false) |> equal true
 
     // https://github.com/fable-compiler/Fable/issues/1136
     testCase "Calling Some with side-effects works" <| fun () ->

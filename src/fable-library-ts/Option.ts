@@ -72,8 +72,11 @@ export function unwrap<T>(opt: Option<T>): T | undefined {
   return opt instanceof Some ? opt.value : opt;
 }
 
+// Compiled code tests for `Some(null)` by identity, so `some(null)` must always return this instance.
+export const someNull: any = Object.freeze(new Some(null));
+
 export function some<T>(x: T): Option<T> {
-  return x == null || x instanceof Some ? new Some(x) : x;
+  return x === null ? someNull : x === undefined || x instanceof Some ? new Some(x) : x;
 }
 
 export function ofNullable<T>(x: Nullable<T>): Option<T> {
