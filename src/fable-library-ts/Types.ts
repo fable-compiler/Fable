@@ -37,8 +37,7 @@ export function toString(x: any, callStack = 0): string {
     } else { // TODO: Date?
       const cons = Object.getPrototypeOf(x)?.constructor;
       return cons === Object && callStack < 10
-        // Same format as recordToString
-        ? "{ " + Object.entries(x).map(([k, v]) => k + " = " + toStringQuoted(v, callStack + 1)).join("\n  ") + " }"
+        ? "{| " + Object.entries(x).map(([k, v]) => k + " = " + toStringQuoted(v, callStack + 1)).join("\n   ") + " |}"
         : cons?.name ?? "";
     }
   }
