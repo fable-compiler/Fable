@@ -38,6 +38,10 @@ let containsInOrder (substrings: string list) (str: string) =
         lastIndex <- i
         success)
 
+let holesFollowedByLetter (x: int) (s: string) = $"a{x}b{s}c", $"{s}_{x}0"
+
+type UnitHoleRecord = { mutable G: int }
+
 let tests() =
 
     testCase "F# nameof works" <| fun () ->
@@ -1213,6 +1217,80 @@ let tests() =
         $"""{"foo"}{5}""" |> equal "foo5"
         $"""%s{"foo"}%i{5}""" |> equal "foo5"
         $"""{"foo"}/{5}.fsi""" |> equal "foo/5.fsi"
+
+    testCase "interpolated string with a hole followed by a letter works" <| fun () ->
+        holesFollowedByLetter 5 "foo" |> equal ("a5bfooc", "foo_50")
+
+    testCase "interpolated string keeps its literal text" <| fun () ->
+        let f (x: int) =
+            [
+                $"a\\\\b{x}"
+                $"a\r{x}b"
+                $"a\r\n{x}b"
+                $"\nx{x}"
+                $"a${{1}}'{x}'''"
+            ]
+        f 1 |> equal [ "a\\\\b1"; "a\r1b"; "a\r\n1b"; "\nx1"; "a${1}'1'''" ]
+
+    testCase "interpolated string evaluates unit holes" <| fun () ->
+        let mutable calls = 0
+        let effect () : unit = calls <- calls + 1
+        let x = 1
+        $"A({effect ()}, {x})" |> equal "A(, 1)"
+        calls |> equal 1
+        string (effect ()) |> equal ""
+        calls |> equal 2
+        let log = ResizeArray<int>()
+        let f i = log.Add i; i
+        let u (i: int) : unit = log.Add i
+        let concat3 (a: string) (b: string) (c: string) = a + b + c
+        string (f 1) + string (u 2) + string (f 3) |> equal "13"
+        $"{f 4}{u 5}{f 6}" |> equal "46"
+        concat3 (string (f 7)) (string (u 8)) (string (f 9)) |> equal "79"
+        Seq.toList log |> equal [ 1; 2; 3; 4; 5; 6; 7; 8; 9 ]
+
+    testCase "string evaluates a unit assignment" <| fun () ->
+        let local k =
+            let mutable m = 0
+            let s = string (m <- k)
+            s, m
+
+        local 5 |> equal ("", 5)
+
+        let field k =
+            let r = { G = 0 }
+            let s = string (r.G <- k)
+            s, r.G
+
+        field 5 |> equal ("", 5)
+
+        let item k =
+            let arr = [| 0 |]
+            let s = string (arr.[0] <- k)
+            s, arr.[0]
+
+        item 5 |> equal ("", 5)
+
+        let resizeItem k =
+            let ra = ResizeArray [ 0 ]
+            let s = string (ra.[0] <- k)
+            s, ra.[0]
+
+        resizeItem 5 |> equal ("", 5)
+
+        let refCell k =
+            let cell = ref 0
+            let s = string (cell.Value <- k)
+            s, cell.Value
+
+        refCell 5 |> equal ("", 5)
+
+        let hole k =
+            let mutable m = 0
+            let s = $"<{m <- k + 1}>"
+            s, m
+
+        hole 5 |> equal ("<>", 6)
 
     // // TODO: FormattableString
     // testCase "Can create FormattableString" <| fun () ->

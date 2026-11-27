@@ -154,4 +154,19 @@ let factorial (count : int) : int =
 let ``emitRustExpr works with parameters`` () =
     factorial 5 |> equal 120
 
+[<Fact>]
+let ``emitRustExpr can be used with interpolation`` () =
+    let x = 10
+    let y = 20
+    let two: int = emitRustExpr () $"1 + {x}"
+    let three: int = emitRustExpr () $"({x} + 1)"
+    let five: int = emitRustExpr () $"({x} + {y})"
+    let single: int = emitRustExpr () $"{x}"
+    let text: int = emitRustExpr () $"{string x}.len() as i32"
+    two |> equal 11
+    three |> equal 11
+    five |> equal 30
+    single |> equal 10
+    text |> equal 2
+
 #endif

@@ -1,6 +1,4 @@
 
-import { join } from "./fable_modules/fable-library-js.5.28.0/String.js";
-import { int32ToString } from "./fable_modules/fable-library-js.5.28.0/Util.js";
 import { class_type } from "./fable_modules/fable-library-js.5.28.0/Reflection.js";
 
 /**
@@ -22,7 +20,7 @@ export class ClassWithAttachmentsAndDoc {
      */
     Greet(name) {
         const _ = this;
-        return join("", ["Hello, ", name, "! Value is ", int32ToString(_.v), "."]);
+        return `Hello, ${name || ""}! Value is ${_.v}.`;
     }
 }
 

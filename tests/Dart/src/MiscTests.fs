@@ -276,6 +276,22 @@ let tests() =
             | e -> "Unexpected exception: " + e.Message
         equal "This is invalid" caught
 
+#if FABLE_COMPILER
+    testCase "emitExpr can be used with interpolation" <| fun () ->
+        let x = 10
+        let y = 20
+        let two: int = Dart.emitExpr () $"1 + {x}"
+        let three: int = Dart.emitExpr () $"({x} + 1)"
+        let five: int = Dart.emitExpr () $"({x} + {y})"
+        let single: int = Dart.emitExpr () $"{x}"
+        let text: string = Dart.emitExpr () $"{string x} + '!'"
+        equal 11 two
+        equal 11 three
+        equal 30 five
+        equal 10 single
+        equal "10!" text
+#endif
+
     testCase "Compiler target flags have correct value per target" <| fun () ->
         equal false Compiler.isJavaScript
         equal false Compiler.isTypeScript

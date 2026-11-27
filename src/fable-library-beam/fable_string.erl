@@ -12,6 +12,7 @@
     concat/1,
     replicate/2,
     is_null_or_empty/1,
+    null_to_empty/1,
     is_null_or_white_space/1,
     forall/2,
     exists/2,
@@ -70,6 +71,7 @@
 -spec concat(list() | reference() | map()) -> binary().
 -spec replicate(non_neg_integer(), binary()) -> binary().
 -spec is_null_or_empty(binary() | undefined) -> boolean().
+-spec null_to_empty(binary() | undefined) -> binary().
 -spec is_null_or_white_space(binary() | undefined) -> boolean().
 -spec forall(fun((integer()) -> boolean()), binary()) -> boolean().
 -spec exists(fun((integer()) -> boolean()), binary()) -> boolean().
@@ -210,6 +212,9 @@ replicate(Count, Str) ->
 
 is_null_or_empty(Str) ->
     (Str =:= undefined) orelse (Str =:= <<>>).
+
+null_to_empty(undefined) -> <<>>;
+null_to_empty(Str) -> Str.
 
 is_null_or_white_space(Str) ->
     (Str =:= undefined) orelse (string:trim(Str) =:= <<>>).

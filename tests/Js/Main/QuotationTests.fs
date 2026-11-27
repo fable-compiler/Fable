@@ -324,6 +324,19 @@ let tests =
          | _ -> "?")
         |> equal "Var"
 
+    testCase "String.Concat and an interpolated string inside a quotation are a Call" <| fun () ->
+        let calledMethod (e: Expr) =
+            match e with
+            | Lambda(_, Call(None, mi, _)) -> string mi
+            | _ -> ""
+        let concat = calledMethod <@ fun (s: string) -> System.String.Concat("a", s) @>
+        let interpolated = calledMethod <@ fun (x: int) -> $"v{x}." @>
+        let toString = calledMethod <@ fun (x: int) -> string x @>
+        concat.Contains("Concat") |> equal true
+        // .NET quotes an interpolated string as a call to PrintFormatToString
+        (interpolated.Contains("Concat") || interpolated.Contains("PrintFormatToString")) |> equal true
+        toString.Contains("ToString") |> equal true
+
     testCase "NewRecord leaves out DefaultValue fields" <| fun () ->
         (match <@ { A = 1; C = "c" }: QuotationDefaultValueRecord @> with
          | NewRecord(_, args) -> args |> Seq.map (function Value(v, _) -> string v | _ -> "?") |> String.concat ","

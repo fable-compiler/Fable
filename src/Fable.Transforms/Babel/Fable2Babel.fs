@@ -2185,6 +2185,16 @@ module Util =
         | Some(Assign left) -> ExpressionStatement(assign babelExpr.Location left babelExpr)
         | Some(Target left) -> ExpressionStatement(assign babelExpr.Location (left |> Expression.Identifier) babelExpr)
 
+    // TypeScript reports `"a" || ""` and `(c ? "a" : "b") || ""` as errors (TS2872)
+    let rec isStringLiteralOrConditional (expr: Expression) =
+        match expr with
+        | Literal(Literal.StringLiteral _) -> true
+        | AsExpression(expr, _) -> isStringLiteralOrConditional expr
+        | ConditionalExpression(_, consequent, alternate, _) ->
+            isStringLiteralOrConditional consequent
+            && isStringLiteralOrConditional alternate
+        | _ -> false
+
     let transformOperation com ctx range typ opKind : Expression =
         match opKind with
         | Fable.Unary(op, TransformExpr com ctx expr) -> Expression.unaryExpression (op, expr, ?loc = range)
@@ -2232,8 +2242,10 @@ module Util =
                     Expression.callExpression (fround, [| e |], ?loc = range)
                 | _ -> e
 
-        | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
-            Expression.logicalExpression (left, op, right, ?loc = range)
+        | Fable.Logical(op, TransformExpr com ctx left, right) ->
+            match op, right with
+            | LogicalOr, Fable.Value(Fable.StringConstant "", _) when isStringLiteralOrConditional left -> left
+            | _ -> Expression.logicalExpression (left, op, com.TransformAsExpr(ctx, right), ?loc = range)
 
     let isTypedArrayConstructor (expr: Fable.Expr) =
         match expr with
@@ -2556,44 +2568,10 @@ but thanks to the optimisation done below we get
                     | head :: parts -> (stripImports com ctx range head) :: parts
                     | parts -> parts
 
-                let values = values |> List.mapToArray (transformAsExpr com ctx)
-                Expression.jsxTemplate (List.toArray parts, values) |> Some
-            | Replacements.Util.StringJoinTemplate(parts, values) :: _ ->
-                let parts =
-                    match parts with
-                    | head :: tail -> (stripImports com ctx range head) :: tail
-                    | parts -> parts
+                let values =
+                    values
+                    |> List.mapToArray (JS.Replacements.unformatStringTemplateHole >> transformAsExpr com ctx)
 
-                let values = values |> List.mapToArray (transformAsExpr com ctx)
-                Expression.jsxTemplate (List.toArray parts, values) |> Some
-            | MaybeCasted(Fable.Call(Fable.Import({
-                                                      Selector = "concat"
-                                                      Path = Naming.EndsWith "/String.js" _
-                                                      Kind = Fable.LibraryImport _
-                                                  },
-                                                  _,
-                                                  _),
-                                     callInfo,
-                                     _,
-                                     _)) :: _ ->
-                // The F# compiler lowers a simple interpolated string (no format specifiers)
-                // to String.Concat(part1, value, part2, ...). Convert back to a StringTemplate.
-                // StringTemplate requires parts.Length = values.Length + 1, strictly alternating,
-                // starting and ending with a string part.
-                let rec buildParts currentPart parts values args =
-                    match args with
-                    | [] -> List.rev (currentPart :: parts), List.rev values
-                    | Fable.Value(Fable.StringConstant s, _) :: rest -> buildParts (currentPart + s) parts values rest
-                    | expr :: rest -> buildParts "" (currentPart :: parts) (expr :: values) rest
-
-                let parts, values = buildParts "" [] [] callInfo.Args
-
-                let parts =
-                    match parts with
-                    | head :: tail -> (stripImports com ctx range head) :: tail
-                    | parts -> parts
-
-                let values = values |> List.mapToArray (transformAsExpr com ctx)
                 Expression.jsxTemplate (List.toArray parts, values) |> Some
             | _ ->
                 "Expecting a string literal or interpolation without formatting"

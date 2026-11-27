@@ -67,3 +67,37 @@ let FormatSpecifierJSX(value: float) =
         $"""
         <div data-testid="format-specifier">%.3f{value}</div>
         """
+
+let inline private html (template: string) : JSX.Element = JSX.html template
+
+let inline private htmlNested (template: string) : JSX.Element = html template
+
+[<JSX.Component>]
+let InlineHelperJSX(title: string) (child: JSX.Element) =
+    html
+        $"""
+        <div data-testid="inline-helper" title={title}>{child}</div>
+        """
+
+[<JSX.Component>]
+let NestedInlineHelperJSX(title: string) (child: JSX.Element) =
+    htmlNested
+        $"""
+        <div data-testid="nested-inline-helper" title={title}>{child}</div>
+        """
+
+[<JSX.Component>]
+let LetBoundJSX(title: string) (child: JSX.Element) =
+    let template =
+        $"""
+        <div data-testid="let-bound" title={title}>{child}</div>
+        """
+
+    JSX.html template
+
+[<JSX.Component>]
+let PipedJSX(title: string) (child: JSX.Element) =
+    $"""
+    <div data-testid="piped" title={title}>{child}</div>
+    """
+    |> html

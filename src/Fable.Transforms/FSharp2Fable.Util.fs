@@ -1503,6 +1503,31 @@ module Patterns =
         | _ -> ValueNone
 
     [<return: Struct>]
+    let (|StringOperatorCall|_|) =
+        function
+        | Call(None, memb, _, [ _ ], [ arg ]) when memb.FullName = "Microsoft.FSharp.Core.Operators.string" ->
+            ValueSome arg
+        | _ -> ValueNone
+
+    // F# 11 lowers `$"a{x}b"` to `String.Concat("a", string x, "b")`, see dotnet/fsharp#19971
+    [<return: Struct>]
+    let (|StringConcatCall|_|) (fsExpr: FSharpExpr) =
+        let isString (e: FSharpExpr) = getFsTypeFullName e.Type = Types.string
+
+        match fsExpr with
+        | Call(None, memb, _, _, args) when memb.FullName = "System.String.Concat" ->
+            let pieces =
+                match args with
+                | [ NewArray(_, items) ] -> items
+                | args -> args
+
+            if not pieces.IsEmpty && List.forall isString pieces then
+                ValueSome pieces
+            else
+                ValueNone
+        | _ -> ValueNone
+
+    [<return: Struct>]
     let (|OptimizedOperator|_|) (com: Compiler) fsExpr =
         if com.Options.OptimizeFSharpAst then
             match fsExpr with

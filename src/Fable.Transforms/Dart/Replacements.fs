@@ -247,7 +247,11 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
-        | Unit -> makeStrConst ""
+        | Unit ->
+            if canHaveSideEffects com head then
+                Sequential [ head; makeStrConst "" ]
+            else
+                makeStrConst ""
         | String -> head
         | Char -> charToString head
         | DeclaredType({ FullName = Types.rune }, _) -> charToString head
@@ -260,6 +264,17 @@ let toString com (ctx: Context) r (args: Expr list) =
         //        | Number(BigInt,_) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         //        | Number(Decimal,_) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         | _ -> Helper.InstanceCall(head, "toString", String, tail)
+
+let formatStringTemplate com ctx r parts holes =
+    let isFormattedByTemplate (value: Expr) =
+        match value.Type with
+        | Unit
+        | Char
+        | DeclaredType({ FullName = Types.rune }, _) -> false
+        | _ -> true
+
+    let toString r value = toString com ctx r [ value ]
+    formatStringTemplateWith isNeverNullString isFormattedByTemplate toString r parts holes
 
 let round com (args: Expr list) =
     match args.Head.Type with

@@ -650,13 +650,14 @@ module PrinterExtensions =
             | NumericLiteral(value, loc) -> printer.PrintNumeric(value, loc)
             | Literal.DirectiveLiteral(literal) -> printer.Print(literal)
             | StringTemplate(tag, parts, values, loc) ->
-                let escape str =
-                    Regex
-                        .Replace(str, @"(?<!\\)\\", @"\\")
+                let escape (str: string) =
+                    str
+                        .Replace(@"\", @"\\")
                         .Replace("`", @"\`")
-                        // FormattableString replaces { with {{
-                        .Replace("{{", "{")
-                        .Replace("}}", "}")
+                        .Replace("${", @"\${")
+                        .Replace("\r", @"\r")
+                        .Replace("\u2028", @"\u2028")
+                        .Replace("\u2029", @"\u2029")
 
                 printer.AddLocation(loc)
                 printer.PrintOptional(tag)

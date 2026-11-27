@@ -397,16 +397,24 @@ let toChar com (ctx: Context) r (arg: Expr) =
         let code = Helper.GlobalCall("int", Int32.Number, [ arg ])
         Helper.GlobalCall("chr", Char, [ code ])
 
-let toString com (ctx: Context) r (args: Expr list) =
+let private toStringWith nullAsEmpty com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
         "toString is called with empty args"
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head :: tail ->
         match head.Type with
-        | Unit -> makeStrConst ""
+        | Unit ->
+            if canHaveSideEffects com head then
+                Sequential [ head; makeStrConst "" ]
+            else
+                makeStrConst ""
         | Char -> TypeCast(head, String)
-        | String -> head
+        | String ->
+            match head with
+            | Value(StringConstant _, _) -> head
+            | _ when nullAsEmpty -> Operation(Logical(LogicalOr, head, makeStrConst ""), Tags.empty, String, r)
+            | _ -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "to_string", String, args)
         // Int32 is a plain Python `int`, which has no `to_string` method
@@ -432,6 +440,15 @@ let toString com (ctx: Context) r (args: Expr list) =
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ -> Helper.LibCall(com, "exceptions", "to_string", String, [ head ], ?loc = r)
+
+let toString com ctx r args = toStringWith false com ctx r args
+
+/// F#'s `string` operator returns an empty string for null
+let stringOperator com ctx r args = toStringWith true com ctx r args
+
+let formatStringTemplate com ctx r parts holes =
+    let toString r value = stringOperator com ctx r [ value ]
+    formatStringTemplateWith isNeverNullString (fun _ -> false) toString r parts holes
 
 let round com (args: Expr list) =
     match args.Head.Type with
@@ -1183,7 +1200,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar com ctx r args.Head |> Some
-    | "ToString", _ -> toString com ctx r args |> Some
+    | "ToString", _ -> stringOperator com ctx r args |> Some
     | "CreateSequence", [ xs ] -> toSeq t xs |> Some
     | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] -> makeDictionary com ctx r t arg |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some

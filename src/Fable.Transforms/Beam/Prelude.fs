@@ -695,7 +695,11 @@ module ToString =
         | Some call -> Some call
         | None ->
             match arg.Type with
-            | Type.Unit -> Some(makeStrConst "")
+            | Type.Unit ->
+                if canHaveSideEffects com arg then
+                    Some(Sequential [ arg; makeStrConst "" ])
+                else
+                    Some(makeStrConst "")
             | Type.String -> Some arg
             | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
             | Type.Number(kind, _) ->

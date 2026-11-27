@@ -65,6 +65,14 @@ let tryCall (com: ICompiler) ctx r t info thisArg args =
     | Beam -> Beam.Replacements.tryCall com ctx r t info thisArg args
     | _ -> JS.Replacements.tryCall com ctx r t info thisArg args
 
+let formatStringTemplate (com: ICompiler) ctx r parts holes =
+    match com.Options.Language with
+    | Rust -> Rust.Replacements.formatStringTemplate com ctx r parts holes
+    | Python -> Py.Replacements.formatStringTemplate com ctx r parts holes
+    | Dart -> Dart.Replacements.formatStringTemplate com ctx r parts holes
+    | Beam -> Beam.Replacements.formatStringTemplate com ctx r parts holes
+    | _ -> JS.Replacements.formatStringTemplate com ctx r parts holes
+
 let error (com: ICompiler) msg =
     match com.Options.Language with
     | Python -> Py.Replacements.error com msg
