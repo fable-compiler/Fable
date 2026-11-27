@@ -634,6 +634,34 @@ let tests = testList "Strings" [
         sprintf "%.0f" 2.5m |> equal "3"
         sprintf "%.2f" 0.125m |> equal "0.13"
 
+    testCase "sprintf float formats match .NET" <| fun () -> // See #5281
+        sprintf "%e" 3.0 |> equal "3.000000e+000"
+        sprintf "%E" 3.0 |> equal "3.000000E+000"
+        sprintf "%.2e" -1.5e301 |> equal "-1.50e+301"
+        sprintf "%.4e" -0.0 |> equal "-0.0000e+000"
+        sprintf "%015.2e" -1.5 |> equal "-000001.50e+000"
+        sprintf "%g" 1234567.0 |> equal "1.23457e+06"
+        sprintf "%G" 0.00001 |> equal "1E-05"
+        sprintf "%g" 0.0001 |> equal "0.0001"
+        sprintf "%g" 0.1f |> equal "0.1"
+        sprintf "%g" -0.0 |> equal "-0"
+        sprintf "%.2g" 1e301 |> equal "1e+301"
+        sprintf "%.2g" 100.0 |> equal "1e+02"
+        sprintf "%.8g" 0.0 |> equal "0"
+        sprintf "%.0g" 2.5 |> equal "2.5"
+        sprintf "%f" -0.0 |> equal "-0.000000"
+        sprintf "%.0f" 1e21 |> equal "1000000000000000000000"
+        sprintf "%.1f" -1e22 |> equal "-10000000000000000000000.0"
+        sprintf "%e" 1234567.891m |> equal "1.234568e+006"
+        sprintf "%g" 1234567.891m |> equal "1.23457e+06"
+        sprintf "%g" 1.50m |> equal "1.5"
+        sprintf "%.0g" 2.5m |> equal "2.5"
+
+    testCase "Standard numeric formats don't use an exponent for large floats" <| fun () -> // See #5281
+        (1e21).ToString("F2", CultureInfo.InvariantCulture) |> equal "1000000000000000000000.00"
+        (-1e21).ToString("F0", CultureInfo.InvariantCulture) |> equal "-1000000000000000000000"
+        (1e21).ToString("N1", CultureInfo.InvariantCulture) |> equal "1,000,000,000,000,000,000,000.0"
+
     testCase "Standard numeric formats round exact midpoints of floats to even" <| fun () -> // See #5202
         (0.125).ToString("F2", CultureInfo.InvariantCulture) |> equal "0.12"
         (2.5).ToString("F0", CultureInfo.InvariantCulture) |> equal "2"

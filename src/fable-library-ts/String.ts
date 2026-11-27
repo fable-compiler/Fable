@@ -1,5 +1,5 @@
 import { toString as dateToString } from "./Date.ts";
-import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toExponentialHalfEven, toFixed, toFixedHalfEven, toHex, toPrecision, toPrecisionHalfEven, toRadix } from "./Numeric.ts";
+import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponentialHalfEven, toFixed, toFixedHalfEven, toHex, toPrecision, toRadix } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
 import { ArgumentException_$ctor_Z384F8060, ArgumentNullException_$ctor_Z721C83C5, ArgumentOutOfRangeException_$ctor_Z384F8060, ArgumentOutOfRangeException_$ctor_Z721C83C5, FormatException_$ctor_Z721C83C5 } from "./System.ts";
 import { toString } from "./Types.ts";
@@ -263,7 +263,7 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
   format = format || "";
   if (isNumeric(rep)) {
     const radix = format === "x" || format === "X" ? 16 : format === "o" ? 8 : 10;
-    if (radix === 10 && isLessThan(rep, 0)) {
+    if (radix === 10 && (isLessThan(rep, 0) || Object.is(rep, -0) && /[efg]/i.test(format))) {
       rep = multiply(rep, -1);
       sign = "-";
     } else if (flags.indexOf(" ") >= 0) {
@@ -271,17 +271,17 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     } else if (flags.indexOf("+") >= 0) {
       sign = "+";
     }
-    precision = precision == null ? null : parseInt(precision, 10);
+    // Like FSharp.Core, the float formats have six digits by default
+    precision = precision == null ? 6 : parseInt(precision, 10);
     switch (format) {
       case "f": case "F":
-        precision = precision != null ? precision : 6;
         rep = toFixedHalfEven(rep, precision);
         break;
       case "g": case "G":
-        rep = precision != null ? toPrecisionHalfEven(rep, precision) : toPrecision(rep);
+        rep = formatGeneralNumeric(rep, format, precision);
         break;
       case "e": case "E":
-        rep = precision != null ? toExponentialHalfEven(rep, precision) : toExponential(rep);
+        rep = formatExponential(rep, format, precision);
         break;
       case "x": case "o":
         rep = toRadix(rep, radix);
@@ -455,6 +455,37 @@ function formatGeneral(x: number, format: string, precision: number | null, isSi
   }
 }
 
+// Like formatGeneral, but the number can be a bigint or a decimal too
+function formatGeneralNumeric(x: Numeric, format: string, precision: number | null) {
+  if (typeof x === "number") {
+    return formatGeneral(x, format, precision);
+  }
+  // G0 is G
+  if (!precision) {
+    return String(x);
+  }
+  const rep = toPrecision(x, precision);
+  // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent.
+  // .NET G format guarantees an exponent of at least 2 digits with an explicit sign (e.g. "E-07").
+  const eIdx = rep.indexOf("e");
+  if (eIdx >= 0) {
+    const mantissa = trimEnd(trimEnd(rep.slice(0, eIdx), "0"), ".");
+    const expSign = rep[eIdx + 1]; // toPrecision always emits "+" or "-"
+    const expDigits = rep.slice(eIdx + 2);
+    const paddedExpDigits = expDigits.length < 2 ? "0" + expDigits : expDigits;
+    const eChar = format === "G" || format === "R" ? "E" : "e";
+    return mantissa + eChar + expSign + paddedExpDigits;
+  }
+  return rep.indexOf(".") >= 0 ? trimEnd(trimEnd(rep, "0"), ".") : rep;
+}
+
+// .NET always signs the exponent and pads it to at least three digits
+function formatExponential(x: Numeric, format: string, precision: number) {
+  const rep = toExponentialHalfEven(x, precision);
+  const eIdx = rep.indexOf("e");
+  return eIdx < 0 ? rep : rep.slice(0, eIdx) + format + rep[eIdx + 1] + padLeft(rep.slice(eIdx + 2), 3, "0");
+}
+
 export function formatSingle(str: string, x: number) {
   const m = /^\{0:([GgRr])(\d{0,2})\}$/.exec(str);
   return m != null ? formatGeneral(Math.fround(x), m[1], m[2] ? parseInt(m[2], 10) : null, true) : format(str, x);
@@ -526,14 +557,9 @@ export function format(str: string | object, ...args: any[]) {
             }
           }
           break;
-        case "e": case "E": {
-          precision = precision != null ? precision : 6;
-          rep = toExponentialHalfEven(rep, precision);
-          // .NET always signs the exponent and pads it to at least three digits
-          const eIdx = rep.indexOf("e");
-          rep = rep.slice(0, eIdx) + format + rep[eIdx + 1] + padLeft(rep.slice(eIdx + 2), 3, "0");
+        case "e": case "E":
+          rep = formatExponential(rep, format, precision ?? 6);
           break;
-        }
         case "f": case "F":
           precision = precision != null ? precision : 2;
           rep = toFixedHalfEven(rep, precision);
@@ -543,31 +569,9 @@ export function format(str: string | object, ...args: any[]) {
           }
           break;
         case "g": case "G":
-        case "r": case "R": {
-          if (typeof rep === "number") {
-            rep = formatGeneral(rep, format, precision);
-            break;
-          }
-          if (precision == null) {
-            rep = String(rep);
-            break;
-          }
-          rep = toPrecision(rep, precision);
-          // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent.
-          // .NET G format guarantees an exponent of at least 2 digits with an explicit sign (e.g. "E-07").
-          const eIdx = rep.indexOf("e");
-          if (eIdx >= 0) {
-            const mantissa = trimEnd(trimEnd(rep.slice(0, eIdx), "0"), ".");
-            const expSign = rep[eIdx + 1]; // toPrecision always emits "+" or "-"
-            const expDigits = rep.slice(eIdx + 2);
-            const paddedExpDigits = expDigits.length < 2 ? "0" + expDigits : expDigits;
-            const eChar = format === "G" || format === "R" ? "E" : "e";
-            rep = mantissa + eChar + expSign + paddedExpDigits;
-          } else if (rep.indexOf(".") >= 0) {
-            rep = trimEnd(trimEnd(rep, "0"), ".");
-          }
+        case "r": case "R":
+          rep = formatGeneralNumeric(rep, format, precision);
           break;
-        }
         case "n": case "N":
           precision = precision != null ? precision : 2;
           rep = toFixedHalfEven(rep, precision);
