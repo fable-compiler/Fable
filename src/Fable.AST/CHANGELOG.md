@@ -1,5 +1,5 @@
 ---
-last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
+last_commit_released: fc54353af0bd2906ea88f1b00ca7d8eda65bcce8
 ---
 
 # Changelog
@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.2.0 - 2026-11-27
+
+### 🚀 Features
+
+* *(all)* Update FCS to latest (F# 11, commit [66187a](https://github.com/ncave/fsharp/commits/66187a30e8bb81d571f0244d4bd64405182ca219/)) (#5350) ([f52e9291](https://github.com/fable-compiler/Fable/commit/f52e9291fd44818f6cc56638f3df3e31eea09147))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321..fc54353af0bd2906ea88f1b00ca7d8eda65bcce8)</small></strong>
 
 ## 5.1.0 - 2026-09-08
 
