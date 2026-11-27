@@ -113,6 +113,28 @@ let ``test Stopwatch.Reset works`` () =
     sw.ElapsedMilliseconds |> equal 0L
     sw.IsRunning |> equal false
 
+[<Fact>]
+let ``test Stopwatch.Restart and elapsed tick units work`` () =
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    Async.RunSynchronously(Async.Sleep 20)
+    let elapsed = sw.ElapsedTicks
+    (elapsed > 0L) |> equal true
+    let milliseconds = float elapsed * 1000.0 / float System.Diagnostics.Stopwatch.Frequency
+    (abs (milliseconds - sw.Elapsed.TotalMilliseconds) < 1.0) |> equal true
+    sw.Restart()
+    sw.IsRunning |> equal true
+    (sw.ElapsedTicks < elapsed) |> equal true
+
+[<Fact>]
+let ``test Stopwatch.GetElapsedTime and IsHighResolution work`` () =
+    System.Diagnostics.Stopwatch.IsHighResolution |> equal true
+    let start = System.Diagnostics.Stopwatch.GetTimestamp()
+    Async.RunSynchronously(Async.Sleep 20)
+    let stop = System.Diagnostics.Stopwatch.GetTimestamp()
+    let elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(start, stop)
+    (elapsed.TotalMilliseconds >= 10.0) |> equal true
+    (System.Diagnostics.Stopwatch.GetElapsedTime(start).Ticks >= elapsed.Ticks) |> equal true
+
 // --- BitConverter ---
 
 [<Fact>]
