@@ -1,5 +1,5 @@
 name: Setup .NET
-description: Install the .NET SDK pinned by global.json with a cached NuGet package directory.
+description: Install the .NET SDK pinned by global.json and the .NET 10 runtime, with a cached NuGet package directory.
 
 runs:
   using: composite
@@ -7,6 +7,8 @@ runs:
     - uses: actions/setup-dotnet@v6
       with:
         global-json-file: global.json
+        # net10.0 projects run on the .NET 10 runtime, which the SDK 11 does not include.
+        dotnet-version: 10.0.x
         cache: true
         # Package versions also come from .props, which .fsproj files interpolate.
         # restore writes *.nuget.g.props into obj/.
