@@ -410,9 +410,10 @@ let tests = testList "Strings" [
 
     testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
         let person  = {| FirstName = "John"; LastName = "Doe" |}
-        let s = sprintf "%A" person
-        System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
-        |> equal """{ FirstName = "John" LastName = "Doe" }"""
+        sprintf "%A" person
+        |> equal "{| FirstName = \"John\"\n   LastName = \"Doe\" |}"
+        string {| A = 1 |} |> equal "{| A = 1 |}"
+        $"{person}" |> equal "{| FirstName = \"John\"\n   LastName = \"Doe\" |}"
 
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
