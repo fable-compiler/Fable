@@ -391,16 +391,20 @@ workers; those workers do not share the caller's process dictionary.
 Cancellation tokens use shared `atomics` state and can cross process boundaries.
 Registration, cancellation, and `CancelAfter` are serialized by one runtime broker.
 `Cancel()` invokes callbacks in the cancelling process; `CancelAfter` uses a
-short-lived worker. A cross-process callback must therefore use process-safe state
+short-lived worker. This includes `Async.OnCancel` interruptions. A cross-process
+callback must therefore use process-safe state
 such as PIDs and messages rather than captured process-dictionary-backed mutables.
 Dispose a registration when its source may never cancel, because the broker retains
 active callbacks until cancellation or disposal.
 
-`Async.StartChild` and `Async.Parallel` do not implicitly propagate their parent
-cancellation token. Pass or capture a token explicitly when a spawned computation
-must observe it.
+`Async.StartChild` links its child to the parent cancellation token, while a child
+timeout cancels only the child. `Async.Parallel` does not yet propagate its parent
+token; pass or capture a token explicitly when its workers must observe it.
 
-`Task` uses the same runtime and is not a separate hot-task abstraction.
+The `task { }` computation expression uses the same CPS runtime as `async { }`.
+`Async.StartAsTask` and `Task.Delay` start work immediately and return awaitable
+handles; ordinary task computations still run when awaited. An immediate task
+retains a result-holder process so it can be awaited more than once.
 `MailboxProcessor` also uses in-process CPS and a process-local queue. Real OTP
 processes, `gen_server`, supervisors, ETS, and distribution come from external
 bindings.

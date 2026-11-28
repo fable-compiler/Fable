@@ -7,12 +7,16 @@
     sleep/1,
     await_event/1, await_event/2,
     parallel/1,
+    choice/1,
     sequential/1,
     catch_async/1,
     try_cancelled/2,
     ignore/1,
     from_continuations/1,
-    start_as_task/1,
+    start_as_task/1, start_as_task/2, start_as_task/3,
+    start_immediate_as_task/1, start_immediate_as_task/2,
+    task_delay/1, task_delay/2,
+    on_cancel/1,
     await_task/1,
     cancellation_token/0,
     create_cancellation_token/0, create_cancellation_token/1,
@@ -124,21 +128,22 @@ start_immediate(Computation, CancelToken) ->
 %% tags every reply so several children never cross-talk. The holder lives until
 %% it is killed (e.g. on timeout) or the VM stops, so a child whose result is
 %% never awaited leaves an idle process behind.
-%%
-%% StartChild does not currently propagate its parent context's token. Tokens are
-%% process-portable, but changing combinator propagation is a separate semantic
-%% change from making an explicitly supplied or captured token safe to share.
 start_child(Computation) -> start_child(Computation, undefined).
 start_child(Computation, Timeout) ->
     fun(Ctx) ->
         ResultRef = make_ref(),
+        ChildToken = fable_cancellation:create(),
+        ParentToken = maps:get(cancel_token, Ctx),
         Pid = spawn(fun() ->
+            Registration = fable_cancellation:register(
+                ParentToken, fun(_) -> fable_cancellation:cancel(ChildToken) end),
             Result =
                 try
-                    {ok, fable_async:run_synchronously(Computation)}
+                    {ok, fable_async:run_synchronously(Computation, undefined, ChildToken)}
                 catch
                     _:Err -> {error, Err}
                 end,
+            fable_utils:safe_dispose(Registration),
             child_result_holder(ResultRef, Result)
         end),
         TimeoutMs =
@@ -154,14 +159,16 @@ start_child(Computation, Timeout) ->
                 {async_child, ResultRef, {ok, Value}} -> OnSuccess(Value);
                 {async_child, ResultRef, {error, Err}} -> OnError(wrap_error(Err))
             after TimeoutMs ->
-                exit(Pid, kill),
+                %% decision: request cooperative cancellation so child finalizers can run.
+                fable_cancellation:cancel(ChildToken),
+                Pid ! {abandon_child, ResultRef},
                 %% Drop a reply that may have raced in just before the kill so
                 %% it does not linger in our mailbox.
                 receive
                     {async_child, ResultRef, _} -> ok
                 after 0 -> ok
                 end,
-                OnError(#{message => <<"The operation has timed out."/utf8>>})
+                OnError(#{exn_type => timeout_exception, message => <<"The operation has timed out."/utf8>>})
             end
         end,
         (maps:get(on_success, Ctx))(Inner)
@@ -170,6 +177,7 @@ start_child(Computation, Timeout) ->
 %% Serve a computed child result to any awaiter, any number of times.
 child_result_holder(ResultRef, Result) ->
     receive
+        {abandon_child, ResultRef} -> ok;
         {get_child_result, ResultRef, Requester} ->
             Requester ! {async_child, ResultRef, Result},
             child_result_holder(ResultRef, Result)
@@ -506,9 +514,97 @@ from_continuations(F) ->
         (F({maps:get(on_success, Ctx), maps:get(on_error, Ctx), maps:get(on_cancel, Ctx)}))
     end.
 
-%% StartAsTask: simplified — just run synchronously for now
-start_as_task(Computation) ->
-    run_synchronously(Computation).
+%% StartAsTask: start immediately and return an awaitable task value.
+start_as_task(Computation) -> start_as_task(Computation, undefined, undefined).
+start_as_task(Computation, Token) when is_reference(Token) ->
+    start_as_task(Computation, undefined, Token);
+start_as_task(Computation, _Options) ->
+    start_as_task(Computation, undefined, undefined).
+start_as_task(Computation, _Options, Token) ->
+    Wrapped = fun(Ctx) ->
+        Computation(Ctx#{cancel_token => Token, user_cancel_token => Token})
+    end,
+    run_synchronously(start_child(Wrapped)).
+
+start_immediate_as_task(Computation) -> start_as_task(Computation).
+start_immediate_as_task(Computation, Token) -> start_as_task(Computation, undefined, Token).
+
+task_delay(Milliseconds) -> task_delay(Milliseconds, undefined).
+task_delay(Milliseconds, Token) when Milliseconds =:= -1 ->
+    start_as_task(sleep(infinity), undefined, Token);
+task_delay(Milliseconds, Token) when is_integer(Milliseconds), Milliseconds >= 0 ->
+    start_as_task(sleep(Milliseconds), undefined, Token);
+task_delay(_Milliseconds, _Token) ->
+    erlang:error(#{exn_type => argument_out_of_range_exception,
+                   message => <<"millisecondsDelay must be non-negative or -1.">>}).
+
+%% OnCancel: dispose can run inside a cancellation continuation before the broker visits this
+%% registration. The atomic claim preserves exactly-once interruption in either order.
+on_cancel(Interruption) ->
+    fun(Ctx) ->
+        Token = maps:get(cancel_token, Ctx),
+        Claim = atomics:new(1, []),
+        Interrupt = fun() ->
+            case atomics:compare_exchange(Claim, 1, 0, 1) of
+                ok -> try Interruption(ok) catch _:_ -> ok end;
+                _ -> ok
+            end
+        end,
+        Registration = fable_cancellation:register(Token, fun(_) -> Interrupt() end),
+        Disposable = #{dispose => fun(_) ->
+            fable_utils:safe_dispose(Registration),
+            case fable_cancellation:is_cancellation_requested(Token) of
+                true -> Interrupt();
+                false -> ok
+            end
+        end},
+        (maps:get(on_success, Ctx))(Disposable)
+    end.
+
+choice(Computations) when is_reference(Computations) -> choice(get(Computations));
+choice(Computations) ->
+    fun(Ctx) ->
+        Owner = self(),
+        Ref = make_ref(),
+        ParentToken = maps:get(cancel_token, Ctx),
+        spawn(fun() -> choice_coordinator(Computations, ParentToken, Owner, Ref) end),
+        receive
+            {async_choice, Ref, {ok, Value}} -> (maps:get(on_success, Ctx))(Value);
+            {async_choice, Ref, {error, Err}} -> (maps:get(on_error, Ctx))(Err)
+        end
+    end.
+
+choice_coordinator([], _ParentToken, Owner, Ref) ->
+    Owner ! {async_choice, Ref, {ok, undefined}};
+choice_coordinator(Computations, ParentToken, Owner, Ref) ->
+    Token = fable_cancellation:create(),
+    Registration = fable_cancellation:register(
+        ParentToken, fun(_) -> fable_cancellation:cancel(Token) end),
+    Coordinator = self(),
+    lists:foreach(fun(Comp) ->
+        spawn(fun() ->
+            Outcome = try {ok, run_inline(Comp, Token)} catch _:Err -> {error, Err} end,
+            Coordinator ! {async_choice_result, Ref, Outcome}
+        end)
+    end, Computations),
+    try
+        choice_collect(length(Computations), Ref, Owner, Token)
+    after
+        fable_utils:safe_dispose(Registration)
+    end.
+
+choice_collect(0, Ref, Owner, _Token) -> Owner ! {async_choice, Ref, {ok, undefined}};
+choice_collect(Remaining, Ref, Owner, Token) ->
+    receive
+        {async_choice_result, Ref, {ok, undefined}} ->
+            choice_collect(Remaining - 1, Ref, Owner, Token);
+        {async_choice_result, Ref, {ok, Value}} ->
+            fable_cancellation:cancel(Token),
+            Owner ! {async_choice, Ref, {ok, Value}};
+        {async_choice_result, Ref, {error, Err}} ->
+            fable_cancellation:cancel(Token),
+            Owner ! {async_choice, Ref, {error, Err}}
+    end.
 
 %% AwaitTask: identity. On the Beam a Task and an Async share one representation
 %% (the `task` CE is compiled onto the async builder), so there is nothing to
