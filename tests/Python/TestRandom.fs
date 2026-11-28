@@ -80,6 +80,40 @@ let ``test System.Random seeded works`` () =
     rnd1.NextDouble() |> equal (rnd2.NextDouble())
 
 [<Fact>]
+let ``test System.Random seeded draws what .NET draws`` () =
+    let rnd = Random(1234)
+    rnd.Next() |> equal 857019877
+    rnd.Next(100) |> equal 89
+    rnd.Next(1000, 10000) |> equal 3872
+    rnd.NextDouble() |> equal 0.9467375338760845
+
+[<Fact>]
+let ``test System.Random seeded Next works for ranges above Int32.MaxValue`` () =
+    let rnd = Random(42)
+    rnd.Next(Int32.MinValue, Int32.MaxValue) |> equal 1434747709
+    rnd.Next(Int32.MinValue, Int32.MaxValue) |> equal -269548476
+    let rnd = Random(0)
+    [ for _ in 1 .. 3 -> rnd.Next(-1000000000, 2000000000) ] |> equal [-589364906; 1652034034; 809049730]
+
+[<Fact>]
+let ``test System.Random seeds above 161803398 overflow as on .NET`` () =
+    let draws (seed: int) =
+        let rnd = Random(seed)
+        [ for _ in 1 .. 5 -> rnd.Next() ]
+
+    draws Int32.MaxValue |> equal [1559595546; 1755192844; 1649316172; 1198642031; 442452829]
+    draws Int32.MinValue |> equal [1559595546; 1755192844; 1649316172; 1198642031; 442452829]
+    draws 2000000000 |> equal [224431583; 2141996799; 1553033465; 1565626964; 1582548916]
+    draws -2000000000 |> equal [224431583; 2141996799; 1553033465; 1565626964; 1582548916]
+    draws 0 |> equal [1559595546; 1755192844; 1649316166; 1198642031; 442452829]
+
+[<Fact>]
+let ``test seeded collection functions draw what .NET draws`` () =
+    List.randomShuffleWith (Random(42)) [ 1..10 ] |> equal [7; 3; 4; 1; 6; 2; 9; 5; 8; 10]
+    List.randomSampleWith (Random(7)) 3 [ 1..10 ] |> equal [4; 8; 6]
+    Array.randomChoiceWith (Random(3)) [| 1..10 |] |> equal 3
+
+[<Fact>]
 let ``test System.Random seeded validates arguments`` () =
     let rnd = Random(42)
     throwsAnyError <| fun () -> rnd.Next(-10)
@@ -112,6 +146,7 @@ let ``test System.Random.NextBytes seeded works`` () =
     Random(5432).NextBytes(buffer1)
     Random(5432).NextBytes(buffer2)
     buffer1 |> equal buffer2
+    buffer1 |> equal [|152uy; 238uy; 227uy; 30uy|]
 
 [<Fact>]
 let ``test System.Random gives .NET's argument errors`` () =

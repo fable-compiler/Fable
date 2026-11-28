@@ -3526,30 +3526,33 @@ let globalization
 let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        Helper.LibCall(com, "util", "create_random", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | [] -> Helper.LibCall(com, "util", "create_random", t, [], ?loc = r) |> Some
+        // A seeded Random draws what the same seed draws on .NET
+        | _ ->
+            Helper.LibCall(com, "random_", "seeded", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
     | "get_Shared", None -> Helper.LibCall(com, "util", "random_shared", t, [], ?loc = r) |> Some
     | "Next", Some thisArg ->
-        let moduleName, meth, args =
+        let meth =
             match args with
-            | [] -> "util", "random_int", [ thisArg; makeIntConst 0; makeIntConst System.Int32.MaxValue ]
-            // These check the arguments like .NET
-            | [ _ ] -> "random_", "next_max", thisArg :: args
-            | [ _; _ ] -> "random_", "next_range", thisArg :: args
+            | [] -> "next_non_negative"
+            | [ _ ] -> "next_max"
+            | [ _; _ ] -> "next_range"
             | _ -> FableError "Unexpected arg count for Random.Next" |> raise
 
+        let args = thisArg :: args
         let argTypes = args |> List.map (fun a -> a.Type)
-        Helper.LibCall(com, moduleName, meth, t, args, argTypes, ?loc = r) |> Some
+        Helper.LibCall(com, "random_", meth, t, args, argTypes, ?loc = r) |> Some
     | "NextDouble", Some thisArg ->
-        let args = [ thisArg ]
-        let argTypes = [ thisArg.Type ]
-
-        Helper.LibCall(com, "util", "random_double", t, args, argTypes, ?loc = r)
+        Helper.LibCall(com, "random_", "next_double", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
         |> Some
     | "NextBytes", Some thisArg ->
         let args = thisArg :: args
         let argTypes = thisArg.Type :: i.SignatureArgTypes
-        Helper.LibCall(com, "util", "random_bytes", t, args, argTypes, ?loc = r) |> Some
+
+        Helper.LibCall(com, "random_", "next_bytes", t, args, argTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
