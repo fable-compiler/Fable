@@ -25,8 +25,6 @@ RUN apt-get update && apt-get install -y xz-utils
 # Options
 # Let it here to avoid conflicts with Microsoft options !!!
 ARG DOTNET_VERSION=11.0.100
-# net10.0 projects run on the .NET 10 runtime, which the SDK 11 does not include.
-ARG DOTNET_RUNTIME_CHANNEL=10.0
 # Keep in sync with the "engines.node" field in package.json
 ARG NODE_VERSION=26
 ARG PYTHON_VERSION=3.12
@@ -41,7 +39,6 @@ SHELL ["/bin/zsh", "-c"]
 WORKDIR /home/vscode
 RUN sudo apt install wget
 RUN wget -qO- https://dot.net/v1/dotnet-install.sh | bash -s - --version $DOTNET_VERSION
-RUN wget -qO- https://dot.net/v1/dotnet-install.sh | bash -s - --runtime dotnet --channel $DOTNET_RUNTIME_CHANNEL
 # Because .NET doesn't setup the path for us, we need to do it
 # Bash is the default shell for the dev container, we need it for the extensions
 # to work properly
