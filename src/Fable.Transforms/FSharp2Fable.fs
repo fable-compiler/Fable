@@ -1156,6 +1156,32 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     "This explicit constructor uses a self identifier (`new() as x`), which Fable only supports on JavaScript, TypeScript and Python, in a class with no base class and without [<AttachMembers>]."
                     |> addErrorAndReturnNull com ctx.InlinePath r
 
+        // A struct tuple pattern inside an array pattern, like `[| struct (a, _) |]`, reads the element
+        // through its address, which FCS gives as an IL `ldelema`. Read the element as `GetArray` would
+        | FSharpExprPatterns.ILAsm(asmCode, [ elementType ], [ arrayExpr; indexExpr ]) when
+            asmCode.StartsWith("[I_ldelema", StringComparison.Ordinal)
+            ->
+            let r = makeRangeFrom fsExpr
+            let! arrayExpr = transformExpr com ctx [] arrayExpr
+            let! indexExpr = transformExpr com ctx [] indexExpr
+            let typ = makeType ctx.GenericArgs elementType
+
+            let info: Fable.ReplaceCallInfo =
+                {
+                    CompiledName = "GetArray"
+                    OverloadSuffix = ""
+                    SignatureArgTypes = [ arrayExpr.Type; indexExpr.Type ]
+                    HasSpread = false
+                    IsModuleValue = false
+                    IsInterface = false
+                    DeclaringEntityFullName = "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
+                    GenericArgs = [ typ ]
+                }
+
+            return
+                Replacements.Api.tryCall com ctx r typ info None [ arrayExpr; indexExpr ]
+                |> Option.defaultWith (fun () -> getExpr r typ arrayExpr indexExpr)
+
         | FSharpExprPatterns.Value var ->
             let r = makeRangeFrom fsExpr
 

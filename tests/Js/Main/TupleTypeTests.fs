@@ -44,4 +44,16 @@ let tests =
         let t1b = Tuple.Create "b"
         t1.Item1 |> equal 4
         t1b.Item1 |> equal "b"
+
+    // A struct tuple pattern inside an array pattern reads the element through its address
+    testCase "Struct tuple patterns inside array patterns work" <| fun () ->
+        let firstOfOnly (pairs: struct (int * string) array) =
+            match pairs with
+            | [| struct (n, _) |] -> n
+            | [| struct (_, s); struct (n, _) |] -> n + s.Length
+            | _ -> -1
+
+        firstOfOnly [| struct (4, "a") |] |> equal 4
+        firstOfOnly [| struct (4, "abc"); struct (5, "d") |] |> equal 8
+        firstOfOnly [||] |> equal -1
   ]
