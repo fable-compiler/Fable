@@ -1,5 +1,5 @@
 ---
-last_commit_released: 1b98e05f7319e14827edfa6a1c27db52e99ac766
+last_commit_released: fc54353af0bd2906ea88f1b00ca7d8eda65bcce8
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.29.0 - 2026-11-27
+
+### 🚀 Features
+
+* *(all)* Update FCS to latest (F# 11, commit [66187a](https://github.com/ncave/fsharp/commits/66187a30e8bb81d571f0244d4bd64405182ca219/)) (#5350) ([f52e9291](https://github.com/fable-compiler/Fable/commit/f52e9291fd44818f6cc56638f3df3e31eea09147))
+* *(js/ts)* Warn when a date/time API drops sub-millisecond precision (#5339) ([8c1dcb33](https://github.com/fable-compiler/Fable/commit/8c1dcb33b9ec1136e331fe13d2b405c6a2e00a13))
+
+### 🐞 Bug Fixes
+
+* *(all)* Return the property members of an entity in a stable order (#5331) ([6055a941](https://github.com/fable-compiler/Fable/commit/6055a9417c620906a87b21cd67b54a06de25f5b9))
+* *(all)* Rebuild string templates from F# 11 interpolation (#5353) ([fc54353a](https://github.com/fable-compiler/Fable/commit/fc54353af0bd2906ea88f1b00ca7d8eda65bcce8))
+* *(js/ts)* Add `TimeSpan.MaxValue`, `UnixEpoch` and `TimeSpan.Equals` (#5333) ([c5e11cf5](https://github.com/fable-compiler/Fable/commit/c5e11cf5c659eec871bbd6906726b37c43c2ea0b))
+* *(js/ts)* Validate `Regex` `count`, `startat` and timeout arguments (#5337) ([6aebb8f8](https://github.com/fable-compiler/Fable/commit/6aebb8f8b1bbe80ffd238db0d058fc6efe63dcca))
+* *(js/ts)* Support `DateTime`/`DateTimeOffset` microsecond constructors (#5338) ([a8f8a711](https://github.com/fable-compiler/Fable/commit/a8f8a711490e21fa93773687b5c15ba2eade3867))
+* *(js/ts)* Throw .NET exception types in `Dictionary`, add `TryAdd` (#5334) ([045539ad](https://github.com/fable-compiler/Fable/commit/045539ad25c414e697318ce7b6a2203e504ee836))
+* *(js/ts)* Apply `reduceBack` from the last element (#5341) ([d6294872](https://github.com/fable-compiler/Fable/commit/d62948728a2ccd458237330545d491867ccc4250))
+* *(js/ts)* Align tasks and cancellation with .NET (#5199) ([4c9a619d](https://github.com/fable-compiler/Fable/commit/4c9a619d3019e92cf6cddf14fd937737d7acdad2))
+* *(js/ts)* Unwrap generic `Some null` and inline `.Value` (#5342) ([b7120c33](https://github.com/fable-compiler/Fable/commit/b7120c33357822df607fa9c22c3cf2a2b6dd70f9))
+* *(js/ts/python/dart/rust/beam)* Break min and max ties like FSharp.Core (#5198) ([bbba1dd1](https://github.com/fable-compiler/Fable/commit/bbba1dd11a6b51f9eec4c330795a22c097f2193a))
+* *(python)* Match .NET in `Regex.Matches`, `Regex.Replace` and `Regex.Split` ([135b7343](https://github.com/fable-compiler/Fable/commit/135b7343616c5eea4f2861a24dce12032d16755e))
+* *(python)* Make `_exprN`, `_arrowN`, `ObjectExprN` names deterministic (#5332) ([f0852781](https://github.com/fable-compiler/Fable/commit/f08527819cccf6b247fbdaa8765944a4b32a201e))
+* *(ts)* Enable `isolatedModules`, `noPropertyAccessFromIndexSignature` and `noUncheckedSideEffectImports` ([ee8bf736](https://github.com/fable-compiler/Fable/commit/ee8bf7360be86fcb43727f13d7f914773a20bd6a))
+* *(ts)* Enable `exactOptionalPropertyTypes` ([85127aff](https://github.com/fable-compiler/Fable/commit/85127aff55e57813ee4ec3b39bf1ea1cfb32174d))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Emit `new Array(n).fill(x)` for `Array.zeroCreate` (#5335) ([53f56a39](https://github.com/fable-compiler/Fable/commit/53f56a397e51ad8afa9384e2cb75a820e5962c0a))
+* *(js/ts)* Skip `setItem` bounds check in `Array` library loops (#5336) ([1cb28f76](https://github.com/fable-compiler/Fable/commit/1cb28f7650eee5c1afec0fe1e113e15157b0d28e))
+* *(js/ts)* Use loops for `Array` functions on typed arrays (#5340) ([e62ba45f](https://github.com/fable-compiler/Fable/commit/e62ba45ff434936bed537dc3fadec9df4bf38153))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/1b98e05f7319e14827edfa6a1c27db52e99ac766..fc54353af0bd2906ea88f1b00ca7d8eda65bcce8)</small></strong>
 
 ## 5.28.0 - 2026-11-20
 
