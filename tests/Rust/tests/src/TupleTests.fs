@@ -113,3 +113,16 @@ let ``string on a tuple matches .NET`` () =
     string (1, 2) |> equal "(1, 2)"
     string (1, "a", true) |> equal "(1, a, True)"
     string ((1, 2), 3) |> equal "((1, 2), 3)"
+
+// A struct tuple pattern inside an array pattern reads the element through its address
+[<Fact>]
+let ``struct tuple patterns inside array patterns work`` () =
+    let firstOfOnly (pairs: struct (int * string) array) =
+        match pairs with
+        | [| struct (n, _) |] -> n
+        | [| struct (_, s); struct (n, _) |] -> n + s.Length
+        | _ -> -1
+
+    firstOfOnly [| struct (4, "a") |] |> equal 4
+    firstOfOnly [| struct (4, "abc"); struct (5, "d") |] |> equal 8
+    firstOfOnly [||] |> equal -1
