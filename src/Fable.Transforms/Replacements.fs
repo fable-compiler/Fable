@@ -3894,6 +3894,12 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | _ -> None
 
+let linkedLists (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    // .NET returns a struct enumerator, the library implements IEnumerable<'T> instead
+    | "GetEnumerator", Some c -> getEnumerator com r t c |> Some
+    | _ -> bclType com ctx r t i thisArg args
+
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
@@ -5805,6 +5811,9 @@ let private replacedModules =
             Types.hashset, hashSets
             Types.stack, bclType
             Types.queue, bclType
+            Types.linkedList, linkedLists
+            Types.linkedListNode, bclType
+            "System.Collections.Generic.LinkedList`1.Enumerator", enumerators
             Types.iset, hashSets
             Types.idisposable, disposables
             Types.option, options false

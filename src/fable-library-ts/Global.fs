@@ -70,3 +70,17 @@ module SR =
     let Arg_StackOverflowException = "Operation caused a stack overflow."
     let Arg_SystemException = "System error."
     let Arg_TimeoutException = "The operation has timed out."
+
+    let Arg_InsufficientSpace =
+        "Insufficient space in the target location to copy the information."
+
+    let ArgumentOutOfRange_BiggerThanCollection =
+        "Must be less than or equal to the size of the collection."
+
+    let LinkedListEmpty = "The LinkedList is empty."
+
+    let LinkedListNodeIsAttached =
+        "The LinkedList node already belongs to a LinkedList."
+
+    let ExternalLinkedListNode =
+        "The LinkedList node does not belong to current LinkedList."

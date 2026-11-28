@@ -267,3 +267,266 @@ type Queue<'T> private (initialContents, initialCount) =
 
         member this.GetEnumerator() =
             (this :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator
+
+type LinkedListNode<'T> =
+    val mutable internal list: LinkedList<'T>
+    val mutable internal next: LinkedListNode<'T>
+    val mutable internal prev: LinkedListNode<'T>
+    val mutable internal item: 'T
+
+    new(value: 'T)
+        =
+        {
+            list = Unchecked.defaultof<_>
+            next = Unchecked.defaultof<_>
+            prev = Unchecked.defaultof<_>
+            item = value
+        }
+
+    member this.List = this.list
+
+    member this.Next = this.next
+
+    member this.Previous = this.prev
+
+    member this.Value
+        with get () = this.item
+        and set (value: 'T) = this.item <- value
+
+    member internal this.Invalidate() =
+        this.list <- Unchecked.defaultof<_>
+        this.next <- Unchecked.defaultof<_>
+        this.prev <- Unchecked.defaultof<_>
+
+// Unlike .NET's circular list, the first node has no previous node and the last node no next one
+and LinkedList<'T> =
+    val mutable private head: LinkedListNode<'T>
+    val mutable private tail: LinkedListNode<'T>
+    val mutable private count: int
+
+    new()
+        =
+        {
+            head = Unchecked.defaultof<_>
+            tail = Unchecked.defaultof<_>
+            count = 0
+        }
+
+    new(collection: IEnumerable<'T>) as this
+        =
+        LinkedList<'T>()
+
+        then
+            if isNull (box collection) then
+                raise (System.ArgumentNullException("collection"))
+
+            for item in collection do
+                this.InsertLast(LinkedListNode<'T>(item))
+
+    member this.Count = this.count
+
+    member this.First = this.head
+
+    member this.Last = this.tail
+
+    member this.AddFirst(value: 'T) : LinkedListNode<'T> =
+        let node = LinkedListNode<'T>(value)
+        this.InsertFirst(node)
+        node
+
+    member this.AddFirst(node: LinkedListNode<'T>) : unit =
+        LinkedList<'T>.ValidateNewNode(node)
+        this.InsertFirst(node)
+
+    member this.AddLast(value: 'T) : LinkedListNode<'T> =
+        let node = LinkedListNode<'T>(value)
+        this.InsertLast(node)
+        node
+
+    member this.AddLast(node: LinkedListNode<'T>) : unit =
+        LinkedList<'T>.ValidateNewNode(node)
+        this.InsertLast(node)
+
+    member this.AddBefore(node: LinkedListNode<'T>, value: 'T) : LinkedListNode<'T> =
+        this.ValidateNode(node)
+        let newNode = LinkedListNode<'T>(value)
+        this.InsertBefore(node, newNode)
+        newNode
+
+    member this.AddBefore(node: LinkedListNode<'T>, newNode: LinkedListNode<'T>) : unit =
+        this.ValidateNode(node)
+        LinkedList<'T>.ValidateNewNode(newNode)
+        this.InsertBefore(node, newNode)
+
+    member this.AddAfter(node: LinkedListNode<'T>, value: 'T) : LinkedListNode<'T> =
+        this.ValidateNode(node)
+        let newNode = LinkedListNode<'T>(value)
+        this.InsertAfter(node, newNode)
+        newNode
+
+    member this.AddAfter(node: LinkedListNode<'T>, newNode: LinkedListNode<'T>) : unit =
+        this.ValidateNode(node)
+        LinkedList<'T>.ValidateNewNode(newNode)
+        this.InsertAfter(node, newNode)
+
+    member this.Remove(value: 'T) : bool =
+        let node = this.Find(value)
+
+        if isNull (box node) then
+            false
+        else
+            this.RemoveNode(node)
+            true
+
+    member this.Remove(node: LinkedListNode<'T>) : unit =
+        this.ValidateNode(node)
+        this.RemoveNode(node)
+
+    member this.RemoveFirst() =
+        if isNull (box this.head) then
+            invalidOp SR.LinkedListEmpty
+
+        this.RemoveNode(this.head)
+
+    member this.RemoveLast() =
+        if isNull (box this.tail) then
+            invalidOp SR.LinkedListEmpty
+
+        this.RemoveNode(this.tail)
+
+    member this.Find(value: 'T) : LinkedListNode<'T> =
+        let mutable node = this.head
+
+        while not (isNull (box node)) && not (System.Object.Equals(node.item, value)) do
+            node <- node.next
+
+        node
+
+    member this.FindLast(value: 'T) : LinkedListNode<'T> =
+        let mutable node = this.tail
+
+        while not (isNull (box node)) && not (System.Object.Equals(node.item, value)) do
+            node <- node.prev
+
+        node
+
+    member this.Contains(value: 'T) = not (isNull (box (this.Find(value))))
+
+    member this.Clear() =
+        let mutable node = this.head
+
+        while not (isNull (box node)) do
+            let next = node.next
+            node.Invalidate()
+            node <- next
+
+        this.head <- Unchecked.defaultof<_>
+        this.tail <- Unchecked.defaultof<_>
+        this.count <- 0
+
+    member this.CopyTo(array: 'T[], index: int) =
+        if isNull (box array) then
+            raise (System.ArgumentNullException("array"))
+
+        if index < 0 then
+            raise (System.ArgumentOutOfRangeException("index"))
+
+        if index > array.Length then
+            raise (System.ArgumentOutOfRangeException("index", SR.ArgumentOutOfRange_BiggerThanCollection))
+
+        if array.Length - index < this.count then
+            raise (System.ArgumentException(SR.Arg_InsufficientSpace))
+
+        let mutable node = this.head
+        let mutable i = index
+
+        while not (isNull (box node)) do
+            array.[i] <- node.item
+            node <- node.next
+            i <- i + 1
+
+    static member private ValidateNewNode(node: LinkedListNode<'T>) =
+        if isNull (box node) then
+            raise (System.ArgumentNullException("node"))
+
+        if not (isNull (box node.list)) then
+            invalidOp SR.LinkedListNodeIsAttached
+
+    member private this.ValidateNode(node: LinkedListNode<'T>) =
+        if isNull (box node) then
+            raise (System.ArgumentNullException("node"))
+
+        if not (obj.ReferenceEquals(node.list, this)) then
+            invalidOp SR.ExternalLinkedListNode
+
+    member private this.InsertFirst(newNode: LinkedListNode<'T>) =
+        if isNull (box this.head) then
+            this.InsertIntoEmpty(newNode)
+        else
+            this.InsertBefore(this.head, newNode)
+
+    member private this.InsertLast(newNode: LinkedListNode<'T>) =
+        if isNull (box this.tail) then
+            this.InsertIntoEmpty(newNode)
+        else
+            this.InsertAfter(this.tail, newNode)
+
+    member private this.InsertIntoEmpty(newNode: LinkedListNode<'T>) =
+        newNode.list <- this
+        this.head <- newNode
+        this.tail <- newNode
+        this.count <- this.count + 1
+
+    member private this.InsertBefore(node: LinkedListNode<'T>, newNode: LinkedListNode<'T>) =
+        newNode.list <- this
+        newNode.next <- node
+        newNode.prev <- node.prev
+
+        if isNull (box node.prev) then
+            this.head <- newNode
+        else
+            node.prev.next <- newNode
+
+        node.prev <- newNode
+        this.count <- this.count + 1
+
+    member private this.InsertAfter(node: LinkedListNode<'T>, newNode: LinkedListNode<'T>) =
+        newNode.list <- this
+        newNode.prev <- node
+        newNode.next <- node.next
+
+        if isNull (box node.next) then
+            this.tail <- newNode
+        else
+            node.next.prev <- newNode
+
+        node.next <- newNode
+        this.count <- this.count + 1
+
+    member private this.RemoveNode(node: LinkedListNode<'T>) =
+        if isNull (box node.prev) then
+            this.head <- node.next
+        else
+            node.prev.next <- node.next
+
+        if isNull (box node.next) then
+            this.tail <- node.prev
+        else
+            node.next.prev <- node.prev
+
+        node.Invalidate()
+        this.count <- this.count - 1
+
+    interface IEnumerable<'T> with
+        member this.GetEnumerator() =
+            (seq {
+                let mutable node = this.head
+
+                while not (isNull (box node)) do
+                    yield node.item
+                    node <- node.next
+            })
+                .GetEnumerator()
+
+        member this.GetEnumerator() =
+            (this :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator
