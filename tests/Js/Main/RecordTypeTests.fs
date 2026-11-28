@@ -106,7 +106,49 @@ let sumClassByRef (r: byref<ByRefClass>) = r.BkF + r.BkV
 
 let sumAnonymousStructRecordByRef (x: byref<struct {| AnX: int; AnY: int |}>) = x.AnX + x.AnY
 
+type ByRefReturnHolder() =
+    let mutable r = { OrdA = 1; OrdB = 2; OrdC = 3 }
+    member _.R : byref<StructRecordOrdered> = &r
+
+let mutable byRefReturnCell = 5
+
+let getByRefReturn () : byref<int> = &byRefReturnCell
+
 let mutable moduleStructRecord = { T = 1.0; S = "a" }
+
+[<Struct>]
+type SpreadPoint = { SpX: int; SpY: int }
+
+[<Struct>]
+type SpreadPoint3 = { ...SpreadPoint; SpZ: int }
+
+type SpreadPoint3Ref = { ...SpreadPoint; SpZ: int }
+
+type SpreadZFirst = { SpZ: int; ...SpreadPoint }
+
+let mutable spreadModuleMutable: SpreadPoint = { SpX = 1; SpY = 2 }
+
+type SpreadCell() =
+    let mutable s: SpreadPoint = { SpX = 1; SpY = 2 }
+    member _.ExplicitFirst() : SpreadZFirst = { SpZ = (s <- { SpX = 7; SpY = 8 }; 3); ...s }
+
+type SpreadCtor() =
+    let mutable s: SpreadPoint = { SpX = 1; SpY = 2 }
+    let r: SpreadZFirst = { SpZ = (s <- { SpX = 7; SpY = 8 }; 3); ...s }
+    member _.R = r
+
+type SpreadStatic() =
+    static let mutable s: SpreadPoint = { SpX = 1; SpY = 2 }
+    static member ExplicitFirst() : SpreadZFirst = { SpZ = (s <- { SpX = 7; SpY = 8 }; 3); ...s }
+
+type SpreadImmutable(p: SpreadPoint) =
+    let s: SpreadPoint = { SpX = 4; SpY = 5 }
+    member _.Field() : SpreadZFirst = { SpZ = 6; ...s }
+    member _.Param() : SpreadZFirst = { SpZ = 9; ...p }
+
+type SpreadStaticImmutable() =
+    static let s: SpreadPoint = { SpX = 4; SpY = 5 }
+    static member Spread() : SpreadPoint3Ref = { ...s; SpZ = 6 }
 
 let tests =
   testList "RecordTypes" [
@@ -313,5 +355,60 @@ let tests =
     testCase "Field reads through a byref to an anonymous struct record work" <| fun () ->
         let mutable a = struct {| AnX = 1; AnY = 2 |}
         sumAnonymousStructRecordByRef &a |> equal 3
+
+// Fable types the local that holds a byref return as the value, not as FSharpRef, so tsc rejects it
+#if !FABLE_COMPILER_TYPESCRIPT
+    testCase "Reads and copy-and-update through a byref return work" <| fun () ->
+        let x = getByRefReturn ()
+        x |> equal 5
+        let h = ByRefReturnHolder()
+        let r = h.R
+        (r.OrdA, r.OrdB, r.OrdC) |> equal (1, 2, 3)
+        let u = { h.R with OrdB = 99 }
+        (u.OrdA, u.OrdB, u.OrdC) |> equal (1, 99, 3)
+#endif
+
+    testCase "Struct record spread into struct, reference and anonymous records works" <| fun () ->
+        let p: SpreadPoint = { SpX = 1; SpY = 2 }
+        let s: SpreadPoint3 = { ...p; SpZ = 3 }
+        (s.SpX, s.SpY, s.SpZ) |> equal (1, 2, 3)
+        let r: SpreadPoint3Ref = { ...p; SpZ = 3 }
+        (r.SpX, r.SpY, r.SpZ) |> equal (1, 2, 3)
+        let a = {| ...p; W = 0 |}
+        (a.SpX, a.SpY, a.W) |> equal (1, 2, 0)
+        let field = SpreadImmutable({ SpX = 7; SpY = 8 }).Field()
+        (field.SpX, field.SpY, field.SpZ) |> equal (4, 5, 6)
+        let param = SpreadImmutable({ SpX = 7; SpY = 8 }).Param()
+        (param.SpX, param.SpY, param.SpZ) |> equal (7, 8, 9)
+        let staticField = SpreadStaticImmutable.Spread()
+        (staticField.SpX, staticField.SpY, staticField.SpZ) |> equal (4, 5, 6)
+
+    testCase "Struct anonymous record spread works" <| fun () ->
+        let st = struct {| X = 1; Y = 2 |}
+        let a = struct {| ...st; Z = 3 |}
+        (a.X, a.Y, a.Z) |> equal (1, 2, 3)
+
+    testCase "Spread reads a mutable struct record after an explicit field replaces it" <| fun () ->
+        let mutable m: SpreadPoint = { SpX = 1; SpY = 2 }
+        let local: SpreadZFirst = { SpZ = (m <- { SpX = 7; SpY = 8 }; 3); ...m }
+        (local.SpX, local.SpY, local.SpZ) |> equal (7, 8, 3)
+
+        let mutable c: SpreadPoint = { SpX = 1; SpY = 2 }
+        let spread () : SpreadZFirst = { SpZ = (c <- { SpX = 7; SpY = 8 }; 3); ...c }
+        let captured = spread ()
+        (captured.SpX, captured.SpY, captured.SpZ) |> equal (7, 8, 3)
+
+        spreadModuleMutable <- { SpX = 1; SpY = 2 }
+        let moduleLevel: SpreadZFirst = { SpZ = (spreadModuleMutable <- { SpX = 7; SpY = 8 }; 3); ...spreadModuleMutable }
+        (moduleLevel.SpX, moduleLevel.SpY, moduleLevel.SpZ) |> equal (7, 8, 3)
+
+        let classField = SpreadCell().ExplicitFirst()
+        (classField.SpX, classField.SpY, classField.SpZ) |> equal (7, 8, 3)
+
+        let ctorField = SpreadCtor().R
+        (ctorField.SpX, ctorField.SpY, ctorField.SpZ) |> equal (7, 8, 3)
+
+        let staticField = SpreadStatic.ExplicitFirst()
+        (staticField.SpX, staticField.SpY, staticField.SpZ) |> equal (7, 8, 3)
 
   ]

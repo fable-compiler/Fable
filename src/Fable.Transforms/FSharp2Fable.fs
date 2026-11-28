@@ -786,7 +786,7 @@ let private derefByRefCallee
         && isByRefValue var
         // An inref argument is passed as the value itself when its source is immutable
         && not (isInRefType var.FullType)
-        && not (var.IsCompilerGenerated && var.CompiledName = "inputRecord")
+        && not (isCompilerGeneratedByRefLocal var)
         ->
         Replacements.Api.getRefCell com r (makeType ctx.GenericArgs calleeType) transformedCallee
     | _ -> transformedCallee
@@ -1172,6 +1172,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     return
                         "Cannot resolve locally inlined value: " + var.DisplayName
                         |> addErrorAndReturnNull com ctx.InlinePath r
+            elif isScopeInlineValue ctx var then
+                let _, value = ctx.ScopeInlineValues |> List.find (fun (v, _) -> obj.Equals(v, var))
+                return! transformExpr com ctx [] value
             else
                 let v = makeValueFrom com ctx r var
 
@@ -1274,8 +1277,18 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 return (expr, bindings) ||> List.fold (fun e (i, v) -> Fable.Let(i, v, e))
 
             | FSharpExprPatterns.AddressOf inner when
+                isCompilerGeneratedByRefLocal var
+                && var.CompiledName = "spreadSrc"
+                && com.Options.Language <> Rust
+                && isMutablePlace inner
+                ->
+                let ctx = { ctx with ScopeInlineValues = (var, inner) :: ctx.ScopeInlineValues }
+
+                return! transformExpr com ctx [] body
+
+            | FSharpExprPatterns.AddressOf inner when
                 var.IsCompilerGenerated
-                && var.CompiledName = "inputRecord"
+                && (var.CompiledName = "inputRecord" || var.CompiledName = "spreadSrc")
                 && com.Options.Language <> Rust
                 ->
                 let! value = transformExpr com ctx [] inner

@@ -431,6 +431,42 @@ let ``Nested record field copy and update works for anonymous records`` () =
         {| car with Interior.Seats = 5 |}
     equal 5 car2.Interior.Seats
 
+[<Struct>]
+type SpreadPoint = { SpX: int; SpY: int }
+
+[<Struct>]
+type SpreadPoint3 = { ...SpreadPoint; SpZ: int }
+
+type SpreadPoint3Ref = { ...SpreadPoint; SpZ: int }
+
+type SpreadCell() =
+    let mutable s: SpreadPoint = { SpX = 1; SpY = 2 }
+    member _.SpreadFirst() : SpreadPoint3Ref = { ...s; SpX = (s <- { SpX = 9; SpY = 9 }; 99); SpZ = 0 }
+
+type SpreadImmutable(p: SpreadPoint) =
+    let s: SpreadPoint = { SpX = 4; SpY = 5 }
+    member _.Field() : SpreadPoint3Ref = { ...s; SpZ = 6 }
+    member _.Param() : SpreadPoint3Ref = { ...p; SpZ = 9 }
+
+[<Fact>]
+let ``Struct record spread into struct, reference and anonymous records works`` () =
+    let p: SpreadPoint = { SpX = 1; SpY = 2 }
+    let s: SpreadPoint3 = { ...p; SpZ = 3 }
+    (s.SpX, s.SpY, s.SpZ) |> equal (1, 2, 3)
+    let r: SpreadPoint3Ref = { ...p; SpZ = 3 }
+    (r.SpX, r.SpY, r.SpZ) |> equal (1, 2, 3)
+    let a = {| ...p; W = 0 |}
+    (a.SpX, a.SpY, a.W) |> equal (1, 2, 0)
+    let field = SpreadImmutable({ SpX = 7; SpY = 8 }).Field()
+    (field.SpX, field.SpY, field.SpZ) |> equal (4, 5, 6)
+    let param = SpreadImmutable({ SpX = 7; SpY = 8 }).Param()
+    (param.SpX, param.SpY, param.SpZ) |> equal (7, 8, 9)
+
+[<Fact>]
+let ``Spread reads a struct record class field before an explicit field replaces it`` () =
+    let r = SpreadCell().SpreadFirst()
+    (r.SpX, r.SpY, r.SpZ) |> equal (99, 2, 0)
+
 module ComplexEdgeCases =
     open Common.Imports.Vectors
     open Fable.Core.Rust

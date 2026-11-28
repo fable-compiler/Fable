@@ -66,6 +66,36 @@ type StructRecordWithMutableField = { mutable MutableN: int; FixedN: int }
 
 let mutable moduleStructRecord = { T = 1.0; S = "a" }
 
+type ByRefReturnHolder() =
+    let mutable r = { T = 1.0; S = "a" }
+    member _.R : byref<StructRecordCopied> = &r
+
+[<Struct>]
+type SpreadPoint = { SpX: int; SpY: int }
+
+[<Struct>]
+type SpreadPoint3 = { ...SpreadPoint; SpZ: int }
+
+type SpreadPoint3Ref = { ...SpreadPoint; SpZ: int }
+
+type SpreadZFirst = { SpZ: int; ...SpreadPoint }
+
+let mutable spreadModuleMutable: SpreadPoint = { SpX = 1; SpY = 2 }
+
+type SpreadCell() =
+    let mutable s: SpreadPoint = { SpX = 1; SpY = 2 }
+    member _.ExplicitFirst() : SpreadZFirst = { SpZ = (s <- { SpX = 7; SpY = 8 }; 3); ...s }
+
+type SpreadCtor() =
+    let mutable s: SpreadPoint = { SpX = 1; SpY = 2 }
+    let r: SpreadZFirst = { SpZ = (s <- { SpX = 7; SpY = 8 }; 3); ...s }
+    member _.R = r
+
+type SpreadImmutable(p: SpreadPoint) =
+    let s: SpreadPoint = { SpX = 4; SpY = 5 }
+    member _.Field() : SpreadZFirst = { SpZ = 6; ...s }
+    member _.Param() : SpreadZFirst = { SpZ = 9; ...p }
+
 let tests() =
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
@@ -218,3 +248,48 @@ let tests() =
         let mutable a = struct {| X = 1; Y = 2 |}
         let b = {| a with Y = 99 |}
         (b.X, b.Y) |> equal (1, 99)
+
+    testCase "Reads and copy-and-update through a byref property work" <| fun () ->
+        let h = ByRefReturnHolder()
+        let r = h.R
+        (r.T, r.S) |> equal (1.0, "a")
+        let u = { h.R with S = "b" }
+        (u.T, u.S) |> equal (1.0, "b")
+
+    testCase "Struct record spread into struct, reference and anonymous records works" <| fun () ->
+        let p: SpreadPoint = { SpX = 1; SpY = 2 }
+        let s: SpreadPoint3 = { ...p; SpZ = 3 }
+        (s.SpX, s.SpY, s.SpZ) |> equal (1, 2, 3)
+        let r: SpreadPoint3Ref = { ...p; SpZ = 3 }
+        (r.SpX, r.SpY, r.SpZ) |> equal (1, 2, 3)
+        let a = {| ...p; W = 0 |}
+        (a.SpX, a.SpY, a.W) |> equal (1, 2, 0)
+        let field = SpreadImmutable({ SpX = 7; SpY = 8 }).Field()
+        (field.SpX, field.SpY, field.SpZ) |> equal (4, 5, 6)
+        let param = SpreadImmutable({ SpX = 7; SpY = 8 }).Param()
+        (param.SpX, param.SpY, param.SpZ) |> equal (7, 8, 9)
+
+    testCase "Struct anonymous record spread works" <| fun () ->
+        let st = struct {| X = 1; Y = 2 |}
+        let a = struct {| ...st; Z = 3 |}
+        (a.X, a.Y, a.Z) |> equal (1, 2, 3)
+
+    testCase "Spread reads a mutable struct record after an explicit field replaces it" <| fun () ->
+        let mutable m: SpreadPoint = { SpX = 1; SpY = 2 }
+        let local: SpreadZFirst = { SpZ = (m <- { SpX = 7; SpY = 8 }; 3); ...m }
+        (local.SpX, local.SpY, local.SpZ) |> equal (7, 8, 3)
+
+        let mutable c: SpreadPoint = { SpX = 1; SpY = 2 }
+        let spread () : SpreadZFirst = { SpZ = (c <- { SpX = 7; SpY = 8 }; 3); ...c }
+        let captured = spread ()
+        (captured.SpX, captured.SpY, captured.SpZ) |> equal (7, 8, 3)
+
+        spreadModuleMutable <- { SpX = 1; SpY = 2 }
+        let moduleLevel: SpreadZFirst = { SpZ = (spreadModuleMutable <- { SpX = 7; SpY = 8 }; 3); ...spreadModuleMutable }
+        (moduleLevel.SpX, moduleLevel.SpY, moduleLevel.SpZ) |> equal (7, 8, 3)
+
+        let classField = SpreadCell().ExplicitFirst()
+        (classField.SpX, classField.SpY, classField.SpZ) |> equal (7, 8, 3)
+
+        let ctorField = SpreadCtor().R
+        (ctorField.SpX, ctorField.SpY, ctorField.SpZ) |> equal (7, 8, 3)
