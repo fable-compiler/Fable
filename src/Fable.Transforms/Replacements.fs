@@ -5146,6 +5146,7 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         // `reply` belongs to AsyncReplyChannel
         | "Start"
         | "Receive"
+        | "TryReceive"
         | "PostAndAsyncReply"
         | "Post" ->
             let memb =

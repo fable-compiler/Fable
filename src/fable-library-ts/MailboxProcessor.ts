@@ -4,6 +4,9 @@ import { startImmediate } from "./Async.ts";
 import { Async, IAsyncContext, OperationCanceledException, protectedCont } from "./AsyncBuilder.ts";
 import { Continuation, Continuations } from "./AsyncBuilder.ts";
 import { CancellationToken } from "./AsyncBuilder.ts";
+import type { Option } from "./Option.ts";
+import { some } from "./Option.ts";
+import { TimeoutException_$ctor_Z721C83C5 } from "./System.ts";
 import { Exception } from "./Util.ts";
 
 class QueueCell<Msg> {
@@ -79,27 +82,61 @@ export function startInstance<Msg>($this: MailboxProcessor<Msg>) {
   startImmediate($this.body($this), $this.cancellationToken);
 }
 
-export function receive<Msg>($this: MailboxProcessor<Msg>) {
-  return protectedCont((ctx: IAsyncContext<Msg>) => {
+// Waits for the next message; an omitted or negative timeout waits forever, like Timeout.Infinite
+function receiveWithin<Msg, T>(
+  $this: MailboxProcessor<Msg>,
+  timeout: number | undefined,
+  onMessage: (message: Msg) => T,
+  onTimeout: (ctx: IAsyncContext<T>) => void,
+): Async<T> {
+  return protectedCont((ctx: IAsyncContext<T>) => {
     if ($this.continuation) {
       throw new Exception("Receive can only be called once!");
     }
     let tokenId: number | undefined;
-    const continuation = (message: Msg) => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const release = () => {
+      if (timeoutId !== undefined) { clearTimeout(timeoutId); }
       if (tokenId !== undefined) { ctx.cancelToken.removeListener(tokenId); }
-      ctx.onSuccess(message);
+    };
+    const continuation = (message: Msg) => {
+      release();
+      ctx.onSuccess(onMessage(message));
+    };
+    // Gives up the wait so later posts stay queued; false if it already settled
+    const detach = () => {
+      if ($this.continuation !== continuation) { return false; }
+      delete $this.continuation;
+      release();
+      return true;
     };
     $this.continuation = continuation;
     tokenId = ctx.cancelToken.addListener(() => {
-      if ($this.continuation === continuation) {
-        delete $this.continuation;
-        ctx.onCancel(new OperationCanceledException());
-      }
+      if (detach()) { ctx.onCancel(new OperationCanceledException()); }
     });
     if ($this.continuation === continuation) {
       __processEvents($this);
     }
+    if ($this.continuation !== continuation || timeout == null || timeout < 0) {
+      return;
+    }
+    if (timeout === 0) {
+      detach();
+      onTimeout(ctx);
+    } else {
+      timeoutId = setTimeout(() => { if (detach()) { onTimeout(ctx); } }, timeout);
+    }
   });
+}
+
+export function receive<Msg>($this: MailboxProcessor<Msg>, timeout?: number): Async<Msg> {
+  return receiveWithin($this, timeout, (message: Msg) => message,
+    (ctx) => ctx.onError(TimeoutException_$ctor_Z721C83C5("Mailbox.Receive timed out.")));
+}
+
+export function tryReceive<Msg>($this: MailboxProcessor<Msg>, timeout?: number): Async<Option<Msg>> {
+  return receiveWithin($this, timeout, (message: Msg) => some(message),
+    (ctx) => ctx.onSuccess(undefined));
 }
 
 export function post<Msg>($this: MailboxProcessor<Msg>, message: Msg) {

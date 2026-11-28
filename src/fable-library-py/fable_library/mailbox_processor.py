@@ -15,6 +15,8 @@ from .async_builder import (
     OperationCanceledError,
     protected_cont,
 )
+from .option import erase, some
+from .system import TimeoutException__ctor_Z721C83C5
 
 
 class AsyncReplyChannel[Reply]:
@@ -111,33 +113,84 @@ class MailboxProcessor[Msg]:
 
         return from_continuations(callback)
 
-    def receive(self) -> Async[Msg]:
+    def receive(self, timeout: int | None = None) -> Async[Msg]:
         """Receive message from mailbox.
+
+        Args:
+            timeout: Milliseconds to wait for a message. None or a
+            negative value waits forever.
 
         Returns:
             An asynchronous computation which will consume the
             first message in arrival order. No thread is blocked while
             waiting for further messages. Cancelling the token of the
-            receiving computation cancels a pending receive.
+            receiving computation cancels a pending receive. Raises
+            TimeoutException if no message arrives within the timeout.
         """
 
-        def cont(ctx: IAsyncContext[Msg]) -> None:
+        def on_timeout(ctx: IAsyncContext[Msg]) -> None:
+            ctx.on_error(TimeoutException__ctor_Z721C83C5("Mailbox.Receive timed out."))
+
+        return self._receive_within(timeout, lambda msg: msg, on_timeout)
+
+    def try_receive(self, timeout: int | None = None) -> Async[Msg | None]:
+        """Receive message from mailbox, or None after the timeout.
+
+        Args:
+            timeout: Milliseconds to wait for a message. None or a
+            negative value waits forever.
+
+        Returns:
+            An asynchronous computation which will consume the
+            first message in arrival order, or return None if no
+            message arrives within the timeout.
+        """
+
+        def on_timeout(ctx: IAsyncContext[Msg | None]) -> None:
+            ctx.on_success(None)
+
+        # The erased annotation fits callers; some() still wraps None and nested options at runtime
+        return self._receive_within(timeout, lambda msg: erase(some(msg)), on_timeout)
+
+    def _receive_within[T](
+        self,
+        timeout: int | None,
+        on_message: Callable[[Msg], T],
+        on_timeout: Callable[[IAsyncContext[T]], None],
+    ) -> Async[T]:
+        def cont(ctx: IAsyncContext[T]) -> None:
             loop = asyncio.get_running_loop()
             token_id: int | None = None
+            timer: asyncio.TimerHandle | None = None
 
-            def on_message(msg: Msg) -> None:
+            def release() -> None:
+                if timer is not None:
+                    call_on_owner_loop(loop, timer.cancel)
                 if token_id is not None:
                     ctx.cancel_token.remove_listener(token_id)
-                ctx.on_success(msg)
 
-            continuation: Continuations[Any] = (on_message, ctx.on_error, ctx.on_cancel)
+            def deliver(msg: Msg) -> None:
+                release()
+                ctx.on_success(on_message(msg))
 
-            def on_cancel() -> None:
+            continuation: Continuations[Any] = (deliver, ctx.on_error, ctx.on_cancel)
+
+            def detach() -> bool:
+                # Gives up the wait so later posts stay queued; False if it already settled
                 with self.lock:
                     if self.continuation is not continuation:
-                        return
+                        return False
                     self.continuation = None
-                call_on_owner_loop(loop, lambda: ctx.on_cancel(OperationCanceledError()))
+                release()
+                return True
+
+            def on_cancel() -> None:
+                if detach():
+                    call_on_owner_loop(loop, lambda: ctx.on_cancel(OperationCanceledError()))
+
+            def on_timer() -> None:
+                if detach():
+                    on_timeout(ctx)
 
             with self.lock:
                 if self.continuation:
@@ -149,6 +202,15 @@ class MailboxProcessor[Msg]:
                 if self.continuation is not continuation:
                     return
             self.__process_events()
+            if timeout is None or timeout < 0:
+                return
+            if timeout == 0:
+                on_timer()
+                return
+            # Under the lock so a message delivered on another thread sees the timer to cancel
+            with self.lock:
+                if self.continuation is continuation:
+                    timer = ctx.trampoline.run_later(on_timer, timeout / 1000.0)
 
         return protected_cont(cont)
 
@@ -173,8 +235,12 @@ class MailboxProcessor[Msg]:
         return mbox
 
 
-def receive[Msg](mbox: MailboxProcessor[Msg]) -> Async[Msg]:
-    return mbox.receive()
+def receive[Msg](mbox: MailboxProcessor[Msg], timeout: int | None = None) -> Async[Msg]:
+    return mbox.receive(timeout)
+
+
+def try_receive[Msg](mbox: MailboxProcessor[Msg], timeout: int | None = None) -> Async[Msg | None]:
+    return mbox.try_receive(timeout)
 
 
 def post[Msg](mbox: MailboxProcessor[Msg], msg: Msg):
@@ -209,4 +275,5 @@ __all__ = [
     "receive",
     "start",
     "start_instance",
+    "try_receive",
 ]

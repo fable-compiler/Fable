@@ -157,11 +157,13 @@ module private Runtime =
 
     type ObserveSleep = delegate of Async<unit> * System.Threading.CancellationToken * string -> Observation
     type ObserveMailbox = delegate of Async<int> * MailboxProcessor<int> * System.Threading.CancellationToken -> Observation
+    type ObserveTryReceive = delegate of Async<int option> * MailboxProcessor<int> * System.Threading.CancellationToken * string -> Observation
     type ObserveOwnerLoop = delegate of Async<unit> * System.Threading.CancellationToken -> Observation
     type ObserveSettlement = delegate of ((unit -> unit) -> Async<unit>) * System.Threading.CancellationToken * string -> Observation
 
     let observeSleep: ObserveSleep = import "observe_sleep" "./py/async_runtime.py"
     let observeMailbox: ObserveMailbox = import "observe_mailbox" "./py/async_runtime.py"
+    let observeTryReceive: ObserveTryReceive = import "observe_try_receive" "./py/async_runtime.py"
     let observeOwnerLoop: ObserveOwnerLoop = import "observe_owner_loop" "./py/async_runtime.py"
     let observeSettlement: ObserveSettlement = import "observe_settlement" "./py/async_runtime.py"
 #endif
@@ -1282,6 +1284,20 @@ let ``test idle Receive is cancelled by its token and keeps later posts queued``
     equal false result.pending_after
     equal 0 result.listeners
     equal [| "42" |] result.outcome
+
+[<Fact>]
+let ``test TryReceive retires its timer and listener once and keeps later posts queued`` () =
+    for outcome, expected in [ "message", "1"; "timeout", "none"; "cancel", "cancel" ] do
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+        let result = Runtime.observeTryReceive.Invoke(mailbox.TryReceive 100, mailbox, source.Token, outcome)
+        equal [| expected |] result.terminal
+        equal 1 result.scheduled
+        equal true result.retired
+        equal 1 result.cancel_count
+        equal 0 result.listeners
+        equal false result.pending_after
+        equal [| "2" |] result.outcome
 
 [<Fact>]
 let ``test Sleep cancellation from another thread runs on the owner loop`` () =

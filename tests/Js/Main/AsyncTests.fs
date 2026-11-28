@@ -184,6 +184,11 @@ type Get =
     | GetZero of replyChannel: AsyncReplyChannel<int>
     | GetOne of replyChannel: AsyncReplyChannel<int>
 
+type IdleLoopMsg =
+    | IdleBump
+    | IdleFetch of AsyncReplyChannel<int * int>
+    | IdleStop of AsyncReplyChannel<unit>
+
 type MyException(value) =
     inherit Exception()
     member _.Value: int = value
@@ -538,6 +543,34 @@ let tests =
         equal [| "cancel" |] (terminal.ToArray())
         Async.StartWithContinuations(mailbox.Receive(), (fun value -> terminal.Add $"next {value}"), raise, (fun _ -> terminal.Add "next cancel"))
         equal [| "cancel"; "next 42" |] (terminal.ToArray())
+
+    testCase "TryReceive retires its timer and listener once and keeps later posts queued" <| fun () ->
+        for outcome in [ "message"; "timeout"; "cancel" ] do
+            Runtime.withTimers (fun timer ->
+                use source = new System.Threading.CancellationTokenSource()
+                let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+                let terminal = ResizeArray<string>()
+                let report prefix = function
+                    | Some value -> terminal.Add $"{prefix} {value}"
+                    | None -> terminal.Add $"{prefix} none"
+                Async.StartWithContinuations(mailbox.TryReceive 100, report "first", raise, (fun _ -> terminal.Add "first cancel"), source.Token)
+                match outcome with
+                | "message" -> mailbox.Post 1
+                | "timeout" -> timer.fire()
+                | _ -> source.Cancel()
+                // A late timer callback must not settle twice or take the next post
+                timer.fire()
+                mailbox.Post 2
+                Async.StartWithContinuations(mailbox.TryReceive 0, report "next", raise, (fun _ -> terminal.Add "next cancel"))
+                let first =
+                    match outcome with
+                    | "message" -> "first 1"
+                    | "timeout" -> "first none"
+                    | _ -> "first cancel"
+                equal [| first; "next 2" |] (terminal.ToArray())
+                equal 0 (Runtime.listenerCount source.Token)
+                equal 1 timer.retired
+                equal 0 timer.invalidHandles)
 #endif
 
     testCaseAsync "Cancelling a waiting Receive reports cancel and keeps later posts queued" <| fun () -> async {
@@ -1029,6 +1062,110 @@ let tests =
             let! second = work
             equal 42 first
             equal 42 second
+        }
+
+    testCaseAsync "MailboxProcessor.TryReceive returns a message that arrives before the timeout" <| fun () ->
+        async {
+            let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+            mailbox.Post 1
+            let! queued = mailbox.TryReceive 1_000
+            Async.StartImmediate(async {
+                do! Async.Sleep 20
+                mailbox.Post 2 })
+            let! posted = mailbox.TryReceive 5_000
+            equal (Some 1, Some 2) (queued, posted)
+        }
+
+    testCaseAsync "MailboxProcessor.TryReceive returns None after the timeout and keeps later posts queued" <| fun () ->
+        async {
+            let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+            let! timedOut = mailbox.TryReceive 20
+            mailbox.Post 42
+            let! next = mailbox.TryReceive 1_000
+            let! empty = mailbox.TryReceive 0
+            equal (None, Some 42, None) (timedOut, next, empty)
+        }
+
+    testCaseAsync "MailboxProcessor.TryReceive with timeout 0 returns at once" <| fun () ->
+        async {
+            let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+            let! empty = mailbox.TryReceive 0
+            mailbox.Post 7
+            let! queued = mailbox.TryReceive 0
+            equal (None, Some 7) (empty, queued)
+        }
+
+    testCaseAsync "MailboxProcessor.TryReceive with an infinite timeout waits for a message" <| fun () ->
+        async {
+            let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+            let postLater message =
+                Async.StartImmediate(async {
+                    do! Async.Sleep 50
+                    mailbox.Post message })
+            postLater 3
+            let! infinite = mailbox.TryReceive Timeout.Infinite
+            postLater 4
+            let! omitted = mailbox.TryReceive()
+            postLater 5
+            let! received = mailbox.Receive Timeout.Infinite
+            equal (Some 3, Some 4, 5) (infinite, omitted, received)
+        }
+
+    testCaseAsync "MailboxProcessor.TryReceive does not time out after a message arrives" <| fun () ->
+        async {
+            let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+            let postLater (delay: int) message =
+                Async.StartImmediate(async {
+                    do! Async.Sleep delay
+                    mailbox.Post message })
+            postLater 10 1
+            let! first = mailbox.TryReceive 300
+            // The first timeout passes while this receive waits
+            postLater 400 2
+            let! second = mailbox.TryReceive()
+            equal (Some 1, Some 2) (first, second)
+        }
+
+    testCaseAsync "MailboxProcessor.Receive raises TimeoutException after the timeout" <| fun () ->
+        async {
+            let mailbox = new MailboxProcessor<int>(fun _ -> async { return () })
+            let isTimeout = function
+                | Choice2Of2 (error: exn) -> error :? TimeoutException
+                | Choice1Of2 _ -> false
+            let! timedOut = Async.Catch(mailbox.Receive 20)
+            let! immediate = Async.Catch(mailbox.Receive 0)
+            mailbox.Post 5
+            let! next = mailbox.Receive 1_000
+            equal (true, true, 5) (isTimeout timedOut, isTimeout immediate, next)
+        }
+
+    testCaseAsync "MailboxProcessor.TryReceive drives a loop with periodic work between messages" <| fun () ->
+        async {
+            use source = new CancellationTokenSource()
+            let agent = MailboxProcessor<IdleLoopMsg>.Start((fun inbox -> async {
+                let mutable bumps = 0
+                let mutable ticks = 0
+                let mutable running = true
+                while running do
+                    // Tick twice, then wait without a timeout
+                    let timeout = if ticks >= 2 then Timeout.Infinite else 20
+                    match! inbox.TryReceive timeout with
+                    | Some IdleBump -> bumps <- bumps + 1
+                    | Some (IdleFetch reply) ->
+                        do! Async.Sleep 1
+                        reply.Reply((bumps, ticks))
+                    | Some (IdleStop reply) ->
+                        running <- false
+                        reply.Reply()
+                    | None -> ticks <- ticks + 1 }), source.Token)
+            Async.StartImmediate(async { agent.Post IdleBump }, source.Token)
+            agent.Post IdleBump
+            do! Async.Sleep 300
+            let! ticked = agent.PostAndAsyncReply IdleFetch
+            do! Async.Sleep 100
+            let! idle = agent.PostAndAsyncReply IdleFetch
+            do! agent.PostAndAsyncReply IdleStop
+            equal ((2, 2), (2, 2)) (ticked, idle)
         }
 
     testCase "Async try .. with returns correctly from 'with' branch" <| fun () ->

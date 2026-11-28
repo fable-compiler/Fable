@@ -145,6 +145,51 @@ def observe_mailbox(work: Async[int], mailbox: MailboxProcessor[int], token: Can
     return asyncio.run(run())
 
 
+def observe_try_receive(
+    work: Async[int | None], mailbox: MailboxProcessor[int], token: CancellationToken, outcome: str
+) -> Observation:
+    def show(value: int | None) -> str:
+        return "none" if value is None else str(value)
+
+    async def run():
+        result = Observation()
+        scheduler = Scheduler(token)
+        ctx = IAsyncContext.create(
+            scheduler,
+            token,
+            lambda value: result._terminal.append(show(value)),
+            lambda _: result._terminal.append("error"),
+            lambda _: result._terminal.append("cancel"),
+        )
+        work(ctx)
+        timer = scheduler.timers[0]
+        if outcome == "message":
+            mailbox.post(1)
+        elif outcome == "timeout":
+            timer.fire()
+        else:
+            token.cancel()
+        # decision: fires the retired timer to model a timeout already queued when the receive settled
+        timer.fire()
+        mailbox.post(2)
+        result.pending_after = mailbox.continuation is not None
+        result.retired = timer.retired
+        result.cancel_count = timer.cancel_count
+        result.scheduled = len(scheduler.timers)
+        result.listeners = len(token.listeners)
+        next_ctx = IAsyncContext.create(
+            Trampoline(),
+            CancellationToken(),
+            lambda value: result._outcome.append(show(value)),
+            lambda _: result._outcome.append("error"),
+            lambda _: result._outcome.append("cancel"),
+        )
+        mailbox.try_receive(0)(next_ctx)
+        return result
+
+    return asyncio.run(run())
+
+
 def observe_owner_loop(work: Async[None], token: CancellationToken) -> Observation:
     async def run():
         result = Observation()
