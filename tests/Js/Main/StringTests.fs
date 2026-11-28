@@ -411,9 +411,14 @@ let tests = testList "Strings" [
     testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
         let person  = {| FirstName = "John"; LastName = "Doe" |}
         sprintf "%A" person
-        |> equal "{| FirstName = \"John\"\n   LastName = \"Doe\" |}"
-        string {| A = 1 |} |> equal "{| A = 1 |}"
-        $"{person}" |> equal "{| FirstName = \"John\"\n   LastName = \"Doe\" |}"
+        |> _.Replace("|", "") // backwards-compatible with .NET 10
+        |> equal "{ FirstName = \"John\"\n   LastName = \"Doe\" }"
+        string {| A = 1 |}
+        |> _.Replace("|", "") // backwards-compatible with .NET 10
+        |> equal "{ A = 1 }"
+        $"{person}"
+        |> _.Replace("|", "") // backwards-compatible with .NET 10
+        |> equal "{ FirstName = \"John\"\n   LastName = \"Doe\" }"
 
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1

@@ -123,7 +123,7 @@ DO NOT update the changelog files. These files are automatically generated based
 
 ## Requirements
 
-- .NET SDK 11+ and the .NET 10 runtime
+- .NET SDK 10+
 - Node.js with npm
 - Python 3.13+ with [uv](https://docs.astral.sh/uv/) (CI tests 3.13, 3.14, and 3.15; type checking and publish preparation use 3.13)
 - Rust toolchain (for Rust target)
