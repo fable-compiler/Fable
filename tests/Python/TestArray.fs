@@ -316,6 +316,13 @@ let ``test Array.create works`` () =
     Array.sum xs |> equal 10
 
 [<Fact>]
+let ``test Array.replicate works`` () =
+    Array.replicate 3 "a" |> equal [| "a"; "a"; "a" |]
+    Array.replicate 2 1.5 |> equal [| 1.5; 1.5 |]
+    Array.replicate 2 7uy |> equal [| 7uy; 7uy |]
+    Array.replicate 0 1 |> equal [||]
+
+[<Fact>]
 let ``test System.Array.ConvertAll works`` () =
     let xs = [| 1.; 2.; 3.; 4. |]
     let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))

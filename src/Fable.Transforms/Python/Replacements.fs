@@ -2128,7 +2128,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
             Helper.LibCall(com, "array", "zero_create", t, [ count; zeroValue ], ?loc = r)
             |> Some
         | _ -> createArray count None |> Some
-    | "Create", [ count; value ] -> createArray count (Some value) |> Some
+    | ("Create" | "Replicate"), [ count; value ] -> createArray count (Some value) |> Some
     | "Empty", _ ->
         // Use library function to create empty FSharpArray (Rust) instead of raw Python list
         Helper.LibCall(com, "array", "empty", t, [], ?loc = r) |> Some
