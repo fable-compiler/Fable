@@ -30,6 +30,7 @@ let allTests =
     Import.tests
     InlineIfLambda.tests
     JsInterop.tests
+    LinkedList.tests
     Lists.tests
     Maps.tests
     Misc.tests

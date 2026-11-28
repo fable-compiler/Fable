@@ -402,6 +402,12 @@ module Types =
     let queue = "System.Collections.Generic.Queue`1"
 
     [<Literal>]
+    let linkedList = "System.Collections.Generic.LinkedList`1"
+
+    [<Literal>]
+    let linkedListNode = "System.Collections.Generic.LinkedListNode`1"
+
+    [<Literal>]
     let keyValuePair = "System.Collections.Generic.KeyValuePair`2"
 
     [<Literal>]

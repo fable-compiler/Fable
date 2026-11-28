@@ -61,6 +61,7 @@
     <Compile Include="ImportTests.fs" />
     <Compile Include="InlineIfLambdaTests.fs" />
     <Compile Include="JsInteropTests.fs" />
+    <Compile Include="LinkedListTests.fs" />
     <Compile Include="ListCollectorTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
