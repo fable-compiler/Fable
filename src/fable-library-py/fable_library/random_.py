@@ -76,6 +76,10 @@ class Seeded:
         """The next value in [0.0, 1.0)."""
         return self.internal_sample() * (1.0 / _MBIG)
 
+    def random(self) -> float:
+        """NextDouble() by the name random.Random gives it, which the Rust Array.random*With functions call."""
+        return self.sample()
+
     def large_range_sample(self) -> float:
         """The next value in [0.0, 1.0) for a range wider than Int32.MaxValue, from two samples."""
         value = self.internal_sample()
